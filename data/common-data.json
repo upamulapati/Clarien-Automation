@@ -1,0 +1,54 @@
+{
+  "credentials": {
+    "username": "finacletest01",
+    "password": "clarien@123"
+  },
+  "secondCredentials": {
+    "username": "finacletest05",
+    "password": "clarien@123"
+  },
+  "thirdCredentials": {
+    "username": "finacletest13",
+    "password": "clarien@123"
+  },
+  "verifierCredentials": {
+    "username": "finacletest14",
+    "password": "clarien@123"
+  },
+  "baseAccountData": {
+    "functionOption": "O",
+    "solId": "100",
+    "cifCode": "0005000599"
+  },
+  "hardcodedRandomData": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "0005000599",
+    "schemeCode": "SVREG"
+  },
+  "svregTestData": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "0005000599",
+    "schemeCode": "SVREG"
+  },
+  "currentAccountData": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "0005000599",
+    "dispatchMode": "email"
+  },
+  "currentAccountSchemes": [
+    "CACOB",
+    "CACOC",
+    "CACOE",
+    "CAGRD",
+    "CAMAS",
+    "CAREG",
+    "CASEN",
+    "CASTF"
+  ]
+}
