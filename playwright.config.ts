@@ -6,7 +6,10 @@ import { defineConfig, devices } from '@playwright/test';
  */
 import dotenv from 'dotenv';
 import path from 'path';
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+// override: local .env values take precedence over any stale/empty variables
+// already present in the shell environment. In CI there is no .env file, so
+// this is a no-op and the GitHub secrets injected as env vars are used as-is.
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true, quiet: true });
 
 /**
  * See https://playwright.dev/docs/test-configuration.
