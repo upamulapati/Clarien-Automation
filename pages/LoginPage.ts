@@ -25,7 +25,7 @@ export class LoginPage {
   // ============ Navigation Methods ============
   async goto() {
     await this.page.goto('https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp');
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
   }
 
   // ============ Authentication Methods ============
@@ -33,18 +33,18 @@ export class LoginPage {
     await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
     await this.loginButton.click();
-    await this.page.waitForLoadState('networkidle');
+    await this.page.waitForLoadState('domcontentloaded');
   }
 
   async handleAlreadyLoggedInError(password: string) {
     const errorFrame = this.page.frame({ url: /.*errorPage\.jsp.*/ });
     if (errorFrame) {
       await errorFrame.locator('#Submit2').click();
-      await this.page.waitForLoadState('networkidle');
+      await this.page.waitForLoadState('domcontentloaded');
       await this.page.waitForTimeout(5000);
       await this.passwordInput.fill(password);
       await this.loginButton.click();
-      await this.page.waitForLoadState('networkidle');
+      await this.page.waitForLoadState('domcontentloaded');
       await this.page.waitForTimeout(10000);
     }
   }
