@@ -3,9 +3,10 @@ import { LoginPage } from '../pages/LoginPage';
 import { HomePage } from '../pages/HomePage';
 import { CRMPage } from '../pages/CRMPage';
 import COMMON_DATA from '../data/common-data.json';
+import { CREDENTIALS } from '../data/credentials';
 
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
+const USERNAME = CREDENTIALS.credentials.username;
+const PASSWORD = CREDENTIALS.credentials.password;
 
 test('login and navigate to Entity Queue in CRM', async ({ page }) => {
   test.setTimeout(180000);

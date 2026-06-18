@@ -1,19 +1,19 @@
 {
   "credentials": {
-    "username": "finacletest01",
-    "password": "clarien@123"
+    "username": "",
+    "password": ""
   },
   "secondCredentials": {
-    "username": "finacletest05",
-    "password": "clarien@123"
+    "username": "",
+    "password": ""
   },
   "thirdCredentials": {
-    "username": "finacletest13",
-    "password": "clarien@123"
+    "username": "",
+    "password": ""
   },
   "verifierCredentials": {
-    "username": "finacletest14",
-    "password": "clarien@123"
+    "username": "",
+    "password": ""
   },
   "baseAccountData": {
     "functionOption": "O",

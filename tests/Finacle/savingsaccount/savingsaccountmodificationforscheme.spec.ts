@@ -3,9 +3,10 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
+const USERNAME = CREDENTIALS.credentials.username;
+const PASSWORD = CREDENTIALS.credentials.password;
 
 let homePage: HomePage;
 let savingsAccountPage: SavingsBankAccountPage;

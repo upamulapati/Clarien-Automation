@@ -3,10 +3,11 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Account unfreeze (HAFSM) is performed by FINACLETEST13.
-const USERNAME = COMMON_DATA.thirdCredentials.username;
-const PASSWORD = COMMON_DATA.thirdCredentials.password;
+const USERNAME = CREDENTIALS.thirdCredentials.username;
+const PASSWORD = CREDENTIALS.thirdCredentials.password;
 
 // Existing current account on which the freeze is removed.
 const ACCOUNT_ID = '7600000160';

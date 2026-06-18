@@ -3,10 +3,11 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Verification is performed by a different user than the one who made the changes
-const USERNAME = COMMON_DATA.secondCredentials.username;
-const PASSWORD = COMMON_DATA.secondCredentials.password;
+const USERNAME = CREDENTIALS.secondCredentials.username;
+const PASSWORD = CREDENTIALS.secondCredentials.password;
 
 let homePage: HomePage;
 let savingsAccountPage: SavingsBankAccountPage;

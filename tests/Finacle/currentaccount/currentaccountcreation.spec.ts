@@ -3,12 +3,13 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
 // current-account verification specs.
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
+const USERNAME = CREDENTIALS.credentials.username;
+const PASSWORD = CREDENTIALS.credentials.password;
 
 // Current account opening (HOAACCA) menu option.
 const CURRENT_ACCOUNT_MENU = 'HOAACCA';

@@ -5,11 +5,12 @@ import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import TEST_DATA from '../../../data/savings-account-test-data.json';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
-const SECOND_USERNAME = COMMON_DATA.secondCredentials.username;
-const SECOND_PASSWORD = COMMON_DATA.secondCredentials.password;
+const USERNAME = CREDENTIALS.credentials.username;
+const PASSWORD = CREDENTIALS.credentials.password;
+const SECOND_USERNAME = CREDENTIALS.secondCredentials.username;
+const SECOND_PASSWORD = CREDENTIALS.secondCredentials.password;
 const BASE_ACCOUNT_DATA = COMMON_DATA.baseAccountData;
 
 let loginPage: LoginPage;

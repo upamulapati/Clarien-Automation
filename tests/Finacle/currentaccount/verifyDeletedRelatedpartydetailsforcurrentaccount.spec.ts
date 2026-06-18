@@ -3,11 +3,12 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Verification must be done by a DIFFERENT user than the one who deleted the
 // related party (the deletion was done by finacletest01).
-const USERNAME = COMMON_DATA.verifierCredentials.username;
-const PASSWORD = COMMON_DATA.verifierCredentials.password;
+const USERNAME = CREDENTIALS.verifierCredentials.username;
+const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Existing account in which the related party was deleted.
 const ACCOUNT_ID = '7600000160';

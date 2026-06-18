@@ -3,11 +3,12 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Verification must be done by a DIFFERENT user than the one who marked the
 // freeze (the freeze was done by finacletest13).
-const USERNAME = COMMON_DATA.verifierCredentials.username;
-const PASSWORD = COMMON_DATA.verifierCredentials.password;
+const USERNAME = CREDENTIALS.verifierCredentials.username;
+const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Existing savings account on which the freeze was marked.
 const ACCOUNT_ID = '7710003367';

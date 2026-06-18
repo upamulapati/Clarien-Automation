@@ -20,7 +20,11 @@ jobs:
     - name: Run Playwright tests
       run: npx playwright test
       env:
-      ACCOUNTID: vars.accountid
+        FIRSTUSERNAME: ${{ secrets.FIRSTUSERNAME }}
+        SECONDUSERNAME: ${{ secrets.SECONDUSERNAME }}
+        THIRDUSERNAME: ${{ secrets.THIRDUSERNAME }}
+        VERIFIERUSERNAME: ${{ secrets.VERIFIERUSERNAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:

@@ -3,12 +3,13 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Verification of a current account opening (HOAACVCA) must be performed by a
 // DIFFERENT user than the maker who created the account in
 // currentaccountcreation.spec.ts.
-const USERNAME = COMMON_DATA.secondCredentials.username;
-const PASSWORD = COMMON_DATA.secondCredentials.password;
+const USERNAME = CREDENTIALS.secondCredentials.username;
+const PASSWORD = CREDENTIALS.secondCredentials.password;
 
 // Current account verification (HOAACVCA) menu option.
 const CURRENT_ACCOUNT_VERIFY_MENU = 'HOAACVCA';

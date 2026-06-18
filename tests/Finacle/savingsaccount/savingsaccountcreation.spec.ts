@@ -3,12 +3,13 @@ import { HomePage } from '../../../pages/HomePage';
 import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // Savings account creation (HOAACSB) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
 // savingsaccountverification.spec.ts.
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
+const USERNAME = CREDENTIALS.credentials.username;
+const PASSWORD = CREDENTIALS.credentials.password;
 //tags:- end2end,regression,sanity
 let homePage: HomePage;
 let savingsAccountPage: SavingsBankAccountPage;
