@@ -1,34 +1,11 @@
-# Dependencies (reinstall with `npm install`)
+
+# Playwright
+.github
 node_modules/
-
-# Playwright generated output
-playwright-report/
-test-results/
-blob-report/
-playwright/.cache/
-
-# Local custom report artifacts
-client-report.html
-client-report.json
-
-# Local debug / diagnostic dumps
-debug_*.txt
-fields_summary.txt
-pp_fields.txt
-tabs_summary.txt
-
-# Captured screenshots / videos / traces
-*.png
-*.webm
-*.zip
-trace.zip
-
-# Environment / secrets
-.env
-.env.*
-
-# OS / editor cruft
-.DS_Store
-Thumbs.db
-*.log
-npm-debug.log*
+reports/
+/test-results/
+/test-results-*/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
