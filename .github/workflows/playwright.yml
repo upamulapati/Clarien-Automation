@@ -22,7 +22,7 @@ on:
 jobs:
   test:
     timeout-minutes: 60
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     env:
       FIRSTUSERNAME: ${{ secrets.FIRSTUSERNAME }}
@@ -45,15 +45,16 @@ jobs:
       run: npx playwright install --with-deps chromium
 
     - name: Run Playwright tests
+      shell: pwsh
       run: |
-        SUITE="${{ github.event.inputs.suite }}"
-        if [ "$SUITE" = "crmCIFRetail" ]; then
+        $suite = "${{ github.event.inputs.suite }}"
+        if ($suite -eq "crmCIFRetail") {
           npm run test-crmCIFRetail
-        elif [ "$SUITE" = "crmCIFCorporate" ]; then
+        } elseif ($suite -eq "crmCIFCorporate") {
           npm run test-crmCIFCorporate
-        else
+        } else {
           npm test
-        fi
+        }
 
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
