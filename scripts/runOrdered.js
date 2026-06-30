@@ -25,4 +25,12 @@ console.log(`Running suite "${suiteName}" in order:`);
 testOrder[suiteName].forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
 console.log(`\n> ${command}\n`);
 
-execSync(command, { stdio: 'inherit', cwd: path.resolve(__dirname, '..') });
+const patchScript = path.resolve(__dirname, 'patch-fs.js').replace(/\\/g, '/');
+execSync(command, {
+  stdio: 'inherit',
+  cwd: path.resolve(__dirname, '..'),
+  env: {
+    ...process.env,
+    NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim()
+  }
+});

@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -22,14 +22,14 @@ const CURRENT_ACCOUNT_SCHEME = COMMON_DATA.currentAccountSchemes[0];
 const CIF_ID = '0001001423';
 
 let homePage: HomePage;
-let currentAccountPage: SavingsBankAccountPage;
+let currentAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(120000);
 
   // Step 1: Login with the maker credentials
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  currentAccountPage = new SavingsBankAccountPage(page);
+  currentAccountPage = new AccountPage(page);
 
   // Step 2: Select Core Server from the solution drop down
   console.log('Selecting Core Server...');

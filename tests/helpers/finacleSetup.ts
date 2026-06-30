@@ -1,14 +1,7 @@
 import { Page } from '@playwright/test';
-import { LoginPage } from '../../pages/LoginPage';
-import { HomePage } from '../../pages/HomePage';
-
-// Attaches a handler that auto-accepts every confirm/alert dialog and logs it.
-export function autoAcceptDialogs(page: Page): void {
-  page.on('dialog', dialog => {
-    console.log(`Dialog message: ${dialog.message()}`);
-    dialog.accept();
-  });
-}
+import { LoginPage } from '../pages/HomePages/LoginPage';
+import { HomePage } from '../pages/HomePages/HomePage';
+import { setupDialogHandlers } from '../config/crmSetup';
 
 // Performs the common Finacle login flow used by every spec: auto-accepts
 // dialogs, navigates to the login page, signs in and clears the "already
@@ -18,7 +11,7 @@ export async function loginToFinacle(
   username: string,
   password: string
 ): Promise<{ loginPage: LoginPage; homePage: HomePage }> {
-  autoAcceptDialogs(page);
+  setupDialogHandlers(page);
 
   const loginPage = new LoginPage(page);
   const homePage = new HomePage(page);
@@ -26,7 +19,7 @@ export async function loginToFinacle(
   await loginPage.goto();
   await loginPage.login(username, password);
   await page.waitForTimeout(5000);
-  await loginPage.handleAlreadyLoggedInError(password);
+  await loginPage.handleAlreadyLoggedIn(username, password);
 
   return { loginPage, homePage };
 }

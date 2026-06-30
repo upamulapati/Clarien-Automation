@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
-import { LoginPage } from '../../../pages/LoginPage';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { LoginPage } from '../../pages/HomePages/LoginPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import TEST_DATA from '../../../data/savings-account-test-data.json';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -15,14 +15,14 @@ const BASE_ACCOUNT_DATA = COMMON_DATA.baseAccountData;
 
 let loginPage: LoginPage;
 let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+let savingsAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(120000);
 
   // Login with credentials
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 
   // Select Core Server from solution drop down
   console.log('Selecting Core Server...');
@@ -88,12 +88,12 @@ for (const testCase of TEST_DATA as any[]) {
     console.log('Logging in with second user...');
     loginPage = new LoginPage(page);
     homePage = new HomePage(page);
-    savingsAccountPage = new SavingsBankAccountPage(page);
+    savingsAccountPage = new AccountPage(page);
 
     await loginPage.goto();
     await loginPage.login(SECOND_USERNAME, SECOND_PASSWORD);
     await page.waitForTimeout(5000);
-    await loginPage.handleAlreadyLoggedInError(SECOND_PASSWORD);
+    await loginPage.handleAlreadyLoggedIn(SECOND_USERNAME, SECOND_PASSWORD);
 
     console.log('Selecting Core Server...');
     await savingsAccountPage.selectCoreServer();
@@ -156,12 +156,12 @@ test('SB verification', async ({ page }) => {
   console.log('Logging in with second user...');
   loginPage = new LoginPage(page);
   homePage = new HomePage(page);
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 
   await loginPage.goto();
   await loginPage.login(SECOND_USERNAME, SECOND_PASSWORD);
   await page.waitForTimeout(5000);
-  await loginPage.handleAlreadyLoggedInError(SECOND_PASSWORD);
+  await loginPage.handleAlreadyLoggedIn(SECOND_USERNAME, SECOND_PASSWORD);
 
   console.log('Selecting Core Server...');
   await savingsAccountPage.selectCoreServer();

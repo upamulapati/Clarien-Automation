@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -16,14 +16,14 @@ const PASSWORD = CREDENTIALS.secondCredentials.password;
 const ACCOUNT_ID = '7500001471';
 
 let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+let savingsAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
 
   // Step 1: Login with the verifying user (different from the maker)
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 });
 
 // HOAACVSB - Verify/authorise a savings account opening.

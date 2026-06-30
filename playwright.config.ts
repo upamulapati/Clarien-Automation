@@ -1,56 +1,29 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-import dotenv from 'dotenv';
-import path from 'path';
-// override: local .env values take precedence over any stale/empty variables
-// already present in the shell environment. In CI there is no .env file, so
-// this is a no-op and the GitHub secrets injected as env vars are used as-is.
-dotenv.config({ path: path.resolve(__dirname, '.env'), override: true, quiet: true });
-
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
   testDir: './tests',
-  /* Run tests sequentially (single session app cannot handle parallel logins) */
+  testIgnore: ['**/basePage/**'],
+  // outputDir: './test-results-temp',
   fullyParallel: false,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Limit to a single worker so tests run one at a time. */
-  workers: 1,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [
-    ['list'],
-    ['html', { open: 'never', outputFolder: 'playwright-report' }],
-  ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  workers: process.env.CI ? 1 : undefined,
+
+  reporter: [['list', {outputFolder: '../reports/basicReport'}],
+            ['html', {outputFolder: '../reports/htmlReport'}],
+            ['allure-playwright', {resultsDir: './reports/allureReports'}]],
+
   use: {
-    /* Base URL to use in actions like `await page.goto('')`. */
-    // baseURL: 'http://localhost:3000',
-
-    /* Collect trace for all tests. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on',
-
-    /* Record video for all tests. See https://playwright.dev/docs/video */
-    video: 'on',
-
-    /* Ignore HTTPS errors for self-signed certificates */
-    ignoreHTTPSErrors: true,
-    screenshot:'on'
+    trace: 'on-first-retry',
+    screenshot: 'on',
+    video: 'retain-on-failure'
   },
 
-  /* Configure projects for major browsers */
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-    },
+    }
 
     // {
     //   name: 'firefox',
@@ -82,11 +55,4 @@ export default defineConfig({
     //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     // },
   ],
-
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 });

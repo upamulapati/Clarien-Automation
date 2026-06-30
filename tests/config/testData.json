@@ -1,0 +1,30 @@
+{
+    "loanPortalUrl": "https://clarienbank--uat.sandbox.my.site.com/loan/s/",
+    "vehiclePrice": 15000,
+    "vehicleTypes": [
+        {
+            "type": "NEW COMBUSTION",
+            "downPaymentPercent": 0.10,
+            "maxLoanLength": "72",
+            "expectedInterestRate": "6.00%"
+        },
+        {
+            "type": "NEW HYBRID|ELECTRIC",
+            "downPaymentPercent": 0.00,
+            "maxLoanLength": "84",
+            "expectedInterestRate": "5.75%"
+        },
+        {
+            "type": "PRE OWNED CERTIFIED",
+            "downPaymentPercent": 0.20,
+            "maxLoanLength": "60",
+            "expectedInterestRate": "7.00%"
+        },
+        {
+            "type": "USED",
+            "downPaymentPercent": 0.25,
+            "maxLoanLength": "48",
+            "expectedInterestRate": "7.00%"
+        }
+    ]
+}
