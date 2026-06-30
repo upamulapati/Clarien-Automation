@@ -1,0 +1,241 @@
+{
+  "common": {
+    "baseUrl": "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp",
+    "credentials": {
+      "primary": {
+        "username": "finacletest05",
+        "password": "clarien@123"
+      },
+      "verification": {
+        "username": "finacletest01",
+        "password": "clarien@123"
+      }
+    },
+    "timeouts": {
+      "veryShort": 1000,
+      "short": 2000,
+      "short3": 3000,
+      "medium": 5000,
+      "medium4": 4000,
+      "long": 10000,
+      "long15": 15000,
+      "popupLoad": 30000,
+      "formLoad": 60000,
+      "crmLoad": 120000,
+      "testTimeout": 900000
+    }
+  },
+  "retail": {
+    "screenId": "screen1",
+    "menuFrameName": "1504",
+    "menuKeywords": ["CIF Retail", "New Entity", "Operations"],
+    "endToEnd": {
+      "customerData": {
+        "title": "MR",
+        "firstName": "John",
+        "lastName": "Smith",
+        "preferredName": "John",
+        "shortName": "SSMITH",
+        "dateOfBirth": "01/01/1975",
+        "nonResidentDate": "01/01/2023",
+        "futureDateForError": "01/01/2035",
+        "segment": "RET",
+        "segmentDisplay": "RETAIL",
+        "subSegment": "REGULAR",
+        "solId": "100",
+        "createdBy": "VCKULKARNI",
+        "nativeLanguage": "English",
+        "preferredLanguage": "India (English)",
+        "region": "INT",
+        "tdsTable": "PCHFB",
+        "preferredLocale": "en_US",
+        "defaultChannelForAlerts": "BRANCH",
+        "primaryRelationshipManagerId": "FIVUSR"
+      },
+      "contactData": {
+        "preferredAddressType": "Mailing",
+        "addressType": "Mailing",
+        "addressLabel": "HAMILTON",
+        "startDate": "27/03/2026",
+        "streetNo": "45",
+        "streetName": "Main Street",
+        "houseNo": "123",
+        "premiseName": "Building A",
+        "buildingLevel": "1",
+        "suburb": "Downtown",
+        "localityName": "Central",
+        "zip": "HM08",
+        "addressLine1": "123 Main Street Hamilton",
+        "city": "WOODSTOCK",
+        "state": "STOCKHOLM",
+        "country": "Bermuda",
+        "preferredContactNoType": "COMMUNICATION PHONE 1",
+        "preferredEmailIdType": "COMMUNICATION",
+        "preferredMobileTypeForAlerts": "",
+        "phoneType": "COMMUNICATION PHONE 1",
+        "countryCode": "91",
+        "areaCode": "816",
+        "phoneNumber": "9876635",
+        "emailType": "COMMUNICATION",
+        "email": "test.user@bank.com"
+      },
+      "validDocData": {
+        "documentType": "IDCUS",
+        "documentCode": "IDPAS",
+        "uniqueId": "ID123456",
+        "placeOfIssue": "MUMBAI",
+        "issueDate": "01/01/2020",
+        "expiryDate": "01/01/2030",
+        "receivedOn": "02/01/2020",
+        "isPreferred": "Y"
+      },
+      "invalidDocData": {
+        "documentCode": "CODOC",
+        "uniqueId": "",
+        "issueDate": "10/01/2025",
+        "expiryDate": "01/01/2020"
+      },
+      "validCcyData": {
+        "ccy": "BMD",
+        "creditDiscountPcnt": "5",
+        "debitDiscountPcnt": "3",
+        "withholdingTaxPcnt": "2",
+        "withholdingTaxFloorLimit": "1000",
+        "preferentialExpiryDate": "31/12/2099"
+      },
+      "expectedDocCodes": ["CODOC", "IDCUS", "MIGR", "OTHER", "TRUST"],
+      "expectedGridColumnsDocument": ["IsPreferred", "Document Code", "Unique ID", "Place of Issue", "Issue Date", "Expiry Date", "Received On", "Select"],
+      "expectedGridColumns": ["CCY", "Credit Discount Pcnt", "Debit Discount Pcnt", "Withholding Tax Pcnt", "Withholding Tax Floor Limit", "Preferential Expiry Date", "Select"],
+      "expectedMaritalStatuses": ["Single", "Married", "Divorced", "Widowed", "Separated", "Other", "Unknown"],
+      "expectedEmployeeTypes": ["EMPLOYED", "HOMEMAKER", "MIGR", "OTHERS", "RETIRED", "SALARIED", "SELF EMPLOYED", "UNEMPLOYED"],
+      "expectedCurrencies": ["BMD", "EUR", "USD", "GBP", "CAD", "AUD", "CHF", "JPY", "SGD"],
+      "expectedCurrenciesDemographic": ["AUD", "BMD", "CAD", "CHF", "EUR", "GBP", "JPY", "SGD", "USD"]
+    },
+    "suspend": {
+      "cifIdToSuspend": "4100058363"
+    },
+    "undoSuspend": {
+      "cifIdToUndoSuspend": "4100058363"
+    },
+    "verification": {
+      "popupCloseUrls": ["AccountDetWizard", "AccountDet", "FinacleCRM"],
+      "searchMenuItem": "Search Retail Entity",
+      "searchCriteria": "Retail Search Criteria"
+    }
+  },
+  "corporate": {
+    "screenId": "screen2",
+    "menuKeywords": ["CIF Corporate", "New Entity", "Entity Queue", "Operations"],
+    "menuFrameName": "9",
+    "endToEnd": {
+      "corporateData": {
+        "corporateName": "Clarien Test Corp",
+        "shortName": "CLRTST",
+        "keyContactPerson": "John Smith",
+        "phoneNo": "4411234567",
+        "businessType": "LOCAL",
+        "countryOfIncorporation": "BM",
+        "registrationNo": "REG123456",
+        "businessCommencementDate": "01/01/2010",
+        "incorporationDate": "01/01/2010",
+        "primarySolId": "102",
+        "corporateSegment": "COMMERCIAL BANKING",
+        "subSegment": "CCOR",
+        "fundSource": "BUSINESS",
+        "region": "INT",
+        "sector": "COMMERCIAL BANKING",
+        "subSectorCode": "CB",
+        "taxId": "TAX123456",
+        "entityClass": "CORPORATE",
+        "legalEntityType": "TRUST",
+        "assignedPriority": "MIGRATION",
+        "clientLevelCode": "001",
+        "subSegmentDisplay": "CORPORATE",
+        "principalPlaceOfOperation": "HAMILTON",
+        "notes": "CORPORATENAME_NATIVE",
+        "averageAnnualIncome": "500000",
+        "relationshipType": "MIGRATION",
+        "website": "http://www.clarientestcorp.com",
+        "nonResidentIndicator": "N",
+        "turnedNonResidentOn": "1/1/2023",
+        "hnwIndicator": "N",
+        "riskCategory": "LOW",
+        "pepIndicator": "N",
+        "tdsTable": "PCHFB",
+        "assetClassification": "SYSTEM UPGRADE & DOWNGRADE",
+        "staffIndicator": "N",
+        "locale": "en_US",
+        "channel": "BRANCH",
+        "prmId": "MPRIDHAM",
+        "createdBy": "VCKULKARNI",
+        "nativeLanguage": "English",
+        "preferredLanguage": "India (English)",
+        "islamicBankingCustomer": "N",
+        "isEntityRegulated": "N",
+        "purgeAllowed": "N",
+        "fcptExemption": "N"
+      },
+      "contactData": {
+        "preferredAddressType": "Mailing",
+        "addressType": "Mailing",
+        "addressLabel": "HAMILTON",
+        "startDate": "27/03/2026",
+        "streetNo": "45",
+        "streetName": "Main Street",
+        "houseNo": "123",
+        "premiseName": "Building A",
+        "buildingLevel": "1",
+        "suburb": "Downtown",
+        "localityName": "Central",
+        "zip": "HM08",
+        "addressLine1": "123 Main Street Hamilton",
+        "city": "HAMILTON",
+        "state": "HAMILTON",
+        "country": "Bermuda",
+        "preferredContactNoType": "COMMUNICATION PHONE 1",
+        "preferredEmailIdType": "COMMUNICATION",
+        "phoneType": "COMMUNICATION PHONE 1",
+        "countryCode": "91",
+        "areaCode": "816",
+        "phoneNumber": "9876635",
+        "emailType": "COMMUNICATION",
+        "email": "corp.test@bank.com",
+        "notes": "Corporate CIF test"
+      },
+      "validDocData": {
+        "documentType": "CODOC",
+        "documentCode": "TAXCO",
+        "uniqueId": "CORP123456",
+        "placeOfIssue": "HAMILTON",
+        "countryOfIssue": "BM",
+        "documentTypeDesc": "TAX",
+        "issueDate": "01/01/2020",
+        "expiryDate": "",
+        "receivedOn": "02/01/2020",
+        "isPreferred": "Y"
+      },
+      "validCcyData": {
+        "ccy": "BMD",
+        "creditDiscountPcnt": "5",
+        "debitDiscountPcnt": "3",
+        "withholdingTaxPcnt": "2",
+        "withholdingTaxFloorLimit": "1000",
+        "preferentialExpiryDate": "31/12/2099"
+      },
+      "expectedDocCodes": ["CODOC", "IDCUS", "MIGR", "OTHER", "TRUST"],
+      "expectedCurrencies": ["BMD", "EUR", "USD", "GBP", "CAD", "AUD", "CHF", "JPY", "SGD"],
+      "expectedCurrenciesDemographic": ["AUD", "BMD", "CAD", "CHF", "EUR", "GBP", "JPY", "SGD", "USD"]
+    },
+    "suspend": {
+      "cifIdToSuspend": "6100000473"
+    },
+    "undoSuspend": {
+      "cifIdToUndoSuspend": "6100000473"
+    },
+    "verification": {
+      "popupCloseUrls": ["CorpCreateDetWizard", "AccountDetWizard", "CorpModDet", "CorpSuspendDet", "AccountDet", "FinacleCRM"],
+      "searchMenuItem": "Search Corporate Entity",
+      "searchCriteria": "Corporate Search Criteria"
+    }
+  }
+}

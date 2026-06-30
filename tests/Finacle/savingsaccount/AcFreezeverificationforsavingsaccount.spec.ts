@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -14,14 +14,14 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 const ACCOUNT_ID = '7710003367';
 
 let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+let savingsAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
 
   // Step 1: Login with a different user (finacletest14)
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 });
 
 // HAFSM - Verify/authorise the freeze that was marked on a savings account.

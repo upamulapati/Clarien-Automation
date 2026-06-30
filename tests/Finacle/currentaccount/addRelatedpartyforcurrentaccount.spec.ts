@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -18,14 +18,14 @@ const RELATED_PARTY_CIF = '0002012248';
 const RELATION_CODE = '999';
 
 let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+let savingsAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
 
   // Navigate to login page and login
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 });
 
 // HACM - Add related party (joint holder) details to an existing current account

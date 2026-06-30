@@ -50,5 +50,69 @@
     "CAREG",
     "CASEN",
     "CASTF"
+  ],
+  "accountVerification": [
+    {
+      "type": "savings",
+      "accountId": "7500001471",
+      "testLabel": "HACM - verify savings account modification",
+      "visitDocumentTab": true
+    },
+    {
+      "type": "current",
+      "accountId": "4600000111",
+      "testLabel": "HACM - verify current account modification",
+      "visitDocumentTab": false
+    }
+  ],
+  "accountFreeze": [
+    {
+      "type": "savings",
+      "accountId": "7710003367",
+      "testLabel": "HAFSM - mark total freeze on savings account"
+    },
+    {
+      "type": "current",
+      "accountId": "7600000160",
+      "testLabel": "HAFSM - mark total freeze on current account"
+    }
+  ],
+  "accountUnfreeze": [
+    {
+      "type": "savings",
+      "accountId": "7710003367",
+      "testLabel": "HAFSM - unfreeze savings account"
+    },
+    {
+      "type": "current",
+      "accountId": "7600000160",
+      "testLabel": "HAFSM - unfreeze current account"
+    }
+  ],
+  "accountModification": [
+    {
+      "type": "savings",
+      "accountId": "7500001468",
+      "dispatchMode": "email",
+      "testLabel": "HACM - modify savings account dispatch mode"
+    },
+    {
+      "type": "current",
+      "accountId": "4600000111",
+      "dispatchMode": "no dispatch",
+      "testLabel": "HACM - modify current account dispatch mode"
+    }
+  ],
+  "schemeModification": [
+    {
+      "type": "savings",
+      "accountId": "7500001471",
+      "testLabel": "HACM - modify savings account scheme A/c status to inactive"
+    },
+    {
+      "type": "current",
+      "accountId": "4600000111",
+      "testLabel": "HACM - modify current account scheme A/c status to inactive"
+    }
   ]
 }

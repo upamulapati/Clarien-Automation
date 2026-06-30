@@ -1,25 +1,21 @@
 {
-  "name": "playwright-automation",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "playwright test --workers=1",
-    "test:headed": "playwright test --workers=1 --headed",
-    "test:one": "playwright test --workers=1 --headed",
-    "report": "playwright show-report",
-    "loan:create": "playwright test tests/Finacle/Retailloans/Retailloancreation.spec.ts --workers=1 --headed",
-    "loan:verify": "playwright test tests/Finacle/Retailloans/Retailloanverification.spec.ts --workers=1 --headed",
-    "loan": "playwright test tests/Finacle/Retailloans --workers=1 --headed"
+  "dependencies": {
+    "allure": "^3.10.0",
+    "playwright": "^1.59.1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
-    "@types/node": "^25.9.1",
-    "dotenv": "^17.4.2",
-    "typescript": "^6.0.3"
+    "@playwright/test": "^1.59.1",
+    "@types/node": "^25.6.0",
+    "allure-commandline": "^2.30.0",
+    "allure-playwright": "^3.10.0",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "test": "npx playwright test && npm run allure:generate",
+    "test-crmCIFRetail": "node scripts/runOrdered.js crmCIFRetail && npm run allure:generate",
+    "test-crmCIFCorporate": "node scripts/runOrdered.js crmCIFCorporate && npm run allure:generate",
+    "allure:generate": "npx allure generate ./reports/allureReports -o ./reports/allure-report --clean",
+    "allure:open": "npx allure open ./reports/allure-report",
+    "allure:report": "npm run allure:generate && npm run allure:open"
   }
 }

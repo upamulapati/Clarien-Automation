@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -9,70 +9,59 @@ import { CREDENTIALS } from '../../../data/credentials';
 const USERNAME = CREDENTIALS.thirdCredentials.username;
 const PASSWORD = CREDENTIALS.thirdCredentials.password;
 
-// Existing savings account on which the freeze is marked.
-const ACCOUNT_ID = '7710003367';
-
 // Total Freeze + reason code 31015 (CDD required).
 const FREEZE_CODE = 'Total Freeze';
 const FREEZE_REASON_CODE = '31015';
 
-let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+// Parameterized test: iterates over both savings and current account freeze data
+for (const acct of COMMON_DATA.accountFreeze) {
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+  test.describe(`Account Freeze - ${acct.type}`, () => {
+    let homePage: HomePage;
+    let accountPage: AccountPage;
 
-  // Step 1: Login with FINACLETEST13
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
-});
+    test.beforeEach(async ({ page }) => {
+      test.setTimeout(300000);
+      ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
+      accountPage = new AccountPage(page);
+    });
 
-// HAFSM - Mark a total freeze on an existing savings account.
-test('HAFSM - mark total freeze on savings account', async ({ page }) => {
-  console.log(`Marking freeze on Account ID: ${ACCOUNT_ID}`);
+    test(acct.testLabel, async ({ page }) => {
+      console.log(`Marking freeze on Account ID: ${acct.accountId}`);
 
-  // Select "core server" from the solution drop down
-  console.log('Selecting Core Server...');
-  await savingsAccountPage.selectCoreServer();
+      console.log('Selecting Core Server...');
+      await accountPage.selectCoreServer();
 
-  // Step 2: Type menu option "HAFSM" in finacle
-  console.log('Searching for HAFSM...');
-  await savingsAccountPage.searchMenu('HAFSM');
-  await page.waitForTimeout(3000);
+      console.log('Searching for HAFSM...');
+      await accountPage.searchMenu('HAFSM');
+      await page.waitForTimeout(3000);
 
-  // Step 3: Function - Freeze
-  console.log('Selecting Freeze function...');
-  await savingsAccountPage.selectFunction('Freeze');
+      console.log('Selecting Freeze function...');
+      await accountPage.selectFunction('Freeze');
 
-  // Step 4: A/c Id - Enter the account number to be frozen
-  console.log('Entering account ID to freeze...');
-  await savingsAccountPage.enterHacmAccountId(ACCOUNT_ID);
+      console.log(`Entering account ID to freeze: ${acct.accountId}...`);
+      await accountPage.enterHacmAccountId(acct.accountId);
 
-  // Step 5: Freeze code - Total Freeze
-  console.log('Selecting freeze code (Total Freeze)...');
-  await savingsAccountPage.selectFreezeCode(FREEZE_CODE);
+      console.log('Selecting freeze code (Total Freeze)...');
+      await accountPage.selectFreezeCode(FREEZE_CODE);
 
-  // Step 6: Freeze reason code 1 - 31015 (CDD required) from the search list
-  console.log('Selecting freeze reason code 31015 (CDD required)...');
-  await savingsAccountPage.selectFreezeReasonCode(FREEZE_REASON_CODE);
+      console.log('Selecting freeze reason code 31015 (CDD required)...');
+      await accountPage.selectFreezeReasonCode(FREEZE_REASON_CODE);
 
-  // Step 7: Click Go
-  console.log('Clicking Go button...');
-  await savingsAccountPage.clickGo();
+      console.log('Clicking Go button...');
+      await accountPage.clickGo();
 
-  // Step 8: Select the checkbox beside the A/c Id
-  console.log('Selecting account row checkbox...');
-  await savingsAccountPage.selectAccountRowCheckbox();
+      console.log('Selecting account row checkbox...');
+      await accountPage.selectAccountRowCheckbox();
 
-  // Click Submit
-  console.log('Clicking Submit button...');
-  await savingsAccountPage.submitForm();
+      console.log('Clicking Submit button...');
+      await accountPage.submitForm();
 
-  // Capture the actual Finacle status message after the freeze
-  const statusMessage = await savingsAccountPage.getStatusMessage();
-  console.log('Freeze status message:', statusMessage);
+      const statusMessage = await accountPage.getStatusMessage();
+      console.log('Freeze status message:', statusMessage);
 
-  // Logout
-  console.log('Logging out...');
-  await homePage.logout();
-});
+      console.log('Logging out...');
+      await homePage.logout();
+    });
+  });
+}
