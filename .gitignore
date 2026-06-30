@@ -1,7 +1,8 @@
 
 # Playwright
-.github
+# .github
 node_modules/
+tests/basePage/
 reports/
 /test-results/
 /test-results-*/

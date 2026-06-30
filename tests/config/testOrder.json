@@ -8,5 +8,12 @@
     "tests/FinacleE2E/crmCIFCorporate/crmCIFCorpEndtoEnd.spec.ts",
     "tests/FinacleE2E/crmCIFCorporate/crmCIFCorporateSuspend.spec.ts",
     "tests/FinacleE2E/crmCIFCorporate/crmCIFCorporateUndoSuspend.spec.ts"
+  ],
+  "customFlowone": [
+    "tests/FinacleE2E/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
+    "",
+    "",
+    ""
+
   ]
 }

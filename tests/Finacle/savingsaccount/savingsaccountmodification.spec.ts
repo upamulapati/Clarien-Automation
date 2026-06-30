@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -8,57 +8,48 @@ import { CREDENTIALS } from '../../../data/credentials';
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+// Parameterized test: iterates over both savings and current account modification data
+for (const acct of COMMON_DATA.accountModification) {
 
+  test.describe(`Account Modification - ${acct.type}`, () => {
+    let homePage: HomePage;
+    let accountPage: AccountPage;
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+    test.beforeEach(async ({ page }) => {
+      test.setTimeout(300000);
+      ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
+      accountPage = new AccountPage(page);
+    });
 
-  // Navigate to login page and login
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
-});
+    test(acct.testLabel, async ({ page }) => {
+      console.log('Selecting Core Server...');
+      await accountPage.selectCoreServer();
 
-// TC_SB_HACM_001 - HACM Account Maintenance - Set Dispatch Mode to No Dispatch
-test('HACM - modify dispatch mode to no dispatch', async ({ page }) => {
-  // Step 1: Select "core server" from solution drop down
-  console.log('Selecting Core Server...');
-  await savingsAccountPage.selectCoreServer();
+      console.log('Searching for HACM...');
+      await accountPage.searchMenu('HACM');
+      await page.waitForTimeout(3000);
 
-  // Step 2: Type menu option "HACM" in finacle
-  console.log('Searching for HACM...');
-  await savingsAccountPage.searchMenu('HACM');
-  await page.waitForTimeout(3000);
+      console.log('Selecting Modify function...');
+      await accountPage.selectFunction('Modify');
 
-  // Step 3: Function - Modify
-  console.log('Selecting Modify function...');
-  await savingsAccountPage.selectFunction('Modify');
+      console.log(`Entering account ID to modify: ${acct.accountId}...`);
+      await accountPage.enterHacmAccountId(acct.accountId);
 
-  // Step 4: A/c Id - Enter account number to be modified
-  console.log('Entering account ID to modify...');
-  const accountId = '7500001468';
-  await savingsAccountPage.enterHacmAccountId(accountId);
+      console.log('Clicking Go button...');
+      await accountPage.clickGo();
 
-  // Click Go to load the account
-  console.log('Clicking Go button...');
-  await savingsAccountPage.clickGo();
+      console.log(`Setting dispatch mode to ${acct.dispatchMode}...`);
+      await accountPage.selectDispatchMode(acct.dispatchMode as 'email' | 'no dispatch' | 'post');
 
-  // Step 5: Modify dispatch mode field to "no dispatch" (field is on the form)
-  console.log('Setting dispatch mode to no dispatch...');
-  await savingsAccountPage.selectDispatchMode('email');
+      console.log('Clicking Submit button...');
+      await accountPage.submitForm();
 
-  // Step 6: Click submit
-  console.log('Clicking Submit button...');
-  await savingsAccountPage.submitForm();
+      const result = await accountPage.verifyAccountCreated();
+      console.log('Modification Result:', result.message);
+      console.log('Account Number:', result.accountNumber);
 
-  // Verify modification result
-  const result = await savingsAccountPage.verifyAccountCreated();
-  console.log('Modification Result:', result.message);
-  console.log('Account Number:', result.accountNumber);
-
-  // Logout
-  console.log('Logging out...');
-  await homePage.logout();
-});
-
+      console.log('Logging out...');
+      await homePage.logout();
+    });
+  });
+}

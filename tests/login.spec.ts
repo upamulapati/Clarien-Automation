@@ -1,8 +1,6 @@
 import { test } from '@playwright/test';
-import { LoginPage } from '../pages/LoginPage';
-import { HomePage } from '../pages/HomePage';
-import { CRMPage } from '../pages/CRMPage';
-import COMMON_DATA from '../data/common-data.json';
+import { loginToFinacle } from './helpers/finacleSetup';
+import { HomePage } from './pages/HomePages/HomePage';
 import { CREDENTIALS } from '../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
@@ -11,37 +9,32 @@ const PASSWORD = CREDENTIALS.credentials.password;
 test('login and navigate to Entity Queue in CRM', async ({ page }) => {
   test.setTimeout(180000);
 
-  // Auto-accept any confirm/alert dialogs
-  page.on('dialog', dialog => {
-    console.log(`Dialog message: ${dialog.message()}`);
-    dialog.accept();
-  });
-
-  const loginPage = new LoginPage(page);
-  const homePage = new HomePage(page);
-  const crmPage = new CRMPage(page);
-
-  // Navigate to login page
-  await loginPage.goto();
-
-  // Login with credentials
-  await loginPage.login(USERNAME, PASSWORD);
-  await page.waitForTimeout(5000);
-
-  // Handle "User is already logged in" error if it appears
-  await loginPage.handleAlreadyLoggedInError(PASSWORD);
+  const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
 
   // Select CRM module from home page
   console.log('Selecting CRM...');
   await homePage.selectCRM();
 
-  // Navigate to CIF Retail
+  // Navigate to CIF Retail via Functionmain frame
   console.log('Navigating to CIF Retail...');
-  await crmPage.navigateToCIFRetail();
+  const functionmainFrame = page.frame({ name: 'Functionmain' });
+  if (functionmainFrame) {
+    await functionmainFrame.evaluate(() => document.getElementById('screen1')?.click());
+    await page.waitForTimeout(3000);
+  }
 
-  // Navigate to Entity Queue
+  // Navigate to Entity Queue via frame 1504
   console.log('Navigating to Entity Queue...');
-  await crmPage.navigateToEntityQueue();
+  const frame1504 = page.frame({ name: '1504' });
+  if (frame1504) {
+    await frame1504.evaluate(() => {
+      const spans = document.querySelectorAll('span');
+      for (const s of spans) {
+        if (s.textContent?.includes('Entity Queue')) { s.click(); break; }
+      }
+    });
+    await page.waitForTimeout(3000);
+  }
 
   // Logout from home page
   console.log('Logging out...');

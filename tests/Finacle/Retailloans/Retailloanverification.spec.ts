@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -15,7 +15,7 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 const LOAN_ACCOUNT_NUMBER = '3200000043';
 
 let homePage: HomePage;
-let loanPage: SavingsBankAccountPage;
+let loanPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 
   // Step 1: Login with a different user (verifier) than the maker.
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  loanPage = new SavingsBankAccountPage(page);
+  loanPage = new AccountPage(page);
 });
 
 // HOAACVLA - Verify/authorise a retail loan account opening.

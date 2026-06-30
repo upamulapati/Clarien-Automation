@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -9,61 +9,52 @@ import { CREDENTIALS } from '../../../data/credentials';
 const USERNAME = CREDENTIALS.thirdCredentials.username;
 const PASSWORD = CREDENTIALS.thirdCredentials.password;
 
-// Existing savings account on which the freeze is removed.
-const ACCOUNT_ID = '7710003367';
+// Parameterized test: iterates over both savings and current account unfreeze data
+for (const acct of COMMON_DATA.accountUnfreeze) {
 
-let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+  test.describe(`Account Unfreeze - ${acct.type}`, () => {
+    let homePage: HomePage;
+    let accountPage: AccountPage;
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+    test.beforeEach(async ({ page }) => {
+      test.setTimeout(300000);
+      ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
+      accountPage = new AccountPage(page);
+    });
 
-  // Step 1: Login with FINACLETEST13
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
-});
+    test(acct.testLabel, async ({ page }) => {
+      console.log(`Unfreezing Account ID: ${acct.accountId}`);
 
-// HAFSM - Unfreeze an existing savings account.
-test('HAFSM - unfreeze savings account', async ({ page }) => {
-  console.log(`Unfreezing Account ID: ${ACCOUNT_ID}`);
+      console.log('Selecting Core Server...');
+      await accountPage.selectCoreServer();
 
-  // Step 1: Select "core server" from the solution drop down
-  console.log('Selecting Core Server...');
-  await savingsAccountPage.selectCoreServer();
+      console.log('Searching for HAFSM...');
+      await accountPage.searchMenu('HAFSM');
+      await page.waitForTimeout(3000);
 
-  // Step 2: Type menu option "HAFSM" in finacle
-  console.log('Searching for HAFSM...');
-  await savingsAccountPage.searchMenu('HAFSM');
-  await page.waitForTimeout(3000);
+      console.log('Selecting Unfreeze function...');
+      await accountPage.selectFunction('Unfreeze');
 
-  // Step 3: Function - Unfreeze
-  console.log('Selecting Unfreeze function...');
-  await savingsAccountPage.selectFunction('Unfreeze');
+      console.log(`Entering account ID to unfreeze: ${acct.accountId}...`);
+      await accountPage.enterHacmAccountId(acct.accountId);
 
-  // Step 4: A/c Id - Enter the account number to be unfrozen
-  console.log('Entering account ID to unfreeze...');
-  await savingsAccountPage.enterHacmAccountId(ACCOUNT_ID);
+      console.log('Clicking Go button...');
+      await accountPage.clickGo();
 
-  // Step 5: Click Go
-  console.log('Clicking Go button...');
-  await savingsAccountPage.clickGo();
+      console.log('Selecting account row checkbox...');
+      await accountPage.selectAccountRowCheckbox();
 
-  // Step 6: Select the checkbox beside the A/c Id and click Submit
-  console.log('Selecting account row checkbox...');
-  await savingsAccountPage.selectAccountRowCheckbox();
+      console.log('Clicking Submit button...');
+      await accountPage.submitForm();
 
-  console.log('Clicking Submit button...');
-  await savingsAccountPage.submitForm();
+      console.log('Clicking OK button...');
+      await accountPage.clickOkButton();
 
-  // Step 7: Click OK after successful unfreezing of the account
-  console.log('Clicking OK button...');
-  await savingsAccountPage.clickOkButton();
+      const statusMessage = await accountPage.getStatusMessage();
+      console.log('Unfreeze status message:', statusMessage);
 
-  // Capture the actual Finacle status message after the unfreeze
-  const statusMessage = await savingsAccountPage.getStatusMessage();
-  console.log('Unfreeze status message:', statusMessage);
-
-  // Logout
-  console.log('Logging out...');
-  await homePage.logout();
-});
+      console.log('Logging out...');
+      await homePage.logout();
+    });
+  });
+}

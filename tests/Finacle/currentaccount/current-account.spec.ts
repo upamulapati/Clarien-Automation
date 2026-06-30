@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
-import { LoginPage } from '../../../pages/LoginPage';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { LoginPage } from '../../pages/HomePages/LoginPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -20,14 +20,14 @@ const CURRENT_ACCOUNT_SCHEMES = COMMON_DATA.currentAccountSchemes;
 
 let loginPage: LoginPage;
 let homePage: HomePage;
-let currentAccountPage: SavingsBankAccountPage;
+let currentAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(120000);
 
   // Login with the maker credentials
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  currentAccountPage = new SavingsBankAccountPage(page);
+  currentAccountPage = new AccountPage(page);
 
   // Select Core Server from solution drop down
   console.log('Selecting Core Server...');
@@ -72,12 +72,12 @@ for (const schemeCode of CURRENT_ACCOUNT_SCHEMES) {
     console.log('Logging in with second user for verification...');
     loginPage = new LoginPage(page);
     homePage = new HomePage(page);
-    currentAccountPage = new SavingsBankAccountPage(page);
+    currentAccountPage = new AccountPage(page);
 
     await loginPage.goto();
     await loginPage.login(SECOND_USERNAME, SECOND_PASSWORD);
     await page.waitForTimeout(5000);
-    await loginPage.handleAlreadyLoggedInError(SECOND_PASSWORD);
+    await loginPage.handleAlreadyLoggedIn(SECOND_USERNAME, SECOND_PASSWORD);
 
     console.log('Selecting Core Server...');
     await currentAccountPage.selectCoreServer();

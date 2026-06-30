@@ -9,7 +9,7 @@ interface AccountData {
   dispatchMode?: 'email' | 'post';
 }
 
-export class SavingsBankAccountPage {
+export class AccountPage {
   readonly page: Page;
   readonly loginFrame: FrameLocator;
 
@@ -164,40 +164,14 @@ export class SavingsBankAccountPage {
     if (await option.count() > 0) {
       await option.click();
       console.log(`Selected option: ${searchTerm}`);
-      await this.page.waitForTimeout(3000);
+      await this.page.waitForTimeout(5000);
     } else {
       console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
-      // Try FINW frame as fallback
       const finwFrame = this.getFinwFrame();
       const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
       if (await finwOption.count() > 0) {
         await finwOption.click();
         console.log(`Selected option in FINW frame: ${searchTerm}`);
-        await this.page.waitForTimeout(3000);
-      } else {
-        console.log(`Option containing '${searchTerm}' not found in any frame`);
-      }
-    }
-  }
-
-  async searchVerificationScreen(searchTerm: string) {
-    await this.page.waitForTimeout(3000);
-    await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
-    
-    const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
-    if (await option.count() > 0) {
-      await option.click();
-      console.log(`Selected verification option: ${searchTerm}`);
-      await this.page.waitForTimeout(5000);
-    } else {
-      console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
-      const finwFrame = this.getFinwFrame();
-      const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
-      if (await finwOption.count() > 0) {
-        await finwOption.click();
-        console.log(`Selected verification option in FINW frame: ${searchTerm}`);
         await this.page.waitForTimeout(5000);
       } else {
         console.log(`Option containing '${searchTerm}' not found in any frame`);
@@ -214,107 +188,10 @@ export class SavingsBankAccountPage {
     }
   }
 
-  async searchEnquiryScreen(searchTerm: string) {
-    await this.page.waitForTimeout(3000);
-    await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
-    
-    const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
-    if (await option.count() > 0) {
-      await option.click();
-      console.log(`Selected enquiry option: ${searchTerm}`);
-      await this.page.waitForTimeout(5000);
-    } else {
-      console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
-      const finwFrame = this.getFinwFrame();
-      const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
-      if (await finwOption.count() > 0) {
-        await finwOption.click();
-        console.log(`Selected enquiry option in FINW frame: ${searchTerm}`);
-        await this.page.waitForTimeout(5000);
-      } else {
-        console.log(`Option containing '${searchTerm}' not found in any frame`);
-      }
-    }
-
-    // Wait for FINW frame to be available after navigation
-    await this.page.waitForTimeout(3000);
-    try {
-      this.getFinwFrame();
-      console.log('FINW frame is available');
-    } catch (e) {
-      console.log('FINW frame not available after navigation:', e);
-    }
-  }
-
-  async searchTransactionManagement(searchTerm: string) {
-    await this.page.waitForTimeout(3000);
-    await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
-    
-    const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
-    if (await option.count() > 0) {
-      await option.click();
-      console.log(`Selected transaction management option: ${searchTerm}`);
-      await this.page.waitForTimeout(5000);
-    } else {
-      console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
-      const finwFrame = this.getFinwFrame();
-      const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
-      if (await finwOption.count() > 0) {
-        await finwOption.click();
-        console.log(`Selected transaction management option in FINW frame: ${searchTerm}`);
-        await this.page.waitForTimeout(5000);
-      } else {
-        console.log(`Option containing '${searchTerm}' not found in any frame`);
-      }
-    }
-
-    // Wait for FINW frame to be available after navigation
-    await this.page.waitForTimeout(3000);
-    try {
-      this.getFinwFrame();
-      console.log('FINW frame is available');
-    } catch (e) {
-      console.log('FINW frame not available after navigation:', e);
-    }
-  }
-
-  async searchAccountInquiry(searchTerm: string) {
-    await this.page.waitForTimeout(3000);
-    await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
-    
-    const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
-    if (await option.count() > 0) {
-      await option.click();
-      console.log(`Selected account inquiry option: ${searchTerm}`);
-      await this.page.waitForTimeout(5000);
-    } else {
-      console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
-      const finwFrame = this.getFinwFrame();
-      const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
-      if (await finwOption.count() > 0) {
-        await finwOption.click();
-        console.log(`Selected account inquiry option in FINW frame: ${searchTerm}`);
-        await this.page.waitForTimeout(5000);
-      } else {
-        console.log(`Option containing '${searchTerm}' not found in any frame`);
-      }
-    }
-
-    // Wait for FINW frame to be available after navigation
-    await this.page.waitForTimeout(3000);
-    try {
-      this.getFinwFrame();
-      console.log('FINW frame is available');
-    } catch (e) {
-      console.log('FINW frame not available after navigation:', e);
-    }
-  }
+  async searchVerificationScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
+  async searchEnquiryScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
+  async searchTransactionManagement(searchTerm: string) { await this.searchMenu(searchTerm); }
+  async searchAccountInquiry(searchTerm: string) { await this.searchMenu(searchTerm); }
 
   // ============ Tab Navigation Methods ============
   private async clickTab(textMatch: string, idFallback?: string) {

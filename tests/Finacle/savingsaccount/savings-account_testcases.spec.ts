@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { HomePage } from '../../../pages/HomePage';
-import { SavingsBankAccountPage } from '../../../pages/SavingsBankAccountPage';
+import { HomePage } from '../../pages/HomePages/HomePage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -9,13 +9,13 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 let homePage: HomePage;
-let savingsAccountPage: SavingsBankAccountPage;
+let savingsAccountPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
 
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new SavingsBankAccountPage(page);
+  savingsAccountPage = new AccountPage(page);
 
   console.log('Selecting Core Server...');
   await savingsAccountPage.selectCoreServer();
