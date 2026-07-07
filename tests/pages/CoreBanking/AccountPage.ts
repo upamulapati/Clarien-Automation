@@ -533,6 +533,121 @@ export class AccountPage {
     }
   }
 
+  async enterHtmTransactionId(transactionId: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = ['#tranId', '#tran_id', 'input[name="tranId"]', 'input[name="tran_id"]', '#transId', 'input[name="transId"]'];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count() > 0 && await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await el.fill(transactionId);
+          await this.page.waitForTimeout(1000);
+          console.log(`Entered HTM Transaction ID: ${transactionId} (via ${sel})`);
+          return;
+        }
+      }
+      // Fallback: use the acctId field if it's the only text input visible (Verify mode reuses it)
+      const acctField = finwFrame.locator('#acctId').first();
+      if (await acctField.count() > 0 && await acctField.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await acctField.fill(transactionId);
+        await this.page.waitForTimeout(1000);
+        console.log(`Entered HTM Transaction ID via acctId fallback: ${transactionId}`);
+        return;
+      }
+      console.log('HTM Transaction ID field not found, skipping');
+    } catch (e) {
+      console.log(`Could not enter HTM Transaction ID, skipping: ${e}`);
+    }
+  }
+
+  async enterHtmTransactionDate(date: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = ['#tranDate', '#tran_date', 'input[name="tranDate"]', 'input[name="tran_date"]', '#transDate', 'input[name="transDate"]'];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count() > 0 && await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await el.fill(date);
+          await this.page.waitForTimeout(1000);
+          console.log(`Entered HTM Transaction Date: ${date} (via ${sel})`);
+          return;
+        }
+      }
+      console.log('HTM Transaction Date field not found (may be auto-filled), skipping');
+    } catch (e) {
+      console.log(`Could not enter HTM Transaction Date, skipping: ${e}`);
+    }
+  }
+
+  async readHtmPartTransaction(label: string): Promise<{ account: string; amount: string }> {
+    const result = { account: '', amount: '' };
+    try {
+      const finwFrame = this.getFinwFrame();
+      // Read the account ID field
+      const acctField = finwFrame.locator('#acctId, input[name="acctId"]').first();
+      if (await acctField.count() > 0) {
+        result.account = await acctField.inputValue().catch(() => '');
+      }
+      // Read the amount field
+      const amtField = finwFrame.locator('#refAmt, #amount, input[name="refAmt"]').first();
+      if (await amtField.count() > 0) {
+        result.amount = await amtField.inputValue().catch(() => '');
+      }
+      console.log(`${label}: account="${result.account}", amount="${result.amount}"`);
+    } catch (e) {
+      console.log(`Could not read HTM part transaction (${label}): ${e}`);
+    }
+    return result;
+  }
+
+  async clickHtmNextRecord() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const nextBtn = finwFrame.locator(
+        'input[value*="Next" i], input[value*="next" i], ' +
+        '#nextRecord, #next_record, ' +
+        'input[type="button"][value*=">" i], ' +
+        'a:has-text("Next"), button:has-text("Next")'
+      ).first();
+      if (await nextBtn.count() > 0) {
+        await nextBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log('Clicked HTM Next Record button');
+      } else {
+        // Fallback: try navigating via record number links
+        const recordLink = finwFrame.locator('a:has-text("2"), td:has-text("Record 2")').first();
+        if (await recordLink.count() > 0) {
+          await recordLink.click();
+          await this.page.waitForTimeout(2000);
+          console.log('Clicked record 2 link');
+        } else {
+          console.log('HTM Next Record button not found, skipping');
+        }
+      }
+    } catch (e) {
+      console.log(`Could not click HTM Next Record, skipping: ${e}`);
+    }
+  }
+
+  async clickHtmSubmit() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const submitBtn = finwFrame.locator(
+        '#Submit, #submit, input[value="Submit"], input[value="SUBMIT"], ' +
+        'input[type="submit"], button:has-text("Submit")'
+      ).first();
+      if (await submitBtn.count() > 0) {
+        await submitBtn.click();
+        await this.page.waitForTimeout(3000);
+        console.log('Clicked HTM Submit button');
+      } else {
+        console.log('HTM Submit button not found, skipping');
+      }
+    } catch (e) {
+      console.log(`Could not click HTM Submit, skipping: ${e}`);
+    }
+  }
+
   async logScreenMessages() {
     try {
       const finwFrame = this.getFinwFrame();
