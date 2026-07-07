@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
-import { getMakerConfig, getCheckerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
-import { getCreatedCif } from "../../config/cifStore";
+import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from "../../config/crmTestData";
+import { getSharedValue } from "../../helpers/sharedState";
 import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
 
 // CIF Modification Checker / verification (Page Object Model).
@@ -8,10 +8,12 @@ import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
 // (FINACLETEST05), then re-logs in as the maker (FINACLETEST13) and views the
 // Audit Trail to confirm the approval history. Operates on the CIF created +
 // persisted by the retail E2E flow (falls back to the hardcoded CIF with a log).
-const CHECKER = getCheckerConfig(); // FINACLETEST05 (approver)
-const MAKER = getMakerConfig(); // FINACLETEST13 (maker)
+const CHECKER = getVerificationConfig();
+const MAKER = getPrimaryConfig();
 const MOD = CRM_TEST_DATA.retail.modification;
-const CIF_ID = getCreatedCif("retail", MOD.fallbackCifId);
+const SHARED_CIF = getSharedValue('cifId');
+const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 test.describe("CIF Modification Checker", () => {
   let checker: CrmRetailCheckerPage;
@@ -31,7 +33,7 @@ test.describe("CIF Modification Checker", () => {
     checker.attachDialogHandler(page);
 
     // CHK_001: Login as the checker
-    console.log(`CHK_001: Logging in as ${CHECKER.username}...`);
+    console.log(`CHK_001: Logging in as ${CHECKER.username} (verification)...`);
     await checker.login(CHECKER.username, CHECKER.password);
     expect(await checker.waitForDashboard(page), `${CHECKER.username} login must succeed`).toBeTruthy();
     console.log(`✓ CHK_001: ${CHECKER.username} logged in`);

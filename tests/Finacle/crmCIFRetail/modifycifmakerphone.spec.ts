@@ -1,14 +1,16 @@
 import { test, expect } from "@playwright/test";
-import { getMakerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
-import { getCreatedCif } from "../../config/cifStore";
+import { getPrimaryConfig, CRM_TEST_DATA } from "../../config/crmTestData";
+import { getSharedValue } from "../../helpers/sharedState";
 import { CrmRetailModificationPage } from "../../pages/CRM/crmRetailModificationPage";
 
 // CIF Modification Maker — Phone (Page Object Model).
 // Updates the COMMUNICATION PHONE 1 number on the CIF created + persisted by the
 // retail E2E flow (falls back to the hardcoded CIF with a log).
-const MAKER = getMakerConfig();
+const CONFIG = getPrimaryConfig();
 const MOD = CRM_TEST_DATA.retail.modification;
-const CIF_ID = getCreatedCif("retail", MOD.fallbackCifId);
+const SHARED_CIF = getSharedValue('cifId');
+const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const PHONE_TYPE = process.env.PHONE_TYPE || "COMMUNICATION PHONE 1";
 const PHONE_NO = process.env.PHONE_NO || "5555555555";
@@ -22,10 +24,10 @@ test.describe("CIF Modification Maker - Phone", () => {
 
   test("TC_010 - Modify COMMUNICATION PHONE 1 phone", async ({ page }) => {
     test.setTimeout(900000);
-    retailMod = new CrmRetailModificationPage(page, MAKER);
+    retailMod = new CrmRetailModificationPage(page, CONFIG);
 
-    // Login (maker) + switch to CRM
-    await retailMod.login(MAKER.username, MAKER.password);
+    // Login + switch to CRM
+    await retailMod.login(CONFIG.username, CONFIG.password);
     expect(await retailMod.waitForDashboard(page), "Login must succeed and dashboard must load").toBeTruthy();
     await retailMod.selectCrmDashboard();
 
