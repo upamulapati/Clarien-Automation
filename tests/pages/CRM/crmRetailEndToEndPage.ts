@@ -1,6 +1,8 @@
 import { Page, Dialog, Locator, Frame } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { AppConfig, CRM_TEST_DATA } from '../../config/crmTestData';
 import { CrmEndToEndPage } from './crmEndToEndPage';
+import { ServicePackPage } from './servicePackPage';
 
 export class CrmRetailEndToEndPage extends CrmEndToEndPage {
   private TD = CRM_TEST_DATA.retail.endToEnd;
@@ -932,6 +934,13 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
           const opts = await phoneType.locator('option').allTextContents();
           const match = opts.find((o: string) => o.includes('COMMUNICATION PHONE')) || opts.find((o: string) => o !== '--Select--' && o.trim() !== '');
           if (match) { await phoneType.selectOption({ label: match }); }
+        }
+
+        // SP#4: Verify phone/email dropdown labels are correct after selecting "Phone"
+        const spPage = new ServicePackPage(page, this.config, this.lastDialogMessages);
+        const sp4Result = await spPage.verifyPhoneEmailDropdownLabels(phonePopup);
+        if (sp4Result.phoneOrEmailValue) {
+          expect(sp4Result.labelCorrect, `SP#4: When PhoneOrEmail="${sp4Result.phoneOrEmailValue}", type options [${sp4Result.typeOptions.join(', ')}] must match`).toBe(true);
         }
 
         // Phone details

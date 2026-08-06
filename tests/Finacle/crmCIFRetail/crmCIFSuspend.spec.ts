@@ -3,6 +3,7 @@ import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from '../../co
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmSuspendPage } from '../../pages/CRM/crmSuspendPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
+import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 
 let sharedCifId = '';
 
@@ -36,6 +37,11 @@ test.describe('CIF Suspend', () => {
     expect(cifFilled, 'CIF ID must be filled in the suspend form - check that Operations > Suspend/Undo Suspension menu loaded').toBeTruthy();
     const submitClicked = await suspendPage.clickSubmit();
     expect(submitClicked, 'Submit button must be found and clicked').toBe(true);
+
+    // SP#11: CIF must appear in suspend search results after submit
+    const sp = new ServicePackPage(page, CONFIG, lastDialogMessages);
+    const suspSearchResult = await sp.verifyCifInSuspendSearchResults(page, cifId);
+    expect(suspSearchResult.found, `SP#11: CIF ${cifId} must appear in suspend search results`).toBe(true);
 
     // Step 5: Right-click CIF in Customer Search Results
     await suspendPage.rightClickCifInResults(cifId, 'cif-suspend');

@@ -1,19 +1,26 @@
 {
   "crmCIFRetail": [
-    "tests/FinacleE2E/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
-    "tests/FinacleE2E/crmCIFRetail/crmCIFSuspend.spec.ts",
-    "tests/FinacleE2E/crmCIFRetail/crmCIFUndoSuspend.spec.ts"
+    "tests/Finacle/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
+    "tests/Finacle/crmCIFRetail/crmCIFSuspend.spec.ts",
+    "tests/Finacle/crmCIFRetail/crmCIFUndoSuspend.spec.ts"
   ],
   "crmCIFCorporate": [
-    "tests/FinacleE2E/crmCIFCorporate/crmCIFCorpEndtoEnd.spec.ts",
-    "tests/FinacleE2E/crmCIFCorporate/crmCIFCorporateSuspend.spec.ts",
-    "tests/FinacleE2E/crmCIFCorporate/crmCIFCorporateUndoSuspend.spec.ts"
+    "tests/Finacle/crmCIFCorporate/crmCIFCorpEndtoEnd.spec.ts",
+    "tests/Finacle/crmCIFCorporate/crmCIFCorporateSuspend.spec.ts",
+    "tests/Finacle/crmCIFCorporate/crmCIFCorporateUndoSuspend.spec.ts"
   ],
-  "customFlowone": [
-    "tests/FinacleE2E/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
-    "",
-    "",
-    ""
-
+  "customFlow1": [
+    "tests/Finacle/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
+    "tests/Finacle/crmCIFRetail/modifycifmakerphone.spec.ts",
+    "tests/Finacle/crmCIFRetail/Retailcifmodifyverification.spec.ts",
+    "tests/Finacle/crmCIFRetail/modifycifmakeraddress.spec.ts",
+    "tests/Finacle/crmCIFRetail/Retailcifmodifyverification.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",
+    "tests/Finacle/savingsaccount/addrelatedpartydetailsforsavingsaccount.spec.ts",
+    "tests/Finacle/savingsaccount/addrelatedpartyverificationforsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts"
   ]
 }

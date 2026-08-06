@@ -3,6 +3,7 @@
 # .github
 node_modules/
 tests/basePage/
+data/shared-state.json
 reports/
 /test-results/
 /test-results-*/

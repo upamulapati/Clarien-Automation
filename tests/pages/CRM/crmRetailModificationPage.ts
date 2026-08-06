@@ -1,7 +1,9 @@
 import { Frame, Page, Locator } from '@playwright/test';
+import { expect } from '@playwright/test';
 import * as fs from 'fs';
 import { AppConfig, CRM_TEST_DATA } from '../../config/crmTestData';
 import { CrmModificationBasePage } from './crmModificationBasePage';
+import { ServicePackPage } from './servicePackPage';
 
 // =====================================================================
 // CrmRetailModificationPage — page object for the Retail CIF *modification*
@@ -446,8 +448,13 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
     }
 
     // Auto-accept the delete confirmation dialog raised on the edit window.
+    // GUARD: dismiss logout dialogs to prevent session loss mid-flow.
     editPage.on('dialog', async (d) => {
       console.log(`[addr-list dialog] ${d.message()}`);
+      if (/log\s*out|log\s*off|sign\s*out/i.test(d.message())) {
+        await d.dismiss().catch(() => {});
+        return;
+      }
       await d.accept().catch(() => {});
     });
 
@@ -544,6 +551,10 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
     const addrPage: Page = addrPopup && !addrPopup.isClosed() ? addrPopup : editPage;
     addrPage.on('dialog', async (d) => {
       console.log(`[addr dialog] ${d.message()}`);
+      if (/log\s*out|log\s*off|sign\s*out/i.test(d.message())) {
+        await d.dismiss().catch(() => {});
+        return;
+      }
       await d.accept().catch(() => {});
     });
     await addrPage.waitForLoadState('domcontentloaded').catch(() => {});
@@ -588,6 +599,15 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
       if (addrTypeSet) break;
     }
     console.log(`Address Type set = "${addrTypeSet}"`);
+
+    // SP#9: Verify address type shows correct value on expand (not stale/wrong value)
+    if (addrTypeSet) {
+      const spPage = new ServicePackPage(this.page, this.config, []);
+      const sp9Result = await spPage.verifyAddressTypeOnExpand(addrPage, addrTypeSet);
+      if (sp9Result.fieldValue) {
+        expect(sp9Result.isCorrect, `SP#9: Address type must be "${addrTypeSet}" but got "${sp9Result.fieldValue}"`).toBe(true);
+      }
+    }
 
     await setAddrField('House No.', HOUSE_NO).catch(() => {});
     await setAddrField('Street No.', STREET_NO);
@@ -992,6 +1012,11 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
     }
     const phonePage: Page = phonePopup && !phonePopup.isClosed() ? phonePopup : editPage;
     phonePage.on('dialog', async (d) => {
+      console.log(`[phone dialog] ${d.message()}`);
+      if (/log\s*out|log\s*off|sign\s*out/i.test(d.message())) {
+        await d.dismiss().catch(() => {});
+        return;
+      }
       await d.accept().catch(() => {});
     });
     await phonePage.waitForLoadState('domcontentloaded').catch(() => {});
@@ -1059,6 +1084,10 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
         submitDialog = d.message();
         if (successRe.test(d.message())) submitSuccessSeen = true;
         console.log(`[submit dialog] ${d.message()}`);
+        if (/log\s*out|log\s*off|sign\s*out/i.test(d.message())) {
+          await d.dismiss().catch(() => {});
+          return;
+        }
         await d.accept().catch(() => {});
       });
     };
