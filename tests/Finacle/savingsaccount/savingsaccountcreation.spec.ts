@@ -26,8 +26,8 @@ test.beforeEach(async ({ page }) => {
   await savingsAccountPage.selectCoreServer();
 
   // Step 3: Type menu option HOAACSB in Finacle
-  console.log('Searching for HOAACSB...');
-  await savingsAccountPage.searchMenu('HOAACSB');
+  console.log(`Searching for ${COMMON_DATA.savingsAccount.screens.create}...`);
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
 });
 
 // Test 1: Create savings account with a random scheme (hardcoded data)

@@ -1,19 +1,19 @@
 {
   "credentials": {
-    "username": "",
-    "password": ""
+    "username": "FINACLETEST05",
+    "password": "clarien@123"
   },
   "secondCredentials": {
-    "username": "",
-    "password": ""
+    "username": "FINACLETEST05",
+    "password": "clarien@123"
   },
   "thirdCredentials": {
-    "username": "",
-    "password": ""
+    "username": "FINACLETEST13",
+    "password": "clarien@123"
   },
   "verifierCredentials": {
-    "username": "",
-    "password": ""
+    "username": "FINACLETEST14",
+    "password": "clarien@123"
   },
   "baseAccountData": {
     "functionOption": "O",
@@ -54,7 +54,7 @@
   "accountVerification": [
     {
       "type": "savings",
-      "accountId": "7500001471",
+      "accountId": "7500001468",
       "testLabel": "HACM - verify savings account modification",
       "visitDocumentTab": true
     },
@@ -92,7 +92,7 @@
   "accountModification": [
     {
       "type": "savings",
-      "accountId": "7500001468",
+      "accountId": "7500001515",
       "dispatchMode": "email",
       "testLabel": "HACM - modify savings account dispatch mode"
     },
@@ -113,6 +113,159 @@
       "type": "current",
       "accountId": "4600000111",
       "testLabel": "HACM - modify current account scheme A/c status to inactive"
+    }
+  ],
+  "servicePackNominationValidation": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "0005000599",
+    "schemeCode": "SVREG",
+    "dispatchMode": "email",
+    "testLabel": "HOAACSB - create savings account with Nomination Flag YES and Successive nomination type"
+  },
+  "topUpDepositModification": {
+    "accountId": "9300000123",
+    "newDepositPeriodMonths": "24",
+    "newDepositPeriodDays": "0",
+    "testLabel": "HOAACMTU - modify top-up deposit account"
+  },
+  "topUpDepositRelatedParty": {
+    "accountId": "9200000632",
+    "relationType": "Joint Holder",
+    "relationCode": "999",
+    "relatedPartyCifCode": "4100058365",
+    "testLabel": "HOAACMTU - add related party details to top-up deposit account"
+  },
+  "termDepositRelatedParty": {
+    "accountId": "9200000618",
+    "relationType": "Joint Holder",
+    "relationCode": "999",
+    "relatedPartyCifCode": "4100058390",
+    "testLabel": "HOAACMTD - add related party details to term deposit account"
+  },
+  "termDeposit": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "0001001423",
+    "glSubHeadCode": "40300",
+    "depositAmount": "1000",
+    "depositPeriodMonths": "12",
+    "repaymentAccountId": "7710003367",
+    "operativeSbAccount": "",
+    "modeOfOperation": "016",
+    "dispatchMode": "post",
+    "schemeCodes": [
+      "TDGNH", "TDGNM", "TDGNQ", "TDGNY", "TDGNZ",
+      "TDGPI", "TDPPI", "TDPRH", "TDPRM", "TDPRQ",
+      "TDPRY", "TDPRZ", "TDSPI", "TDSWH", "TDSWM",
+      "TDSWQ", "TDSWZ"
+    ],
+    "depositAmountOverrides": {
+      "TDSPI": "10",
+      "TDSWH": "10",
+      "TDSWM": "10",
+      "TDSWQ": "10",
+      "TDSWZ": "10"
+    },
+    "modificationAccountId": "9200000614",
+    "verificationAccountId": "9200000634",
+    "testLabel": "HOAACTD - create term deposit accounts for all schemes",
+    "partialClosure": {
+      "screenCode": "HCAACTD",
+      "functionOption": "Z-close",
+      "withdrawalAmount": "500",
+      "verification": {
+        "screenCode": "HCAACVTD",
+        "functionOption": "V-Verify"
+      }
+    },
+    "creditFrozenClosure": {
+      "accountId": "9200000641"
+    },
+    "screens": {
+      "create": "HOAACTD",
+      "modify": "HOAACMTD",
+      "verify": "HOAACVTD",
+      "inquiry": "HACMTD",
+      "partialClosure": "HCAACTD",
+      "partialClosureVerify": "HCAACVTD"
+    }
+  },
+  "topUpDeposit": {
+    "functionOption": "O",
+    "ccy": "BMD",
+    "solId": "100",
+    "cifCode": "4100058365",
+    "schemeCode": "SVRPL",
+    "schemeCodes": ["ACCCO", "ACCPL", "SVRCO", "SVRPL"],
+    "schemeCodesBatch1": ["ACCCO", "ACCPL"],
+    "schemeCodesBatch2": ["SVRCO", "SVRPL"],
+    "generalLedgerSubheadCode": "40300",
+    "initialDepositAmt": "1000",
+    "instalmentAmt": "500",
+    "depositPeriodMonths": "12",
+    "repaymentAcctId": "7500001511",
+    "nomination": "N",
+    "modeOfOperation": "016",
+    "statementFrequency": "Yearly",
+    "statementWeek": "Week",
+    "statementDay": "31",
+    "statementNextDay": "Next Day",
+    "dispatchMode": "Email Only",
+    "testLabel": "HOAACTU - create top-up deposit account",
+    "screens": {
+      "create": "HOAACTU",
+      "modify": "HOAACMTU",
+      "verify": "HOAACVTU",
+      "partialClosure": "HCAACTD",
+      "partialClosureVerify": "HCAACVTD",
+      "prematureClosure": "HCAACTD",
+      "prematureClosureVerify": "HCAACVTD"
+    }
+  },
+  "savingsAccount": {
+    "screens": {
+      "create": "HOAACSB",
+      "modify": "HOAACMSB",
+      "modifyAndVerify": "HACM",
+      "freeze": "HAFSM"
+    }
+  },
+  "currentAccount": {
+    "screens": {
+      "create": "HOAACCA",
+      "verify": "HOAACVCA",
+      "modifyAndVerify": "HACM",
+      "freeze": "HAFSM"
+    }
+  },
+  "retailLoans": {
+    "screens": {
+      "create": "HOAACLA",
+      "modifyAndVerify": "HACMLA",
+      "verify": "HOAACVLA"
+    }
+  },
+  "collateralLodgement": {
+    "screens": {
+      "maintenance": "HCLM",
+      "linkage": "HSCLM"
+    }
+  },
+  "servicePackValidation": [
+    {
+      "type": "savings",
+      "accountId": "7500001515",
+      "dispatchMode": "no dispatch",
+      "testLabel": "HACM - validate calendar icon on Others tab when Payment system statements is YES"
+    },
+    {
+      "type": "savings",
+      "accountId": "7500001515",
+      "dispatchMode": "email",
+      "testLabel": "HACM - validate email type requirement when CIF has no email"
     }
   ]
 }

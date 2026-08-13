@@ -65,3 +65,25 @@ export function getVerificationConfig(overrides?: Partial<AppConfig>): AppConfig
     ...overrides
   };
 }
+
+// Maker config — used by the CIF modification maker specs (edits an existing CIF).
+export function getMakerConfig(overrides?: Partial<AppConfig>): AppConfig {
+  return {
+    baseUrl: crmTestData.common.baseUrl,
+    username: crmTestData.common.credentials.maker.username,
+    password: crmTestData.common.credentials.maker.password,
+    timeouts: crmTestData.common.timeouts as TimeoutConfig,
+    ...overrides
+  };
+}
+
+// Checker config — used by the CIF modification verification (checker) specs.
+export function getCheckerConfig(overrides?: Partial<AppConfig>): AppConfig {
+  return {
+    baseUrl: crmTestData.common.baseUrl,
+    username: crmTestData.common.credentials.checker.username,
+    password: crmTestData.common.credentials.checker.password,
+    timeouts: crmTestData.common.timeouts as TimeoutConfig,
+    ...overrides
+  };
+}

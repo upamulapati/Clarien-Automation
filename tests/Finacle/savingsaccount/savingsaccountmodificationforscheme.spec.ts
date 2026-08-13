@@ -26,7 +26,7 @@ for (const acct of COMMON_DATA.schemeModification) {
       await accountPage.selectCoreServer();
 
       console.log('Searching for HACM...');
-      await accountPage.searchMenu('HACM');
+      await accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
       await page.waitForTimeout(3000);
 
       console.log('Selecting Modify function...');

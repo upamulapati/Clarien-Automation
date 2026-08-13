@@ -12,7 +12,7 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Current account opening (HOAACCA) menu option.
-const CURRENT_ACCOUNT_MENU = 'HOAACCA';
+const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
 // Current account scheme code under test. A single account is created so the
 // run stops once an A/c ID is generated (no looping over every scheme).

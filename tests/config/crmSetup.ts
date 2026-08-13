@@ -49,7 +49,12 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
     const msg = d.message();
     lastDialogMessages?.push(msg);
     console.log(`Dialog message: ${msg.substring(0, 150)}`);
-    await d.accept().catch(() => {});
+    // Dismiss logout/leave confirmations so the page is not closed mid-test.
+    if (d.type() === 'beforeunload' || /log\s*out|logoff|are you sure/i.test(msg)) {
+      await d.dismiss().catch(() => {});
+    } else {
+      await d.accept().catch(() => {});
+    }
   });
 
   page.on('popup', async popup => {
@@ -62,7 +67,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
         const msg = dialog.message();
         console.log(`Popup dialog: "${msg}"`);
         lastDialogMessages?.push(msg);
-        await dialog.accept().catch(() => {});
+        if (dialog.type() === 'beforeunload' || /log\s*out|logoff|are you sure/i.test(msg)) {
+          await dialog.dismiss().catch(() => {});
+        } else {
+          await dialog.accept().catch(() => {});
+        }
       });
     } catch (_) {}
   });

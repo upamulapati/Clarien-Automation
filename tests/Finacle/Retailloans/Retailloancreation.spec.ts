@@ -17,7 +17,7 @@ const CIF_ID = '0005000599';
 
 // NOTE: Set this to a valid retail-loan scheme code. If left blank, the scheme
 // search popup will fall back to selecting the first available scheme.
-const LOAN_SCHEME_CODE = 'LNCOV';
+const LOAN_SCHEME_CODE = 'LNCCS';
 
 // Operative (repayment) SB account number used on the Loan details tab. This is
 // the savings account under CIF 0005000599 used across the savings specs.
@@ -59,7 +59,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
 
   // Step 2: Type menu option "HOAACLA" in finacle
   console.log('Searching for HOAACLA...');
-  await loanPage.searchMenu('HOAACLA');
+  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.create);
   await page.waitForTimeout(3000);
 
   // Step 3: Function Open, Currency BMD, Sol id 100, CIF Id + scheme code, Go

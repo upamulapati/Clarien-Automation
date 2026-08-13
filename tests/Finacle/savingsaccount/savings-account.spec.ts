@@ -30,7 +30,7 @@ test.beforeEach(async ({ page }) => {
 
   // Type menu option HOAACSB in Finacle
   console.log('Searching for HOAACSB...');
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
 });
 
 // Test 1: Hardcoded - random scheme selection
@@ -64,7 +64,7 @@ for (const testCase of TEST_DATA as any[]) {
   test(`save savings bank account - data driven ${testLabel}`, async ({ page }) => {
     // Re-navigate to HOAACSB for each test
     await savingsAccountPage.selectCoreServer();
-    await savingsAccountPage.searchMenu('HOAACSB');
+    await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
     
     await savingsAccountPage.createSavingsAccount({
       ...BASE_ACCOUNT_DATA,
@@ -136,7 +136,7 @@ test('SB verification', async ({ page }) => {
   // Step 1-5: Create account and capture ID
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
@@ -203,7 +203,7 @@ test('HACI enquiry', async ({ page }) => {
   // Step 1: Create Account
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
@@ -248,7 +248,7 @@ test('HTM transaction management', async ({ page }) => {
   // Step 1: Create Account
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
@@ -312,7 +312,7 @@ test('HTM transaction management with HACLINQ', async ({ page }) => {
   // Step 1: Create Account
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
