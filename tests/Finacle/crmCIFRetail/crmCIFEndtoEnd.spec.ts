@@ -4,6 +4,8 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { saveCreatedCif } from '../../config/cifStore';
 import { CrmRetailEndToEndPage } from '../../pages/CRM/crmRetailEndToEndPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
+import { writeSharedState } from '../../helpers/sharedState';
+import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 
 // Shared variable to pass CIF ID from creation test to approval test
 let sharedCifId = '';
@@ -24,6 +26,7 @@ test.describe('Simple CIF Creation', () => {
 
   test('Complete CIF Creation Flow', async ({ page }) => {
     const retailPage = new CrmRetailEndToEndPage(page, CONFIG, lastDialogMessages);
+    const sp = new ServicePackPage(page, CONFIG, lastDialogMessages);
 
     // Step 1: Select CRM solution
     await retailPage.selectCrm();
@@ -40,11 +43,23 @@ test.describe('Simple CIF Creation', () => {
     // Step 5: Fill Basic Info (General Tab)
     await retailPage.fillBasicInfo();
 
+    // SP#6: Minor Details must remain visible after DOB focus
+    const minorResult = await sp.verifyMinorDetailsAfterDobFocus(page);
+    if (minorResult.dobFieldExists) {
+      expect(minorResult.minorFieldVisible, 'SP#6: CustomerMinor field must stay visible after DOB focus').toBe(true);
+    }
+
     // Step 6: Fill Currency Sub-Tab (within General)
     await retailPage.fillCurrencySubTab();
 
     // Step 7: Fill Contact Tab (Address, Phone, Email)
     await retailPage.fillContactTab();
+
+    // SP#5: Address fields must not contain "undefined"
+    const addrResult = await sp.verifyAddressFieldsNotUndefined(page);
+    if (addrResult.checked) {
+      expect(addrResult.undefinedFields.length, 'SP#5: No address fields should contain undefined').toBe(0);
+    }
 
     // Step 8: Fill ID Document Tab
     await retailPage.fillIdDocumentTab();
@@ -52,11 +67,33 @@ test.describe('Simple CIF Creation', () => {
     // Step 9: Fill Currency Tab
     await retailPage.fillCurrencyTab();
 
+    // SP#1: CCY auto-populate must not produce "undefined"
+    const ccyResult = await sp.verifyCurrencyAutoPopulate(page);
+    if (ccyResult.ccyCodeValue) {
+      expect(ccyResult.ccyDisplayValue, 'SP#1: CCY display must not be undefined').not.toBe('undefined');
+    }
+
     // Step 10: Fill Demographic Tab
     await retailPage.fillDemographicTab();
 
+    // SP#3: Nationality must display descriptive text
+    const natResult = await sp.verifyNationalityDisplayFormat(page);
+    if (natResult.codeValue) {
+      expect(natResult.hasDisplayText, 'SP#3: Nationality display must be descriptive text').toBe(true);
+    }
+
+    // SP#8: Employee Type must retain value after save
+    const empResult = await sp.verifyEmployeeNameSaved(page);
+    if (empResult.employeeTypeField) {
+      expect(empResult.isSaved, 'SP#8: Employee Type must be saved').toBe(true);
+    }
+
     // Step 11: Pre-submit verification
     await retailPage.preSubmitVerification();
+
+    // SP#2: Submit/Save icons must be functional
+    const iconResult = await sp.verifyIconsFunctional(page);
+    expect(iconResult.submitVisible, 'SP#2: Submit button must be visible').toBe(true);
 
     // Step 12: Submit form
     await retailPage.submitForm();
@@ -64,8 +101,11 @@ test.describe('Simple CIF Creation', () => {
     // Step 13: Handle Process Selection popup
     await retailPage.handleProcessSelection();
 
-    // Store CIF ID for approval test
+    // Store CIF ID for approval test and for downstream specs
     sharedCifId = retailPage.cifId;
+    if (sharedCifId) {
+      writeSharedState({ cifId: sharedCifId });
+    }
 
     // Persist the freshly-created CIF ID so the retail modification specs
     // (separate spec files) can modify this same CIF instead of a hardcoded one.
@@ -107,6 +147,8 @@ test.describe('CIF Approval Verification', () => {
 
   test('Approve CIF via Entity Queue', async ({ page }) => {
     const verificationPage = new CrmVerificationPage(page, VERIFY_CONFIG, lastDialogMessages);
+    const sp = new ServicePackPage(page, VERIFY_CONFIG, lastDialogMessages);
+
     await verificationPage.performVerification({
       cifId: sharedCifId || '',
       screenId: CRM_TEST_DATA.retail.screenId,
@@ -121,5 +163,16 @@ test.describe('CIF Approval Verification', () => {
       summaryTitle: 'CIF Approval Verification',
       sectionLabel: 'CIF Retail'
     });
+
+    // SP#14: Entity Queue Assign page must load properly after Get
+    const eqResult = await sp.verifyEntityQueueAssignPageLoad(page);
+    expect(eqResult.pageLoaded, 'SP#14: Entity Queue Assign page must load after Get').toBe(true);
+
+    // SP#7: Document expand during verification must not produce JS errors
+    const docExpandResult = await sp.verifyDocumentExpandDuringVerification(page);
+    if (docExpandResult.expanded) {
+      expect(docExpandResult.isPrefDefined, 'SP#7: isPref must not be undefined during doc expand').toBe(true);
+    }
+
   });
 });

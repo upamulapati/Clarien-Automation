@@ -15,7 +15,7 @@ const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
 const DEBIT_ACCOUNT = '7010003820';   // account to be debited
-const CREDIT_ACCOUNT = '9200000593';  // SB/CA account to be credited
+const CREDIT_ACCOUNT = '4600000119';  // SB/CA account to be credited
 const AMOUNT = '1000';
 
 let homePage: HomePage;

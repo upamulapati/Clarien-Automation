@@ -1,14 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { getMakerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
-import { getCreatedCif } from "../../config/cifStore";
+import { getPrimaryConfig, CRM_TEST_DATA } from "../../config/crmTestData";
+import { getSharedValue } from "../../helpers/sharedState";
 import { CrmRetailModificationPage } from "../../pages/CRM/crmRetailModificationPage";
+import { ServicePackPage } from "../../pages/CRM/servicePackPage";
 
 // CIF Modification Maker — Address (Page Object Model).
 // Deletes the Mailing address and adds a new address on the CIF created +
 // persisted by the retail E2E flow (falls back to the hardcoded CIF with a log).
-const MAKER = getMakerConfig();
+const CONFIG = getPrimaryConfig();
 const MOD = CRM_TEST_DATA.retail.modification;
-const CIF_ID = getCreatedCif("retail", MOD.fallbackCifId);
+const SHARED_CIF = getSharedValue('cifId');
+const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 test.describe("CIF Modification Maker - Address", () => {
   let retailMod: CrmRetailModificationPage;
@@ -19,20 +22,32 @@ test.describe("CIF Modification Maker - Address", () => {
 
   test("TC_009 - Delete Mailing address and add a new address", async ({ page }) => {
     test.setTimeout(900000);
-    retailMod = new CrmRetailModificationPage(page, MAKER);
+    retailMod = new CrmRetailModificationPage(page, CONFIG);
 
-    // Login (maker) + switch to CRM
-    await retailMod.login(MAKER.username, MAKER.password);
+    // Login + switch to CRM
+    await retailMod.login(CONFIG.username, CONFIG.password);
     expect(await retailMod.waitForDashboard(page), "Login must succeed and dashboard must load").toBeTruthy();
     await retailMod.selectCrmDashboard();
 
     // CIF Retail > Edit Entity, search the CIF
+    const sp = new ServicePackPage(page, CONFIG, []);
     await retailMod.navigateToEditEntity();
+
+    // SP#13: Edit Entity search form must load
+    const editFlowResult = await sp.verifyRetailEditEntityFlow(page, '');
+    expect(editFlowResult.searchFormLoaded, 'SP#13: Edit Entity search form must load').toBe(true);
+
     const resultFrame = await retailMod.searchCif(CIF_ID);
     await expect(resultFrame.getByText(new RegExp(CIF_ID)).first()).toBeVisible({ timeout: 10000 });
 
     // Open General Details edit window
     await retailMod.openGeneralDetailsEdit(CIF_ID);
+
+    // SP#5: Address fields must not contain "undefined" during edit
+    const addrUndef = await sp.verifyAddressFieldsNotUndefined(page);
+    if (addrUndef.checked) {
+      expect(addrUndef.undefinedFields.length, 'SP#5: No address fields should contain undefined').toBe(0);
+    }
 
     // TC_009: Delete the Mailing address + add a new address
     const addr = await retailMod.deleteMailingAndAddAddress();

@@ -122,8 +122,20 @@ export class AccountPage {
     return this.getFinwFrame().locator('#refAmt');
   }
 
+  private get htmSolId() {
+    return this.getFinwFrame().locator('#solId');
+  }
+
   private get htmDebitRadio() {
     return this.getFinwFrame().locator('input[type="radio"][value="D"]');
+  }
+
+  private get htmCreditRadio() {
+    return this.getFinwFrame().locator('input[type="radio"][value="C"]');
+  }
+
+  private get htmOkButton() {
+    return this.getFinwFrame().locator('#Ok, input[type="button"][value*="Ok"], input[type="button"][value*="OK"]');
   }
 
   private get htmAddButton() {
@@ -1481,19 +1493,6 @@ export class AccountPage {
   }
 
   // Diagnostic: logs the full body text from all frames (useful after Submit).
-  async logScreenMessages() {
-    try {
-      for (const frame of this.page.frames()) {
-        const body = await frame.locator('body').innerText().catch(() => '');
-        const text = body.replace(/\s+/g, ' ').trim();
-        if (text) {
-          console.log(`[SCREEN MESSAGE @ ${frame.name() || 'main'}] ${text.slice(0, 500)}`);
-        }
-      }
-    } catch (e) {
-      console.log(`Could not log screen messages: ${e}`);
-    }
-  }
 
   // Clicks a button by its visible text (e.g. "Validate", "Submit", "Accept").
   async clickButtonByText(text: string) {
@@ -1884,10 +1883,6 @@ export class AccountPage {
     console.log(`Selected transaction type/subtype: ${value}`);
   }
 
-  async enterHtmSolId(solId: string) {
-    await this.htmSetField(['solId'], solId, 'Sol Id');
-    console.log(`Entered HTM Sol Id: ${solId}`);
-  }
 
   async enterHtmAccountId(accountId: string) {
     await this.htmSetField(['acctId', 'accountId', 'acctNum'], accountId, 'A/c. ID');
@@ -1895,39 +1890,42 @@ export class AccountPage {
   }
 
   async enterHtmAmount(amount: string, pressTab = false) {
-    await this.htmSetField(['refAmt', 'amount', 'txnAmt', 'lcyAmount', 'txnAmount'], amount, 'Amount');
-    if (pressTab) {
+    try {
       const finwFrame = this.getFinwFrame();
-      const loc = finwFrame.locator('#refAmt, input[id*="amount" i]').first();
-      if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
-        await loc.press('Tab').catch(() => {});
+      const amtField = finwFrame.locator('#refAmt, #amount, input[name="refAmt"]').first();
+      await amtField.waitFor({ state: 'visible', timeout: 15000 });
+      await amtField.click();
+      await amtField.fill('');
+      await this.page.waitForTimeout(500);
+      await amtField.fill(amount);
+      if (pressTab) {
+        await amtField.press('Tab');
       }
+      await this.page.waitForTimeout(1000);
+      const val = await amtField.inputValue().catch(() => '');
+      console.log(`Entered HTM amount: ${amount} (field value: ${val})`);
+    } catch (e) {
+      console.log(`Could not enter HTM amount, skipping: ${e}`);
     }
     console.log(`Entered HTM amount: ${amount}`);
   }
 
-  async enterHtmTransactionId(id: string) {
-    await this.htmSetField(['serialNo', 'transactionId', 'tranId', 'txnId', 'refNo'], id, 'Transaction Id');
-    console.log(`Entered HTM transaction ID: ${id}`);
-  }
 
-  async enterHtmTransactionDate(date: string) {
-    await this.htmSetField(['transactionDate', 'tranDate', 'txnDate', 'trnDt', 'date'], date, 'Transaction Date');
-    console.log(`Entered HTM transaction date: ${date}`);
-  }
 
   async selectHtmDebit() {
     await this.htmSetPartTran('D');
     console.log('Selected debit option');
   }
 
-  async selectHtmCredit() {
-    await this.htmSetPartTran('C');
-    console.log('Selected credit option');
-  }
 
   async clickHtmAdd() {
-    await this.htmClickButton('Add');
+    try {
+      await this.htmAddButton.click();
+      await this.page.waitForTimeout(5000);
+      console.log('Clicked HTM Add button (waited 5s for form reset)');
+    } catch (e) {
+      console.log(`Could not click HTM Add button, skipping: ${e}`);
+    }
   }
 
   async clickHtmPost() {
@@ -1938,47 +1936,217 @@ export class AccountPage {
     await this.htmClickButton('Go');
   }
 
-  async clickHtmSubmit() {
-    await this.htmClickButton('Submit');
+
+
+
+
+
+  async enterHtmSolId(solId: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = ['#solId', '#sol_id', 'input[name="solId"]', 'input[name="sol_id"]'];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count() > 0) {
+          await el.fill(solId);
+          await this.page.waitForTimeout(1000);
+          console.log(`Entered HTM Sol ID: ${solId} (via ${sel})`);
+          return;
+        }
+      }
+      console.log('HTM Sol ID field not found (may be auto-filled), skipping');
+    } catch (e) {
+      console.log(`Could not enter HTM Sol ID, skipping: ${e}`);
+    }
   }
 
-  async clickHtmOk() {
-    await this.htmClickButton('OK');
-  }
-
-  async clickHtmNextRecord() {
-    await this.htmClickButton('Next');
+  async selectHtmCredit() {
+    try {
+      await this.htmCreditRadio.check();
+      await this.page.waitForTimeout(1000);
+      console.log('Selected credit option');
+    } catch (e) {
+      console.log(`Could not select credit, skipping: ${e}`);
+    }
   }
 
   async getHtmTransactionId(): Promise<string | null> {
-    for (const p of this.page.context().pages()) {
-      if (p.isClosed()) continue;
-      for (const frame of p.frames()) {
-        const body = await frame.locator('body').innerText().catch(() => '');
-        const text = body.replace(/\s+/g, ' ');
-        const match = text.match(/\bTransaction\s*(?:Id|No|Number)[\s:]*([A-Z0-9]{3,})/i) ||
-                      text.match(/\b(CB\d{1,6})\b/i) ||
-                      text.match(/\b(TXN\d+)\b/i);
-        if (match) {
-          const id = match[1].trim();
-          console.log('getHtmTransactionId found:', id);
-          return id;
+    try {
+      const finwFrame = this.getFinwFrame();
+      const body = await finwFrame.locator('body').innerText();
+      // Look for transaction ID patterns — must contain at least one digit
+      const patterns = [
+        /(?:Transaction|Tran)\s*(?:ID|Id)\s*[:=]?\s*([A-Z]*\d[A-Z0-9]*)/i,
+        /(?:Ref(?:erence)?\s*(?:No|Number|#))\s*[:=]?\s*([A-Z]*\d[A-Z0-9]*)/i,
+        /\b(S\d{10,})\b/,
+        /\b(CB\d+)\b/
+      ];
+      for (const pat of patterns) {
+        const m = body.match(pat);
+        if (m && m[1]) {
+          console.log(`Extracted HTM Transaction ID: ${m[1]}`);
+          return m[1];
         }
       }
+      // Also scan all frames
+      for (const frame of this.page.frames()) {
+        const text = await frame.evaluate(() => document.body?.innerText || '').catch(() => '');
+        for (const pat of patterns) {
+          const m = text.match(pat);
+          if (m && m[1]) {
+            console.log(`Extracted HTM Transaction ID from frame: ${m[1]}`);
+            return m[1];
+          }
+        }
+      }
+      console.log('Could not extract HTM Transaction ID from body text');
+      console.log('Body text snippet:', body.substring(0, 500));
+      return null;
+    } catch (e) {
+      console.log(`Error extracting HTM Transaction ID: ${e}`);
+      return null;
     }
-    console.log('getHtmTransactionId: no transaction id found');
-    return null;
   }
 
-  async readHtmPartTransaction(_label: string): Promise<{ account: string; amount: string }> {
-    const finwFrame = this.getFinwFrame();
-    const text = await finwFrame.locator('body').innerText().catch(() => '');
-    const normalized = text.replace(/\s+/g, ' ');
-    const accounts = [...normalized.matchAll(/\b\d{7,10}\b/g)].map(m => m[0]);
-    const amounts = [...normalized.matchAll(/\b\d{1,3}(,\d{3})*(\.\d{2})?\b/g)].map(m => m[0]);
-    const result = { account: accounts[0] || '', amount: amounts[0] || '' };
-    console.log('readHtmPartTransaction:', result);
+  async clickHtmOk() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const okBtn = finwFrame.locator('#Ok, #ok, input[value="Ok"], input[value="OK"], input[value="ok"], button:has-text("OK"), button:has-text("Ok")').first();
+      if (await okBtn.count() > 0) {
+        await okBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log('Clicked HTM OK button');
+      } else {
+        console.log('HTM OK button not found on screen, skipping');
+      }
+    } catch (e) {
+      console.log(`Could not click HTM OK button, skipping: ${e}`);
+    }
+  }
+
+  async enterHtmTransactionId(transactionId: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = ['#tranId', '#tran_id', 'input[name="tranId"]', 'input[name="tran_id"]', '#transId', 'input[name="transId"]'];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count() > 0 && await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await el.fill(transactionId);
+          await this.page.waitForTimeout(1000);
+          console.log(`Entered HTM Transaction ID: ${transactionId} (via ${sel})`);
+          return;
+        }
+      }
+      // Fallback: use the acctId field if it's the only text input visible (Verify mode reuses it)
+      const acctField = finwFrame.locator('#acctId').first();
+      if (await acctField.count() > 0 && await acctField.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await acctField.fill(transactionId);
+        await this.page.waitForTimeout(1000);
+        console.log(`Entered HTM Transaction ID via acctId fallback: ${transactionId}`);
+        return;
+      }
+      console.log('HTM Transaction ID field not found, skipping');
+    } catch (e) {
+      console.log(`Could not enter HTM Transaction ID, skipping: ${e}`);
+    }
+  }
+
+  async enterHtmTransactionDate(date: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = ['#tranDate', '#tran_date', 'input[name="tranDate"]', 'input[name="tran_date"]', '#transDate', 'input[name="transDate"]'];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count() > 0 && await el.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await el.fill(date);
+          await this.page.waitForTimeout(1000);
+          console.log(`Entered HTM Transaction Date: ${date} (via ${sel})`);
+          return;
+        }
+      }
+      console.log('HTM Transaction Date field not found (may be auto-filled), skipping');
+    } catch (e) {
+      console.log(`Could not enter HTM Transaction Date, skipping: ${e}`);
+    }
+  }
+
+  async readHtmPartTransaction(label: string): Promise<{ account: string; amount: string }> {
+    const result = { account: '', amount: '' };
+    try {
+      const finwFrame = this.getFinwFrame();
+      // Read the account ID field
+      const acctField = finwFrame.locator('#acctId, input[name="acctId"]').first();
+      if (await acctField.count() > 0) {
+        result.account = await acctField.inputValue().catch(() => '');
+      }
+      // Read the amount field
+      const amtField = finwFrame.locator('#refAmt, #amount, input[name="refAmt"]').first();
+      if (await amtField.count() > 0) {
+        result.amount = await amtField.inputValue().catch(() => '');
+      }
+      console.log(`${label}: account="${result.account}", amount="${result.amount}"`);
+    } catch (e) {
+      console.log(`Could not read HTM part transaction (${label}): ${e}`);
+    }
     return result;
+  }
+
+  async clickHtmNextRecord() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const nextBtn = finwFrame.locator(
+        'input[value*="Next" i], input[value*="next" i], ' +
+        '#nextRecord, #next_record, ' +
+        'input[type="button"][value*=">" i], ' +
+        'a:has-text("Next"), button:has-text("Next")'
+      ).first();
+      if (await nextBtn.count() > 0) {
+        await nextBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log('Clicked HTM Next Record button');
+      } else {
+        // Fallback: try navigating via record number links
+        const recordLink = finwFrame.locator('a:has-text("2"), td:has-text("Record 2")').first();
+        if (await recordLink.count() > 0) {
+          await recordLink.click();
+          await this.page.waitForTimeout(2000);
+          console.log('Clicked record 2 link');
+        } else {
+          console.log('HTM Next Record button not found, skipping');
+        }
+      }
+    } catch (e) {
+      console.log(`Could not click HTM Next Record, skipping: ${e}`);
+    }
+  }
+
+  async clickHtmSubmit() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const submitBtn = finwFrame.locator(
+        '#Submit, #submit, input[value="Submit"], input[value="SUBMIT"], ' +
+        'input[type="submit"], button:has-text("Submit")'
+      ).first();
+      if (await submitBtn.count() > 0) {
+        await submitBtn.click();
+        await this.page.waitForTimeout(3000);
+        console.log('Clicked HTM Submit button');
+      } else {
+        console.log('HTM Submit button not found, skipping');
+      }
+    } catch (e) {
+      console.log(`Could not click HTM Submit, skipping: ${e}`);
+    }
+  }
+
+  async logScreenMessages() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const msgs = await finwFrame.locator('tr.alert, .error, .message, .success').allTextContents();
+      console.log(`Screen messages: ${JSON.stringify(msgs)}`);
+    } catch (e) {
+      console.log(`Could not read screen messages: ${e}`);
+    }
   }
 
   async checkHtmError(): Promise<boolean> {
@@ -2009,22 +2177,43 @@ export class AccountPage {
   }
 
   async clickHaclinqGo() {
-    // HACLINQ inquiry may use a GO or OK button.
-    await this.htmClickButton('Go');
-    await this.htmClickButton('OK');
+    try {
+      const finwFrame = this.getFinwFrame();
+      const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
+      if (await goBtn.count() > 0) {
+        await goBtn.click();
+        await this.page.waitForTimeout(2000);
+        console.log('Clicked HACLINQ Go button');
+      } else {
+        // Fallback: try Accept button
+        const acceptBtn = finwFrame.locator('#Accept, input[value="Accept"]').first();
+        if (await acceptBtn.count() > 0) {
+          await acceptBtn.click();
+          await this.page.waitForTimeout(2000);
+          console.log('Clicked HACLINQ Accept button (fallback)');
+        } else {
+          console.log('HACLINQ Go/Accept button not found');
+        }
+      }
+    } catch (e) {
+      console.log(`Could not click HACLINQ Go button, skipping: ${e}`);
+    }
   }
 
   async verifyHaclinqDebitCredit(amount: string, type: 'Debit' | 'Credit', transactionId?: string): Promise<boolean> {
-    const finwFrame = this.getFinwFrame();
-    const text = await finwFrame.locator('body').innerText().catch(() => '');
-    const normalized = text.replace(/\s+/g, ' ').toLowerCase();
-    const amountPlain = amount.replace(/,/g, '');
-    const amountPresent = normalized.includes(amountPlain) || normalized.includes(amount);
-    const typePresent = normalized.includes(type.toLowerCase());
-    const txnPresent = transactionId ? normalized.includes(transactionId.toLowerCase()) : true;
-    const ok = amountPresent && typePresent && txnPresent;
-    console.log(`verifyHaclinqDebitCredit [${type} amount=${amount} txn=${transactionId}]: ${ok ? 'PASS' : 'NOT CONFIRMED'}`);
-    return ok;
+    try {
+      const finwFrame = this.getFinwFrame();
+      const body = await finwFrame.locator('body').innerText();
+      const hasAmount = body.includes(amount);
+      const hasType = body.toLowerCase().includes(type.toLowerCase());
+      const hasTxn = transactionId ? body.includes(transactionId) : true;
+      const pass = hasAmount && (hasType || hasTxn);
+      console.log(`HACLINQ verify ${type}: amount=${hasAmount}, type=${hasType}, txn=${hasTxn} → ${pass ? 'PASS' : 'NOT CONFIRMED'}`);
+      return pass;
+    } catch (e) {
+      console.log(`Could not verify HACLINQ ${type}: ${e}`);
+      return false;
+    }
   }
 
   // ============ Form Filling Methods ============

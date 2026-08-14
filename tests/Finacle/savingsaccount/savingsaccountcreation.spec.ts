@@ -1,55 +1,58 @@
 import { test } from '@playwright/test';
+import { getPrimaryConfig } from '../../config/crmTestData';
+import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
-import { CREDENTIALS } from '../../../data/credentials';
+import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 
-// Savings account creation (HOAACSB) is performed by the maker user. This spec
-// contains ONLY account creation - verification lives in
-// savingsaccountverification.spec.ts.
-const USERNAME = CREDENTIALS.credentials.username;
-const PASSWORD = CREDENTIALS.credentials.password;
+// Use CIF ID from shared state (written by CRM E2E) if available,
+// otherwise fall back to the hardcoded value in common-data.json.
+const SHARED_CIF = getSharedValue('cifId');
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
+
+const CONFIG = getPrimaryConfig();
+
 //tags:- end2end,regression,sanity
-let homePage: HomePage;
-let savingsAccountPage: AccountPage;
+test.describe('Savings Account Creation', () => {
+  test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(120000);
+  let lastDialogMessages: string[] = [];
+  let homePage: HomePage;
+  let savingsAccountPage: AccountPage;
 
-  // Step 1: Login with the maker credentials
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new AccountPage(page);
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(900000);
+    setupDialogHandlers(page, lastDialogMessages);
+    await login(page, CONFIG);
 
-  // Step 2: Select Core Server from the solution drop down
-  console.log('Selecting Core Server...');
-  await savingsAccountPage.selectCoreServer();
+    homePage = new HomePage(page);
+    savingsAccountPage = new AccountPage(page);
 
-  // Step 3: Type menu option HOAACSB in Finacle
-  console.log(`Searching for ${COMMON_DATA.savingsAccount.screens.create}...`);
-  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
-});
+    // Select Core Server from the solution drop down
+    console.log('Selecting Core Server...');
+    await savingsAccountPage.selectCoreServer();
 
-// Test 1: Create savings account with a random scheme (hardcoded data)
-test('create savings account - random scheme', async () => {
-  console.log('Creating savings account with random scheme (hardcoded)...');
-  await savingsAccountPage.createSavingsAccount({ ...COMMON_DATA.hardcodedRandomData });
+    // Navigate to HOAACSB (savings account creation screen)
+    console.log('Searching for HOAACSB...');
+    await savingsAccountPage.searchMenu('HOAACSB');
+  });
 
-  const result = await savingsAccountPage.verifyAccountCreated();
-  console.log('Account created:', result.message);
-  console.log('Captured Account ID:', result.accountNumber);
+  test('create savings account - SVREG scheme', async () => {
+    const accountData = { ...COMMON_DATA.svregTestData };
+    if (SHARED_CIF) accountData.cifCode = SHARED_CIF;
+    console.log(`Creating savings account SVREG (CIF: ${accountData.cifCode})...`);
+    await savingsAccountPage.createSavingsAccount(accountData);
 
-  await homePage.logout();
-});
+    const result = await savingsAccountPage.verifyAccountCreated();
+    console.log('Account created:', result.message);
+    console.log('Captured Account ID:', result.accountNumber);
 
-// Test 2: Create savings account with the SVREG scheme (hardcoded data)
-test('create savings account - SVREG scheme', async () => {
-  console.log('Creating savings account with SVREG scheme (hardcoded)...');
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+    // Persist the generated Account ID for downstream verification specs
+    if (result.accountNumber) {
+      writeSharedState({ accountId: result.accountNumber });
+    }
 
-  const result = await savingsAccountPage.verifyAccountCreated();
-  console.log('Account created:', result.message);
-  console.log('Captured Account ID:', result.accountNumber);
-
-  await homePage.logout();
+    await homePage.logout();
+  });
 });

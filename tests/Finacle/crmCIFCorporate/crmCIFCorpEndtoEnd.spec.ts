@@ -3,6 +3,7 @@ import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from '../../co
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmCorporateEndToEndPage } from '../../pages/CRM/crmCorporateEndToEndPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
+import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 
 let sharedCifId = '';
 const CONFIG = getPrimaryConfig();
@@ -22,16 +23,37 @@ test.describe('CIF Corporate Creation', () => {
 
   test('Complete CIF Corporate Creation Flow', async ({ page }) => {
     const e2ePage = new CrmCorporateEndToEndPage(page, CONFIG, lastDialogMessages);
+    const sp = new ServicePackPage(page, CONFIG, lastDialogMessages);
 
     await e2ePage.selectCrm();
     await e2ePage.waitForCrmLoad();
     await e2ePage.navigateToNewEntity();
     await e2ePage.fillBasicInfo();
+
     await e2ePage.fillContactTab();
+
+    // SP#5: Address fields must not contain "undefined"
+    const addrResult = await sp.verifyAddressFieldsNotUndefined(page);
+    if (addrResult.checked) {
+      expect(addrResult.undefinedFields.length, 'SP#5: No address fields should contain undefined').toBe(0);
+    }
+
     await e2ePage.fillIdDocumentTab();
+
     await e2ePage.fillCurrencyTab();
+
+    // SP#1: CCY auto-populate must not produce "undefined"
+    const ccyResult = await sp.verifyCurrencyAutoPopulate(page);
+    if (ccyResult.ccyCodeValue) {
+      expect(ccyResult.ccyDisplayValue, 'SP#1: CCY display must not be undefined').not.toBe('undefined');
+    }
+
     await e2ePage.fillDemographicTab();
     await e2ePage.preSubmitVerification();
+
+    // SP#2: Submit/Save icons must be functional before submit
+    const iconResult = await sp.verifyIconsFunctional(page);
+    expect(iconResult.submitVisible, 'SP#2: Submit button must be visible').toBe(true);
 
     sharedCifId = await e2ePage.submitForm();
 
@@ -70,6 +92,8 @@ test.describe('CIF Corporate Approval Verification', () => {
 
   test('Approve Corporate CIF via Entity Queue', async ({ page }) => {
     const verificationPage = new CrmVerificationPage(page, VERIFY_CONFIG, lastDialogMessages);
+    const sp = new ServicePackPage(page, VERIFY_CONFIG, lastDialogMessages);
+
     await verificationPage.performVerification({
       cifId: sharedCifId || '',
       screenId: CRM_TEST_DATA.corporate.screenId,
@@ -84,5 +108,15 @@ test.describe('CIF Corporate Approval Verification', () => {
       summaryTitle: 'CIF Corporate Approval Verification',
       sectionLabel: 'CIF Corporate'
     });
+
+    // SP#14: Entity Queue Assign page must load properly
+    const eqResult = await sp.verifyEntityQueueAssignPageLoad(page);
+    expect(eqResult.pageLoaded, 'SP#14: Entity Queue Assign page must load after Get').toBe(true);
+
+    // SP#7: Document expand during verification must not produce JS errors
+    const docExpandResult = await sp.verifyDocumentExpandDuringVerification(page);
+    if (docExpandResult.expanded) {
+      expect(docExpandResult.isPrefDefined, 'SP#7: isPref must not be undefined during doc expand').toBe(true);
+    }
   });
 });

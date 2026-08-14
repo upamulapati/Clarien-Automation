@@ -1,99 +1,109 @@
 import { test } from '@playwright/test';
+import { getVerificationConfig } from '../../config/crmTestData';
+import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
-import { CREDENTIALS } from '../../../data/credentials';
+import { getSharedValue } from '../../helpers/sharedState';
 
-// Verification must be done by a DIFFERENT user than the one who added the
-// related party (the modification was done by finacletest01).
-const USERNAME = CREDENTIALS.verifierCredentials.username;
-const PASSWORD = CREDENTIALS.verifierCredentials.password;
+const VERIFY_CONFIG = getVerificationConfig();
 
 // Existing account in which the related party was added.
-const ACCOUNT_ID = '7710003367';
+const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
-let homePage: HomePage;
-let savingsAccountPage: AccountPage;
+test.describe('Verify Related Party for Savings Account', () => {
+  test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+  let lastDialogMessages: string[] = [];
+  let homePage: HomePage;
+  let accountPage: AccountPage;
 
-  // Step 1: Login with a different user (finacletest14)
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  savingsAccountPage = new AccountPage(page);
-});
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(900000);
+    setupDialogHandlers(page, lastDialogMessages);
+    await login(page, VERIFY_CONFIG);
 
-// HACM - Verify/authorise the related party that was added to a savings account
-test('HACM - verify added related party for savings account', async ({ page }) => {
-  console.log(`Verifying related party on Account ID: ${ACCOUNT_ID}`);
+    homePage = new HomePage(page);
+    accountPage = new AccountPage(page);
+  });
 
-  // Select "core server" from the solution drop down
-  console.log('Selecting Core Server...');
-  await savingsAccountPage.selectCoreServer();
+  // HACM - Verify/authorise the related party that was added to a savings account
+  test('HACM - verify added related party for savings account', async ({ page }) => {
+    console.log(`Verifying related party on Account ID: ${ACCOUNT_ID}`);
 
-  // Step 2: Type menu option "HACM" in finacle
-  console.log('Searching for HACM...');
-  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
-  await page.waitForTimeout(3000);
+    // Select "core server" from the solution drop down
+    console.log('Selecting Core Server...');
+    await accountPage.selectCoreServer();
 
-  // Step 3: Function - V - Verify
-  console.log('Selecting Verify function...');
-  await savingsAccountPage.selectFunction('Verify');
+    // Step 2: Type menu option "HACM" in finacle
+    console.log('Searching for HACM...');
+    await accountPage.searchMenu('HACM');
+    await page.waitForTimeout(3000);
 
-  // Step 4: A/c Id - Enter the account number in which related party is added
-  console.log('Entering account ID to verify...');
-  await savingsAccountPage.enterHacmAccountId(ACCOUNT_ID);
+    // Step 3: Function - V - Verify
+    console.log('Selecting Verify function...');
+    await accountPage.selectFunction('Verify');
 
-  // Click Go to load the account into the verification screen
-  console.log('Clicking Go button...');
-  await savingsAccountPage.clickGo();
+    // Step 4: A/c Id - Enter the account number in which related party is added
+    console.log('Entering account ID to verify...');
+    await accountPage.enterHacmAccountId(ACCOUNT_ID);
 
-  // Step 5: Visit General details
-  console.log('Visiting General tab...');
-  await savingsAccountPage.visitTabById('acmogd');
+    // Click Go to load the account into the verification screen
+    console.log('Clicking Go button...');
+    await accountPage.clickGo();
 
-  // Step 6: Visit Scheme details
-  console.log('Visiting Scheme tab...');
-  await savingsAccountPage.visitTabById('acmosd');
+    // Step 5: Visit General details
+    console.log('Visiting General tab...');
+    await accountPage.visitTabById('acmogd');
 
-  // Step 7: Visit Interest details
-  console.log('Visiting Interest & Tax tab...');
-  await savingsAccountPage.visitTabById('acmoit');
+    // Step 6: Visit Scheme details
+    console.log('Visiting Scheme tab...');
+    await accountPage.visitTabById('acmosd');
 
-  // Step 8: Visit Related Party details - go to the 2nd record (newly added party)
-  console.log('Visiting Related Party tab...');
-  await savingsAccountPage.visitTabById('relatedpartydetails');
+    // Step 7: Visit Interest details
+    console.log('Visiting Interest & Tax tab...');
+    await accountPage.visitTabById('acmoit');
 
-  console.log('Navigating to related party record 2...');
-  await savingsAccountPage.goToRelatedPartyRecord(2);
+    // Step 8: Visit Related Party details - go to the 2nd record (newly added party)
+    console.log('Visiting Related Party tab...');
+    await accountPage.visitTabById('relatedpartydetails');
 
-  // Step 9: Visit MIS Codes details
-  console.log('Visiting MIS Codes tab...');
-  await savingsAccountPage.visitTabById('miscodes');
+    console.log('Navigating to related party record 2...');
+    await accountPage.goToRelatedPartyRecord(2);
 
-  // Step 10: Visit Additional Info details
-  console.log('Visiting Addl. Info. tab...');
-  await savingsAccountPage.visitTabById('acmai');
+    // Step 9: Visit MIS Codes details
+    console.log('Visiting MIS Codes tab...');
+    await accountPage.visitTabById('miscodes');
 
-  // Step 11: Click Submit - the added related party gets authorised/verified
-  console.log('Clicking Submit button...');
-  await savingsAccountPage.submitForm();
+    // Step 10: Visit Additional Info details
+    console.log('Visiting Addl. Info. tab...');
+    await accountPage.visitTabById('acmai');
 
-  // Click OK on the confirmation shown after submit
-  console.log('Clicking OK button...');
-  await savingsAccountPage.clickOkButton();
+    // Step 10b: Visit Document Information - mandatory, else Submit is blocked with
+    // "Document Details: Visit document information."
+    console.log('Visiting Document details tab...');
+    await accountPage.visitTabById('documentdetails');
 
-  // Capture the actual Finacle status message after verification
-  const statusMessage = await savingsAccountPage.getStatusMessage();
-  console.log('Verification status message:', statusMessage);
+    // Step 11: Click Submit - the added related party gets authorised/verified
+    console.log('Clicking Submit button...');
+    await accountPage.submitForm();
 
-  const result = await savingsAccountPage.verifyAccountCreated();
-  console.log('Verification Result:', result.message);
-  console.log('Account Number:', result.accountNumber);
+    // Click OK on the confirmation shown after submit
+    console.log('Clicking OK button...');
+    await accountPage.clickOkButton();
 
-  // Logout
-  console.log('Logging out...');
-  await homePage.logout();
+    // Capture the actual Finacle status message after verification
+    const statusMessage = await accountPage.getStatusMessage();
+    console.log('Verification status message:', statusMessage);
+
+    const result = await accountPage.verifyAccountCreated();
+    console.log('Verification Result:', result.message);
+    console.log('Account Number:', result.accountNumber);
+
+    // Logout
+    console.log('Logging out...');
+    await homePage.logout();
+  });
 });
 
