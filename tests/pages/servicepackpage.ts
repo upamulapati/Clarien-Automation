@@ -912,17 +912,51 @@ export class ServicePackPage {
     await this.accountPage.clickGo();
     await this.page.waitForTimeout(3000);
 
-    const finwFrame = this.page.frame({ name: 'FINW' });
-    if (!finwFrame) {
-      throw new Error('FINW frame not found');
+    const finwFrame = this.getFinwFrame();
+
+    // Wait for the HAFI audit grid to show an MCTD row.
+    let auditLoaded = false;
+    const start = Date.now();
+    while (Date.now() - start < 15000) {
+      const hasMctd = await finwFrame.evaluate(() => {
+        return Array.from(document.querySelectorAll<HTMLTableRowElement>('table tr'))
+          .some((tr) => /\bMCTD\b/.test(tr.textContent || ''));
+      });
+      if (hasMctd) {
+        auditLoaded = true;
+        break;
+      }
+      await this.page.waitForTimeout(500);
     }
 
-    const mctdRow = finwFrame.locator('table tr').filter({ hasText: /\bMCTD\b/ }).first();
-    const mctdVisible = await mctdRow.isVisible().catch(() => false);
-    if (mctdVisible) {
-      console.log('Audit entry is verified successfully');
+    if (!auditLoaded) {
+      throw new Error('Audit File Inquiry did not load the MCTD row');
+    }
+
+    // Expand the MCTD audit row and perform the service pack validation.
+    const detailsClicked = await this.clickAuditRowExplode('MCTD');
+    if (!detailsClicked) {
+      console.log('Falling back to generic MCTD row expand');
+      await finwFrame.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('table tr'));
+        const target = rows.find((tr) => /\bMCTD\b/.test(tr.textContent || ''));
+        if (target) {
+          const control = target.querySelector<HTMLElement>('img, input[type="image"], a, button, svg, i, [onclick]');
+          if (control) {
+            control.scrollIntoView({ block: 'center', inline: 'center' });
+            control.click();
+          }
+        }
+      });
+      await this.page.waitForTimeout(3000);
+    }
+
+    // Verify the expanded MCTD audit details are visible.
+    const bodyText = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+    if (/MCTD/i.test(bodyText)) {
+      console.log('MCTD audit row expanded and details are visible');
     } else {
-      console.log('Audit entry is not verified');
+      console.log('MCTD audit row expanded but details text was not captured');
     }
   }
 
@@ -933,13 +967,45 @@ export class ServicePackPage {
     await this.accountPage.searchMenu('HTM');
     await this.page.waitForTimeout(3000);
 
-    await this.accountPage.selectFunction('Inquiry');
-    await this.accountPage.fillByLabel('Transaction ID', transactionId);
-    await this.accountPage.fillByLabel('Transaction Date', transactionDate);
+    // Select Function - Inquiry on the HTM screen. The dropdown is #funcCode and
+    // the option label is "I - Inquire".
+    const finwFrame = this.getFinwFrame();
+
+    // Select Function - Inquiry on the HTM screen.
+    const funcCode = finwFrame.locator('#funcCode');
+    await funcCode.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
+    if (await funcCode.count() > 0) {
+      const options = await funcCode.locator('option').allTextContents();
+      console.log('HTM function dropdown options:', JSON.stringify(options));
+
+      const match = options.find(
+        (o) => o.toLowerCase().includes('inquire') || o.toLowerCase().includes('inquiry')
+      );
+      if (match) {
+        const code = match.split('-')[0].trim();
+        try {
+          await funcCode.selectOption(code);
+          console.log(`Selected HTM function by code: ${code} (${match})`);
+        } catch {
+          await funcCode.selectOption({ label: match });
+          console.log(`Selected HTM function by label: ${match}`);
+        }
+      } else {
+        console.log('Inquiry option not found in #funcCode, options:', JSON.stringify(options));
+      }
+    } else {
+      console.log('#funcCode dropdown not found on HTM screen');
+    }
+
+    await this.page.waitForTimeout(2000);
+
+    // Fill Transaction ID and Transaction Date with flexible label matching.
+    await this.fillByAnyLabel(['Transaction ID', 'Tran ID', 'Tran. ID', 'Txn ID', 'Transaction No'], transactionId);
+    await this.fillByAnyLabel(['Transaction Date', 'Tran Date', 'Tran. Date', 'Txn Date'], transactionDate);
     await this.accountPage.clickGo();
     await this.page.waitForTimeout(3000);
 
-    const finwFrame = this.getFinwFrame();
     const txnTypeRow = finwFrame.locator('tr').filter({ hasText: /Transaction Type\/Subtype/i }).first();
     await txnTypeRow.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
     const rowText = await txnTypeRow.innerText().catch(() => '');
@@ -953,10 +1019,86 @@ export class ServicePackPage {
     await new HomePage(this.page).logout().catch(() => {});
   }
 
-  async servicePackRetailLoanPayoffVerificationValidation(result: { transactionId: string | null; message: string | null }): Promise<void> {
-    const hasFatalError = /fatal/i.test(result.message || '');
+  async servicePackRetailLoanReversalDisbursementValidation(message: string | null): Promise<void> {
+    expect(message).toContain('Reversal of Disbursement is successful');
+    console.log('Reversal of Disbursement is successful');
+  }
+
+  async servicePackRetailLoanPayoffVerificationValidation(data: {
+    loanAccountNumber: string;
+    transactionType?: string;
+    collectRefundAccountId?: string;
+    transactionId?: string | null;
+    message?: string | null;
+    screenshot?: any;
+  }): Promise<void> {
+    const hasFatalError = /fatal/i.test(data.message || '');
     expect(hasFatalError).toBe(false);
-    console.log('Payoff Verification went through successfully without any fatal error');
+    console.log('Payoff transaction went through successfully without any fatal error');
+
+    console.log('Reverting to HPAYOFF menu option for service pack inquiry...');
+    await this.accountPage.selectCoreServer();
+    await this.accountPage.searchMenu('HPAYOFF');
+    await this.page.waitForTimeout(3000);
+
+    console.log('Selecting function: I-Inquiry of Pay Off...');
+    await this.accountPage.selectFunction('Inquiry of Pay Off');
+    await this.page.waitForTimeout(3000);
+
+    console.log('Entering A/C ID for inquiry...');
+    const accountFilled = await this.accountPage.fillByLabel('A/c Id', data.loanAccountNumber);
+    if (!accountFilled) {
+      await this.accountPage.enterHacmAccountId(data.loanAccountNumber);
+    }
+
+    const transactionType = data.transactionType ?? 'transfer customer induced';
+    const collectRefundAccountId = data.collectRefundAccountId ?? '7710003367';
+
+    console.log('Filling Transaction Type...');
+    await this.accountPage.selectOptionByLabel('Transaction Type', transactionType);
+
+    console.log('Filling Collect/Refund A/c Id...');
+    await this.accountPage.fillByLabel('Collect/Refund A/c Id', collectRefundAccountId);
+
+    console.log('Clicking Go...');
+    await this.accountPage.clickGo();
+
+    console.log('Clicking Accept on the inquiry screen...');
+    await this.accountPage.clickAccept();
+
+    const finwFrame = this.getFinwFrame();
+    await this.page.waitForTimeout(3000);
+
+    const screenshotPath = `test-results/payoff-inquiry-${Date.now()}.png`;
+    await this.page.screenshot({ path: screenshotPath, fullPage: true });
+    console.log(`Payoff inquiry details screenshot saved: ${screenshotPath}`);
+
+    const reasonCodeValue = await finwFrame.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll<HTMLElement>('td, th'));
+      for (const cell of cells) {
+        if ((cell.textContent || '').trim().toLowerCase().includes('reason code')) {
+          const row = cell.closest('tr');
+          if (row) {
+            const input = row.querySelector('input[type="text"], input:not([type])') as HTMLInputElement | null;
+            if (input) return input.value.trim();
+          }
+        }
+      }
+      const fallback = document.querySelector('input[id*="reason" i], input[name*="reason" i]') as HTMLInputElement | null;
+      return fallback ? fallback.value.trim() : '';
+    });
+
+    if (reasonCodeValue) {
+      console.log('PAYOFF_REASON_CODE is displayed');
+    } else {
+      console.log('PAYOFF_REASON_CODE is not displayed');
+    }
+
+    expect(reasonCodeValue.length).toBeGreaterThan(0);
+
+    console.log('Clicking Cancel button...');
+    await this.accountPage.clickButtonByText('Cancel');
+    await this.page.waitForTimeout(3000);
   }
 
   private getFinwFrame(): Frame {
@@ -1703,6 +1845,122 @@ export class ServicePackPage {
 
     await this.accountPage.clickOkButton();
     await this.page.waitForTimeout(2000);
+  }
+
+  async servicePackRetailLoanReschedulingRepaymentScheduleReportValidation(accountId: string): Promise<void> {
+    console.log('Starting HLARSH / HPR repayment schedule service pack validation...');
+
+    let dialogMessage: string | null = null;
+    const onDialog = (dialog: Dialog) => {
+      const message = dialog.message();
+      console.log('Dialog captured:', message);
+      if (dialogMessage === null) {
+        dialogMessage = message;
+      }
+      dialog.accept().catch(() => {});
+    };
+    this.page.on('dialog', onDialog);
+
+    try {
+      // 1. HLARSH - generate repayment schedule report batch
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HLARSH');
+      await this.page.waitForTimeout(3000);
+
+      await this.accountPage.fillByLabel('From A/c. ID', accountId);
+      await this.accountPage.fillByLabel('To A/c. ID', accountId);
+
+      // Reset capture so the success dialog (if any) triggered by Submit is recorded.
+      dialogMessage = null;
+      await this.accountPage.clickButtonByText('Submit');
+      await this.page.waitForTimeout(3000);
+
+      let statusMessage = dialogMessage || (await this.accountPage.getStatusMessage().catch(() => null)) || '';
+      if (!statusMessage) {
+        for (const frame of this.page.frames()) {
+          const bodyText = (await frame.locator('body').textContent().catch(() => '')) || '';
+          if (bodyText.includes('Batch program successfully invoked')) {
+            statusMessage = bodyText.replace(/\s+/g, ' ').trim();
+            break;
+          }
+        }
+      }
+      console.log('HLARSH status message:', statusMessage);
+      expect(statusMessage, 'Expected batch success message').toContain('Batch program successfully invoked');
+
+      await this.accountPage.clickOkButton().catch(() => {});
+      await this.page.waitForTimeout(2000);
+
+      // 2. HPR - Print Queue Inquiry
+      await this.accountPage.searchMenu('HPR');
+      await this.page.waitForTimeout(3000);
+      await this.accountPage.clickButtonByText('Go');
+
+      const finwFrame = this.getFinwFrame();
+      const hprTable = finwFrame.locator('table').filter({ hasText: 'Report Name' }).first();
+      await hprTable.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
+      const reportRow = hprTable.locator('tr:has(td)').filter({ hasText: 'Repayment Schedule Report' }).first();
+      await reportRow.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+
+      const checkbox = reportRow.locator('td').first().locator('input[type="checkbox"]').first();
+      if (await checkbox.count() > 0) {
+        try {
+          await checkbox.scrollIntoViewIfNeeded();
+          await checkbox.click({ timeout: 10000 });
+          await this.page.waitForTimeout(500);
+          if (!(await checkbox.isChecked().catch(() => false))) {
+            await checkbox.evaluate((cb) => {
+              (cb as HTMLInputElement).checked = true;
+              cb.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+          }
+          console.log('Selected Repayment Schedule Report row checkbox');
+        } catch {
+          await checkbox.evaluate((cb) => {
+            (cb as HTMLInputElement).checked = true;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+          console.log('Selected Repayment Schedule Report row checkbox via JS fallback');
+        }
+      } else {
+        console.log('No Select checkbox found for Repayment Schedule Report row');
+      }
+      await this.page.waitForTimeout(2000);
+
+      // 3. Open the report preview and assert the report title
+      const pagePromise = this.page.context().waitForEvent('page', { timeout: 30000 }).catch(() => null);
+      await this.accountPage.clickButtonByText('Print Screen');
+      let previewPage = await pagePromise;
+      await this.page.waitForTimeout(5000);
+
+      if (!previewPage) {
+        const otherPage = this.page.context().pages().find(p => p !== this.page && p.url() && !p.url().includes('about:blank'));
+        if (otherPage) { previewPage = otherPage; }
+      }
+
+      let reportText = '';
+      if (previewPage) {
+        await previewPage.waitForTimeout(3000);
+        reportText = await previewPage.locator('body').innerText().catch(() => '') || '';
+      } else {
+        for (const frame of this.page.frames()) {
+          const text = await frame.locator('body').innerText().catch(() => '');
+          if (text.toUpperCase().includes('REPAYMENT SCHEDULE FOR LOANS')) {
+            reportText = text;
+            break;
+          }
+        }
+        if (!reportText) {
+          reportText = await finwFrame.locator('body').innerText().catch(() => '') || '';
+        }
+      }
+
+      expect(reportText, 'REPAYMENT SCHEDULE FOR LOANS report was not displayed').toContain('REPAYMENT SCHEDULE FOR LOANS');
+      console.log('Repayment schedule for loans report was displayed');
+    } finally {
+      this.page.off('dialog', onDialog);
+    }
   }
 
   private extractTransactionId(text: string | null): string | null {

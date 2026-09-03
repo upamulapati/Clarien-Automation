@@ -19,7 +19,7 @@ export class AccountPage {
   }
 
   // ============ Frame Helpers ============
-  private getFinwFrame(): Frame {
+  protected getFinwFrame(): Frame {
     const finwFrame = this.page.frame({ name: 'FINW' });
     if (!finwFrame) {
       throw new Error('FINW frame not found!');
@@ -3481,32 +3481,93 @@ export class AccountPage {
   }
 
   async clickSubmit() {
-    const selector = '#Submit, input[type="submit"][value="Submit" i], input[type="button"][value="Submit" i], button:has-text("Submit")';
-    try {
-      const finwFrame = this.getFinwFrame();
-      const submitBtn = finwFrame.locator(selector).first();
-      await submitBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await submitBtn.scrollIntoViewIfNeeded();
-      await this.page.waitForTimeout(1000);
-      await submitBtn.click();
-      await this.page.waitForTimeout(5000);
-      console.log('Clicked Submit button');
-      return;
-    } catch (e) {
-      console.log(`Submit not found in FINW frame, searching all frames: ${e}`);
+    const selector =
+      '#Submit, #submit, ' +
+      'input[name*="Submit" i], input[name*="submit" i], ' +
+      'input[value*="Submit" i], ' +
+      'input[type="submit"][value*="Submit" i], input[type="button"][value*="Submit" i], ' +
+      'input[type="image"][alt*="Submit" i], input[type="image"][title*="Submit" i], ' +
+      'button:has-text("Submit"), a:has-text("Submit")';
+
+    const clickFirstVisible = async (frame: Frame): Promise<boolean> => {
+      try {
+        if (frame.isDetached()) return false;
+        const btns = frame.locator(selector);
+        const count = await btns.count().catch(() => 0);
+        for (let i = 0; i < count; i++) {
+          const btn = btns.nth(i);
+          if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+            await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await btn.click({ timeout: 15000, force: true });
+            return true;
+          }
+        }
+      } catch {}
+      return false;
+    };
+
+    const isContentFrame = (frame: Frame): boolean => {
+      const name = (frame.name() || '').toLowerCase();
+      return !name.includes('fininfra') && !name.includes('login');
+    };
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      const frames: Frame[] = [];
+      try {
+        frames.push(this.getFinwFrame());
+      } catch {}
+
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const f of p.frames()) {
+          if (!f.isDetached() && isContentFrame(f)) {
+            frames.push(f);
+          }
+        }
+      }
+
+      // Deduplicate while preserving order; FINW is tried first.
+      const uniqueFrames = [...new Set(frames)];
+      for (const frame of uniqueFrames) {
+        if (await clickFirstVisible(frame)) {
+          await this.page.waitForTimeout(5000);
+          console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
+          return;
+        }
+      }
+      await this.page.waitForTimeout(500);
     }
 
-    // Fallback: the Submit button may live in a different frame.
-    for (const frame of this.page.frames()) {
-      const btn = frame.locator(selector).first();
-      if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click();
-        await this.page.waitForTimeout(5000);
-        console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
-        return;
+    // Fallback: use JS to click the first Submit-looking control in any frame.
+    try {
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const f of p.frames()) {
+          if (f.isDetached()) continue;
+          const clicked = await f.evaluate(() => {
+            const labels = ['input[type="button"]', 'input[type="submit"]', 'button', 'a', 'img'];
+            for (const tag of labels) {
+              const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+              const el = elements.find(e => {
+                const v = (e.getAttribute('value') || e.getAttribute('alt') || e.getAttribute('title') || e.textContent || '').trim().toLowerCase();
+                return v === 'submit' || v.includes('submit');
+              });
+              if (el) { el.scrollIntoView({ block: 'center', inline: 'center' }); el.click(); return true; }
+            }
+            return false;
+          }).catch(() => false);
+          if (clicked) {
+            await this.page.waitForTimeout(5000);
+            console.log(`Clicked Submit button via JS in frame '${f.name() || 'main'}'`);
+            return;
+          }
+        }
       }
+    } catch (e) {
+      console.log(`JS fallback for Submit failed: ${e}`);
     }
+
     console.log('Could not click Submit button in any frame');
   }
 
@@ -3529,9 +3590,10 @@ export class AccountPage {
 
     const selects = finwFrame.locator('select');
     const count = await selects.count();
+    const normalizedValue = value.toLowerCase().replace(/\s*-\s*/g, '-');
     for (let i = 0; i < count; i++) {
       const opts = await selects.nth(i).locator('option').allTextContents();
-      if (opts.some(o => o.toLowerCase().includes(value.toLowerCase()))) {
+      if (opts.some(o => o.toLowerCase().replace(/\s*-\s*/g, '-').includes(normalizedValue))) {
         return selects.nth(i);
       }
     }
@@ -3559,7 +3621,8 @@ export class AccountPage {
       // Find the option whose visible text matches the desired function
       // e.g. value "Modify" matches "M - Modify". Then select by its leading
       // code value ("M"), which is the most reliable for native <select>.
-      const matchLabel = options.find(o => o.toLowerCase().includes(value.toLowerCase()));
+      const normalizedValue = value.toLowerCase().replace(/\s*-\s*/g, '-');
+      const matchLabel = options.find(o => o.toLowerCase().replace(/\s*-\s*/g, '-').includes(normalizedValue));
       if (matchLabel) {
         const code = matchLabel.split('-')[0].trim();
         try {
@@ -3605,16 +3668,21 @@ export class AccountPage {
   }
 
   async clickGo() {
-    const finwFrame = this.getFinwFrame();
-    // The HACM screen uses a "Go" button; fall back to the Accept button id
-    const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
-    if (await goBtn.count() > 0) {
-      await goBtn.click();
-    } else {
-      await this.acceptButton.click();
+    try {
+      const finwFrame = this.getFinwFrame();
+      // The HACM screen uses a "Go" button; fall back to the Accept button id
+      const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
+      if (await goBtn.count() > 0 && await goBtn.isVisible().catch(() => false) && await goBtn.isEnabled().catch(() => false)) {
+        await goBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await goBtn.click({ timeout: 15000, force: true });
+      } else {
+        await this.clickAccept();
+      }
+      await this.page.waitForTimeout(3000);
+      console.log('Clicked Go button');
+    } catch (e) {
+      console.log(`Could not click Go button: ${e}`);
     }
-    await this.page.waitForTimeout(3000);
-    console.log('Clicked Go button');
   }
 
   // Loads an existing current account in HACM inquiry mode and reads its
@@ -3691,43 +3759,264 @@ export class AccountPage {
     const anchorSelector = 'a#Accept, a#accept';
 
     const deadline = Date.now() + 10000;
-    while (Date.now() < deadline) {
-      const finwFrame = this.getFinwFrame();
-      const btn = finwFrame.locator(buttonSelector).first();
-      if (await btn.count() > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click({ timeout: 15000 });
-        await this.page.waitForTimeout(3000);
-        console.log('Clicked Accept button in FINW frame');
-        return;
+    let clicked = false;
+    while (Date.now() < deadline && !clicked) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btn = finwFrame.locator(buttonSelector).first();
+        if (await btn.count() > 0) {
+          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+          await btn.click({ timeout: 15000, force: true });
+          clicked = true;
+        }
+      } catch (e) {
+        console.log(`Accept button click attempt failed, retrying: ${e}`);
       }
-      // No button yet? FINW may still be loading the transaction. Wait a bit.
-      await this.page.waitForTimeout(500);
+      if (!clicked) await this.page.waitForTimeout(500);
+    }
+    if (clicked) {
+      await this.page.waitForTimeout(3000);
+      console.log('Clicked Accept button in FINW frame');
+      return;
     }
 
     // Last resort: an anchor link with text Accept in FINW.
-    const finwFrame = this.getFinwFrame();
-    const anchor = finwFrame.locator(anchorSelector).first();
-    if (await anchor.count() > 0 && await anchor.isVisible().catch(() => false)) {
-      await anchor.scrollIntoViewIfNeeded();
-      await anchor.click({ timeout: 15000 });
-      await this.page.waitForTimeout(3000);
-      console.log('Clicked Accept anchor (FINW fallback)');
-      return;
+    try {
+      const finwFrame = this.getFinwFrame();
+      const anchor = finwFrame.locator(anchorSelector).first();
+      if (await anchor.count() > 0) {
+        await anchor.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await anchor.click({ timeout: 15000, force: true });
+        await this.page.waitForTimeout(3000);
+        console.log('Clicked Accept anchor (FINW fallback)');
+        return;
+      }
+    } catch (e) {
+      console.log(`Accept anchor fallback failed: ${e}`);
     }
 
     // Search all other frames for any visible Accept control.
     for (const frame of this.page.frames()) {
-      const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
-      if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click({ timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(3000);
-        console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
-        return;
+      try {
+        const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
+        if (await btn.count().catch(() => 0) > 0) {
+          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+          await btn.click({ timeout: 15000, force: true });
+          await this.page.waitForTimeout(3000);
+          console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
+          return;
+        }
+      } catch (e) {
+        console.log(`Accept control click in frame failed: ${e}`);
       }
     }
     console.log('Accept button not found in any frame, skipping');
+  }
+
+  // Clicks the last Accept button in the FINW frame (e.g. the bottom Accept
+  // shown after charges in HLADISB verification).
+  async clickLastAccept() {
+    const buttonSelector =
+      'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
+      'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
+      'input[value^="Accept" i], #Accept, #accept, ' +
+      'button:has-text("Accept")';
+
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btns = finwFrame.locator(buttonSelector);
+        const count = await btns.count().catch(() => 0);
+        if (count > 0) {
+          for (let i = count - 1; i >= 0; i--) {
+            const btn = btns.nth(i);
+            if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+              await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await btn.click({ timeout: 15000, force: true });
+              await this.page.waitForTimeout(3000);
+              console.log('Clicked last Accept button in FINW frame');
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`Last Accept button click attempt failed, retrying: ${e}`);
+      }
+      await this.page.waitForTimeout(500);
+    }
+    console.log('Last Accept button not found in FINW frame, skipping');
+  }
+
+  // Clicks the last visible/enabled action button in the FINW frame. This is
+  // usually the bottom action button on verification screens (e.g. HLADISB),
+  // which may be labelled Submit, Verify, Authorize, Authorise, Approve, OK or Confirm.
+  async clickLastAction() {
+    const actionLabels = ['Submit', 'Verify', 'Authorize', 'Authorise', 'Approve', 'Confirm', 'OK'];
+    const buildSelector = (label: string) =>
+      `input[type="button"][value^="${label}" i], input[type="button"][value*="${label}" i], ` +
+      `input[type="submit"][value^="${label}" i], input[type="submit"][value*="${label}" i], ` +
+      `input[value^="${label}" i], #${label}, #${label.toLowerCase()}, ` +
+      `button:has-text("${label}"), a:has-text("${label}")`;
+    const allSelectors = actionLabels.map(buildSelector).join(', ');
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btns = finwFrame.locator(allSelectors);
+        const count = await btns.count().catch(() => 0);
+        if (count > 0) {
+          // Click the last visible/enabled action button (bottom of page).
+          for (let i = count - 1; i >= 0; i--) {
+            const btn = btns.nth(i);
+            if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+              const raw =
+                (await btn.getAttribute('value').catch(() => '')) ||
+                (await btn.textContent().catch(() => '')) ||
+                (await btn.getAttribute('title').catch(() => '')) ||
+                '';
+              const text = (raw || 'unknown').trim();
+              await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await btn.click({ timeout: 15000, force: true });
+              await this.page.waitForTimeout(3000);
+              console.log(`Clicked last action button in FINW frame: ${text}`);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`Last action button click attempt failed, retrying: ${e}`);
+      }
+      await this.page.waitForTimeout(500);
+    }
+
+    // Fallback: use JS to click the last Submit/Verify/Authorize/etc. looking control.
+    const clickedLabel = await this.getFinwFrame().evaluate((labels) => {
+      const selectors = ['input[type="button"]', 'input[type="submit"]', 'button', 'a', 'img'];
+      for (const sel of selectors) {
+        const elements = Array.from(document.querySelectorAll(sel)) as HTMLElement[];
+        for (let idx = elements.length - 1; idx >= 0; idx--) {
+          const el = elements[idx];
+          const v = (el.getAttribute('value') || el.getAttribute('alt') || el.getAttribute('title') || el.textContent || '').trim().toLowerCase();
+          if (labels.some(l => v === l.toLowerCase() || v.includes(l.toLowerCase()))) {
+            el.scrollIntoView({ block: 'center', inline: 'center' });
+            el.click();
+            return v;
+          }
+        }
+      }
+      return '';
+    }, actionLabels).catch(() => '');
+    if (clickedLabel) {
+      await this.page.waitForTimeout(5000);
+      console.log(`Clicked last action button via JS fallback: ${clickedLabel}`);
+      return;
+    }
+
+    console.log('Last action button not found in FINW frame');
+  }
+
+  // Selects the first real data row in a FINW *data* grid, ignoring layout and
+  // navigation tables. It looks for a table whose headers mention Value Date,
+  // Amt, Loan, Credit, PaySys, ECS, Rate, Mode, Transaction, Beneficiary, etc.,
+  // then selects the first non-header, non-toolbar row.
+  async selectFirstFinwGridRow(): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const dataHeaders = ['value date', 'general ledger', 'amt', 'loan', 'credit', 'paysys', 'pay sys', 'ecs', 'rate', 'mode', 'transaction', 'beneficiary', 'ref. no.', 'ref no', 'remarks', 'credit a/c', 'value', 'date'];
+    const toolbarLabels = ['add', 'delete', 'copy', 'edit', 'new', 'remove'];
+    const layoutLabels = ['home', 'menu', 'background menu', 'ccy converter', 'show memo pad', 'logout'];
+
+    // Helper: determine if a table looks like a data grid.
+    const isDataGrid = async (table: Locator): Promise<boolean> => {
+      const headerText = await table.evaluate(el => {
+        const headers = Array.from(el.querySelectorAll('th, thead td, tr:first-child td, tr:first-child th'));
+        return headers.map(h => (h.innerText || h.textContent || '').trim().toLowerCase()).join(' ');
+      }).catch(() => '');
+      return dataHeaders.some(h => headerText.includes(h));
+    };
+
+    // Helper: determine if a row is a toolbar/navigation row.
+    const isToolbarRow = (text: string) => toolbarLabels.some(l => new RegExp(`\\b${l}\\b`, 'i').test(text));
+    const isLayoutRow = (text: string) => layoutLabels.some(l => text.toLowerCase().includes(l));
+
+    const trySelectInRows = async (rows: Locator, context: string): Promise<boolean> => {
+      const count = await rows.count().catch(() => 0);
+      if (count === 0) return false;
+      console.log(`selectFirstFinwGridRow: ${context} count=${count}`);
+      for (let i = 0; i < count; i++) {
+        const row = rows.nth(i);
+        const rowInfo = await row.evaluate(el => {
+          const r = el as HTMLTableRowElement;
+          const isHeader = r.tagName === 'TR' && (r.querySelector('th') !== null || r.parentElement?.tagName === 'THEAD');
+          const text = (r.innerText || '').trim();
+          const hasToolbar = Array.from(r.querySelectorAll('input[type="button"], button, a')).some((b: any) =>
+            /add|delete|copy|edit|new|remove/i.test((b.value || b.innerText || b.textContent || b.title || '')));
+          const hasRadioCheckbox = r.querySelector('input[type="radio"], input[type="checkbox"]') !== null;
+          const cells = Array.from(r.querySelectorAll('td')).map(c => (c.innerText || c.textContent || '').trim());
+          return { isHeader, text, hasToolbar, hasRadioCheckbox, cells };
+        }).catch(() => ({ isHeader: true, text: '', hasToolbar: true, hasRadioCheckbox: false, cells: [] as string[] }));
+
+        if (rowInfo.isHeader || rowInfo.hasToolbar || isToolbarRow(rowInfo.text) || isLayoutRow(rowInfo.text)) continue;
+        const visible = await row.isVisible().catch(() => false);
+        const dims = await row.boundingBox().catch(() => null);
+        if (!visible || (dims && dims.height < 2)) continue;
+
+        // 1. Selectable input (radio/checkbox) in the row.
+        if (rowInfo.hasRadioCheckbox) {
+          const input = row.locator('input[type="radio"], input[type="checkbox"]').first();
+          if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEnabled().catch(() => false)) {
+            await input.scrollIntoViewIfNeeded().catch(() => {});
+            await input.click({ timeout: 10000, force: true });
+            console.log(`Selected first grid row (input) ${context}[${i}]`);
+            await this.page.waitForTimeout(1000);
+            return true;
+          }
+        }
+
+        // 2. Click the first data cell that looks like a value (contains digit).
+        for (let c = 0; c < rowInfo.cells.length; c++) {
+          const cellText = rowInfo.cells[c].slice(0, 80);
+          if (cellText.length < 2) continue;
+          if (/add|delete|copy|edit|new|remove|home|menu|ccy|logout/i.test(cellText)) continue;
+          if (/\d/.test(cellText)) {
+            const cell = row.locator('td').nth(c);
+            await cell.scrollIntoViewIfNeeded().catch(() => {});
+            await cell.click({ timeout: 10000, force: true });
+            console.log(`Selected first grid row (data cell) ${context}[${i}] td[${c}] text="${cellText}"`);
+            await this.page.waitForTimeout(1000);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      // Strategy 1: find a table whose headers identify it as a data grid.
+      const tables = finwFrame.locator('table');
+      const tableCount = await tables.count().catch(() => 0);
+      for (let t = 0; t < tableCount; t++) {
+        const table = tables.nth(t);
+        if (!(await isDataGrid(table))) continue;
+        const bodyRows = table.locator('tbody tr');
+        const bodyCount = await bodyRows.count().catch(() => 0);
+        const rowsToTry = bodyCount > 0 ? bodyRows : table.locator('tr');
+        if (await trySelectInRows(rowsToTry, `table[${t}]`)) return true;
+      }
+
+      // Strategy 2: any tbody/table row, but skip layout/toolbar rows.
+      for (const rowSelector of ['tbody tr', 'table tr']) {
+        const rows = finwFrame.locator(rowSelector);
+        if (await trySelectInRows(rows, rowSelector)) return true;
+      }
+
+      // Grid may be slow to load after a postback.
+      await this.page.waitForTimeout(1000);
+    }
+
+    console.log('No grid row selection control found');
+    return false;
   }
 
   // Handles the Finacle "Warning and Exception Dialog" that opens as a separate
@@ -4278,7 +4567,7 @@ export class AccountPage {
 
   // Fills the first field matching one of the candidate ids. Works for
   // disabled/readonly Finacle display fields and hidden backend inputs.
-  private async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
+  protected async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
     const finwFrame = this.getFinwFrame();
     for (const id of ids) {
       try {

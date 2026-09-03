@@ -1,4 +1,5 @@
 import { Page, Locator, FrameLocator } from '@playwright/test';
+import { setLogoutInProgress } from '../../config/crmSetup';
 
 export class HomePage {
   readonly page: Page;
@@ -200,8 +201,14 @@ export class HomePage {
 
   // ============ Logout ============
   async logout() {
-    await this.logoutButton.click();
-    await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(5000);
+    // Tell the global dialog handler to accept the logout confirmation.
+    setLogoutInProgress(true);
+    try {
+      await this.logoutButton.click();
+      await this.page.waitForLoadState('networkidle');
+      await this.page.waitForTimeout(5000);
+    } finally {
+      setLogoutInProgress(false);
+    }
   }
 }

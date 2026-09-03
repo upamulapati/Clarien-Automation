@@ -113,6 +113,7 @@ test(TD.testLabel, async ({ page }) => {
       generatedAccounts[schemeCode] = accountId;
       saveAccount(schemeCode, accountId);
     }
+    console.log('CAPTURED TERM DEPOSIT ACCOUNT ID:', accountId ?? 'NOT CAPTURED');
     continue;
 
     // Step 2: Search HOAACTD

@@ -58,7 +58,7 @@ export class TermDepositPage extends AccountPage {
     }
   }
 
-  private async setTextByIds(ids: string[], value: string): Promise<boolean> {
+  protected async setTextByIds(ids: string[], value: string): Promise<boolean> {
     const frame = this.getTdFrame();
     if (!frame) return false;
     for (const id of ids) {
@@ -171,6 +171,149 @@ export class TermDepositPage extends AccountPage {
     await this.page.waitForTimeout(500);
   }
 
+  protected async setRenewalPeriod(months: string, days: string): Promise<void> {
+    const frame = this.getTdFrame();
+    if (!frame) return;
+    const ok = await frame.evaluate(({ m, d }) => {
+      const isTextLike = (i: HTMLInputElement) => {
+        if (i.disabled || i.readOnly) return false;
+        const t = (i.type || '').toLowerCase();
+        return !['checkbox', 'radio', 'submit', 'button', 'image', 'hidden', 'file', 'reset'].includes(t);
+      };
+
+      const dayIds = [
+        'renewalPeriodDay', 'renewalPeriodDays', 'renewPrdDay', 'renewPrdDays',
+        'renewalPrdDays', 'prdDays',
+      ];
+      let dayInput: HTMLInputElement | null = null;
+      for (const id of dayIds) {
+        const el = document.getElementById(id) as HTMLInputElement | null;
+        if (el && isTextLike(el)) { dayInput = el; break; }
+      }
+      // If not found by id, search by id/name substring
+      if (!dayInput) {
+        const all = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
+        dayInput = all.find((i) => isTextLike(i) && (dayIds.some((id) => i.id.toLowerCase().includes(id.toLowerCase())) || dayIds.some((id) => (i.getAttribute('name') || '').toLowerCase().includes(id.toLowerCase())))) || null;
+      }
+      if (!dayInput) return { ok: false, reason: 'day input not found' };
+
+      // Find the month input: the text-like input on the same row immediately to the left of the day input
+      const dayRect = dayInput.getBoundingClientRect();
+      const dayCenterY = (dayRect.top + dayRect.bottom) / 2;
+      const all = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
+      const monthInput = all
+        .filter((i) => i !== dayInput && isTextLike(i))
+        .filter((i) => {
+          const r = i.getBoundingClientRect();
+          return Math.abs((r.top + r.bottom) / 2 - dayCenterY) < 25 && r.right <= dayRect.left + 5;
+        })
+        .sort((a, b) => b.getBoundingClientRect().left - a.getBoundingClientRect().left)[0];
+
+      if (!monthInput) return { ok: false, reason: 'month input not found' };
+
+      const setInput = (input: HTMLInputElement, val: string) => {
+        input.focus();
+        input.value = val;
+        input.setSelectionRange(val.length, val.length);
+        input.dispatchEvent(new Event('focus', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: val, bubbles: true }));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keypress', { key: val, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keyup', { key: val, bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.blur();
+      };
+
+      setInput(monthInput, m);
+      setInput(dayInput, d);
+
+      return {
+        ok: true,
+        ids: [monthInput.id, dayInput.id],
+        names: [monthInput.getAttribute('name') || '', dayInput.getAttribute('name') || ''],
+        lefts: [monthInput.getBoundingClientRect().left, dayInput.getBoundingClientRect().left],
+      };
+    }, { m: months, d: days }).catch((e) => ({ ok: false, reason: String(e) }));
+    if (ok && ok.ok) {
+      const fields = [
+        { id: ok.ids[0], name: ok.names[0], val: months },
+        { id: ok.ids[1], name: ok.names[1], val: days },
+      ];
+      for (const f of fields) {
+        const attr = f.id || f.name;
+        if (!attr) continue;
+        const sel = `[id="${attr}"], [name="${attr}"]`;
+        await frame.locator(sel).first().fill(f.val, { force: true }).catch(() => {});
+      }
+      console.log(`Set renewal period: ${months} months, ${days} days (ids=${ok.ids}, names=${ok.names}, lefts=${ok.lefts})`);
+      return;
+    }
+    console.log('Renewal period fill failed:', ok);
+    await this.setTextByIds(['renewalPeriodMnth', 'renewalPeriodMonths', 'renewPrdMnth', 'renewPrdMths', 'renewalPrdMnth', 'prdMonths'], months);
+    await this.setTextByIds(['renewalPeriodDay', 'renewalPeriodDays', 'renewPrdDay', 'renewPrdDays', 'renewalPrdDays', 'prdDays'], days);
+    await this.page.waitForTimeout(500);
+  }
+
+  protected async selectPrintRenewalConfirmation(choice: string): Promise<void> {
+    const frame = this.getTdFrame();
+    if (!frame) return;
+    const result = await frame.evaluate((val) => {
+      const valLower = val.toLowerCase();
+      const all = Array.from(document.querySelectorAll('td, label, th')) as HTMLElement[];
+      const label = all.find((el) => (el.textContent || '').toLowerCase().includes('print renewal confirmation'));
+      const scope = label ? (label.closest('tr') || label.parentElement) : document.body;
+      const radios = Array.from((scope || document.body).querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      let target: HTMLInputElement | undefined;
+      let labelToClick: HTMLElement | undefined;
+      for (const radio of radios) {
+        if (radio.disabled) continue;
+        const valueMatch = radio.value?.toLowerCase() === valLower || radio.id?.toLowerCase().includes(valLower);
+        let labelText = '';
+        if (radio.id) {
+          const labelEl = scope?.querySelector(`label[for='${radio.id}']`) as HTMLElement | null;
+          if (labelEl) {
+            labelText = labelEl.textContent?.toLowerCase() || '';
+            labelToClick = labelEl;
+          }
+        }
+        if (!labelText && radio.parentElement) {
+          labelText = radio.parentElement.textContent?.toLowerCase() || '';
+          labelToClick = radio.parentElement;
+        }
+        if (valueMatch || labelText.includes(valLower)) {
+          target = radio;
+          if (!labelToClick && radio.parentElement) labelToClick = radio.parentElement;
+          break;
+        }
+      }
+      if (target && labelToClick) {
+        labelToClick.scrollIntoView();
+        labelToClick.click();
+        return { ok: true, value: target.value, id: target.id, clicked: 'label' };
+      }
+      if (target) {
+        target.scrollIntoView();
+        target.click();
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        return { ok: true, value: target.value, id: target.id, clicked: 'radio' };
+      }
+      return { ok: false };
+    }, choice.toLowerCase()).catch((e) => ({ ok: false, error: String(e) }));
+    if (result && result.ok) {
+      console.log(`Selected Print Renewal Confirmation: ${choice} (id=${result.id}, value=${result.value}, clicked=${result.clicked})`);
+      return;
+    }
+    console.log('Print Renewal Confirmation label/radio match failed, trying text click fallback');
+    const labelLocator = frame.locator('label, span').filter({ hasText: new RegExp(choice, 'i') }).first();
+    if (await labelLocator.count() > 0 && await labelLocator.isVisible().catch(() => false)) {
+      await labelLocator.click().catch(() => {});
+    } else {
+      await frame.locator('input[type="radio"][value="I"], input[type="radio"][value="Immediate"], input[type="radio"][id*="immediate" i]').first().check().catch(() => {});
+    }
+    console.log(`Print Renewal Confirmation ${choice} fallback attempted`);
+    await this.page.waitForTimeout(500);
+  }
+
   private async setNominationNo() {
     const frame = this.getTdFrame();
     if (!frame) return;
@@ -236,13 +379,19 @@ export class TermDepositPage extends AccountPage {
   private async captureGeneratedAccountId(): Promise<string | null> {
     for (const frame of this.page.frames()) {
       const text = await frame.locator('body').innerText().catch(() => '');
-      const match = text.match(/Term\s+Deposit.*?(?:Account\s+ID|A\/c\s+ID|Foracid)\s*[:=]?\s*([A-Z]{2,}\d{3,})/i) ||
-                    text.match(/created\s+successfully\s+(?:with|for)\s+(?:account\s+id|A\/c\s+ID|foracid)\s*[:=]?\s*([A-Z]{2,}\d{3,})/i) ||
-                    text.match(/\b([A-Z]{2}\d{6,})\b/);
-      if (match) {
-        const id = match[1].trim();
-        console.log(`Captured account ID: ${id}`);
-        return id;
+      const patterns = [
+        /Term\s+Deposit.*?(?:Account\s+ID|A\/c\s*ID|Foracid|A\/c\.?\s*No\.?)\s*[:\-]?\s*([A-Z]{2,}\d{3,}|\d{8,15})/i,
+        /(?:New\s+A\/c\.?\s*ID|Account\s+(?:ID|Number|No\.?)|A\/c\s*ID)\s*[:\-]?\s*([A-Z]{2,}\d{3,}|\d{8,15})/i,
+        /created\s+successfully\s+(?:with|for)\s+(?:account\s+id|A\/c\s*ID|foracid)\s*[:=]?\s*([A-Z]{2,}\d{3,}|\d{8,15})/i,
+        /\b([A-Z]{2}\d{6,})\b/,
+      ];
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          const id = match[1].trim();
+          console.log(`Captured account ID: ${id}`);
+          return id;
+        }
       }
     }
     console.log('Could not capture generated account ID');
@@ -1223,5 +1372,175 @@ export class TermDepositPage extends AccountPage {
     }
     if (!successHandled) console.log('Account closure success screen not detected');
     return successHandled;
+  }
+
+  async renewTermDeposit(
+    screenCode: string,
+    accountId: string,
+    renewalDetails?: { renewalPeriodMonths: string; renewalPeriodDays: string; printRenewalConfirmation: string }
+  ): Promise<string | null> {
+    console.log(`\n===== Renewing term deposit: ${accountId} =====`);
+    await this.selectCoreServer();
+    await this.searchMenu(screenCode);
+    await this.page.waitForTimeout(3000);
+
+    const finwFrame = this.getTdFrame();
+    if (!finwFrame) throw new Error('FINW frame not found');
+
+    console.log('Selecting Renewal function...');
+    await this.selectFunction('Renewal');
+    await this.page.waitForTimeout(1000);
+
+    console.log(`Entering A/c ID: ${accountId}`);
+    await this.setTextByIds(['acctId', 'acid', 'acId', 'accountId', 'tempForacid', 'foracid'], accountId);
+    await this.page.waitForTimeout(2000);
+
+    await this.closeExtraPopups();
+    await this.clickGoButton();
+    await this.page.waitForTimeout(6000);
+
+    console.log('Visiting Term Deposits Renewal tab...');
+    await this.visitTab('Term Deposits Renewal').catch(() => this.visitTab('Renewal').catch(() => {}));
+    await this.page.waitForTimeout(3000);
+
+    console.log('Filling default required options...');
+    await this.fillDefaultRequiredOptions();
+
+    if (renewalDetails) {
+      console.log(`Setting renewal period: ${renewalDetails.renewalPeriodMonths}/${renewalDetails.renewalPeriodDays}, confirmation: ${renewalDetails.printRenewalConfirmation}`);
+      await this.setRenewalPeriod(renewalDetails.renewalPeriodMonths, renewalDetails.renewalPeriodDays);
+      await this.selectPrintRenewalConfirmation(renewalDetails.printRenewalConfirmation);
+      await this.page.waitForTimeout(1000);
+    }
+
+    console.log('Clicking Validate...');
+    await this.forceClickLastButtonByValue('Validate');
+    await this.page.waitForTimeout(3000);
+
+    console.log('Clicking Submit...');
+    await this.forceClickLastButtonByValue('Submit');
+    await this.page.waitForTimeout(5000);
+
+    await this.acceptWarningPopup().catch(() => {});
+    await this.page.waitForTimeout(3000);
+
+    return this.getStatusMessage();
+  }
+
+  async verifyTermDepositRenewal(screenCode: string, accountId: string): Promise<string | null> {
+    console.log(`\n===== Verifying term deposit renewal: ${accountId} =====`);
+    await this.selectCoreServer();
+    await this.searchMenu(screenCode);
+    await this.page.waitForTimeout(3000);
+
+    console.log('Selecting Verify function...');
+    await this.selectVerifyFunction().catch(() => {});
+    await this.page.waitForTimeout(3000);
+
+    console.log(`Entering A/c ID: ${accountId}`);
+    const entered = await this.setTextByIds(['tempForacid', 'acctId', 'acid', 'acId', 'accountId', 'foracid'], accountId);
+    if (!entered) {
+      await this.enterHacmAccountId(accountId).catch(() => {});
+    }
+    await this.page.waitForTimeout(2000);
+
+    try {
+      if (await this.acceptButton.count().catch(() => 0) > 0) {
+        await this.acceptButton.click();
+      } else {
+        await this.clickGoButton().catch(() => {});
+      }
+    } catch {
+      await this.clickGoButton().catch(() => {});
+    }
+    await this.page.waitForTimeout(5000);
+
+    await this.visitTab('General').catch(() => {});
+    await this.visitTab('Renewal').catch(() => {});
+
+    console.log('Clicking Submit...');
+    await this.clickSubmit().catch(() => {});
+    await this.page.waitForTimeout(3000);
+
+    await this.acceptWarningPopup().catch(() => {});
+    await this.page.waitForTimeout(2000);
+
+    return this.getStatusMessage();
+  }
+
+  protected async fillDefaultRequiredOptions(): Promise<void> {
+    const finwFrame = this.getTdFrame();
+    if (!finwFrame) return;
+    await finwFrame.evaluate(() => {
+      const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+      selects.forEach((sel) => {
+        if (sel.disabled) return;
+        const selectedText = sel.options[sel.selectedIndex]?.text?.trim() || '';
+        const selectedValue = sel.options[sel.selectedIndex]?.value?.trim() || '';
+        const isPlaceholder =
+          selectedText.toLowerCase() === 'select' ||
+          selectedValue.toLowerCase() === 'select' ||
+          selectedValue === '';
+        if (isPlaceholder) {
+          const real = Array.from(sel.options).slice(1).find((o) => o.value && o.value.trim() !== '' && !/select/i.test(o.text.trim()));
+          if (real) {
+            sel.value = real.value;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      });
+
+      const radios = Array.from(document.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      const groups: Record<string, HTMLInputElement[]> = {};
+      radios.forEach((r) => {
+        if (r.disabled) return;
+        const name = r.name || r.id || 'unknown';
+        if (!groups[name]) groups[name] = [];
+        groups[name].push(r);
+      });
+      Object.values(groups).forEach((group) => {
+        if (!group.some((r) => r.checked)) {
+          const first = group.find((r) => !r.disabled);
+          if (first) {
+            first.checked = true;
+            first.click();
+            first.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      });
+    });
+    await this.page.waitForTimeout(800);
+    console.log('Default required options filled');
+  }
+
+  private async forceClickLastButtonByValue(value: string): Promise<void> {
+    const finwFrame = this.getTdFrame();
+    if (!finwFrame) {
+      console.log(`FINW frame not available; cannot click ${value}`);
+      return;
+    }
+    const clicked = await finwFrame.evaluate((val) => {
+      const valueLower = val.toLowerCase();
+      const all = Array.from(document.querySelectorAll('input[type="button"], input[type="submit"], button')) as HTMLElement[];
+      const matches = all.filter((el) => {
+        const input = el as HTMLInputElement;
+        return (input.value?.trim().toLowerCase() === valueLower) || (el.textContent?.trim().toLowerCase() === valueLower);
+      });
+      const visible = matches.filter((el) => !(el as HTMLInputElement).disabled);
+      const target = visible[visible.length - 1] || matches[matches.length - 1];
+      if (target) {
+        target.scrollIntoView();
+        target.click();
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        return true;
+      }
+      return false;
+    }, value);
+    if (clicked) {
+      console.log(`Force-clicked last ${value} button`);
+    } else {
+      console.log(`${value} button not found for force-click`);
+    }
+    await this.page.waitForTimeout(2000);
   }
 }

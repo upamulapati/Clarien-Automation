@@ -4,7 +4,7 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 
 // Retail loan creation (HOAACLA) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -14,7 +14,7 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const CURRENCY = 'BMD';
 const SOL_ID = '100';
 //const CIF_ID = COMMON_DATA.baseAccountData.cifCode;
-const SHARED_CIF = getSharedValue('cifId');
+const SHARED_CIF = getSharedValue<string>(state => (state as any).cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 const CIF_ID = SHARED_CIF ?? '0005000599';
 
@@ -148,10 +148,12 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   console.log('=== GENERATED LOAN ACCOUNT NUMBER:', loanAccountNumber, '===');
 
   // Persist the CIF ID and loan Account ID for downstream specs
-  writeSharedState({ loanCifId: CIF_ID });
-  if (loanAccountNumber) {
-    writeSharedState({ loanAccountId: loanAccountNumber });
-  }
+  updateSharedState((state) => {
+    (state as any).loanCifId = CIF_ID;
+    if (loanAccountNumber) {
+      (state as any).loanAccountId = loanAccountNumber;
+    }
+  });
 
   // Step 17: Click Accept to finalise the loan after the A/c ID is generated.
   console.log('Clicking Accept button...');

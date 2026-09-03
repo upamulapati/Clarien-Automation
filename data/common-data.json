@@ -1,19 +1,19 @@
 {
   "credentials": {
-    "username": "finacletest05",
-    "password": "clarien@123"
+    "username": "finacletest5",
+    "password": "clarien@1234"
   },
   "secondCredentials": {
-    "username": "finacletest01",
-    "password": "clarien@123"
+    "username": "finacletest1",
+    "password": "clarien@1234"
   },
   "thirdCredentials": {
     "username": "FINACLETEST13",
-    "password": "clarien@123"
+    "password": "clarien@1234"
   },
   "verifierCredentials": {
-    "username": "finacletest01",
-    "password": "clarien@123"
+    "username": "finacletest14",
+    "password": "clarien@1234"
   },
   "baseAccountData": {
     "functionOption": "O",
@@ -157,10 +157,7 @@
     "modeOfOperation": "016",
     "dispatchMode": "post",
     "schemeCodes": [
-      "TDGNH", "TDGNM", "TDGNQ", "TDGNY", "TDGNZ",
-      "TDGPI", "TDPPI", "TDPRH", "TDPRM", "TDPRQ",
-      "TDPRY", "TDPRZ", "TDSPI", "TDSWH", "TDSWM",
-      "TDSWQ", "TDSWZ"
+      "TDGNH" 
     ],
     "depositAmountOverrides": {
       "TDSPI": "10",

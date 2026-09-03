@@ -9,7 +9,7 @@ const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Test data: update with the same loan account used in the disbursement creation spec.
-const LOAN_ACCOUNT_NUMBER = '3200000060';
+const LOAN_ACCOUNT_NUMBER = '3200000080';
 
 test('HLADISB - disbursement verification for retail loan', async ({ page }) => {
   test.setTimeout(300000);
@@ -32,9 +32,10 @@ test('HLADISB - disbursement verification for retail loan', async ({ page }) => 
     await servicePackPage.servicePackRetailLoanDisbursementAuditValidation(LOAN_ACCOUNT_NUMBER);
     console.log('HAFI MCTD service pack validation assertion passed');
 
+    console.log('Captured Transaction ID:', result.transactionId ?? 'NOT CAPTURED');
+    console.log('Captured Transaction Date:', result.transactionDate ?? 'NOT CAPTURED');
+
     if (result.transactionId && result.transactionDate) {
-      console.log('Captured Transaction ID:', result.transactionId);
-      console.log('Captured Transaction Date:', result.transactionDate);
       await servicePackPage.servicePackRetailLoanDisbursementHtmValidation(result.transactionId, result.transactionDate);
     } else {
       console.log('Transaction ID or Date not captured, skipping HTM validation');

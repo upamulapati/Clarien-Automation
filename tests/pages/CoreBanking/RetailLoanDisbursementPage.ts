@@ -6,6 +6,7 @@ export interface RetailLoanDisbursementData {
   transactionType?: string;
   modeOfDisbursement?: string;
   disbursementAmount?: string;
+  functionOption?: string;
 }
 
 export class RetailLoanDisbursementPage extends AccountPage {
@@ -166,41 +167,49 @@ export class RetailLoanDisbursementPage extends AccountPage {
   }
 
   private async handleAccountValidationPopup() {
-    const deadline = Date.now() + 10000;
-    let popup: import('@playwright/test').Page | null = null;
-    while (Date.now() < deadline) {
-      for (const p of this.page.context().pages()) {
-        if (p === this.page || p.isClosed()) continue;
-        if (/VALACCTID|fetch\.jsp|validation/i.test(p.url())) { popup = p; break; }
+    try {
+      const deadline = Date.now() + 10000;
+      let popup: import('@playwright/test').Page | null = null;
+      while (Date.now() < deadline) {
+        for (const p of this.page.context().pages()) {
+          if (p === this.page || p.isClosed()) continue;
+          if (/VALACCTID|foracid|acctid|accountid|ladisb|validation/i.test(p.url())) { popup = p; break; }
+        }
+        if (popup) break;
+        await this.page.waitForTimeout(500);
       }
-      if (popup) break;
-      await this.page.waitForTimeout(500);
+      if (!popup || popup.isClosed()) return;
+
+      const bodyText = (await popup.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (popup.isClosed()) return;
+
+      let buttons: any[] = [];
+      try {
+        buttons = await popup.locator('input[type="button"], input[type="submit"], button, a').evaluateAll((els: any[]) =>
+          els.filter(e => e.id || e.name || (e.value || '').toString().trim() || (e.innerText || e.textContent || '').toString().trim())
+            .map(e => ({ tag: e.tagName, id: e.id, name: e.name, type: e.type || '', value: (e.value || '').toString().trim().slice(0, 50), text: (e.innerText || e.textContent || '').toString().trim().slice(0, 50) }))
+        );
+      } catch {
+        // Popup may have closed while reading buttons.
+      }
+      console.log(`Account validation popup body: ${bodyText}`);
+      console.log(`Account validation popup buttons: ${JSON.stringify(buttons)}`);
+
+      if (popup.isClosed()) return;
+
+      const cancelSel = 'input[type="button"][value*="Cancel" i], input[type="submit"][value*="Cancel" i], #Cancel, #cancel, button:has-text("Cancel"), a:has-text("Cancel"), input[type="button"][value*="Close" i], input[type="submit"][value*="Close" i], #Close, #close, button:has-text("Close"), a:has-text("Close")';
+      const cancel = popup.locator(cancelSel).first();
+      if (await cancel.count() > 0 && await cancel.isVisible().catch(() => false)) {
+        await cancel.click({ timeout: 10000 }).catch(() => {});
+        console.log('Clicked Cancel/Close on account validation popup');
+      } else {
+        await popup.close().catch(() => {});
+        console.log('Closed account validation popup');
+      }
+      await this.page.waitForTimeout(3000);
+    } catch (e) {
+      console.log(`handleAccountValidationPopup encountered an issue: ${e}`);
     }
-    if (!popup) return;
-    if (popup.isClosed()) return;
-
-    const bodyText = (await popup.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 300);
-    if (popup.isClosed()) return;
-
-    const buttons = await popup.locator('input[type="button"], input[type="submit"], button, a').evaluateAll((els: any[]) =>
-      els.filter(e => e.id || e.name || (e.value || '').toString().trim() || (e.innerText || e.textContent || '').toString().trim())
-        .map(e => ({ tag: e.tagName, id: e.id, name: e.name, type: e.type || '', value: (e.value || '').toString().trim().slice(0, 50), text: (e.innerText || e.textContent || '').toString().trim().slice(0, 50) }))
-    );
-    console.log(`Account validation popup body: ${bodyText}`);
-    console.log(`Account validation popup buttons: ${JSON.stringify(buttons)}`);
-
-    if (popup.isClosed()) return;
-
-    const cancelSel = 'input[type="button"][value*="Cancel" i], input[type="submit"][value*="Cancel" i], #Cancel, #cancel, button:has-text("Cancel"), a:has-text("Cancel"), input[type="button"][value*="Close" i], input[type="submit"][value*="Close" i], #Close, #close, button:has-text("Close"), a:has-text("Close")';
-    const cancel = popup.locator(cancelSel).first();
-    if (await cancel.count() > 0 && await cancel.isVisible().catch(() => false)) {
-      await cancel.click({ timeout: 10000 });
-      console.log('Clicked Cancel/Close on account validation popup');
-    } else {
-      await popup.close().catch(() => {});
-      console.log('Closed account validation popup');
-    }
-    await this.page.waitForTimeout(3000);
   }
 
   private async dumpFinwElements(context: string) {
@@ -276,8 +285,9 @@ export class RetailLoanDisbursementPage extends AccountPage {
     await this.searchMenu('HLADISB');
     await this.page.waitForTimeout(3000);
 
-    console.log('Selecting Disbursement function...');
-    await this.selectFunction('Disbursement');
+    const selectedFunction = data.functionOption ?? 'Disbursement';
+    console.log(`Selecting ${selectedFunction} function...`);
+    await this.selectFunction(selectedFunction);
     await this.page.waitForTimeout(2000);
 
     console.log('Entering loan account id...');
@@ -334,61 +344,61 @@ export class RetailLoanDisbursementPage extends AccountPage {
     return { message, screenshot };
   }
 
-  async verifyDisbursement(data: RetailLoanDisbursementData): Promise<{ message: string | null; screenshot: Buffer; transactionId: string | null; transactionDate: string }> {
+  async verifyDisbursement(data: RetailLoanDisbursementData): Promise<{ message: string | null; screenshot: Buffer; transactionId: string | null; transactionDate: string | null }> {
     console.log(`Starting HLADISB disbursement verification for loan: ${data.loanAccountNumber}`);
 
+    // 1. Login is handled by the calling spec with a different user.
     await this.selectCoreServer();
+
+    // 2. Type menu option "HLADISB".
+    console.log('Searching for HLADISB menu...');
     await this.searchMenu('HLADISB');
     await this.page.waitForTimeout(3000);
 
+    // 3. Transaction type -- Select transfer.
     const transactionType = data.transactionType ?? 'Transfer';
     console.log(`Selecting transaction type: ${transactionType}`);
     await this.selectTransactionTypeRadio(transactionType);
     await this.page.waitForTimeout(1000);
 
+    // 3. Function - V-Verify.
     console.log('Selecting Verify function...');
     await this.selectFunction('Verify');
     await this.page.waitForTimeout(2000);
 
-    console.log('Entering loan account id...');
+    // 4. Enter loan a/c id, click Accept.
+    console.log(`Entering loan account id: ${data.loanAccountNumber}`);
     const accountFilled = await this.fillByLabel('A/c Id', data.loanAccountNumber);
     if (!accountFilled) {
       await this.enterHacmAccountId(data.loanAccountNumber);
-    }
-
-    const dialogMessages: string[] = [];
-    const dialogHandler = (dialog: any) => { dialogMessages.push(dialog.message()); };
-    this.page.on('dialog', dialogHandler);
-    try {
-      console.log('Handling account validation popup...');
-      await this.handleAccountValidationPopup();
-    } finally {
-      this.page.off('dialog', dialogHandler);
-    }
-
-    if (dialogMessages.some(m => /nothing to verify/i.test(m))) {
-      console.log('Skipping verification submit: account has nothing to verify');
-      const screenshot = await this.page.screenshot({ fullPage: true });
-      return { message: 'There is nothing to verify', screenshot };
+    } else {
+      // Trigger the account-validation lookup.
+      await this.enterHacmAccountId(data.loanAccountNumber);
     }
 
     console.log('Clicking Accept...');
     await this.clickAccept();
     await this.page.waitForTimeout(4000);
 
+    // 5. Click go, click accept.
     console.log('Clicking Go...');
-    await this.clickGoButton();
+    await this.clickGo();
+    await this.page.waitForTimeout(3000);
 
-    console.log('Clicking Accept on charges...');
+    console.log('Clicking Accept...');
     await this.clickAccept();
+    await this.page.waitForTimeout(3000);
 
-    console.log('Clicking final Accept before submit...');
+    // 6. Click accept, click submit.
+    console.log('Clicking Accept...');
     await this.clickAccept();
+    await this.page.waitForTimeout(3000);
 
     console.log('Clicking Submit...');
     await this.clickSubmit();
     await this.acceptWarningPopup();
 
+    // 7. Capture the disbursement done successfully message.
     const message = await this.getStatusMessage();
     const screenshot = await this.page.screenshot({ fullPage: true });
     console.log(`Disbursement verification message: ${message}`);
@@ -397,6 +407,9 @@ export class RetailLoanDisbursementPage extends AccountPage {
     const pageText = await finwFrame.locator('body').innerText().catch(() => '') || '';
     const transactionId = this.extractTransactionId(message) || this.extractTransactionId(pageText);
     const transactionDate = this.extractTransactionDate(message) || this.extractTransactionDate(pageText) || this.collateralToday();
+
+    console.log('Captured transaction ID:', transactionId ?? 'NOT CAPTURED');
+    console.log('Captured transaction date:', transactionDate ?? 'NOT CAPTURED');
 
     return { message, screenshot, transactionId, transactionDate };
   }
