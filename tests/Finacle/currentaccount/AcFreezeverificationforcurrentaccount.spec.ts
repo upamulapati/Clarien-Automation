@@ -34,7 +34,7 @@ test('HAFSM - verify freeze on current account', async ({ page }) => {
 
   // Step 2: Type menu option "HAFSM" in finacle
   console.log('Searching for HAFSM...');
-  await savingsAccountPage.searchMenu('HAFSM');
+  await savingsAccountPage.searchMenu(COMMON_DATA.currentAccount.screens.freeze);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - V - Verify

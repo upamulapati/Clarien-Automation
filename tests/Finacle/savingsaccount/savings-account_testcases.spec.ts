@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
   await savingsAccountPage.selectCoreServer();
 
   console.log('Searching for HOAACSB...');
-  await savingsAccountPage.searchMenu('HOAACSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
 });
 
 test('TC_SB_002 - save savings bank account with SVREG scheme', async ({ page }) => {
@@ -51,7 +51,7 @@ test('TC_SB_005 - SB A/c Modification - Account opened through NEWGEN', async ({
 
   console.log('Navigating to modification screen...');
   // Type menu option "HOAACMSB" for account modification
-  await savingsAccountPage.searchMenu('HOAACMSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modify);
   
   // Paste the captured account ID on the modification screen
   await savingsAccountPage.enterAccountId(accountId);
@@ -92,7 +92,7 @@ test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page })
   }
 
   console.log('Navigating to modification screen...');
-  await savingsAccountPage.searchMenu('HOAACMSB');
+  await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modify);
   
   console.log('Entering captured account ID...');
   await savingsAccountPage.enterAccountId(accountId);

@@ -1,6 +1,7 @@
 import { test, expect, Page, Dialog } from '@playwright/test';
 import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { saveCreatedCif } from '../../config/cifStore';
 import { CrmRetailEndToEndPage } from '../../pages/CRM/crmRetailEndToEndPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
 import { writeSharedState } from '../../helpers/sharedState';
@@ -105,6 +106,10 @@ test.describe('Simple CIF Creation', () => {
     if (sharedCifId) {
       writeSharedState({ cifId: sharedCifId });
     }
+
+    // Persist the freshly-created CIF ID so the retail modification specs
+    // (separate spec files) can modify this same CIF instead of a hardcoded one.
+    saveCreatedCif('retail', sharedCifId);
 
     // Summary
     console.log('\n=== Summary of E2E Happy Path ===');

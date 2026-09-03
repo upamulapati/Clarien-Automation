@@ -1,4 +1,4 @@
-import { Page, Locator, FrameLocator, Frame } from '@playwright/test';
+import { Page, Locator, FrameLocator, Frame, Dialog } from '@playwright/test';
 
 interface AccountData {
   functionOption: string;
@@ -19,7 +19,7 @@ export class AccountPage {
   }
 
   // ============ Frame Helpers ============
-  private getFinwFrame(): Frame {
+  protected getFinwFrame(): Frame {
     const finwFrame = this.page.frame({ name: 'FINW' });
     if (!finwFrame) {
       throw new Error('FINW frame not found!');
@@ -206,18 +206,126 @@ export class AccountPage {
   async searchAccountInquiry(searchTerm: string) { await this.searchMenu(searchTerm); }
 
   // ============ Tab Navigation Methods ============
-  private async clickTab(textMatch: string, idFallback?: string) {
+  private async clickTab(textMatch: string, idFallback?: string, verificationLabel?: string) {
     try {
       const finwFrame = this.getFinwFrame();
-      const byText = finwFrame.locator(`a:has-text("${textMatch}")`).first();
-      if (await byText.count() > 0) {
-        await byText.click({ timeout: 15000 });
-      } else if (idFallback && await finwFrame.locator(`#${idFallback}`).count() > 0) {
-        await finwFrame.locator(`#${idFallback}`).click({ timeout: 15000 });
-      } else {
-        console.log(`Tab '${textMatch}' not found (it may already be active), skipping`);
+      const textLower = textMatch.toLowerCase();
+      const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
+      let clicked = false;
+
+      // Helper: check if the tab content appears to be loaded by looking for a visible label cell.
+      const isContentLoaded = async (): Promise<boolean> => {
+        if (!verificationLabel) return true;
+        const regex = new RegExp(`^\\s*${verificationLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`, 'i');
+        // Prefer table cells/headers/labels because tab field labels live there.
+        const labelCells = finwFrame.locator('td, th, label').filter({ hasText: regex });
+        const count = await labelCells.count();
+        for (let i = 0; i < count; i++) {
+          if (await labelCells.nth(i).isVisible().catch(() => false)) return true;
+        }
+        // Fallback: any element containing the text as a word.
+        const anyEls = finwFrame.locator('*:visible').filter({ hasText: new RegExp(`\\b${verificationLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') });
+        const anyCount = await anyEls.count();
+        for (let i = 0; i < anyCount; i++) {
+          if (await anyEls.nth(i).isVisible().catch(() => false)) return true;
+        }
+        return false;
+      };
+
+      // Strategy 1: find visible elements across common tab tags whose text matches and click.
+      for (const tag of tags) {
+        const elements = finwFrame.locator(`${tag}:visible`);
+        const count = await elements.count();
+        for (let i = 0; i < count; i++) {
+          const el = elements.nth(i);
+          const txt = ((await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || (await el.getAttribute('title').catch(() => '')) || (await el.getAttribute('aria-label').catch(() => '')) || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          if (txt === textLower || txt.includes(textLower)) {
+            try {
+              await el.click({ timeout: 15000, force: true });
+            } catch {
+              await el.dispatchEvent('click');
+            }
+            await this.page.waitForTimeout(2000);
+            if (await isContentLoaded()) {
+              clicked = true;
+              console.log(`Clicked tab ${tag} #${i}: "${txt}"`);
+              break;
+            } else {
+              // Try clicking the parent cell/list item.
+              const parent = el.locator('xpath=..');
+              if (await parent.count() > 0) {
+                try { await parent.first().click({ timeout: 10000, force: true }); } catch { await parent.first().dispatchEvent('click'); }
+                await this.page.waitForTimeout(2000);
+                if (await isContentLoaded()) {
+                  clicked = true;
+                  console.log(`Clicked tab parent ${tag} #${i}: "${txt}"`);
+                  break;
+                }
+              }
+            }
+          }
+        }
+        if (clicked) break;
       }
-      await this.page.waitForTimeout(2500);
+
+      // Strategy 2: JS evaluate click by exact/normalized text across common tab tags, including parent dispatch.
+      if (!clicked) {
+        const jsClicked = await finwFrame.evaluate(({ label, tagList, verifyLabel }) => {
+          const labelLower = label.toLowerCase();
+          const dispatchClick = (el: Element) => {
+            const h = el as HTMLElement;
+            ['mousedown', 'click', 'mouseup'].forEach(type => {
+              h.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+            });
+            h.click();
+          };
+          const contentLoaded = () => {
+            if (!verifyLabel) return true;
+            const verifyLower = verifyLabel.toLowerCase();
+            return Array.from(document.querySelectorAll('td, th, label')).some(e => {
+              const t = (e.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+              const r = (e as HTMLElement).getBoundingClientRect();
+              return t.startsWith(verifyLower) && r.width > 0 && r.height > 0;
+            });
+          };
+          for (const tag of tagList) {
+            const elements = Array.from(document.querySelectorAll(tag));
+            const el = elements.find(e => {
+              const t = ((e.textContent || '') || e.getAttribute('value') || e.getAttribute('title') || e.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().toLowerCase();
+              return t === labelLower || t.includes(labelLower);
+            });
+            if (el) {
+              dispatchClick(el);
+              if (contentLoaded()) return { ok: true, tag, text: el.textContent };
+              // Try parent.
+              const parent = el.parentElement;
+              if (parent) {
+                dispatchClick(parent);
+                if (contentLoaded()) return { ok: true, tag, text: parent.textContent, via: 'parent' };
+              }
+              return { ok: true, tag, text: el.textContent, via: 'click' };
+            }
+          }
+          return { ok: false };
+        }, { label: textMatch, tagList: tags, verifyLabel: verificationLabel });
+        if (jsClicked.ok) {
+          clicked = true;
+          console.log(`Clicked tab via JS (${jsClicked.tag}${jsClicked.via ? ' ' + jsClicked.via : ''}): "${jsClicked.text}"`);
+        }
+      }
+
+      // Strategy 3: fallback by id.
+      if (!clicked && idFallback && await finwFrame.locator(`#${idFallback}`).count() > 0) {
+        await finwFrame.locator(`#${idFallback}`).click({ timeout: 15000, force: true });
+        clicked = true;
+        console.log(`Clicked tab by id fallback: #${idFallback}`);
+      }
+
+      if (!clicked) {
+        console.log(`Tab '${textMatch}' not found (it may already be active), skipping`);
+      } else {
+        await this.page.waitForTimeout(2000);
+      }
     } catch (e) {
       console.log(`Could not navigate to tab '${textMatch}', skipping: ${e}`);
     }
@@ -278,7 +386,38 @@ export class AccountPage {
   // ============ Verification Screen Methods ============
   async selectVerifyFunction() {
     try {
-      await this.verifyCancel.selectOption('V');
+      const finwFrame = this.getFinwFrame();
+      const selectors = ['#verifyCancel', '#templateFunction'];
+      let selected = false;
+      for (const sel of selectors) {
+        const select = finwFrame.locator(sel);
+        if (await select.count() > 0) {
+          try {
+            await select.selectOption('V');
+            selected = true;
+            break;
+          } catch {
+            try {
+              await select.selectOption({ label: 'Verify' });
+              selected = true;
+              break;
+            } catch {}
+          }
+        }
+      }
+      if (!selected) {
+        await finwFrame.evaluate(() => {
+          const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+          for (const sel of selects) {
+            const opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'V' || /verify/i.test(o.text));
+            if (opt) {
+              sel.value = opt.value;
+              sel.dispatchEvent(new Event('change', { bubbles: true }));
+              return;
+            }
+          }
+        });
+      }
       await this.page.waitForTimeout(1000);
       console.log('Selected verify function option');
     } catch (e) {
@@ -340,6 +479,1269 @@ export class AccountPage {
     }
   }
 
+  // ============ Collateral (HCLM / HSCLM) Methods ============
+
+  // Returns today's date formatted as dd-mm-yyyy (Finacle date format).
+  collateralToday(): string {
+    const d = new Date();
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  // Returns a date offset by the given number of months from today, formatted
+  // as dd-mm-yyyy (Finacle date format). Used for modification tests where the
+  // review date must actually change from its current value.
+  collateralDateOffset(months: number): string {
+    const d = new Date();
+    const day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + months);
+    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, lastDay));
+    const newDay = String(d.getDate()).padStart(2, '0');
+    const newMonth = String(d.getMonth() + 1).padStart(2, '0');
+    const newYear = d.getFullYear();
+    return `${newDay}-${newMonth}-${newYear}`;
+  }
+
+  // Selects a collateral function/type dropdown option by visible keyword
+  // (e.g. "Lodge", "Verify", "Modify", "Deposits", "Link", "Unlink").
+  // Finacle often prefixes the visible option with a code ("L - Lodge"), so
+  // this helper tries the value, the label, and partial text matches.
+  async selectCollateralDropdown(value: string) {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const dropdowns = finwFrame.locator('select:visible');
+      const count = await dropdowns.count();
+      const valueLower = value.toLowerCase();
+      for (let i = 0; i < count; i++) {
+        const dd = dropdowns.nth(i);
+        if (await dd.isDisabled().catch(() => true)) continue;
+        const options = await dd.evaluateAll(els =>
+          Array.from(els).flatMap(s => Array.from((s as HTMLSelectElement).options).map(o => ({ text: o.text, value: o.value })))
+        );
+        // Prefer exact or starts-with match on the visible text.
+        const match = options.find(o => o.text.toLowerCase() === valueLower || o.text.toLowerCase().startsWith(valueLower + ' '));
+        const partialMatch = options.find(o => o.text.toLowerCase().includes(valueLower));
+        const selected = match || partialMatch;
+        if (selected) {
+          try {
+            await dd.selectOption(selected.value);
+          } catch {
+            try {
+              await dd.selectOption({ label: selected.text });
+            } catch {
+              // Last resort: set the index directly.
+              await dd.evaluate((sel, idx) => { (sel as HTMLSelectElement).selectedIndex = idx; }, options.indexOf(selected));
+            }
+          }
+          await this.page.waitForTimeout(1500);
+          console.log(`Selected collateral dropdown option: ${selected.text}`);
+          return;
+        }
+      }
+      // Fallback: try the generic selectOptionByLabel across the whole frame.
+      const ok = await this.selectOptionByLabel(value, value);
+      if (!ok) console.log(`Could not select collateral dropdown option: ${value}`);
+    } catch (e) {
+      console.log(`Could not select collateral dropdown '${value}', skipping: ${e}`);
+    }
+  }
+
+  // Opens the collateral code lookup popup, searches for the code and selects it.
+  async selectCollateralCode(code: string) {
+    const popup = await this.clickLookupIconByLabel('Collateral Code');
+    if (popup) {
+      try {
+        await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+        await popup.waitForTimeout(2000);
+        // Search across the popup's main frame and any child frames (e.g. FINW).
+        const frames = [popup.mainFrame(), ...popup.frames().filter(f => f !== popup.mainFrame())];
+        // Try to fill the search field and click the search/submit button in any frame.
+        for (const frame of frames) {
+          const searchInput = frame.locator('input[type="text"]').first();
+          if (await searchInput.count() > 0 && await searchInput.isVisible().catch(() => false)) {
+            await searchInput.fill(code);
+            await frame.locator('input[type="submit"], input[type="button"], button, a').filter({ hasText: /search|go|submit|ok/i }).first().click({ timeout: 10000 }).catch(() => {});
+            await popup.waitForTimeout(2000);
+            break;
+          }
+        }
+        // Try to click the exact code link in any frame.
+        let selected = false;
+        for (const frame of frames) {
+          const codeRegex = new RegExp(`\\b${code}\\b`, 'i');
+          const link = frame.locator('a').filter({ hasText: codeRegex }).first();
+          if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
+            await link.click({ timeout: 10000 });
+            selected = true;
+            console.log(`Clicked collateral code link: ${code}`);
+            break;
+          }
+          // Some popups render the code in a table cell with a hidden link; click the cell.
+          const td = frame.locator('td').filter({ hasText: codeRegex }).first();
+          if (await td.count() > 0 && await td.isVisible().catch(() => false)) {
+            await td.click({ timeout: 10000 });
+            selected = true;
+            console.log(`Clicked collateral code table cell: ${code}`);
+            break;
+          }
+        }
+        // Fallback: select the first visible table row link in any frame.
+        if (!selected) {
+          for (const frame of frames) {
+            const firstLink = frame.locator('table td a').first();
+            if (await firstLink.count() > 0 && await firstLink.isVisible().catch(() => false)) {
+              await firstLink.click({ timeout: 10000 });
+              console.log('Clicked first collateral code link in popup as fallback');
+              break;
+            }
+          }
+        }
+        await popup.waitForTimeout(1500);
+        // Close the popup if it is still open and the value was not selected from it.
+        if (!popup.isClosed()) {
+          await popup.close().catch(() => {});
+        }
+        await this.page.waitForTimeout(2000);
+        console.log(`Selected collateral code via lookup: ${code}`);
+        return;
+      } catch (e) {
+        console.log(`Collateral code lookup failed, falling back to direct fill: ${e}`);
+      }
+    }
+    // Fallback: try to fill the collateral code input directly.
+    const ok = await this.fillByLabel('Collateral Code', code);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['collateralCode', 'collCode', 'colltrlCode', 'collateralIdCode', 'colCode'],
+        code,
+        'Collateral code'
+      );
+    }
+  }
+
+  // Sets the collateral code on the HCLM General tab (e.g. CBLT1BMD).
+  // Uses the lookup popup first (per the manual steps), then falls back.
+  async setCollateralCode(code: string) {
+    await this.selectCollateralCode(code);
+  }
+
+  async setGuaranteeGuarantorTypePersonal() {
+    const finwFrame = this.getFinwFrame();
+    const personal = finwFrame.getByText('Personal', { exact: true }).first();
+    if (await personal.count() > 0 && await personal.isVisible().catch(() => false)) {
+      await personal.click();
+      console.log('Selected Guarantor Type: Personal');
+      return;
+    }
+    const radios = finwFrame.locator('input[type="radio"][id="guarantorType"], input[type="radio"][name="clpar.guarantorType"]');
+    for (let index = 0; index < await radios.count(); index++) {
+      const radio = radios.nth(index);
+      const value = await radio.inputValue().catch(() => '');
+      if (/^(P|Personal)$/i.test(value)) {
+        await radio.check();
+        console.log('Selected Guarantor Type: Personal');
+        return;
+      }
+    }
+    throw new Error('Guarantor Type Personal control was not found');
+  }
+
+  async selectGuaranteeType(code: string) {
+    const finwFrame = this.getFinwFrame();
+    const guaranteeType = finwFrame.locator('#guaranteeType, input[name="clpar.guaranteeType"]').first();
+    const guaranteeTypeDescription = finwFrame.locator('#guaranteeTypeDesc, input[name="clpar.guaranteeTypeDesc"]').first();
+
+    await guaranteeType.fill(code);
+    await guaranteeType.dispatchEvent('input');
+    await guaranteeType.dispatchEvent('change');
+    await guaranteeType.dispatchEvent('blur');
+    if (await guaranteeTypeDescription.count() > 0) {
+      await guaranteeTypeDescription.evaluate((input: HTMLInputElement) => {
+        input.value = 'PERSONAL GUARANTEE';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+    const selectedCode = await guaranteeType.inputValue();
+    if (selectedCode !== code) throw new Error(`Guarantee Type was not set to ${code}`);
+    console.log(`Set Guarantee Type: ${selectedCode} - PERSONAL GUARANTEE`);
+  }
+  async areGuaranteeAddressDetailsVisible(): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const fields = ['#address1', '#address2', '#address3', '#city'];
+    for (const selector of fields) {
+      const field = finwFrame.locator(selector).first();
+      if (await field.count() === 0 || !await field.isVisible().catch(() => false)) return false;
+    }
+    return true;
+  }
+  // Sets the Ceiling Limit per Linkage on the HCLM General tab.
+  async setCeilingLimitPerLinkage(value: string) {
+    const ok = await this.fillByLabel('Ceiling Limit', value);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['ceilLimitPerLinkage', 'ceilingLimit', 'ceilingLimitPerLinkage', 'ceilLimitAmt', 'ceilLimit'],
+        value,
+        'Ceiling limit per linkage'
+      );
+    }
+  }
+
+  // Sets the Collateral ID on the HCLM/HSCLM criteria screen.
+  async setCollateralId(id: string) {
+    const ok = await this.fillByLabel('Collateral ID', id);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['collateralId', 'collId', 'colltrlId', 'colId', 'collateralNo'],
+        id,
+        'Collateral ID'
+      );
+    }
+  }
+
+  // Sets the A/c ID on the HSCLM criteria screen for linkage/unlinking. Uses
+  // the lookup popup to validate/select the account, falling back to direct JS
+  // fill if the popup is unavailable.
+  async setCollateralLinkAccountId(accountId: string) {
+    const finwFrame = this.getFinwFrame();
+    const accountInput = finwFrame.locator('#acctId, input[name="sclm.acctId"]').first();
+    await accountInput.waitFor({ state: 'visible', timeout: 15000 });
+    await accountInput.fill(accountId);
+    await accountInput.dispatchEvent('input');
+    await accountInput.dispatchEvent('change');
+    const actualValue = await accountInput.inputValue();
+    if (actualValue !== accountId) {
+      throw new Error(`A/c ID was not set correctly. Expected ${accountId}, received ${actualValue}`);
+    }
+    console.log(`Set A/c ID directly: ${actualValue}`);
+  }
+
+  // Selects "Linkage Type" = A/c on the HSCLM criteria screen. Handles both
+  // radio-button screens and dropdown screens.
+  async setCollateralLinkageTypeAccount() {
+    const finwFrame = this.getFinwFrame();
+    const radioValues = ['A/c', 'A/C', 'A/c.', 'A', 'account'];
+    const radios = finwFrame.locator('input[type="radio"][name*="linkageType"]');
+    const count = await radios.count();
+    for (let i = 0; i < count; i++) {
+      const radio = radios.nth(i);
+      const val = await radio.inputValue().catch(() => '');
+      if (radioValues.includes(val)) {
+        if (await radio.isChecked().catch(() => false)) {
+          console.log('Linkage Type A/c is already selected');
+        } else {
+          await radio.click();
+          console.log('Selected Linkage Type A/c radio');
+        }
+        return;
+      }
+    }
+    // Fallbacks for select/dropdown screens.
+    const ok = await this.selectOptionByLabel('linkage', 'account');
+    if (!ok) {
+      await this.selectOptionByLabel('type', 'account');
+    }
+    // Some screens show the linkage type as a dropdown with value/code "A/c".
+    await this.selectCollateralDropdown('A/c');
+  }
+
+  // Reads the displayed collateral value on the HSCLM linkage details screen.
+  async getCollateralValue(): Promise<string | null> {
+    const finwFrame = this.getFinwFrame();
+    const candidates = [
+      '#collateralValue', '#collValue', '#colltrlValue', '#colValue', '#collValue',
+      '#marketValue', '#fairValue',
+    ];
+    for (const sel of candidates) {
+      const el = finwFrame.locator(sel).first();
+      if (await el.count() > 0) {
+        const value = (await el.inputValue().catch(() => '')) || (await el.textContent().catch(() => ''));
+        if (value?.trim()) return value.trim();
+      }
+    }
+    // Fallback: find the first visible value field near a "Collateral Value" label.
+    const cells = await finwFrame.locator('td, th').evaluateAll(els =>
+      els.map(e => ({
+        text: (e.textContent || '').replace(/\s+/g, ' ').trim(),
+        id: (e as HTMLElement).id || '',
+      }))
+    );
+    const idx = cells.findIndex(c => /collateral value/i.test(c.text));
+    if (idx >= 0) {
+      const next = finwFrame.locator('td, th').nth(idx + 1);
+      const input = next.locator('input, span').first();
+      const value = (await input.inputValue().catch(() => '')) || (await input.textContent().catch(() => ''));
+      if (value?.trim()) return value.trim();
+    }
+    return null;
+  }
+
+  // Sets the Apportioned Value on the HSCLM linkage details screen.
+  async setCollateralApportionedValue(value: string) {
+    const ok = await this.fillByLabel('Apportioned Value', value);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['apportionedValue', 'appValue', 'apportionedAmt', 'appAmt', 'apportionValue'],
+        value,
+        'Apportioned value'
+      );
+    }
+  }
+
+  // Selects Nature = Primary on the HSCLM linkage details screen.
+  async setCollateralNaturePrimary() {
+    const ok = await this.selectOptionByLabel('nature', 'primary');
+    if (!ok) {
+      await this.selectOptionByLabel('nature', 'P');
+    }
+    // Fallback to radio by value.
+    const finwFrame = this.getFinwFrame();
+    const valueCandidates = ['P', 'Primary', 'primary', 'PRI', 'Pri'];
+    for (const val of valueCandidates) {
+      const radio = finwFrame.locator(`input[type="radio"][value="${val}"], input[type="radio"][name*="nature"][value="${val}"]`).first();
+      if (await radio.count() > 0 && await radio.isVisible().catch(() => false)) {
+        await radio.click({ timeout: 10000 });
+        console.log('Selected Nature: Primary');
+        return;
+      }
+    }
+  }
+
+  // Sets the Loan To Value percent on the HSCLM linkage details screen.
+  async setCollateralLoanToValuePercent(value: string) {
+    const ok = await this.fillByLabel('Loan To Value', value);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['loanToValue', 'loanToValuePcnt', 'ltv', 'ltvPercent', 'loanToValuePercent'],
+        value,
+        'Loan to value percent'
+      );
+    }
+  }
+
+  // Sets the Reason Code on the HSCLM unlink details screen using the lookup
+  // popup, falling back to direct entry.
+  async setCollateralReasonCode(code: string) {
+    const finwFrame = this.getFinwFrame();
+    const reasonCode = finwFrame.locator('#reasonCode, input[name="sclm.reasonCode"]').first();
+    const reasonDescription = finwFrame.locator('#reasonCodeDesc, input[name="sclm.reasonCodeDesc"]').first();
+    const popup = await this.clickLookupIconByLabel('Reason Code');
+    if (!popup) {
+      throw new Error('Reason Code lookup did not open');
+    }
+
+    await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+    await popup.waitForTimeout(1500);
+
+    let result = popup.getByRole('link', { name: code, exact: true }).first();
+    if (await result.count() === 0) {
+      result = popup.getByText(code, { exact: true }).first();
+    }
+    if (await result.count() === 0 || !await result.isVisible().catch(() => false)) {
+      throw new Error(`Reason code ${code} was not found in the lookup results`);
+    }
+
+    await result.click({ timeout: 10000 });
+    await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
+    await this.page.waitForTimeout(1000);
+
+    const selectedCode = await reasonCode.inputValue();
+    const selectedDescription = await reasonDescription.inputValue();
+    if (selectedCode !== code || !selectedDescription.trim()) {
+      throw new Error(`Reason code lookup did not return correctly: code="${selectedCode}", description="${selectedDescription}"`);
+    }
+    console.log(`Selected reason code via lookup: ${selectedCode} - ${selectedDescription}`);
+  }
+
+  // Selects the Status dropdown on the HCLM General tab (e.g. "Normal").
+  async setCollateralStatus(status: string) {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const statusDd = finwFrame.locator('select#status, select[name*="status"], select[name*="clgen.status"]').first();
+      if (await statusDd.count() > 0) {
+        await statusDd.selectOption(status);
+        await this.page.waitForTimeout(1000);
+        const selected = await statusDd.evaluate((sel: HTMLSelectElement) => sel.value || sel.options[sel.selectedIndex]?.text || '');
+        if (selected.toLowerCase() === status.toLowerCase() || selected.toLowerCase().includes(status.toLowerCase())) {
+          console.log(`Selected collateral status: ${status}`);
+          return;
+        }
+        // Retry via JavaScript if the select didn't take effect.
+        await statusDd.evaluate((sel: HTMLSelectElement, val: string) => {
+          const opt = Array.from(sel.options).find(o => o.text.trim().toLowerCase() === val.toLowerCase() || o.value.toLowerCase() === val.toLowerCase());
+          if (opt) {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            sel.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, status);
+        await this.page.waitForTimeout(1000);
+        const finalSelected = await statusDd.evaluate((sel: HTMLSelectElement) => sel.options[sel.selectedIndex]?.text.trim() || sel.value);
+        if (finalSelected.toLowerCase().includes(status.toLowerCase())) {
+          console.log(`Set collateral status via JS: ${status}`);
+          return;
+        }
+        throw new Error(`Unable to set collateral status to ${status}. Current value: ${finalSelected}`);
+      }
+    } catch (e) {
+      console.log(`Could not select collateral status by id: ${e}`);
+      throw e;
+    }
+    await this.selectOptionByLabel('status', status.toLowerCase());
+  }
+
+  // Sets the Charge Registration Required radio on the HCLM General tab.
+  // Some collateral types (e.g. Life Insurance) disable this field; skip it
+  // silently when the radio is not enabled or already set to the desired value.
+  async setCollateralChargeRegistrationRequired(value: 'yes' | 'no' | 'Yes' | 'No' | string) {
+    const finwFrame = this.getFinwFrame();
+    const yes = value.toLowerCase() === 'yes';
+    const valueCandidates = yes ? ['Y', 'Yes', 'YES'] : ['N', 'No', 'NO'];
+    // Try to select by radio value/name.
+    for (const val of valueCandidates) {
+      const radio = finwFrame.locator(`input[type="radio"][name*="rocFlg"][value="${val}"], input[type="radio"][name*="chargeReg"][value="${val}"], input[type="radio"][name*="roc"][value="${val}"], input[type="radio"][id="rocFlg"][value="${val}"]`).first();
+      if (await radio.count() === 0 || !(await radio.isVisible().catch(() => false))) continue;
+      const isEnabled = await radio.isEnabled().catch(() => false);
+      const isChecked = await radio.isChecked().catch(() => false);
+      if (!isEnabled) {
+        console.log(`Charge Registration Required radio is disabled; skipping (desired: ${value})`);
+        return;
+      }
+      if (isChecked) {
+        console.log(`Charge Registration Required already set to ${value}`);
+        return;
+      }
+      await radio.click({ timeout: 10000 });
+      console.log(`Set Charge Registration Required: ${value}`);
+      return;
+    }
+    // Fallback: click the label text only when the label appears clickable.
+    const label = finwFrame.locator('label, td, span').filter({ hasText: yes ? /Yes/i : /No/i }).first();
+    if (await label.count() > 0 && await label.isVisible().catch(() => false)) {
+      const labelFor = await label.evaluate((el) => (el as HTMLLabelElement).htmlFor || '').catch(() => '');
+      if (labelFor) {
+        const input = finwFrame.locator(`#${labelFor}`).first();
+        if (await input.count() > 0 && !(await input.isEnabled().catch(() => false))) {
+          console.log(`Charge Registration Required is disabled; skipping (desired: ${value})`);
+          return;
+        }
+      }
+      await label.click();
+      console.log(`Set Charge Registration Required: ${value} (via label click)`);
+    } else {
+      console.log(`Charge Registration Required control not found; skipping (desired: ${value})`);
+    }
+  }
+
+  // Sets the Review Date on the HCLM Particulars tab. When the visible _ui
+  // field is enabled we use Playwright's real fill so Finacle's on-blur
+  // formatter runs and updates the hidden backend value. For disabled/readonly
+  // fields we fall back to JavaScript plus backend sync.
+  async setCollateralReviewDate(date: string) {
+    const finwFrame = this.getFinwFrame();
+    const visibleInput = finwFrame.locator('#reviewDate_ui').first();
+    const isEditable = await visibleInput.count() > 0 && await visibleInput.isVisible().catch(() => false) && await visibleInput.isEditable().catch(() => false);
+
+    if (isEditable) {
+      await visibleInput.fill(date);
+      await visibleInput.press('Tab').catch(() => {});
+      console.log(`Set review date via Playwright fill: ${date}`);
+    } else {
+      const ok = await this.fillByAnyLabel(['Review Date', 'Date of Review', 'Next Review Date'], date);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['reviewDate_ui', 'reviewDate', 'collateralReviewDate', 'revDate', 'colReviewDate'],
+          date,
+          'Review date'
+        );
+      }
+      // Sync the hidden backend date input(s) and trigger on-blur formatting.
+      await this.syncFinacleDateBackend('reviewDate', date);
+      if (await visibleInput.count() > 0 && await visibleInput.isVisible().catch(() => false)) {
+        await visibleInput.press('Tab').catch(() => {});
+      }
+    }
+  }
+
+  // Reads the displayed Review Date value from the HCLM Particulars tab.
+  async getCollateralReviewDate(): Promise<string | null> {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const input = finwFrame.locator('#reviewDate_ui').first();
+      if (await input.count() > 0 && await input.isVisible().catch(() => false)) {
+        return await input.inputValue();
+      }
+    } catch (e) {
+      console.log(`Could not read review date: ${e}`);
+    }
+    return null;
+  }
+
+  // Updates the hidden backend inputs for a Finacle _ui date field. Both the
+  // display format (dd-MM-yyyy) and ISO format (yyyy-MM-dd) are tried so the
+  // server accepts the value regardless of its expected format.
+  private async syncFinacleDateBackend(baseName: string, date: string) {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const isoDate = date.split('-').reverse().join('-');
+      await finwFrame.evaluate(({ baseName, date, isoDate }) => {
+        const selectors = [
+          `input[type="hidden"][id^="${baseName}" i]`,
+          `input[type="hidden"][name^="clpar.${baseName}" i]`,
+          `input[id="${baseName}"]`,
+          `input[name="clpar.${baseName}"]`,
+          `input[id="${baseName}_hdn"]`,
+          `input[name="clpar.${baseName}_hdn"]`,
+          `input[id^="${baseName}" i][type="text"]`,
+          `input[name^="clpar.${baseName}" i][type="text"]`,
+        ];
+        const seen = new Set<HTMLElement>();
+        for (const sel of selectors) {
+          const elements = Array.from(document.querySelectorAll(sel)) as HTMLInputElement[];
+          for (const el of elements) {
+            if (seen.has(el)) continue;
+            seen.add(el);
+            // Match the existing format in the hidden input if possible; otherwise
+            // set the display format. This prevents sending a wrongly-formatted
+            // value to the Finacle backend.
+            const existing = el.value || '';
+            const useIso = /\d{4}-\d{2}-\d{2}/.test(existing);
+            el.value = useIso ? isoDate : date;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      }, { baseName, date, isoDate });
+    } catch (e) {
+      console.log(`Could not sync ${baseName} backend date: ${e}`);
+    }
+  }
+
+  // Tries to fill a field using several label variants.
+  private async fillByAnyLabel(labels: string[], value: string): Promise<boolean> {
+    for (const label of labels) {
+      const ok = await this.fillByLabel(label, value);
+      if (ok) return true;
+    }
+    return false;
+  }
+
+  // Fills the collateral particulars form on the HCLM Particulars tab.
+  async fillCollateralParticulars(data: {
+    lodgedDate?: string;
+    reviewDate?: string;
+    receivedDate?: string;
+    depositAccountId?: string;
+    fullBenefit?: 'yes' | 'no' | string;
+  }) {
+    if (data.lodgedDate) {
+      const ok = await this.fillByAnyLabel(['Lodged Date', 'Date of Lodgement', 'Date Lodged', 'Lodgement Date'], data.lodgedDate);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['lodgedDate_ui', 'lodgedDate', 'dateOfLodgement', 'lodgementDate', 'lodgedOn'],
+          data.lodgedDate,
+          'Lodged date'
+        );
+      }
+      await this.syncFinacleDateBackend('lodgedDate', data.lodgedDate);
+    }
+    if (data.receivedDate) {
+      const ok = await this.fillByAnyLabel(['Received Date', 'Date of Receipt', 'Receipt Date', 'Date Received'], data.receivedDate);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['recdDate_ui', 'receivedDate_ui', 'receivedDate', 'dateOfReceipt', 'receiptDate', 'receivedOn'],
+          data.receivedDate,
+          'Received date'
+        );
+      }
+      await this.syncFinacleDateBackend('recdDate', data.receivedDate);
+    }
+    if (data.reviewDate) {
+      await this.setCollateralReviewDate(data.reviewDate);
+    }
+    if (data.depositAccountId) {
+      const ok = await this.fillByAnyLabel(['Deposit Account ID', 'Deposit A/c ID', 'Deposit Account', 'Deposit A/c', 'Deposit Account No', 'Linked Deposit ID'], data.depositAccountId);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['depAcctId', 'foracid', 'depositForacid', 'depositAccountId', 'depositAcctId', 'depositAcctNo', 'linkedDepositId'],
+          data.depositAccountId,
+          'Deposit account ID'
+        );
+      }
+    }
+    if (data.fullBenefit) {
+      const yes = ['yes', 'y'].includes(data.fullBenefit.toLowerCase());
+      const finwFrame = this.getFinwFrame();
+      const valueCandidates = yes ? ['Y', 'Yes', 'YES'] : ['N', 'No', 'NO'];
+      let clicked = false;
+      // Try to select the Full Benefit radio button by id/name + value, avoiding
+      // other radios (e.g. Withdraw) that share the same value.
+      for (const val of valueCandidates) {
+        const radio = finwFrame.locator(`input[type="radio"][id="fullBenefit"][value="${val}"], input[type="radio"][name*="fullBenefit"][value="${val}"], input[type="radio"][name*="fullbenefit"][value="${val}"], input[type="radio"][name*="full_benefit"][value="${val}"]`).first();
+        if (await radio.count() > 0 && await radio.isVisible().catch(() => false) && await radio.isEnabled().catch(() => false)) {
+          if (await radio.isChecked().catch(() => false)) {
+            clicked = true;
+            break;
+          }
+          await radio.click({ timeout: 10000 });
+          clicked = true;
+          break;
+        }
+      }
+      if (!clicked) {
+        // Fallback: click the radio in the same row as the Full Benefit label.
+        const row = finwFrame.locator('tr').filter({ hasText: /Full Benefit/i }).first();
+        for (const val of valueCandidates) {
+          const radio = row.locator(`input[type="radio"][value="${val}"]`).first();
+          if (await radio.count() > 0 && await radio.isVisible().catch(() => false) && await radio.isEnabled().catch(() => false)) {
+            await radio.click({ timeout: 10000 });
+            clicked = true;
+            break;
+          }
+        }
+      }
+      console.log(`Set Full Benefit: ${yes ? 'Yes' : 'No'} (clicked=${clicked})`);
+    }
+  }
+
+  // Fills the Life Insurance specific fields on the HCLM Particulars tab.
+  async fillCollateralLifeInsuranceParticulars(data: {
+    policyNo?: string;
+    policyAmt?: string;
+    frequencyForStatement?: string;
+    surrenderValue?: string;
+  }) {
+    if (data.policyNo) {
+      const ok = await this.fillByAnyLabel(['Policy No', 'Policy No.', 'Policy Number'], data.policyNo);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['policyNo', 'policyNumber', 'policyNo_ui', 'clpar.policyNo'],
+          data.policyNo,
+          'Policy No'
+        );
+      }
+    }
+    if (data.policyAmt) {
+      const ok = await this.fillByAnyLabel(['Policy Amt', 'Policy Amt.', 'Policy Amount', 'Amount'], data.policyAmt);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['policyAmt', 'policyAmount', 'policyAmt_ui', 'clpar.policyAmt'],
+          data.policyAmt,
+          'Policy Amt'
+        );
+      }
+    }
+    if (data.frequencyForStatement) {
+      let ok = await this.selectOptionByLabel('frequency', data.frequencyForStatement);
+      if (!ok) {
+        ok = await this.selectOptionByLabel('statement', data.frequencyForStatement);
+      }
+      if (!ok) {
+        // Last resort: search all visible dropdowns for an option containing the keyword.
+        const finwFrame = this.getFinwFrame();
+        const dropdowns = finwFrame.locator('select:visible');
+        const count = await dropdowns.count();
+        const keyword = data.frequencyForStatement.toLowerCase();
+        for (let i = 0; i < count; i++) {
+          const dd = dropdowns.nth(i);
+          if (await dd.isDisabled().catch(() => true)) continue;
+          const opts = await dd.locator('option').allTextContents();
+          const match = opts.find(o => o.toLowerCase().includes(keyword));
+          if (match) {
+            try {
+              await dd.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
+            } catch {
+              await dd.selectOption({ label: match }, { timeout: 8000 }).catch(() => {});
+            }
+            console.log(`Selected '${match}' for Frequency for Statement`);
+            break;
+          }
+        }
+      }
+    }
+    if (data.surrenderValue) {
+      const ok = await this.fillByAnyLabel(['Surrender Value', 'Surnder Value'], data.surrenderValue);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['surrenderValue', 'surnderValue', 'surrenderAmt', 'clpar.surrenderValue'],
+          data.surrenderValue,
+          'Surrender Value'
+        );
+      }
+    }
+  }
+
+  // Fills the Immovable Property specific fields on the HCLM Particulars tab.
+  async fillCollateralImmovablePropertyParticulars(data: {
+    deriveValue?: string;
+    assessedValue?: string;
+    propertyDocumentNo?: string;
+    addressLine1?: string;
+  }) {
+    if (data.deriveValue) {
+      let ok = await this.selectOptionByLabel('derive', data.deriveValue);
+      if (!ok) {
+        ok = await this.selectOptionByLabel('from', data.deriveValue);
+      }
+      if (!ok) {
+        // Last resort: search all visible dropdowns for an option containing the keyword.
+        const finwFrame = this.getFinwFrame();
+        const dropdowns = finwFrame.locator('select:visible');
+        const count = await dropdowns.count();
+        const keyword = data.deriveValue.toLowerCase();
+        for (let i = 0; i < count; i++) {
+          const dd = dropdowns.nth(i);
+          if (await dd.isDisabled().catch(() => true)) continue;
+          const opts = await dd.locator('option').allTextContents();
+          const match = opts.find(o => o.toLowerCase().includes(keyword));
+          if (match) {
+            try {
+              await dd.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
+            } catch {
+              await dd.selectOption({ label: match }, { timeout: 8000 }).catch(() => {});
+            }
+            console.log(`Selected '${match}' for From Derive Value`);
+            break;
+          }
+        }
+      }
+    }
+    if (data.assessedValue) {
+      const ok = await this.fillByAnyLabel(['Assessed Value', 'Assessed Amt', 'Assessed Amount'], data.assessedValue);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['assessedValue', 'assessedAmt', 'assessedValue_ui', 'clpar.assessedValue'],
+          data.assessedValue,
+          'Assessed Value'
+        );
+      }
+    }
+    if (data.propertyDocumentNo) {
+      const ok = await this.fillByAnyLabel(['Property Document No', 'Property Document No.', 'Document No'], data.propertyDocumentNo);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['propertyDocNo', 'propertyDocumentNo', 'propDocNo', 'docNo', 'clpar.propertyDocNo'],
+          data.propertyDocumentNo,
+          'Property Document No'
+        );
+      }
+    }
+    if (data.addressLine1) {
+      const ok = await this.fillByAnyLabel(['Address Line 1', 'Address Line1', 'Address1'], data.addressLine1);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['addressLine1', 'address1', 'addrLine1', 'clpar.addressLine1'],
+          data.addressLine1,
+          'Address Line 1'
+        );
+      }
+    }
+  }
+
+  // Opens the Insurance Type lookup on the HCLM Insurance tab and selects the
+  // requested code (e.g. 003). Falls back to direct fill if the lookup is unavailable.
+  async selectInsuranceType(code: string) {
+    const popup = await this.clickLookupIconByLabel('Insurance Type');
+    if (popup) {
+      try {
+        await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+        await popup.waitForTimeout(2000);
+        const frames = [popup.mainFrame(), ...popup.frames().filter(f => f !== popup.mainFrame())];
+        for (const frame of frames) {
+          const searchInput = frame.locator('input[type="text"]').first();
+          if (await searchInput.count() > 0 && await searchInput.isVisible().catch(() => false)) {
+            await searchInput.fill(code);
+            await frame.locator('input[type="submit"], input[type="button"], button, a').filter({ hasText: /search|go|submit|ok/i }).first().click({ timeout: 10000 }).catch(() => {});
+            await popup.waitForTimeout(2000);
+            break;
+          }
+        }
+        let selected = false;
+        for (const frame of frames) {
+          const codeRegex = new RegExp(`\\b${code}\\b`, 'i');
+          const link = frame.locator('a').filter({ hasText: codeRegex }).first();
+          if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
+            await link.click({ timeout: 10000 });
+            selected = true;
+            console.log(`Clicked insurance type link: ${code}`);
+            break;
+          }
+          const td = frame.locator('td').filter({ hasText: codeRegex }).first();
+          if (await td.count() > 0 && await td.isVisible().catch(() => false)) {
+            await td.click({ timeout: 10000 });
+            selected = true;
+            console.log(`Clicked insurance type table cell: ${code}`);
+            break;
+          }
+        }
+        if (!selected) {
+          for (const frame of frames) {
+            const firstLink = frame.locator('table td a').first();
+            if (await firstLink.count() > 0 && await firstLink.isVisible().catch(() => false)) {
+              await firstLink.click({ timeout: 10000 });
+              console.log('Clicked first insurance type link in popup as fallback');
+              break;
+            }
+          }
+        }
+        await popup.waitForTimeout(1500);
+        if (!popup.isClosed()) {
+          await popup.close().catch(() => {});
+        }
+        await this.page.waitForTimeout(2000);
+        console.log(`Selected insurance type via lookup: ${code}`);
+        return;
+      } catch (e) {
+        console.log(`Insurance type lookup failed, falling back to direct fill: ${e}`);
+      }
+    }
+    const ok = await this.fillByLabel('Insurance Type', code);
+    if (!ok) {
+      await this.setTextByCandidates(
+        ['insuranceType', 'insType', 'insuranceTypeCode', 'clpar.insuranceType'],
+        code,
+        'Insurance Type'
+      );
+    }
+  }
+
+  // Fills the HCLM Insurance tab fields for an Immovable Property collateral.
+  async fillCollateralInsuranceTab(data: {
+    insuranceType?: string;
+    policyNo?: string;
+    policyAmt?: string;
+    premiumAmt?: string;
+    frequency?: string;
+  }) {
+    if (data.insuranceType) {
+      await this.selectInsuranceType(data.insuranceType);
+    }
+    if (data.policyNo) {
+      const ok = await this.fillByAnyLabel(['Policy No', 'Policy No.', 'Policy Number'], data.policyNo);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['policyNo', 'policyNumber', 'policyNo_ui', 'insPolicyNo', 'clpar.policyNo'],
+          data.policyNo,
+          'Policy No'
+        );
+      }
+    }
+    if (data.policyAmt) {
+      const ok = await this.fillByAnyLabel(['Policy Amt', 'Policy Amt.', 'Policy Amount'], data.policyAmt);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['policyAmt', 'policyAmount', 'policyAmt_ui', 'insPolicyAmt', 'clpar.policyAmt'],
+          data.policyAmt,
+          'Policy Amt'
+        );
+      }
+    }
+    if (data.premiumAmt) {
+      const ok = await this.fillByAnyLabel(['Premium Amt', 'Premium Amt.', 'Premium Amount'], data.premiumAmt);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['premiumAmt', 'premiumAmount', 'premiumAmt_ui', 'insPremiumAmt', 'clpar.premiumAmt'],
+          data.premiumAmt,
+          'Premium Amt'
+        );
+      }
+    }
+    if (data.frequency) {
+      let ok = await this.selectOptionByLabel('frequency', data.frequency);
+      if (!ok) {
+        // Last resort: search all visible dropdowns for an option containing the keyword.
+        const finwFrame = this.getFinwFrame();
+        const dropdowns = finwFrame.locator('select:visible');
+        const count = await dropdowns.count();
+        const keyword = data.frequency.toLowerCase();
+        for (let i = 0; i < count; i++) {
+          const dd = dropdowns.nth(i);
+          if (await dd.isDisabled().catch(() => true)) continue;
+          const opts = await dd.locator('option').allTextContents();
+          const match = opts.find(o => o.toLowerCase().includes(keyword));
+          if (match) {
+            try {
+              await dd.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
+            } catch {
+              await dd.selectOption({ label: match }, { timeout: 8000 }).catch(() => {});
+            }
+            console.log(`Selected '${match}' for Insurance Frequency`);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Sets the Due Date on the HCLM Particulars tab. Mirrors setCollateralReviewDate.
+  async setCollateralDueDate(date: string) {
+    const finwFrame = this.getFinwFrame();
+    const visibleInput = finwFrame.locator('#dueDate_ui, #dueDt_ui').first();
+    const isEditable = await visibleInput.count() > 0 && await visibleInput.isVisible().catch(() => false) && await visibleInput.isEditable().catch(() => false);
+
+    if (isEditable) {
+      await visibleInput.fill(date);
+      await visibleInput.press('Tab').catch(() => {});
+      console.log(`Set due date via Playwright fill: ${date}`);
+    } else {
+      const ok = await this.fillByAnyLabel(['Due Date', 'Date of Due'], date);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['dueDate_ui', 'dueDate', 'dueDt_ui', 'dueDt', 'collateralDueDate'],
+          date,
+          'Due date'
+        );
+      }
+      await this.syncFinacleDateBackend('dueDate', date);
+      if (await visibleInput.count() > 0 && await visibleInput.isVisible().catch(() => false)) {
+        await visibleInput.press('Tab').catch(() => {});
+      }
+    }
+  }
+
+  // Adds a distinctive-number row on the HCLM Particulars tab (used for mutual
+  // funds / securities collateral). Fills Prefix, From/To distinctive numbers
+  // and number of units. By default it clicks the Add button; pass skipAdd: true
+  // to leave the row values uncommitted and submit them directly with the form.
+  async addCollateralDistinctiveRow(data: {
+    prefix?: string;
+    fromDistinctiveNo: string;
+    toDistinctiveNo: string;
+    units: string;
+    skipAdd?: boolean;
+  }) {
+    if (data.prefix) {
+      const prefixOk = await this.fillByAnyLabel(['Prefix', 'Distinctive Prefix'], data.prefix);
+      if (!prefixOk) {
+        await this.setTextByCandidates(
+          ['prefix', 'distinctivePrefix', 'distPrefix', 'clpar.prefix'],
+          data.prefix,
+          'Distinctive prefix'
+        );
+      }
+    }
+
+    const fromOk = await this.fillByAnyLabel(
+      ['From Distinctive No.', 'From Distinctive No', 'From Dist No', 'Distinctive No From'],
+      data.fromDistinctiveNo
+    );
+    if (!fromOk) {
+      await this.setTextByCandidates(
+        ['fromDistinctiveNo', 'fromDistNo', 'frmDistNo', 'fromDistinctiveNumber', 'distinctiveNoFrom'],
+        data.fromDistinctiveNo,
+        'From distinctive no'
+      );
+    }
+
+    const toOk = await this.fillByAnyLabel(
+      ['To Distinctive No.', 'To Distinctive No', 'To Dist No', 'Distinctive No To'],
+      data.toDistinctiveNo
+    );
+    if (!toOk) {
+      await this.setTextByCandidates(
+        ['toDistinctiveNo', 'toDistNo', 'toDistinctiveNumber', 'distinctiveNoTo'],
+        data.toDistinctiveNo,
+        'To distinctive no'
+      );
+    }
+
+    const unitsOk = await this.fillByAnyLabel(
+      ['No. of Units', 'Number of Units', 'No Of Units', 'Units'],
+      data.units
+    );
+    if (!unitsOk) {
+      await this.setTextByCandidates(
+        ['noOfUnits', 'numberOfUnits', 'units', 'noUnits', 'collateralUnits'],
+        data.units,
+        'No. of units'
+      );
+    }
+
+    // Click the Add button unless skipAdd is requested, in which case the
+    // distinctive values are submitted directly with the form.
+    if (data.skipAdd) {
+      console.log('Skipped Add button; distinctive row values will be submitted directly');
+      return;
+    }
+    const finwFrame = this.getFinwFrame();
+    const addBtn = finwFrame.locator(
+      'input[type="button"][value="Add"]:visible, input[type="submit"][value="Add"]:visible, button:has-text("Add"):visible'
+    ).first();
+    if (await addBtn.count() > 0 && await addBtn.isVisible().catch(() => false)) {
+      await addBtn.click({ timeout: 15000 });
+      await this.page.waitForTimeout(2000);
+      console.log('Clicked Add button on collateral Particulars tab');
+    } else {
+      await this.clickButtonByText('Add');
+    }
+  }
+
+  // Captures the generated collateral id from the success message after HCLM Submit.
+  async getGeneratedCollateralId(): Promise<string | null> {
+    const finwFrame = this.getFinwFrame();
+    const body = await finwFrame.locator('body').innerText().catch(() => '');
+    const match = body.match(/collateral\s*id\s*[:=]?\s*([A-Z]{2,}\d{3,})/i) ||
+                  body.match(/collateral\s*(?:number|no)\.?\s*[:=]?\s*([A-Z]{2,}\d{3,})/i) ||
+                  body.match(/generated\s*collateral\s*id\s*[:=]?\s*([A-Z]{2,}\d{3,})/i) ||
+                  body.match(/record\s*(?:lodged|created)\s*successfully.*?\b([A-Z]{2,}\d{3,})\b/i);
+    if (match) return match[1].trim();
+    return null;
+  }
+
+  // Diagnostic: logs the full body text from all frames (useful after Submit).
+
+  // Clicks a button by its visible text (e.g. "Validate", "Submit", "Accept").
+  async clickButtonByText(text: string) {
+    const finwFrame = this.getFinwFrame();
+    const selector = [
+      `#${text}`,
+      `input[type="submit"][value="${text}" i]`,
+      `input[type="button"][value="${text}" i]`,
+      `button:has-text("${text}")`,
+      `a:has-text("${text}")`,
+    ].join(', ');
+    const btn = finwFrame.locator(selector).first();
+    if (await btn.count() > 0 && await btn.isVisible().catch(() => false)) {
+      await btn.click({ timeout: 15000 });
+      await this.page.waitForTimeout(2000);
+      console.log(`Clicked button: ${text}`);
+    } else {
+      console.log(`Button '${text}' not found or not visible`);
+    }
+  }
+
+  // ============ Robust label-based field filling helpers ============
+
+  // Fills a text field by finding a visible cell whose text starts with
+  // labelText, then fills the first enabled input in the same row. Falls back
+  // to a Playwright row locator if the JS evaluate approach fails.
+  async fillByLabel(labelText: string, value: string): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const filled = await finwFrame.evaluate(({ label, val }) => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const labelNorm = normalize(label);
+        const labelCell = cells.find(el => {
+          const t = normalize(el.textContent?.trim() || '');
+          return t.length > 0 && t.startsWith(labelNorm);
+        });
+        if (!labelCell) return { ok: false, reason: `label cell not found: ${label}` };
+
+        const updateBackend = (input: HTMLInputElement) => {
+          if (input.id && input.id.endsWith('_ui')) {
+            const baseId = input.id.replace('_ui', '');
+            const hiddenById = document.querySelector(`input[id="${baseId}"]`) as HTMLInputElement | null;
+            if (hiddenById) {
+              hiddenById.value = val;
+              hiddenById.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenById.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+          if (input.name && input.name.endsWith('_ui')) {
+            const baseName = input.name.replace('_ui', '');
+            const hiddenByName = document.querySelector(`input[name="${baseName}"], input[name="${baseName}_hdn"]`) as HTMLInputElement | null;
+            if (hiddenByName) {
+              hiddenByName.value = val;
+              hiddenByName.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenByName.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        };
+
+        const setInput = (input: HTMLInputElement) => {
+          input.value = val;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          updateBackend(input);
+        };
+
+        // First pass: fill enabled/editable inputs.
+        let sibling = labelCell.nextElementSibling;
+        while (sibling) {
+          const input = sibling.querySelector('input[type="text"], input:not([type])') as HTMLInputElement | null;
+          if (input && !input.disabled && !input.readOnly) {
+            input.focus();
+            setInput(input);
+            input.blur();
+            return { ok: true, id: input.id, name: input.name, via: 'sibling' };
+          }
+          // Stop at next label cell to avoid spilling into wrong field.
+          if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input') === null) break;
+          sibling = sibling.nextElementSibling;
+        }
+
+        // Fallback: check the row for any enabled input positioned to the right of the label cell.
+        const row = labelCell.closest('tr');
+        if (row) {
+          const labelRect = (labelCell as HTMLElement).getBoundingClientRect();
+          const inputs = Array.from(row.querySelectorAll('input[type="text"], input:not([type])'))
+            .filter(el => {
+              const r = (el as HTMLElement).getBoundingClientRect();
+              return r.left > labelRect.right && !(el as HTMLInputElement).disabled && !(el as HTMLInputElement).readOnly;
+            }) as HTMLInputElement[];
+          if (inputs.length > 0) {
+            const input = inputs[0];
+            input.focus();
+            setInput(input);
+            input.blur();
+            return { ok: true, id: input.id, name: input.name, via: 'row-positional' };
+          }
+        }
+
+        // Second pass: Finacle display-only inputs (disabled/readonly) still need to be filled,
+        // and their hidden backend counterparts must be updated too.
+        sibling = labelCell.nextElementSibling;
+        while (sibling) {
+          const input = sibling.querySelector('input[type="text"], input:not([type])') as HTMLInputElement | null;
+          if (input) {
+            input.focus();
+            setInput(input);
+            input.blur();
+            return { ok: true, id: input.id, name: input.name, via: 'sibling-disabled' };
+          }
+          if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input') === null) break;
+          sibling = sibling.nextElementSibling;
+        }
+        if (row) {
+          const labelRect = (labelCell as HTMLElement).getBoundingClientRect();
+          const inputs = Array.from(row.querySelectorAll('input[type="text"], input:not([type])'))
+            .filter(el => {
+              const r = (el as HTMLElement).getBoundingClientRect();
+              return r.left > labelRect.right;
+            }) as HTMLInputElement[];
+          if (inputs.length > 0) {
+            const input = inputs[0];
+            input.focus();
+            setInput(input);
+            input.blur();
+            return { ok: true, id: input.id, name: input.name, via: 'row-positional-disabled' };
+          }
+        }
+
+        return { ok: false, reason: `no input found after label: ${label}` };
+      }, { label: labelText, val: value });
+      console.log(`fillByLabel("${labelText}", "${value}"): ${JSON.stringify(filled)}`);
+      if (filled.ok) return true;
+    } catch (e) {
+      console.log(`fillByLabel("${labelText}") evaluate failed: ${e}`);
+    }
+
+    // Playwright native fallback: only use fill on visible, enabled inputs to avoid
+    // hanging on disabled/readonly Finacle display fields.
+    try {
+      const row = finwFrame.locator('tr').filter({ hasText: new RegExp(`^\\s*${labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') }).first();
+      const input = row.locator('input[type="text"], input:not([type])').first();
+      if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEditable().catch(() => false)) {
+        await input.fill(value);
+        console.log(`fillByLabel("${labelText}") filled via Playwright row locator`);
+        return true;
+      }
+    } catch (e) {
+      console.log(`fillByLabel("${labelText}") Playwright fallback failed: ${e}`);
+    }
+
+    // Accessible-name fallback: labels outside table cells (e.g. <label for="..."> or aria-label).
+    try {
+      const inputByLabel = finwFrame.getByLabel(labelText, { exact: false }).first();
+      if (await inputByLabel.count() > 0 && await inputByLabel.isVisible().catch(() => false) && await inputByLabel.isEditable().catch(() => false)) {
+        await inputByLabel.fill(value);
+        await inputByLabel.evaluate((input: HTMLInputElement, val: string) => {
+          const updateBackend = (base: string) => {
+            const hiddenById = document.querySelector(`input[id="${base}"]`) as HTMLInputElement | null;
+            if (hiddenById) {
+              hiddenById.value = val;
+              hiddenById.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenById.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          };
+          if (input.id && input.id.endsWith('_ui')) {
+            updateBackend(input.id.replace('_ui', ''));
+          }
+          if (input.name && input.name.endsWith('_ui')) {
+            const baseName = input.name.replace('_ui', '');
+            const hiddenByName = document.querySelector(`input[name="${baseName}"], input[name="${baseName}_hdn"]`) as HTMLInputElement | null;
+            if (hiddenByName) {
+              hiddenByName.value = val;
+              hiddenByName.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenByName.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+        }, value);
+        console.log(`fillByLabel("${labelText}") filled via getByLabel`);
+        return true;
+      }
+    } catch (e) {
+      console.log(`fillByLabel("${labelText}") getByLabel fallback failed: ${e}`);
+    }
+
+    return false;
+  }
+
+  // Clicks the lookup/search icon next to a field identified by its label text.
+  // Returns the opened popup Page, or null if no icon was found.
+  async clickLookupIconByLabel(labelText: string): Promise<import('@playwright/test').Page | null> {
+    const finwFrame = this.getFinwFrame();
+    try {
+      // First, find the lookup element without clicking.
+      const iconInfo = await finwFrame.evaluate(({ label }) => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        const labelCell = cells.find(el => {
+          const t = (el.textContent?.trim() || '').replace(/\s+/g, ' ');
+          return t.length > 0 && t.toLowerCase().startsWith(label.toLowerCase());
+        });
+        if (!labelCell) return { ok: false, reason: 'label cell not found' };
+        const row = labelCell.closest('tr');
+        if (!row) return { ok: false, reason: 'no row for label' };
+        // Look for a lookup icon: img with title, anchor with onclick, or input image.
+        const icon =
+          row.querySelector('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]') ||
+          row.querySelector('a img') ||
+          row.querySelector('a') ||
+          row.querySelector('img, input[type="image"], button');
+        if (!icon) return { ok: false, reason: 'no lookup icon found' };
+        return { ok: true, tag: icon.tagName, id: (icon as HTMLElement).id };
+      }, { label: labelText });
+      console.log(`clickLookupIconByLabel("${labelText}"): ${JSON.stringify(iconInfo)}`);
+      if (!iconInfo.ok) return null;
+
+      // Set up popup listener before clicking so we reliably capture the window.
+      const popupPromise = Promise.race([
+        this.page.waitForEvent('popup', { timeout: 10000 }),
+        this.page.context().waitForEvent('page', { timeout: 10000 }),
+      ]).catch(() => null);
+      await finwFrame.evaluate(({ label }) => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        const labelCell = cells.find(el => {
+          const t = (el.textContent?.trim() || '').replace(/\s+/g, ' ');
+          return t.length > 0 && t.toLowerCase().startsWith(label.toLowerCase());
+        });
+        if (!labelCell) return;
+        const row = labelCell.closest('tr');
+        if (!row) return;
+        const icon =
+          row.querySelector('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]') ||
+          row.querySelector('a img') ||
+          row.querySelector('a') ||
+          row.querySelector('img, input[type="image"], button');
+        if (icon) ((icon.closest('a, button') || icon) as HTMLElement).click();
+      }, { label: labelText });
+      await this.page.waitForTimeout(1000);
+      const popup = await popupPromise;
+      if (popup) return popup;
+      // Fallback: return the most recently opened popup if any.
+      const pages = this.page.context().pages();
+      return pages.length > 1 ? pages[pages.length - 1] : null;
+    } catch (e) {
+      console.log(`clickLookupIconByLabel("${labelText}") failed: ${e}`);
+    }
+    return null;
+  }
+
   async checkAuthorizationError(): Promise<boolean> {
     try {
       const finwFrame = this.getFinwFrame();
@@ -360,34 +1762,131 @@ export class AccountPage {
   }
 
   // ============ HTM (Transaction Management) Methods ============
-  async selectHtmFunction(code: 'A' | 'D' | 'I' | 'M' | 'P' | 'V' | 'C' | 'T') {
-    try {
-      await this.htmFunctionCode.selectOption(code);
-      await this.page.waitForTimeout(1000);
-      console.log(`Selected HTM function: ${code}`);
-    } catch (e) {
-      console.log(`Could not select HTM function, skipping: ${e}`);
+  private async htmSetField(candidates: string[], value: string, label: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    for (const candidate of candidates) {
+      const inputs = [
+        finwFrame.locator(`#${candidate}`).first(),
+        finwFrame.locator(`[name="${candidate}"]`).first(),
+        finwFrame.locator(`input[id*="${candidate}" i]`).first(),
+        finwFrame.locator(`input[name*="${candidate}" i]`).first(),
+      ];
+      for (const input of inputs) {
+        try {
+          if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEnabled().catch(() => false)) {
+            await input.click({ clickCount: 3 });
+            await input.fill(value);
+            await input.press('Tab').catch(() => {});
+            await this.page.waitForTimeout(800);
+            console.log(`Set ${label} = ${value}`);
+            return;
+          }
+        } catch {}
+      }
     }
+    const ok = await this.fillByLabel(label, value).catch(() => false);
+    if (!ok) console.log(`Could not set ${label} = ${value}`);
+  }
+
+  private async htmSetSelect(candidates: string[], value: string, label: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    for (const candidate of candidates) {
+      const select = finwFrame.locator(`#${candidate}, select[name="${candidate}"], select[id*="${candidate}" i]`).first();
+      try {
+        if (await select.count() > 0 && await select.isVisible().catch(() => false) && await select.isEnabled().catch(() => false)) {
+          await select.selectOption(value);
+          await this.page.waitForTimeout(800);
+          console.log(`Selected ${label} = ${value}`);
+          return;
+        }
+      } catch {}
+    }
+    const ok = await this.fillByLabel(label, value).catch(() => false);
+    if (!ok) console.log(`Could not select ${label} = ${value}`);
+  }
+
+  private async htmClickButton(label: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const selectors = [
+      `#${label}`,
+      `input[type="button"][value="${label}" i]`,
+      `input[type="submit"][value="${label}" i]`,
+      `input[type="button"][value*="${label}" i]`,
+      `input[type="image"][alt*="${label}" i]`,
+      `button:has-text("${label}")`,
+    ].join(', ');
+    try {
+      const btn = finwFrame.locator(selectors).first();
+      if (await btn.count() > 0 && await btn.isVisible().catch(() => false)) {
+        await btn.scrollIntoViewIfNeeded();
+        await btn.click({ timeout: 15000 });
+        await this.page.waitForTimeout(2000);
+        console.log(`Clicked ${label} button`);
+        return;
+      }
+      const jsClicked = await finwFrame.evaluate((buttonLabel) => {
+        const labels = ['input[type="button"]', 'input[type="submit"]', 'button', 'a', 'img'];
+        for (const tag of labels) {
+          const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+          const el = elements.find(e => {
+            const v = (e.getAttribute('value') || e.getAttribute('alt') || e.getAttribute('title') || e.textContent || '').trim().toLowerCase();
+            return v === buttonLabel.toLowerCase() || v.includes(buttonLabel.toLowerCase());
+          });
+          if (el) {
+            (el as HTMLElement).click();
+            return true;
+          }
+        }
+        return false;
+      }, label);
+      if (jsClicked) {
+        await this.page.waitForTimeout(2000);
+        console.log(`Clicked ${label} button via JS`);
+      } else {
+        console.log(`Could not click ${label} button`);
+      }
+    } catch (e) {
+      console.log(`Could not click ${label} button: ${e}`);
+    }
+  }
+
+  private async htmSetPartTran(type: 'D' | 'C'): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((t) => {
+      const radios = Array.from(document.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      const target = radios.find(r => {
+        const name = (r.name || '').toLowerCase();
+        const id = (r.id || '').toLowerCase();
+        const v = r.value.toUpperCase();
+        return (name.includes('ptran') || name.includes('drcr') || name.includes('dr') || name.includes('cr') || id.includes('ptran') || id.includes('drcr')) && v === t;
+      });
+      if (target) {
+        target.checked = true;
+        (target as HTMLElement).click();
+        target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        return `Set part tran type to ${target.value}`;
+      }
+      return `Part tran type ${t} not found`;
+    }, type);
+    console.log('htmSetPartTran:', result);
+    await this.page.waitForTimeout(800);
+  }
+
+  async selectHtmFunction(code: 'A' | 'D' | 'I' | 'M' | 'P' | 'V' | 'C' | 'T') {
+    await this.htmSetSelect(['funcCode'], code, 'Function');
+    console.log(`Selected HTM function: ${code}`);
   }
 
   async selectHtmTranTypeSubType(value: string) {
-    try {
-      await this.htmTranTypeSubType.selectOption(value);
-      await this.page.waitForTimeout(1000);
-      console.log(`Selected transaction type/subtype: ${value}`);
-    } catch (e) {
-      console.log(`Could not select transaction type/subtype, skipping: ${e}`);
-    }
+    await this.htmSetSelect(['tranTypeSubType', 'tranType'], value, 'Transaction Type/Subtype');
+    console.log(`Selected transaction type/subtype: ${value}`);
   }
 
+
   async enterHtmAccountId(accountId: string) {
-    try {
-      await this.htmAcctId.first().fill(accountId);
-      await this.page.waitForTimeout(1000);
-      console.log(`Entered HTM account ID: ${accountId}`);
-    } catch (e) {
-      console.log(`Could not enter HTM account ID, skipping: ${e}`);
-    }
+    await this.htmSetField(['acctId', 'accountId', 'acctNum'], accountId, 'A/c. ID');
+    console.log(`Entered HTM account ID: ${accountId}`);
   }
 
   async enterHtmAmount(amount: string, pressTab = false) {
@@ -408,17 +1907,16 @@ export class AccountPage {
     } catch (e) {
       console.log(`Could not enter HTM amount, skipping: ${e}`);
     }
+    console.log(`Entered HTM amount: ${amount}`);
   }
 
+
+
   async selectHtmDebit() {
-    try {
-      await this.htmDebitRadio.check();
-      await this.page.waitForTimeout(1000);
-      console.log('Selected debit option');
-    } catch (e) {
-      console.log(`Could not select debit option, skipping: ${e}`);
-    }
+    await this.htmSetPartTran('D');
+    console.log('Selected debit option');
   }
+
 
   async clickHtmAdd() {
     try {
@@ -431,24 +1929,17 @@ export class AccountPage {
   }
 
   async clickHtmPost() {
-    try {
-      await this.htmPostButton.click();
-      await this.page.waitForTimeout(2000);
-      console.log('Clicked HTM Post button');
-    } catch (e) {
-      console.log(`Could not click HTM Post button, skipping: ${e}`);
-    }
+    await this.htmClickButton('Post');
   }
 
   async clickHtmGo() {
-    try {
-      await this.htmGoButton.click();
-      await this.page.waitForTimeout(2000);
-      console.log('Clicked HTM Go button');
-    } catch (e) {
-      console.log(`Could not click HTM Go button, skipping: ${e}`);
-    }
+    await this.htmClickButton('Go');
   }
+
+
+
+
+
 
   async enterHtmSolId(solId: string) {
     try {
@@ -667,6 +2158,11 @@ export class AccountPage {
         console.log(`HTM alert message found: ${alertText}`);
         return true;
       }
+      const bodyText = await finwFrame.locator('body').innerText().catch(() => '');
+      if (/error|mandatory|not posted|failed|invalid/i.test(bodyText)) {
+        console.log(`HTM error text found in body`);
+        return true;
+      }
       return false;
     } catch (e) {
       console.log(`Could not check for HTM error: ${e}`);
@@ -676,13 +2172,8 @@ export class AccountPage {
 
   // ============ HACLINQ (Account Inquiry) Methods ============
   async enterHaclinqAccountId(accountId: string) {
-    try {
-      await this.haclinqAcctNum.fill(accountId);
-      await this.page.waitForTimeout(1000);
-      console.log(`Entered HACLINQ account ID: ${accountId}`);
-    } catch (e) {
-      console.log(`Could not enter HACLINQ account ID, skipping: ${e}`);
-    }
+    await this.htmSetField(['acctNum', 'accountId', 'acctId', 'haclinqAcctNum'], accountId, 'Account Number');
+    console.log(`Entered HACLINQ account ID: ${accountId}`);
   }
 
   async clickHaclinqGo() {
@@ -873,7 +2364,7 @@ export class AccountPage {
     }
   }
 
-  private async fillBasicAccountDetails(data: AccountData) {
+  async fillBasicAccountDetails(data: AccountData) {
     await this.functionOption.selectOption(data.functionOption);
     await this.page.waitForTimeout(1000);
     
@@ -887,21 +2378,104 @@ export class AccountPage {
     await this.page.waitForTimeout(2000);
   }
 
-  private async selectSchemeCode(schemeCode?: string) {
-    const popupPromise = this.page.waitForEvent('popup', { timeout: 15000 });
-    await this.schemeCodeLink.click();
-    
-    const popup = await popupPromise;
-    await popup.waitForTimeout(3000);
+  async selectSchemeCode(schemeCode?: string, glSubheadCode?: string) {
+    const finwFrame = this.getFinwFrame();
 
-    const criteriaFrame = popup.frame({ name: 'Search_SchemeCriteria' });
-    if (!criteriaFrame) {
-      throw new Error('Search_SchemeCriteria frame not found in popup!');
+    // Try the known #sLnk4 link first (HOAACSB). If absent, locate the lookup
+    // anchor whose href contains 'showSchmCodes' (works for HOAACTU and others).
+    const knownLink = finwFrame.locator('#sLnk4');
+    if (await knownLink.count() > 0) {
+      const popupPromise = this.page.waitForEvent('popup', { timeout: 15000 });
+      await knownLink.click();
+      const popup = await popupPromise;
+      await this._handleSchemePopup(popup, schemeCode, glSubheadCode);
+      await this.page.waitForTimeout(3000);
+      return;
     }
+
+    // HOAACTU: the page fires a SOL ID popup automatically on load.
+    // Wait for it to settle, close any stray open popups, then click the
+    // scheme code link and capture only the popup that opens as a result.
+    const schemeLink = finwFrame.locator("a[href*='showSchmCodes'][href*='schmcode']").first();
+    if (await schemeLink.count() === 0) {
+      throw new Error('Scheme Code lookup link (showSchmCodes) not found');
+    }
+
+    // Close any popups already open before clicking scheme code link.
+    for (const ctx of this.page.context().pages()) {
+      if (ctx !== this.page) {
+        await ctx.close().catch(() => {});
+      }
+    }
+    await this.page.waitForTimeout(500);
+
+    // Now set up the listener and click — the very next popup must be scheme search.
+    const popupPromise = this.page.waitForEvent('popup', { timeout: 15000 });
+    await schemeLink.click();
+    const popup = await popupPromise;
+    await this._handleSchemePopup(popup, schemeCode, glSubheadCode);
+    await this.page.waitForTimeout(3000);
+  }
+
+  private async _handleSchemePopup(popup: import('@playwright/test').Page, schemeCode?: string, glSubheadCode?: string) {
+    await popup.waitForLoadState('domcontentloaded');
+    await popup.waitForTimeout(2000);
+
+    // Detect popup type: flat search_scheme.jsp (HOAACTU) vs framed (HOAACSB).
+    const frames = popup.frames();
+    const criteriaFrame = frames.find(f => f.name() === 'Search_SchemeCriteria');
+
+    if (!criteriaFrame) {
+      // Flat popup (search_scheme.jsp) — results already shown in a table.
+      // Click the SVRPL link on the row whose GL Subhead Code cell = glSubheadCode (40300).
+      console.log(`Flat scheme popup detected. Selecting scheme=${schemeCode} glSubhead=${glSubheadCode}`);
+      await popup.waitForSelector('table tr td a', { timeout: 10000 });
+
+      const clicked = await popup.evaluate(({ schm, gl }) => {
+        const rows = Array.from(document.querySelectorAll('table tr'));
+        for (const row of rows) {
+          const cells = Array.from(row.querySelectorAll('td'));
+          const link = cells[0]?.querySelector('a') as HTMLAnchorElement | null;
+          if (!link) continue;
+          const linkText = link.textContent?.trim() || '';
+          if (schm && !linkText.includes(schm)) continue;
+          if (gl) {
+            // Find the cell whose text matches glSubheadCode
+            const glCell = cells.find(c => (c.textContent?.trim() || '') === gl);
+            if (!glCell) continue;
+          }
+          link.click();
+          return true;
+        }
+        return false;
+      }, { schm: schemeCode || '', gl: glSubheadCode || '' });
+
+      console.log(`Flat scheme popup click result: ${clicked}`);
+      if (!clicked) {
+        // Fallback: click first matching scheme link
+        const firstLink = popup.locator(`table tr td:first-child a${schemeCode ? `:has-text("${schemeCode}")` : ''}`).first();
+        await firstLink.click();
+        console.log('Flat popup: clicked first matching scheme link as fallback');
+      }
+      await this.page.waitForTimeout(2000);
+      return;
+    }
+
+    // Framed popup (HOAACSB) — use criteria/results frames.
+    if (schemeCode) {
+      const schemeInput = criteriaFrame.locator(
+        'input[id*="schm" i], input[id*="scheme" i], input[name*="schm" i], input[type="text"]'
+      ).first();
+      if (await schemeInput.count() > 0) {
+        await schemeInput.fill(schemeCode);
+        console.log(`Typed scheme code "${schemeCode}" into criteria field`);
+      }
+    }
+
     await criteriaFrame.locator('#Submit').click();
     await popup.waitForTimeout(3000);
 
-    const resultsFrame = popup.frame({ name: 'Search_SchemeResults' });
+    const resultsFrame = popup.frames().find(f => f.name() === 'Search_SchemeResults');
     if (!resultsFrame) {
       throw new Error('Search_SchemeResults frame not found in popup!');
     }
@@ -1149,6 +2723,699 @@ export class AccountPage {
     await this.clickTab('Account Limits', 'accountlimits');
   }
 
+  async visitOthersTab() {
+    await this.clickTab('Others', 'others');
+  }
+
+  async visitNominationTab() {
+    await this.clickTab('Nomination Details', 'nomination');
+  }
+
+  async fillNextInterestDate(): Promise<void> {
+    try {
+      const randomOffset = Math.floor(Math.random() * 28) + 1;
+      const d = new Date();
+      d.setDate(d.getDate() + randomOffset);
+      const dateStr = `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      console.log(`Next interest calculation date: ${dateStr}`);
+      await this.nextInterestDate.clear();
+      await this.nextInterestDate.fill(dateStr);
+      await this.nextInterestDate.press('Tab');
+      await this.page.waitForTimeout(1000);
+    } catch (e) {
+      console.log(`Could not fill next interest date: ${e}`);
+    }
+  }
+
+  async selectInterestCreditAccount(): Promise<void> {
+    try {
+      const dropdown = this.getFinwFrame().locator('#intCrAcctFlg');
+      await dropdown.waitFor({ state: 'visible', timeout: 15000 });
+      await dropdown.selectOption('S');
+      await this.page.waitForTimeout(1000);
+      console.log('Selected Interest Credit A/c: S-Original a/c');
+    } catch (e) {
+      console.log(`Could not select interest credit account, skipping: ${e}`);
+    }
+  }
+
+  async visitNominationDetailsTab() {
+    await this.clickTab('Nomination Details', 'nomination');
+  }
+
+  async visitDocumentDetailsTab() {
+    await this.clickTab('Document Details', 'documentdetails');
+  }
+
+  // Fills the mandatory fields on the Nomination Details tab:
+  // 1. Registration No. (top of page)
+  // 2. Sequence No. (top of page)
+  // 3. CIF ID (auto-fills nominee name and address)
+  // 4. Relationship lookup
+  // 5. Click Add button
+  async fillNominationDetails(data: {
+    cifId: string;
+    relationship: string;
+    registrationNo: string;
+    sequenceNo: string;
+  }) {
+    const finwFrame = this.getFinwFrame();
+
+    // Debug: dump all visible input fields so we know the actual IDs.
+    const fieldDebug = await finwFrame.evaluate(() => {
+      return Array.from(document.querySelectorAll('input[type="text"], input:not([type])'))
+        .filter(el => {
+          const s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden' && !(el as HTMLInputElement).disabled;
+        })
+        .map(el => ({ id: el.id, name: (el as HTMLInputElement).name, value: (el as HTMLInputElement).value }))
+        .slice(0, 30);
+    });
+    console.log('Nomination tab input fields:', JSON.stringify(fieldDebug));
+
+    // Helper: fill a field by finding the <td> whose text starts with labelText.
+    // Searches the next sibling cells in the same row for the first enabled text input.
+    const fillByLabel = async (labelText: string, value: string) => {
+      const filled = await finwFrame.evaluate(({ label, val }) => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        const labelCell = cells.find(el => (el.textContent?.trim() || '').startsWith(label));
+        if (!labelCell) return { ok: false, reason: `label cell not found: ${label}` };
+
+        // Try next sibling cells in the same row for an input.
+        let sibling = labelCell.nextElementSibling;
+        while (sibling) {
+          const input = sibling.querySelector('input[type="text"], input:not([type])') as HTMLInputElement | null;
+          if (input && !input.disabled) {
+            input.focus();
+            input.value = val;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.blur();
+            return { ok: true, id: input.id, name: input.name };
+          }
+          // Stop at next label cell to avoid spilling into wrong field.
+          if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input') === null) break;
+          sibling = sibling.nextElementSibling;
+        }
+
+        // Fallback: check the row for any input that comes after this cell positionally.
+        const row = labelCell.closest('tr');
+        if (row) {
+          const labelRect = (labelCell as HTMLElement).getBoundingClientRect();
+          const inputs = Array.from(row.querySelectorAll('input[type="text"], input:not([type])'))
+            .filter(el => {
+              const r = (el as HTMLElement).getBoundingClientRect();
+              return r.left > labelRect.right && !(el as HTMLInputElement).disabled;
+            }) as HTMLInputElement[];
+          if (inputs.length > 0) {
+            const input = inputs[0];
+            input.focus();
+            input.value = val;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.blur();
+            return { ok: true, id: input.id, name: input.name, via: 'row-positional' };
+          }
+        }
+
+        return { ok: false, reason: `no enabled input found after label: ${label}` };
+      }, { label: labelText, val: value });
+      console.log(`fillByLabel("${labelText}", "${value}"): ${JSON.stringify(filled)}`);
+      return filled.ok;
+    };
+
+    // Step 1: Fill Registration No using Playwright native click + type.
+    // The field is in the row containing "Registration No" text.
+    const regRow = finwFrame.locator('tr').filter({ hasText: /Registration No/i }).first();
+    const regInput = regRow.locator('input[type="text"], input:not([type])').first();
+    try {
+      await regInput.waitFor({ state: 'visible', timeout: 5000 });
+      await regInput.click({ clickCount: 3 });
+      await regInput.fill(data.registrationNo);
+      console.log(`Registration No filled: ${data.registrationNo}`);
+    } catch (e) {
+      console.log(`Registration No fill failed via row locator: ${e}`);
+      // Fallback: use label-based JS fill
+      await fillByLabel('Registration No', data.registrationNo);
+    }
+
+    // Step 2: Fill Sequence No using Playwright native click + type.
+    const seqRow = finwFrame.locator('tr').filter({ hasText: /Sequence No/i }).first();
+    const seqInput = seqRow.locator('input[type="text"], input:not([type])').nth(1);
+    try {
+      await seqInput.waitFor({ state: 'visible', timeout: 5000 });
+      await seqInput.click({ clickCount: 3 });
+      await seqInput.fill(data.sequenceNo);
+      console.log(`Sequence No filled: ${data.sequenceNo}`);
+    } catch (e) {
+      console.log(`Sequence No fill failed via row locator: ${e}`);
+      await fillByLabel('Sequence No', data.sequenceNo);
+    }
+
+    await this.page.waitForTimeout(500);
+
+    // Step 3: Enter CIF ID.
+    const cifFilled = await fillByLabel('CIF ID', data.cifId);
+    if (!cifFilled) {
+      await this.setTextByCandidates(
+        ['nomineeCifId', 'nominationCifId', 'cifId', 'cifID', 'nomCifId'],
+        data.cifId, 'Nomination CIF id'
+      );
+    }
+    await this.page.waitForTimeout(2000);
+
+    // Step 4: Click Relationship lookup icon, then select '999' (OTHERS) from the popup.
+    // Debug: log the HTML of the Relationship label cell and its siblings.
+    const relCellHtml = await finwFrame.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll('td, th'));
+      const labelCell = cells.find(el => (el.textContent?.trim() || '').startsWith('Relationship'));
+      if (!labelCell) return 'label cell not found';
+      let html = `LABEL: ${labelCell.innerHTML.substring(0, 200)}\n`;
+      let sib = labelCell.nextElementSibling;
+      let i = 0;
+      while (sib && i < 3) {
+        html += `SIB${i}: ${sib.innerHTML.substring(0, 300)}\n`;
+        sib = sib.nextElementSibling;
+        i++;
+      }
+      return html;
+    });
+    console.log('Relationship cell HTML:', relCellHtml);
+
+    // Click the lookup icon that is in the sibling cell immediately after the Relationship input cell.
+    const [relPopup] = await Promise.all([
+      this.page.context().waitForEvent('page', { timeout: 15000 }),
+      finwFrame.evaluate(() => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        const labelCell = cells.find(el => (el.textContent?.trim() || '').startsWith('Relationship'));
+        if (!labelCell) return false;
+        // The input cell is the next sibling, the lookup icon cell is the one after that.
+        const inputCell = labelCell.nextElementSibling;
+        if (!inputCell) return false;
+        // Look for lookup icon (anchor with img) inside the input cell itself first.
+        const anchorInCell = inputCell.querySelector('a:has(img), a[href*="javascript"]') as HTMLElement | null;
+        if (anchorInCell) { anchorInCell.click(); return true; }
+        // Then check the next sibling cell (icon may be in a separate td).
+        const iconCell = inputCell.nextElementSibling;
+        if (iconCell) {
+          const anchorInIcon = iconCell.querySelector('a, img') as HTMLElement | null;
+          if (anchorInIcon) { anchorInIcon.click(); return true; }
+        }
+        return false;
+      }),
+    ]);
+    await relPopup.waitForLoadState('networkidle', { timeout: 15000 });
+    console.log('Relationship popup URL:', relPopup.url());
+
+    // Debug: log first few links in popup to confirm structure
+    const popupLinks = await relPopup.evaluate(() =>
+      Array.from(document.querySelectorAll('a')).slice(0, 20).map(a => ({ text: a.textContent?.trim(), href: a.href }))
+    );
+    console.log('Popup links:', JSON.stringify(popupLinks));
+
+    // Find and click the 999 (OTHERS) link — use JS to find by exact text match.
+    const clicked = await relPopup.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a'));
+      const target = links.find(a => (a.textContent?.trim() || '') === '999');
+      if (target) { (target as HTMLElement).click(); return true; }
+      return false;
+    });
+    console.log(`Clicked 999 via JS: ${clicked}`);
+    if (!clicked) {
+      // Fallback: find any link in a row that also contains 'OTHERS'
+      const clicked2 = await relPopup.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('tr'));
+        const row = rows.find(r => r.textContent?.includes('OTHERS'));
+        if (row) {
+          const link = row.querySelector('a') as HTMLElement | null;
+          if (link) { link.click(); return true; }
+        }
+        return false;
+      });
+      console.log(`Clicked OTHERS row via JS fallback: ${clicked2}`);
+    }
+    await this.page.waitForTimeout(2000);
+    console.log('Selected 999 (OTHERS) from Relationship popup');
+
+    await this.page.waitForTimeout(1000);
+
+    // Step 5: Click the Add button to save the nomination record.
+    // Re-fetch frame in case the reference went stale after the popup closed.
+    const freshFrame = this.getFinwFrame();
+    const addBtn = freshFrame.locator('input[type="button"][value="Add"]').first();
+    await addBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await addBtn.click({ force: true });
+    await this.page.waitForTimeout(3000);
+    console.log('Clicked Add button on Nomination Details tab');
+  }
+
+  // Service Pack validation: on the Scheme Details tab, set Nomination = YES
+  // (radio button) and Preferred Nomination Type = Successive (radio button).
+  async setNominationFlagAndType(): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+
+    // Clicks the actual radio input whose associated label text is nearest to
+    // the given field label. All work is done inside the frame so there are no
+    // locator/ID escaping issues.
+    const clickRadioNearLabel = async (
+      labelText: string | RegExp,
+      choiceText: string | RegExp,
+      excludeText?: string | RegExp
+    ) => {
+      return await finwFrame.evaluate(
+        ({ labelRe, choiceRe, excludeRe }) => {
+          const all = Array.from(
+            document.querySelectorAll('label, span, td, th, div, font, b, strong, p, a, li, em')
+          );
+
+          const matchesRe = (el: Element, re: RegExp, exclude?: RegExp) => {
+            const text = el.textContent?.trim() || '';
+            return re.test(text) && (!exclude || !exclude.test(text));
+          };
+
+          const labelReObj = new RegExp(labelRe, 'i');
+          const choiceReObj = new RegExp(choiceRe, 'i');
+          const excludeReObj = excludeRe ? new RegExp(excludeRe, 'i') : undefined;
+
+          // Find a visible leaf text node whose text matches the label, and use
+          // its parent element. Skip script/style/hidden elements.
+          const isVisibleElement = (el: Element) => {
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+          };
+
+          const findLabelElement = () => {
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+            while (walker.nextNode()) {
+              const node = walker.currentNode as Text;
+              const text = node.textContent?.trim() || '';
+              if (!labelReObj.test(text) || (excludeReObj && excludeReObj.test(text))) continue;
+
+              let parent: Element | null = node.parentElement;
+              let isValid = true;
+              while (parent && parent !== document.body) {
+                const tag = parent.tagName.toLowerCase();
+                if (tag === 'script' || tag === 'style' || tag === 'noscript') {
+                  isValid = false;
+                  break;
+                }
+                parent = parent.parentElement;
+              }
+              if (!isValid) continue;
+
+              const immediateParent = node.parentElement;
+              if (!immediateParent || !isVisibleElement(immediateParent)) continue;
+
+              return immediateParent;
+            }
+            return null;
+          };
+
+          const labelEl = findLabelElement();
+          if (!labelEl) {
+            const debug = all
+              .map(el => ({ tag: el.tagName, text: el.textContent?.trim() || '' }))
+              .filter(x => new RegExp(labelRe, 'i').test(x.text) && (!excludeReObj || !excludeReObj.test(x.text)));
+            return { success: false, reason: 'label text node not found', debug: debug.slice(0, 20) };
+          }
+
+          // Structural lookup: find the smallest ancestor container of the label
+          // that also contains a matching Yes/Successive choice. If none, look in
+          // the next sibling cell of the nearest td/th/div ancestor.
+          let bestChoice: HTMLElement | null = null;
+
+          const labelRow = labelEl.closest('tr');
+          const debugInfo: Record<string, string> = {
+            labelTag: labelEl.tagName,
+            labelText: labelEl.textContent?.trim() || '',
+            labelRowTag: labelRow?.tagName || 'none',
+          };
+
+          // Helper to pick the choice label closest to the label element.
+          const pickClosestChoice = (choices: HTMLElement[]) => {
+            const labelRect = labelEl.getBoundingClientRect();
+            const lx = labelRect.left + labelRect.width / 2;
+            const ly = labelRect.top + labelRect.height / 2;
+
+            let best: HTMLElement = choices[0];
+            let bestScore = Infinity;
+            for (const c of choices) {
+              const rect = c.getBoundingClientRect();
+              const cx = rect.left + rect.width / 2;
+              const cy = rect.top + rect.height / 2;
+              const dx = cx - lx;
+              const dy = Math.abs(cy - ly);
+              // Prefer choices to the right of the label, on the same row.
+              const score = dy * 2 + (dx < 0 ? 1000 : dx) + rect.width * rect.height / 1000;
+              if (score < bestScore) {
+                bestScore = score;
+                best = c;
+              }
+            }
+            return best;
+          };
+
+          // Collect all elements and text nodes that match the choice text.
+          const choiceSelector =
+            'label, span, b, strong, em, i, font, a, p, div, td, th, li';
+
+          const findChoiceElements = (scope: Element) => {
+            return Array.from(scope.querySelectorAll(choiceSelector)).filter(el =>
+              matchesRe(el, new RegExp(choiceRe, 'i'))
+            ) as HTMLElement[];
+          };
+
+          // 1. Find the smallest ancestor container (div/td/th) that contains a choice.
+          let container: Element | null = labelEl.parentElement;
+          while (container && container !== document.body) {
+            const tag = container.tagName.toLowerCase();
+            if (['td', 'th', 'div'].includes(tag)) {
+              const choices = findChoiceElements(container);
+              if (choices.length > 0) {
+                debugInfo.choiceContainerTag = container.tagName;
+                debugInfo.choiceContainerHtml = (container as HTMLElement).outerHTML.substring(0, 300);
+                bestChoice = pickClosestChoice(choices);
+                break;
+              }
+            }
+            container = container.parentElement;
+          }
+
+          // 2. If no choice in the same container, look in the next sibling cell(s).
+          if (!bestChoice) {
+            const labelCell = labelEl.closest('td, th, div');
+            if (labelCell) {
+              const siblingChoices: string[] = [];
+              let sibling = labelCell.nextElementSibling;
+              while (sibling) {
+                const found = findChoiceElements(sibling);
+                if (found.length > 0) {
+                  siblingChoices.push(`${sibling.tagName}: ${found.map(el => el.textContent?.trim()).join(', ')}`);
+                  bestChoice = pickClosestChoice(found);
+                  break;
+                }
+                sibling = sibling.nextElementSibling;
+              }
+              debugInfo.siblingChoices = siblingChoices.join(' | ') || 'none';
+            }
+          }
+
+          // 3. Last resort: search the entire row for any matching choice.
+          if (!bestChoice && labelRow) {
+            const rowChoices = findChoiceElements(labelRow).filter(el => {
+              // Exclude choices that belong to the label column itself.
+              return !labelEl.contains(el) && !el.contains(labelEl);
+            });
+            if (rowChoices.length > 0) {
+              debugInfo.rowChoiceCount = String(rowChoices.length);
+              bestChoice = pickClosestChoice(rowChoices);
+            }
+          }
+
+          if (!bestChoice) {
+            debugInfo.reason = 'choice label not found structurally';
+            return { success: false, reason: 'choice label not found', labelText: labelEl.textContent?.trim(), debug: debugInfo };
+          }
+
+          // Resolve the actual radio input for this choice.
+          let radio: HTMLInputElement | null = null;
+          const forId = (bestChoice as HTMLLabelElement).getAttribute('for');
+          if (forId) {
+            radio = document.getElementById(forId) as HTMLInputElement | null;
+          }
+          if (!radio) {
+            const prev = bestChoice.previousElementSibling as HTMLInputElement | null;
+            if (prev && prev.tagName === 'INPUT' && prev.type === 'radio') {
+              radio = prev;
+            }
+          }
+          if (!radio) {
+            const parent = bestChoice.parentElement;
+            if (parent) {
+              radio = parent.querySelector('input[type="radio"]') as HTMLInputElement | null;
+            }
+          }
+
+          if (!radio) return { success: false, reason: 'radio input not found for choice' };
+
+          // Click the radio directly via JS, and also click the label to ensure
+          // any custom event handlers fire.
+          radio.scrollIntoView({ behavior: 'instant', block: 'center' });
+          bestChoice.click();
+          radio.click();
+
+          return { success: true, checked: radio.checked, name: radio.name, value: radio.value, id: radio.id, labelText: labelEl.textContent?.trim() };
+        },
+        {
+          labelRe: typeof labelText === 'string' ? labelText : labelText.source,
+          choiceRe: typeof choiceText === 'string' ? choiceText : choiceText.source,
+          excludeRe: typeof excludeText === 'string' ? excludeText : excludeText?.source,
+        }
+      );
+    };
+
+    // Debug: log all cell texts that mention Nomination so we can see the exact structure.
+    const cellDebug = await finwFrame.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll('td, th'));
+      return cells
+        .map(c => ({ tag: c.tagName, text: c.textContent?.trim() || '', html: (c as HTMLElement).innerHTML.substring(0, 150) }))
+        .filter(c => c.text.toLowerCase().includes('nomination') || c.html.toLowerCase().includes('nomination'))
+        .slice(0, 20);
+    });
+    console.log('Nomination cell debug:', JSON.stringify(cellDebug, null, 2));
+
+    // 1. Find the Nomination Yes radio name/value via DOM inspection.
+    const nomRadioInfo = await finwFrame.evaluate(() => {
+      const allCells = Array.from(document.querySelectorAll('td, th'));
+      const nomCell = allCells.find(el => {
+        const t = el.textContent?.trim() || '';
+        return t.startsWith('Nomination') && !t.startsWith('Nomination Details') && !t.startsWith('Nomination Type');
+      });
+      if (!nomCell) return null;
+      const radioCell = nomCell.nextElementSibling;
+      if (!radioCell) return null;
+      const radios = Array.from(radioCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      const yes = radios[0];
+      if (!yes) return null;
+      return { name: yes.name, value: yes.value, id: yes.id };
+    });
+    console.log(`Nomination Yes radio info: ${JSON.stringify(nomRadioInfo)}`);
+    if (!nomRadioInfo) {
+      throw new Error('Failed to find Nomination Yes radio');
+    }
+
+    // Use Playwright native click — this fires real browser events that trigger Finacle's JS handlers.
+    const nomYesLocator = finwFrame.locator(
+      `input[type="radio"][name="${nomRadioInfo.name}"][value="${nomRadioInfo.value}"]`
+    ).first();
+    await nomYesLocator.click();
+    await this.page.waitForTimeout(500);
+    const nomChecked = await nomYesLocator.isChecked().catch(() => false);
+    console.log(`Nomination Yes checked: ${nomChecked}`);
+
+    // 2. Get the Nomination radio name so we can find the Preferred Nomination Type radios by name.
+    // The Nomination Yes radio name is "sbschemedetails.availNomFlg" (confirmed from debug).
+    // Finacle uses the same name pattern for Preferred Nomination Type.
+    // Get the name of Successive radio from the Preferred Nomination Type row.
+    const prefRadioInfo = await finwFrame.evaluate(() => {
+      const allCells = Array.from(document.querySelectorAll('td, th'));
+      // Use startsWith to handle cells that contain inline <script> text after the label.
+      const prefCell = allCells.find(el => (el.textContent?.trim() || '').startsWith('Preferred Nomination Type'));
+      if (!prefCell) return null;
+      const radioCell = prefCell.nextElementSibling;
+      if (!radioCell) return null;
+      const radios = Array.from(radioCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      return radios.map(r => ({ id: r.id, name: r.name, value: r.value, disabled: r.disabled }));
+    });
+    console.log(`Preferred Nomination Type radios: ${JSON.stringify(prefRadioInfo)}`);
+
+    if (!prefRadioInfo || prefRadioInfo.length < 2) {
+      throw new Error(`Could not find Preferred Nomination Type radios. Found: ${JSON.stringify(prefRadioInfo)}`);
+    }
+
+    // The Successive radio is index 1. Use its name to build a Playwright locator.
+    const successiveInfo = prefRadioInfo[1];
+
+    // 3. Wait for it to become enabled (Finacle enables it after Nomination=Yes processes).
+    await this.page.waitForTimeout(2000);
+
+    // 4. Click Successive using Playwright native locator (fires real browser events).
+    const successiveLocator = finwFrame.locator(
+      `input[type="radio"][name="${successiveInfo.name}"][value="${successiveInfo.value}"]`
+    ).first();
+
+    await successiveLocator.click({ force: true });
+    await this.page.waitForTimeout(500);
+    const successiveChecked = await successiveLocator.isChecked().catch(() => false);
+    console.log(`Successive radio checked after click: ${successiveChecked}`);
+
+    if (!successiveChecked) {
+      // Force-enable and fire full event sequence via JS.
+      await finwFrame.evaluate(({ name, value }) => {
+        const radio = document.querySelector(`input[type="radio"][name="${name}"][value="${value}"]`) as HTMLInputElement | null;
+        if (!radio) return;
+        radio.removeAttribute('disabled');
+        radio.checked = true;
+        radio.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        radio.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        radio.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        radio.dispatchEvent(new Event('change', { bubbles: true }));
+      }, { name: successiveInfo.name, value: successiveInfo.value });
+      console.log('Used JS fallback for Successive');
+    }
+
+    await this.page.waitForTimeout(1000);
+  }
+
+  // Service Pack validation: when an email-related dispatch mode is selected
+  // on the General tab but the CIF has no email ID, Finacle should prompt the
+  // user to enter the Email Type in the Related Party tab. This method
+  // temporarily captures the next dialog after Submit, checks for the email
+  // prompt, and returns whether the prompt was shown.
+  async validateEmailTypeRequirement(dispatchMode: string): Promise<{ handled: boolean; submitted: boolean }> {
+    const emailKeywords = ['email', 'post and email'];
+    const isEmailDispatch = emailKeywords.some(k => dispatchMode.toLowerCase().includes(k.toLowerCase()));
+    if (!isEmailDispatch) {
+      console.log('Dispatch mode is not email-related; skipping email type requirement validation');
+      return { handled: false, submitted: false };
+    }
+
+    let capturedMessage = '';
+    let dialogCount = 0;
+    const handler = async (dialog: Dialog) => {
+      dialogCount++;
+      capturedMessage = dialog.message();
+      console.log(`Dialog ${dialogCount} captured during email validation: ${capturedMessage}`);
+      await dialog.accept();
+    };
+
+    // Attach a temporary capturing handler before the global auto-accept handler.
+    this.page.on('dialog', handler);
+    console.log('Dispatch mode is email-related; submitting to check for Email Type requirement...');
+
+    try {
+      await this.clickSubmit();
+      await this.page.waitForTimeout(4000);
+    } catch (e) {
+      console.log(`Submit during email validation encountered: ${e}`);
+    }
+
+    this.page.off('dialog', handler);
+
+    if (/email type|email id|email address|emailtype/i.test(capturedMessage)) {
+      console.log('Email Type requirement validation passed: prompt was displayed');
+      return { handled: true, submitted: false };
+    }
+
+    if (dialogCount > 0) {
+      console.log(`Email-related dialog not detected; ${dialogCount} other dialog(s) captured. Proceeding with further steps.`);
+    } else {
+      console.log('No email type dialog detected; form likely submitted successfully (CIF has email).');
+    }
+
+    return { handled: false, submitted: true };
+  }
+
+  // Service Pack validation on the HACM Modify > Others tab:
+  // - If "Payment System Statements" is already YES, verify that a calendar
+  //   icon is shown next to "Next Print Date" and leave the value as-is.
+  // - If it is NO, skip the calendar check (return true) and continue without
+  //   modifying the field.
+  async validatePaymentSystemStatementsCalendar(): Promise<boolean> {
+    try {
+      const finwFrame = this.getFinwFrame();
+
+      const labelRow = finwFrame
+        .locator('tr')
+        .filter({ hasText: /Payment System Statements/i })
+        .first();
+
+      const yesRadio = labelRow.locator('input[type="radio"]').filter({ hasText: /yes/i }).first()
+        .or(labelRow.locator('input[type="radio"][value="Y" i], input[type="radio"][value="yes" i]').first())
+        .or(labelRow.locator('input[type="radio"]').nth(0));
+
+      const noRadio = labelRow.locator('input[type="radio"]').filter({ hasText: /no/i }).first()
+        .or(labelRow.locator('input[type="radio"][value="N" i], input[type="radio"][value="no" i]').first())
+        .or(labelRow.locator('input[type="radio"]').nth(1));
+
+      const wasYesChecked = await yesRadio.isChecked().catch(() => false);
+      console.log(`Payment System Statements initial state: Yes checked = ${wasYesChecked}`);
+
+      if (!wasYesChecked) {
+        const noChecked = await noRadio.isChecked().catch(() => false);
+        console.log(`Payment System Statements is No (${noChecked}); skipping calendar icon check.`);
+        return true;
+      }
+
+      const calendarPresent = await this.isCalendarIconPresent(finwFrame, /Next Print Date/i);
+      console.log(`Calendar icon next to Next Print Date: ${calendarPresent}`);
+      return calendarPresent;
+    } catch (e) {
+      console.log(`Could not validate payment system calendar: ${e}`);
+      return false;
+    }
+  }
+
+  private async findSelectByLabelOrOptions(frame: Frame, labelRe: RegExp): Promise<Locator | null> {
+    // Find a label matching the text, then its nearest <select>.
+    const labels = frame.locator('label, td, span, div').filter({ hasText: labelRe });
+    const count = await labels.count();
+    for (let i = 0; i < count; i++) {
+      const label = labels.nth(i);
+      const select = label.locator('xpath=following::select[1]');
+      if ((await select.count()) > 0) return select;
+    }
+    // Fallback: find a select whose options contain the matching text.
+    const selects = frame.locator('select');
+    const selectCount = await selects.count();
+    for (let i = 0; i < selectCount; i++) {
+      const select = selects.nth(i);
+      const options = await select.locator('option').allTextContents();
+      if (options.some(o => labelRe.test(o))) return select;
+    }
+    return null;
+  }
+
+  private async isCalendarIconPresent(frame: Frame, labelRe: RegExp): Promise<boolean> {
+    // Find the label in the same row, then look for a calendar icon inside that row.
+    const labels = frame.locator('label, td, span, div').filter({ hasText: labelRe });
+    const count = await labels.count();
+    for (let i = 0; i < count; i++) {
+      const label = labels.nth(i);
+      const row = label.locator('xpath=ancestor::tr[1]');
+      if ((await row.count()) > 0) {
+        const calendarIcon = row
+          .locator(
+            'img[src*="calendar" i], img[class*="calendar" i], img[title*="calendar" i], img[alt*="calendar" i], ' +
+            'input[type="image"][src*="calendar" i], .ui-datepicker-trigger, a:has(img[src*="calendar" i])'
+          )
+          .first();
+        if ((await calendarIcon.count()) > 0 && (await calendarIcon.isVisible().catch(() => false))) {
+          return true;
+        }
+      }
+    }
+    // Fallback: find a date-like input and check its parent cell for a calendar icon.
+    const dateInputs = frame.locator(
+      'input[id*="printDate" i], input[id*="nxtPrntDt" i], input[name*="printDate" i], input[id*="nextPrintDt" i]'
+    );
+    const inputCount = await dateInputs.count();
+    for (let i = 0; i < inputCount; i++) {
+      const input = dateInputs.nth(i);
+      const parent = input.locator('xpath=..');
+      const calendarIcon = parent
+        .locator(
+          'img[src*="calendar" i], img[class*="calendar" i], img[title*="calendar" i], img[alt*="calendar" i], ' +
+          'input[type="image"][src*="calendar" i], .ui-datepicker-trigger, a:has(img[src*="calendar" i])'
+        )
+        .first();
+      if ((await calendarIcon.count()) > 0 && (await calendarIcon.isVisible().catch(() => false))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private async fillAccountLimits() {
     // Expiry date - any future date
     await this.fillDateField(
@@ -1214,32 +3481,93 @@ export class AccountPage {
   }
 
   async clickSubmit() {
-    const selector = '#Submit, input[type="submit"][value="Submit" i], input[type="button"][value="Submit" i], button:has-text("Submit")';
-    try {
-      const finwFrame = this.getFinwFrame();
-      const submitBtn = finwFrame.locator(selector).first();
-      await submitBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await submitBtn.scrollIntoViewIfNeeded();
-      await this.page.waitForTimeout(1000);
-      await submitBtn.click();
-      await this.page.waitForTimeout(5000);
-      console.log('Clicked Submit button');
-      return;
-    } catch (e) {
-      console.log(`Submit not found in FINW frame, searching all frames: ${e}`);
+    const selector =
+      '#Submit, #submit, ' +
+      'input[name*="Submit" i], input[name*="submit" i], ' +
+      'input[value*="Submit" i], ' +
+      'input[type="submit"][value*="Submit" i], input[type="button"][value*="Submit" i], ' +
+      'input[type="image"][alt*="Submit" i], input[type="image"][title*="Submit" i], ' +
+      'button:has-text("Submit"), a:has-text("Submit")';
+
+    const clickFirstVisible = async (frame: Frame): Promise<boolean> => {
+      try {
+        if (frame.isDetached()) return false;
+        const btns = frame.locator(selector);
+        const count = await btns.count().catch(() => 0);
+        for (let i = 0; i < count; i++) {
+          const btn = btns.nth(i);
+          if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+            await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await btn.click({ timeout: 15000, force: true });
+            return true;
+          }
+        }
+      } catch {}
+      return false;
+    };
+
+    const isContentFrame = (frame: Frame): boolean => {
+      const name = (frame.name() || '').toLowerCase();
+      return !name.includes('fininfra') && !name.includes('login');
+    };
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      const frames: Frame[] = [];
+      try {
+        frames.push(this.getFinwFrame());
+      } catch {}
+
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const f of p.frames()) {
+          if (!f.isDetached() && isContentFrame(f)) {
+            frames.push(f);
+          }
+        }
+      }
+
+      // Deduplicate while preserving order; FINW is tried first.
+      const uniqueFrames = [...new Set(frames)];
+      for (const frame of uniqueFrames) {
+        if (await clickFirstVisible(frame)) {
+          await this.page.waitForTimeout(5000);
+          console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
+          return;
+        }
+      }
+      await this.page.waitForTimeout(500);
     }
 
-    // Fallback: the Submit button may live in a different frame.
-    for (const frame of this.page.frames()) {
-      const btn = frame.locator(selector).first();
-      if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click();
-        await this.page.waitForTimeout(5000);
-        console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
-        return;
+    // Fallback: use JS to click the first Submit-looking control in any frame.
+    try {
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const f of p.frames()) {
+          if (f.isDetached()) continue;
+          const clicked = await f.evaluate(() => {
+            const labels = ['input[type="button"]', 'input[type="submit"]', 'button', 'a', 'img'];
+            for (const tag of labels) {
+              const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+              const el = elements.find(e => {
+                const v = (e.getAttribute('value') || e.getAttribute('alt') || e.getAttribute('title') || e.textContent || '').trim().toLowerCase();
+                return v === 'submit' || v.includes('submit');
+              });
+              if (el) { el.scrollIntoView({ block: 'center', inline: 'center' }); el.click(); return true; }
+            }
+            return false;
+          }).catch(() => false);
+          if (clicked) {
+            await this.page.waitForTimeout(5000);
+            console.log(`Clicked Submit button via JS in frame '${f.name() || 'main'}'`);
+            return;
+          }
+        }
       }
+    } catch (e) {
+      console.log(`JS fallback for Submit failed: ${e}`);
     }
+
     console.log('Could not click Submit button in any frame');
   }
 
@@ -1247,7 +3575,12 @@ export class AccountPage {
   // Finds the <select> on the screen that contains an option matching the
   // desired function text (e.g. "Modify" / "M - Modify"), regardless of its id.
   private async findFunctionDropdown(value: string): Promise<Locator | null> {
-    const finwFrame = this.getFinwFrame();
+    let finwFrame: Frame;
+    try {
+      finwFrame = this.getFinwFrame();
+    } catch {
+      return null;
+    }
 
     // Prefer the known id if present
     const known = finwFrame.locator('#templateFunction');
@@ -1257,9 +3590,10 @@ export class AccountPage {
 
     const selects = finwFrame.locator('select');
     const count = await selects.count();
+    const normalizedValue = value.toLowerCase().replace(/\s*-\s*/g, '-');
     for (let i = 0; i < count; i++) {
       const opts = await selects.nth(i).locator('option').allTextContents();
-      if (opts.some(o => o.toLowerCase().includes(value.toLowerCase()))) {
+      if (opts.some(o => o.toLowerCase().replace(/\s*-\s*/g, '-').includes(normalizedValue))) {
         return selects.nth(i);
       }
     }
@@ -1268,7 +3602,12 @@ export class AccountPage {
 
   async selectFunction(value: string) {
     try {
-      const dropdown = await this.findFunctionDropdown(value);
+      const deadline = Date.now() + 30000;
+      let dropdown = await this.findFunctionDropdown(value);
+      while (!dropdown && Date.now() < deadline) {
+        await this.page.waitForTimeout(500);
+        dropdown = await this.findFunctionDropdown(value);
+      }
       if (!dropdown) {
         console.log(`Function dropdown not found for '${value}', skipping`);
         return;
@@ -1282,7 +3621,8 @@ export class AccountPage {
       // Find the option whose visible text matches the desired function
       // e.g. value "Modify" matches "M - Modify". Then select by its leading
       // code value ("M"), which is the most reliable for native <select>.
-      const matchLabel = options.find(o => o.toLowerCase().includes(value.toLowerCase()));
+      const normalizedValue = value.toLowerCase().replace(/\s*-\s*/g, '-');
+      const matchLabel = options.find(o => o.toLowerCase().replace(/\s*-\s*/g, '-').includes(normalizedValue));
       if (matchLabel) {
         const code = matchLabel.split('-')[0].trim();
         try {
@@ -1328,16 +3668,21 @@ export class AccountPage {
   }
 
   async clickGo() {
-    const finwFrame = this.getFinwFrame();
-    // The HACM screen uses a "Go" button; fall back to the Accept button id
-    const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
-    if (await goBtn.count() > 0) {
-      await goBtn.click();
-    } else {
-      await this.acceptButton.click();
+    try {
+      const finwFrame = this.getFinwFrame();
+      // The HACM screen uses a "Go" button; fall back to the Accept button id
+      const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
+      if (await goBtn.count() > 0 && await goBtn.isVisible().catch(() => false) && await goBtn.isEnabled().catch(() => false)) {
+        await goBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await goBtn.click({ timeout: 15000, force: true });
+      } else {
+        await this.clickAccept();
+      }
+      await this.page.waitForTimeout(3000);
+      console.log('Clicked Go button');
+    } catch (e) {
+      console.log(`Could not click Go button: ${e}`);
     }
-    await this.page.waitForTimeout(3000);
-    console.log('Clicked Go button');
   }
 
   // Loads an existing current account in HACM inquiry mode and reads its
@@ -1406,34 +3751,272 @@ export class AccountPage {
   // Clicks the Accept button shown after the loan A/c ID is generated to
   // finalise creation. Searches all frames in case it renders outside FINW.
   async clickAccept() {
-    const selector =
-      '#Accept, #accept, input[value="Accept" i], ' +
-      'input[type="submit"][value*="Accept" i], input[type="button"][value*="Accept" i], ' +
-      'button:has-text("Accept"), a:has-text("Accept")';
+    const buttonSelector =
+      'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
+      'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
+      'input[value^="Accept" i], #Accept, #accept, ' +
+      'button:has-text("Accept")';
+    const anchorSelector = 'a#Accept, a#accept';
+
+    const deadline = Date.now() + 10000;
+    let clicked = false;
+    while (Date.now() < deadline && !clicked) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btn = finwFrame.locator(buttonSelector).first();
+        if (await btn.count() > 0) {
+          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+          await btn.click({ timeout: 15000, force: true });
+          clicked = true;
+        }
+      } catch (e) {
+        console.log(`Accept button click attempt failed, retrying: ${e}`);
+      }
+      if (!clicked) await this.page.waitForTimeout(500);
+    }
+    if (clicked) {
+      await this.page.waitForTimeout(3000);
+      console.log('Clicked Accept button in FINW frame');
+      return;
+    }
+
+    // Last resort: an anchor link with text Accept in FINW.
     try {
       const finwFrame = this.getFinwFrame();
-      const btn = finwFrame.locator(selector).first();
-      if (await btn.count() > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click({ timeout: 15000 });
+      const anchor = finwFrame.locator(anchorSelector).first();
+      if (await anchor.count() > 0) {
+        await anchor.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await anchor.click({ timeout: 15000, force: true });
         await this.page.waitForTimeout(3000);
-        console.log('Clicked Accept button');
+        console.log('Clicked Accept anchor (FINW fallback)');
         return;
       }
     } catch (e) {
-      console.log(`Accept not found in FINW frame, searching all frames: ${e}`);
+      console.log(`Accept anchor fallback failed: ${e}`);
     }
+
+    // Search all other frames for any visible Accept control.
     for (const frame of this.page.frames()) {
-      const btn = frame.locator(selector).first();
-      if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
-        await btn.scrollIntoViewIfNeeded();
-        await btn.click({ timeout: 15000 }).catch(() => {});
-        await this.page.waitForTimeout(3000);
-        console.log(`Clicked Accept button in frame '${frame.name() || 'main'}'`);
-        return;
+      try {
+        const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
+        if (await btn.count().catch(() => 0) > 0) {
+          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+          await btn.click({ timeout: 15000, force: true });
+          await this.page.waitForTimeout(3000);
+          console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
+          return;
+        }
+      } catch (e) {
+        console.log(`Accept control click in frame failed: ${e}`);
       }
     }
     console.log('Accept button not found in any frame, skipping');
+  }
+
+  // Clicks the last Accept button in the FINW frame (e.g. the bottom Accept
+  // shown after charges in HLADISB verification).
+  async clickLastAccept() {
+    const buttonSelector =
+      'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
+      'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
+      'input[value^="Accept" i], #Accept, #accept, ' +
+      'button:has-text("Accept")';
+
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btns = finwFrame.locator(buttonSelector);
+        const count = await btns.count().catch(() => 0);
+        if (count > 0) {
+          for (let i = count - 1; i >= 0; i--) {
+            const btn = btns.nth(i);
+            if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+              await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await btn.click({ timeout: 15000, force: true });
+              await this.page.waitForTimeout(3000);
+              console.log('Clicked last Accept button in FINW frame');
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`Last Accept button click attempt failed, retrying: ${e}`);
+      }
+      await this.page.waitForTimeout(500);
+    }
+    console.log('Last Accept button not found in FINW frame, skipping');
+  }
+
+  // Clicks the last visible/enabled action button in the FINW frame. This is
+  // usually the bottom action button on verification screens (e.g. HLADISB),
+  // which may be labelled Submit, Verify, Authorize, Authorise, Approve, OK or Confirm.
+  async clickLastAction() {
+    const actionLabels = ['Submit', 'Verify', 'Authorize', 'Authorise', 'Approve', 'Confirm', 'OK'];
+    const buildSelector = (label: string) =>
+      `input[type="button"][value^="${label}" i], input[type="button"][value*="${label}" i], ` +
+      `input[type="submit"][value^="${label}" i], input[type="submit"][value*="${label}" i], ` +
+      `input[value^="${label}" i], #${label}, #${label.toLowerCase()}, ` +
+      `button:has-text("${label}"), a:has-text("${label}")`;
+    const allSelectors = actionLabels.map(buildSelector).join(', ');
+
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      try {
+        const finwFrame = this.getFinwFrame();
+        const btns = finwFrame.locator(allSelectors);
+        const count = await btns.count().catch(() => 0);
+        if (count > 0) {
+          // Click the last visible/enabled action button (bottom of page).
+          for (let i = count - 1; i >= 0; i--) {
+            const btn = btns.nth(i);
+            if (await btn.isVisible().catch(() => false) && await btn.isEnabled().catch(() => false)) {
+              const raw =
+                (await btn.getAttribute('value').catch(() => '')) ||
+                (await btn.textContent().catch(() => '')) ||
+                (await btn.getAttribute('title').catch(() => '')) ||
+                '';
+              const text = (raw || 'unknown').trim();
+              await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await btn.click({ timeout: 15000, force: true });
+              await this.page.waitForTimeout(3000);
+              console.log(`Clicked last action button in FINW frame: ${text}`);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`Last action button click attempt failed, retrying: ${e}`);
+      }
+      await this.page.waitForTimeout(500);
+    }
+
+    // Fallback: use JS to click the last Submit/Verify/Authorize/etc. looking control.
+    const clickedLabel = await this.getFinwFrame().evaluate((labels) => {
+      const selectors = ['input[type="button"]', 'input[type="submit"]', 'button', 'a', 'img'];
+      for (const sel of selectors) {
+        const elements = Array.from(document.querySelectorAll(sel)) as HTMLElement[];
+        for (let idx = elements.length - 1; idx >= 0; idx--) {
+          const el = elements[idx];
+          const v = (el.getAttribute('value') || el.getAttribute('alt') || el.getAttribute('title') || el.textContent || '').trim().toLowerCase();
+          if (labels.some(l => v === l.toLowerCase() || v.includes(l.toLowerCase()))) {
+            el.scrollIntoView({ block: 'center', inline: 'center' });
+            el.click();
+            return v;
+          }
+        }
+      }
+      return '';
+    }, actionLabels).catch(() => '');
+    if (clickedLabel) {
+      await this.page.waitForTimeout(5000);
+      console.log(`Clicked last action button via JS fallback: ${clickedLabel}`);
+      return;
+    }
+
+    console.log('Last action button not found in FINW frame');
+  }
+
+  // Selects the first real data row in a FINW *data* grid, ignoring layout and
+  // navigation tables. It looks for a table whose headers mention Value Date,
+  // Amt, Loan, Credit, PaySys, ECS, Rate, Mode, Transaction, Beneficiary, etc.,
+  // then selects the first non-header, non-toolbar row.
+  async selectFirstFinwGridRow(): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const dataHeaders = ['value date', 'general ledger', 'amt', 'loan', 'credit', 'paysys', 'pay sys', 'ecs', 'rate', 'mode', 'transaction', 'beneficiary', 'ref. no.', 'ref no', 'remarks', 'credit a/c', 'value', 'date'];
+    const toolbarLabels = ['add', 'delete', 'copy', 'edit', 'new', 'remove'];
+    const layoutLabels = ['home', 'menu', 'background menu', 'ccy converter', 'show memo pad', 'logout'];
+
+    // Helper: determine if a table looks like a data grid.
+    const isDataGrid = async (table: Locator): Promise<boolean> => {
+      const headerText = await table.evaluate(el => {
+        const headers = Array.from(el.querySelectorAll('th, thead td, tr:first-child td, tr:first-child th'));
+        return headers.map(h => (h.innerText || h.textContent || '').trim().toLowerCase()).join(' ');
+      }).catch(() => '');
+      return dataHeaders.some(h => headerText.includes(h));
+    };
+
+    // Helper: determine if a row is a toolbar/navigation row.
+    const isToolbarRow = (text: string) => toolbarLabels.some(l => new RegExp(`\\b${l}\\b`, 'i').test(text));
+    const isLayoutRow = (text: string) => layoutLabels.some(l => text.toLowerCase().includes(l));
+
+    const trySelectInRows = async (rows: Locator, context: string): Promise<boolean> => {
+      const count = await rows.count().catch(() => 0);
+      if (count === 0) return false;
+      console.log(`selectFirstFinwGridRow: ${context} count=${count}`);
+      for (let i = 0; i < count; i++) {
+        const row = rows.nth(i);
+        const rowInfo = await row.evaluate(el => {
+          const r = el as HTMLTableRowElement;
+          const isHeader = r.tagName === 'TR' && (r.querySelector('th') !== null || r.parentElement?.tagName === 'THEAD');
+          const text = (r.innerText || '').trim();
+          const hasToolbar = Array.from(r.querySelectorAll('input[type="button"], button, a')).some((b: any) =>
+            /add|delete|copy|edit|new|remove/i.test((b.value || b.innerText || b.textContent || b.title || '')));
+          const hasRadioCheckbox = r.querySelector('input[type="radio"], input[type="checkbox"]') !== null;
+          const cells = Array.from(r.querySelectorAll('td')).map(c => (c.innerText || c.textContent || '').trim());
+          return { isHeader, text, hasToolbar, hasRadioCheckbox, cells };
+        }).catch(() => ({ isHeader: true, text: '', hasToolbar: true, hasRadioCheckbox: false, cells: [] as string[] }));
+
+        if (rowInfo.isHeader || rowInfo.hasToolbar || isToolbarRow(rowInfo.text) || isLayoutRow(rowInfo.text)) continue;
+        const visible = await row.isVisible().catch(() => false);
+        const dims = await row.boundingBox().catch(() => null);
+        if (!visible || (dims && dims.height < 2)) continue;
+
+        // 1. Selectable input (radio/checkbox) in the row.
+        if (rowInfo.hasRadioCheckbox) {
+          const input = row.locator('input[type="radio"], input[type="checkbox"]').first();
+          if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEnabled().catch(() => false)) {
+            await input.scrollIntoViewIfNeeded().catch(() => {});
+            await input.click({ timeout: 10000, force: true });
+            console.log(`Selected first grid row (input) ${context}[${i}]`);
+            await this.page.waitForTimeout(1000);
+            return true;
+          }
+        }
+
+        // 2. Click the first data cell that looks like a value (contains digit).
+        for (let c = 0; c < rowInfo.cells.length; c++) {
+          const cellText = rowInfo.cells[c].slice(0, 80);
+          if (cellText.length < 2) continue;
+          if (/add|delete|copy|edit|new|remove|home|menu|ccy|logout/i.test(cellText)) continue;
+          if (/\d/.test(cellText)) {
+            const cell = row.locator('td').nth(c);
+            await cell.scrollIntoViewIfNeeded().catch(() => {});
+            await cell.click({ timeout: 10000, force: true });
+            console.log(`Selected first grid row (data cell) ${context}[${i}] td[${c}] text="${cellText}"`);
+            await this.page.waitForTimeout(1000);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      // Strategy 1: find a table whose headers identify it as a data grid.
+      const tables = finwFrame.locator('table');
+      const tableCount = await tables.count().catch(() => 0);
+      for (let t = 0; t < tableCount; t++) {
+        const table = tables.nth(t);
+        if (!(await isDataGrid(table))) continue;
+        const bodyRows = table.locator('tbody tr');
+        const bodyCount = await bodyRows.count().catch(() => 0);
+        const rowsToTry = bodyCount > 0 ? bodyRows : table.locator('tr');
+        if (await trySelectInRows(rowsToTry, `table[${t}]`)) return true;
+      }
+
+      // Strategy 2: any tbody/table row, but skip layout/toolbar rows.
+      for (const rowSelector of ['tbody tr', 'table tr']) {
+        const rows = finwFrame.locator(rowSelector);
+        if (await trySelectInRows(rows, rowSelector)) return true;
+      }
+
+      // Grid may be slow to load after a postback.
+      await this.page.waitForTimeout(1000);
+    }
+
+    console.log('No grid row selection control found');
+    return false;
   }
 
   // Handles the Finacle "Warning and Exception Dialog" that opens as a separate
@@ -1932,15 +4515,37 @@ export class AccountPage {
     await this.page.waitForTimeout(1000);
 
     // Currency / Sol id / CIF id
-    await this.setTextByCandidates(['crncyCode', 'currencyCode', 'ccyCode', 'crncy'], data.ccy, 'Currency');
-    await this.setTextByCandidates(['solId', 'solID', 'soL_id'], data.solId, 'Sol id');
-    await this.setTextByCandidates(['cifId', 'custId', 'cifID'], data.cifCode, 'CIF id');
+    const fillById = async (id: string, value: string) => {
+      const input = finwFrame.locator(`#${id}`).first();
+      if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEditable().catch(() => false)) {
+        await input.fill(value);
+        await input.dispatchEvent('input');
+        await input.dispatchEvent('change');
+        await input.press('Tab').catch(() => {});
+        console.log(`Filled #${id} via Playwright fill = ${value}`);
+        return true;
+      }
+      return false;
+    };
+    const ccyFilled = await this.fillByLabel('CCY', data.ccy) || await fillById('crncyCode', data.ccy) || await this.setTextByCandidates(['crncyCode', 'currencyCode', 'ccyCode', 'crncy', 'ccy'], data.ccy, 'Currency');
+    const solFilled = await this.fillByLabel('SOL ID', data.solId) || await fillById('solId', data.solId) || await this.setTextByCandidates(['solId', 'solID', 'soL_id'], data.solId, 'Sol id');
+    const cifFilled = await this.fillByLabel('CIF ID', data.cifCode) || await fillById('cifId', data.cifCode) || await this.setTextByCandidates(['cifId', 'custId', 'cifID', 'cifCode'], data.cifCode, 'CIF id');
 
     // Scheme code via search popup (guarded)
     try {
       await this.selectSchemeCode(data.schemeCode);
     } catch (e) {
       console.log(`Could not select scheme via popup, skipping: ${e}`);
+      // Fallback: fill scheme code directly by id and trigger validation.
+      const schemeInput = finwFrame.locator('#schmCode').first();
+      if (data.schemeCode && await schemeInput.count() > 0 && await schemeInput.isEditable().catch(() => false)) {
+        await schemeInput.fill(data.schemeCode);
+        await schemeInput.dispatchEvent('input');
+        await schemeInput.dispatchEvent('change');
+        await schemeInput.press('Tab').catch(() => {});
+        await this.page.waitForTimeout(1000);
+        console.log(`Filled scheme code directly via #schmCode = ${data.schemeCode}`);
+      }
     }
 
     // Accept / Go
@@ -1954,25 +4559,61 @@ export class AccountPage {
     console.log('Loan header submitted (Accept/Go clicked)');
   }
 
-  // Navigates to a loan tab by its visible label (with optional anchor id).
-  async visitLoanTab(label: string, idFallback?: string) {
-    await this.clickTab(label, idFallback);
+  // Navigates to a loan tab by its visible label (with optional anchor id and content verification).
+  async visitLoanTab(label: string, idFallback?: string, verificationLabel?: string) {
+    await this.clickTab(label, idFallback, verificationLabel);
     console.log(`Visited loan tab: ${label}`);
   }
 
-  // Fills the first visible field matching one of the candidate ids. Returns
-  // true on success, logs the attempted ids otherwise.
-  private async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
+  // Fills the first field matching one of the candidate ids. Works for
+  // disabled/readonly Finacle display fields and hidden backend inputs.
+  protected async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
     const finwFrame = this.getFinwFrame();
     for (const id of ids) {
-      const el = finwFrame.locator(`#${id}`).first();
-      if (await el.count() > 0 && await el.isVisible().catch(() => false)) {
-        await el.clear().catch(() => {});
-        await el.fill(value);
-        await el.press('Tab');
-        await this.page.waitForTimeout(800);
-        console.log(`Filled ${label} (#${id}) = ${value}`);
-        return true;
+      try {
+        const jsOk = await finwFrame.evaluate(({ id, val }) => {
+          const input = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
+          if (!input) return false;
+          input.value = val;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          // If this is a Finacle display-only date input (id/name ends with _ui),
+          // also update the corresponding hidden backend input.
+          if (input.id && input.id.endsWith('_ui')) {
+            const baseId = input.id.replace('_ui', '');
+            const hiddenById = document.querySelector(`input[id="${baseId}"]`) as HTMLInputElement | null;
+            if (hiddenById) {
+              hiddenById.value = val;
+              hiddenById.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenById.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+          if (input.name && input.name.endsWith('_ui')) {
+            const baseName = input.name.replace('_ui', '');
+            const hiddenByName = document.querySelector(`input[name="${baseName}"], input[name="${baseName}_hdn"]`) as HTMLInputElement | null;
+            if (hiddenByName) {
+              hiddenByName.value = val;
+              hiddenByName.dispatchEvent(new Event('input', { bubbles: true }));
+              hiddenByName.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          }
+          return true;
+        }, { id, val: value });
+        if (jsOk) {
+          console.log(`Filled ${label} (#${id}) via JS = ${value}`);
+          // If the field is visible and enabled, also trigger a Tab for validation.
+          try {
+            const el = finwFrame.locator(`#${id}`).first();
+            if (await el.isVisible().catch(() => false) && await el.isEnabled().catch(() => false)) {
+              await el.press('Tab').catch(() => {});
+            }
+          } catch (e) {
+            // ignore
+          }
+          return true;
+        }
+      } catch (e) {
+        console.log(`setTextByCandidates JS fill for #${id} failed: ${e}`);
       }
     }
     console.log(`Could not fill ${label}; tried ids ${JSON.stringify(ids)}`);
@@ -2091,12 +4732,21 @@ export class AccountPage {
     );
   }
 
+  async setLoanPeriodMonths(months: string) {
+    const updated = await this.setTextByCandidates(
+      ['loanPerdMths', 'loanPeriodMonths', 'loanTermMonths', 'tenureMonths'],
+      months, 'Loan period (months)'
+    );
+    if (!updated) throw new Error('Loan period (months) field was not found on the Loan Details tab');
+  }
+
   // Step 8: Payment plan - number of instalments.
   async setNumberOfInstalments(count: string) {
-    await this.setTextByCandidates(
+    const updated = await this.setTextByCandidates(
       ['noOfInstlmnts', 'noOfInstallments', 'noOfInstalments', 'numInstallments'],
       count, 'Number of instalments'
-    );
+    ) || await this.fillByLabel('No. of Instalments', count) || await this.fillByLabel('No of Instalments', count) || await this.fillByLabel('No. of Installments', count) || await this.fillByLabel('No of Installments', count);
+    if (!updated) throw new Error('Number of instalments field was not found on the Payment Plan tab');
   }
 
   // Steps 9-11: Payment plan - Holiday period configuration.
@@ -2254,3 +4904,15 @@ export class AccountPage {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+

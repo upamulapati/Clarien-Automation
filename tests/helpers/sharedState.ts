@@ -1,36 +1,254 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const STATE_FILE = path.resolve(__dirname, '../../data/shared-state.json');
+// =====================================================================
+// sharedState — single runtime JSON file for all generated test data.
+//
+// Any data produced by one spec and consumed by another is written here
+// instead of scattered JSON files under data/. The file is git-ignored.
+// =====================================================================
 
-interface SharedState {
-  cifId?: string;
-  accountId?: string;
-  [key: string]: string | undefined;
+const DATA_DIR = path.resolve(__dirname, '../../data');
+export const SHARED_STATE_FILE = path.join(DATA_DIR, 'shared-state.json');
+
+export interface CifEntry {
+  cifId: string;
+  savedAt: string;
 }
 
-// Reads the current shared state from disk. Returns an empty object if the
-// file does not exist or cannot be parsed.
+export interface SharedState {
+  cifs?: {
+    retail?: CifEntry;
+    corporate?: CifEntry;
+  };
+  collateralIds?: {
+    latest?: string;
+    ids: string[];
+  };
+  transactionIds?: string[];
+  termDepositAccounts?: Record<string, string>;
+  topUpDepositAccounts?: Record<string, string>;
+  closedAccounts?: {
+    termDepositPartial?: string;
+    topUpDeposit?: string;
+    topUpDepositPartial?: string;
+  };
+}
+
 export function readSharedState(): SharedState {
-  try {
-    if (fs.existsSync(STATE_FILE)) {
-      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
-    }
-  } catch {
-    // Corrupted or missing file – start fresh
+  if (!fs.existsSync(SHARED_STATE_FILE)) {
+    return {};
   }
-  return {};
+  try {
+    const raw = fs.readFileSync(SHARED_STATE_FILE, 'utf8');
+    return JSON.parse(raw) as SharedState;
+  } catch (e) {
+    console.log(`[sharedState] Could not read ${SHARED_STATE_FILE}: ${e}`);
+    return {};
+  }
 }
 
-// Merges the given key/value pairs into the existing shared state file.
-export function writeSharedState(data: Partial<SharedState>): void {
-  const current = readSharedState();
-  const merged = { ...current, ...data };
-  fs.writeFileSync(STATE_FILE, JSON.stringify(merged, null, 2), 'utf-8');
-  console.log(`[SharedState] Wrote to ${STATE_FILE}:`, data);
+export function writeSharedState(state: SharedState): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(SHARED_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+  } catch (e) {
+    console.log(`[sharedState] Could not write ${SHARED_STATE_FILE}: ${e}`);
+  }
 }
 
-// Convenience getter – returns a single value or undefined.
-export function getSharedValue(key: string): string | undefined {
-  return readSharedState()[key];
+export function updateSharedState(updater: (state: SharedState) => void): void {
+  const state = readSharedState();
+  updater(state);
+  writeSharedState(state);
+}
+
+// ----------------------------------------------------------------------
+// CIF helpers
+// ----------------------------------------------------------------------
+export type CifSection = 'retail' | 'corporate';
+
+export function getCif(section: CifSection): string | undefined {
+  const state = readSharedState();
+  return state.cifs?.[section]?.cifId;
+}
+
+export function saveCif(section: CifSection, cifId: string): void {
+  if (!cifId) return;
+  updateSharedState((state) => {
+    if (!state.cifs) state.cifs = {};
+    state.cifs[section] = { cifId, savedAt: new Date().toISOString() };
+  });
+  console.log(`[sharedState] Saved ${section} CIF ID "${cifId}"`);
+}
+
+// ----------------------------------------------------------------------
+// Collateral ID helpers
+// ----------------------------------------------------------------------
+export function getCollateralIds(): { latest?: string; ids: string[] } {
+  const state = readSharedState();
+  return state.collateralIds ?? { ids: [] };
+}
+
+export function readLatestCollateralId(): string | undefined {
+  return getCollateralIds().latest;
+}
+
+export function readCollateralIds(): string[] {
+  return getCollateralIds().ids;
+}
+
+export function recordCollateralId(id: string): void {
+  if (!id || id.trim() === '') return;
+  updateSharedState((state) => {
+    const existing = state.collateralIds ?? { ids: [] };
+    state.collateralIds = {
+      latest: id,
+      ids: [id, ...(existing.ids ?? []).filter((existingId) => existingId !== id)],
+    };
+  });
+  console.log(`[sharedState] Persisted collateral id: ${id}`);
+}
+
+export function resetCollateralIds(): void {
+  updateSharedState((state) => {
+    state.collateralIds = { ids: [] };
+  });
+  console.log('[sharedState] Cleared persisted collateral ids');
+}
+
+// ----------------------------------------------------------------------
+// Transaction ID helpers
+// ----------------------------------------------------------------------
+export function getTransactionIds(): string[] {
+  const state = readSharedState();
+  return (state.transactionIds ?? []).filter((id): id is string => typeof id === 'string');
+}
+
+export function readTransactionIds(): string[] {
+  return getTransactionIds();
+}
+
+export function recordTransactionId(id: string): void {
+  updateSharedState((state) => {
+    const ids = state.transactionIds ?? [];
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+    state.transactionIds = ids;
+  });
+}
+
+export function resetTransactionIds(): void {
+  updateSharedState((state) => {
+    state.transactionIds = [];
+  });
+}
+
+export function saveTransactionIds(ids: string[]): void {
+  updateSharedState((state) => {
+    state.transactionIds = ids;
+  });
+}
+
+// ----------------------------------------------------------------------
+// Term deposit account helpers
+// ----------------------------------------------------------------------
+export interface TermDepositAccount {
+  schemeCode: string;
+  accountNumber: string;
+}
+
+export function getTermDepositAccounts(): Record<string, string> {
+  const state = readSharedState();
+  return state.termDepositAccounts ?? {};
+}
+
+export function readTermDepositAccounts(): TermDepositAccount[] {
+  const data = getTermDepositAccounts();
+  return Object.entries(data)
+    .filter(([, acct]) => acct && acct.trim() !== '')
+    .map(([schemeCode, accountNumber]) => ({ schemeCode, accountNumber }));
+}
+
+export function readTermDepositAccountByScheme(schemeCode: string): TermDepositAccount | undefined {
+  const data = getTermDepositAccounts();
+  const accountNumber = data[schemeCode];
+  if (!accountNumber || accountNumber.trim() === '') return undefined;
+  return { schemeCode, accountNumber };
+}
+
+export function readFirstTermDepositAccount(): TermDepositAccount | undefined {
+  return readTermDepositAccounts()[0];
+}
+
+export function saveTermDepositAccount(schemeCode: string, accountNumber: string): void {
+  updateSharedState((state) => {
+    if (!state.termDepositAccounts) state.termDepositAccounts = {};
+    state.termDepositAccounts[schemeCode] = accountNumber;
+  });
+}
+
+export function saveTermDepositAccounts(accounts: Record<string, string>): void {
+  updateSharedState((state) => {
+    state.termDepositAccounts = accounts;
+  });
+}
+
+// ----------------------------------------------------------------------
+// Top-up deposit account helpers
+// ----------------------------------------------------------------------
+export function getTopUpDepositAccounts(): Record<string, string> {
+  const state = readSharedState();
+  return state.topUpDepositAccounts ?? {};
+}
+
+export function saveTopUpDepositAccount(schemeCode: string, accountNumber: string): void {
+  updateSharedState((state) => {
+    if (!state.topUpDepositAccounts) state.topUpDepositAccounts = {};
+    state.topUpDepositAccounts[schemeCode] = accountNumber;
+  });
+}
+
+export function saveTopUpDepositAccounts(accounts: Record<string, string>): void {
+  updateSharedState((state) => {
+    state.topUpDepositAccounts = accounts;
+  });
+}
+
+// ----------------------------------------------------------------------
+// Closed account ID helpers (used by closure verifications)
+// ----------------------------------------------------------------------
+export type ClosedAccountType =
+  | 'termDepositPartial'
+  | 'topUpDeposit'
+  | 'topUpDepositPartial';
+
+export function getClosedAccountId(type: ClosedAccountType): string | undefined {
+  const state = readSharedState();
+  return state.closedAccounts?.[type];
+}
+
+export function saveClosedAccountId(type: ClosedAccountType, accountId: string): void {
+  updateSharedState((state) => {
+    if (!state.closedAccounts) state.closedAccounts = {};
+    state.closedAccounts[type] = accountId;
+  });
+  console.log(`[sharedState] Saved ${type} closed account id: ${accountId}`);
+}
+
+// ----------------------------------------------------------------------
+// Generic helpers for ad-hoc shared values
+// ----------------------------------------------------------------------
+export function getSharedValue<T>(getter: (state: SharedState) => T | undefined): T | undefined {
+  return getter(readSharedState());
+}
+
+export function setSharedValue<T>(
+  setter: (state: SharedState, value: T) => void,
+  value: T
+): void {
+  updateSharedState((state) => setter(state, value));
 }
