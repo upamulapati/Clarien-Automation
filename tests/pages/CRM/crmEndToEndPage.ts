@@ -223,6 +223,134 @@ export class CrmEndToEndPage extends CrmBasePage {
       }).catch(() => []);
       console.log(`  buttonFrm buttons: ${JSON.stringify(btnInfo).substring(0, 500)}`);
 
+      // Dump submitForm source and tab info
+      try {
+        await bf.evaluate(() => {
+          const src = typeof (window as any).submitForm === 'function' ? (window as any).submitForm.toString() : 'not-found';
+          for (let i = 0; i < src.length; i += 1500) { console.log('SUBMITFORM_CHUNK:' + src.substring(i, i + 1500)); }
+          const tv = (window as any).parent && (window as any).parent.frames ? (window as any).parent.frames[0] : null;
+          if (tv) { console.log('AVAILABLE_TABS:' + JSON.stringify({ tabs: tv.availableTabs, ids: tv.availableTabsIds })); }
+          const fd = (() => { try { const tc = (window as any).parent.frames['tabContentFrm']; const ua = tc && tc.frames ? tc.frames['userArea'] : null; const fd = ua && ua.formDispFrame ? ua.formDispFrame : null; if (fd && fd.document) return { region: fd.document.getElementsByName('AccountModBO.region')[0]?.value, region2: fd.document.getElementsByName('AccountModBO.Region')[0]?.value, tds: fd.document.getElementsByName('AccountModBO.Tds_tbl')[0]?.value, custLang: fd.document.getElementsByName('AccountModBO.Cust_Language')[0]?.value }; return null; } catch (e: any) { return e.message; } })();
+          console.log('FORM_DISP_FRAME:' + JSON.stringify(fd));
+        });
+      } catch (e) { console.log(`  Could not dump submitForm source: ${e}`); }
+
+      // Inspect which formDispFrame selectProcess can see from buttonFrm
+      try {
+        const frameInfo = await bf.evaluate(() => {
+          const names = (w: Window) => { try { return Array.from(w.frames).map(f => (f as any).name || 'noname'); } catch (e) { return [`err-${(e as any).message}`]; } };
+          const findFd = (w: Window): any => {
+            try {
+              if ((w as any).formDispFrame) return { foundIn: 'window', childNames: names(w) };
+              for (let i = 0; i < w.frames.length; i++) { const r = findFd(w.frames[i]); if (r) return { foundIn: 'nested', path: i, ...r }; }
+              return null;
+            } catch (e: any) { return null; }
+          };
+          const fd = findFd(window);
+          return {
+            selfName: (window as any).name,
+            parentName: window.parent ? (window.parent as any).name : 'none',
+            topName: window.top ? (window.top as any).name : 'none',
+            parentFrames: names(window.parent),
+            topFrames: names(window.top),
+            fdInfo: fd,
+            tabViewFrames: (() => { try { const tv = (window.parent as any).frames['tabViewFrm']; return tv ? Array.from(tv.frames).map((f: any) => f.name || 'noname') : ['no-tabViewFrm']; } catch (e: any) { return ['err']; } })(),
+            tabContentFrames: (() => { try { const tc = (window.parent as any).frames['tabContentFrm']; return tc ? Array.from(tc.frames).map((f: any) => f.name || 'noname') : ['no-tabContentFrm']; } catch (e: any) { return ['err']; } })(),
+            contentRegion: (() => { try { const tc = (window.parent as any).frames['tabContentFrm']; const fd = tc ? tc.formDispFrame : null; return fd ? (fd.document.getElementsByName('AccountModBO.Region')[0]?.value || 'EMPTY') : 'NO-FD'; } catch (e: any) { return e.message; } })(),
+            contentTds: (() => { try { const tc = (window.parent as any).frames['tabContentFrm']; const fd = tc ? tc.formDispFrame : null; return fd ? (fd.document.getElementsByName('AccountModBO.Tds_tbl')[0]?.value || 'EMPTY') : 'NO-FD'; } catch (e: any) { return e.message; } })(),
+            selectProcessSrc: typeof (window as any).selectProcess === 'function' ? ((window as any).selectProcess.toString().substring(0, 600)) : 'not-found',
+            submitFormSrc: typeof (window as any).submitForm === 'function' ? ((window as any).submitForm.toString().substring(0, 10000)) : 'not-found'
+          };
+        });
+        console.log(`  buttonFrm context: ${JSON.stringify(frameInfo).substring(0, 1200)}`);
+      } catch (e) { console.log(`  Could not inspect buttonFrm context: ${e}`); }
+
+      // Recursively locate the live form fields from buttonFrm's parent
+      try {
+        const preValues = await bf.evaluate(() => {
+          const findInput = (w: Window, name: string, path: string): any => {
+            try {
+              const els = w.document ? w.document.getElementsByName(name) : [];
+              if (els && els.length > 0) return { path, value: (els[0] as HTMLInputElement).value || (els[1] ? (els[1] as HTMLInputElement).value : '') };
+              const sels = w.document ? w.document.querySelectorAll('select') : [];
+              for (const s of Array.from(sels)) { if ((s as HTMLSelectElement).name === name) return { path, value: (s as HTMLSelectElement).value }; }
+              for (let i = 0; i < (w.frames || []).length; i++) {
+                const r = findInput(w.frames[i], name, `${path}/${(w.frames[i] as any).name || i}`);
+                if (r) return r;
+              }
+              return null;
+            } catch (e: any) { return null; }
+          };
+          const collect = (base: string, keys: string[]) => {
+            const out: any = {};
+            for (const k of keys) {
+              const v = findInput(window.parent, k, '');
+              if (v) out[k] = v;
+            }
+            return out;
+          };
+          const regionKeys = ['AccountModBO.Region','AccountModBO.region','3_AccountModBO.Region','3_AccountModBO.region','h_AccountModBO.Region','h_AccountModBO.region','H_AccountModBO.Region','H_AccountModBO.region','Cat_AccountModBO.Region','Cat_AccountModBO.region','CAT_AccountModBO.Region','CAT_AccountModBO.region'];
+          const tdsKeys = ['AccountModBO.Tds_tbl','AccountModBO.TDS_TBL','3_AccountModBO.Tds_tbl','3_AccountModBO.TDS_TBL','h_AccountModBO.Tds_tbl','h_AccountModBO.TDS_TBL','H_AccountModBO.Tds_tbl','H_AccountModBO.TDS_TBL','Cat_AccountModBO.Tds_tbl','Cat_AccountModBO.TDS_TBL','CAT_AccountModBO.Tds_tbl','CAT_AccountModBO.TDS_TBL'];
+          const langKeys = ['AccountModBO.Cust_Language','3_AccountModBO.Cust_Language','h_AccountModBO.Cust_Language','H_AccountModBO.Cust_Language','Cat_AccountModBO.Cust_Language','CAT_AccountModBO.Cust_Language'];
+          return {
+            region: collect('region', regionKeys),
+            tds: collect('tds', tdsKeys),
+            custLang: collect('custLang', langKeys)
+          };
+        });
+        console.log(`  live field search: ${JSON.stringify(preValues)}`);
+      } catch (e) { console.log(`  live field search error: ${e}`); }
+
+      // Debug: dump all Region/TDS/Language fields across the frame tree
+      try {
+        const dump = await bf.evaluate(() => {
+          const out: any[] = [];
+          const walk = (w: Window, path: string) => {
+            try {
+              const doc = w.document;
+              if (doc) {
+                const els = Array.from(doc.querySelectorAll('input, select, textarea')) as any[];
+                for (const el of els) {
+                  const name = (el.name || '').toUpperCase();
+                  if (name && (name.includes('REGION') || name.includes('TDS_TBL') || name.includes('TDS_TBL') || name.includes('CUST_LANGUAGE'))) {
+                    out.push({
+                      path,
+                      name: el.name,
+                      tag: el.tagName,
+                      value: (el.tagName === 'SELECT' ? (el as HTMLSelectElement).value : (el as HTMLInputElement).value) || '',
+                      text: (el.tagName === 'SELECT' ? (el as HTMLSelectElement).options[(el as HTMLSelectElement).selectedIndex]?.text || '' : '')
+                    });
+                  }
+                }
+              }
+              for (let i = 0; i < (w.frames || []).length; i++) {
+                walk(w.frames[i], `${path}/${(w.frames[i] as any).name || i}`);
+              }
+            } catch (_) {}
+          };
+          walk(window.parent, '');
+          return out;
+        });
+        console.log('  mandatory field dump: ' + JSON.stringify(dump.slice(0, 40)));
+      } catch (e) { console.log('  mandatory field dump error: ' + e); }
+
+      // Playwright-level frame dump (may reach cross-origin frames bf cannot)
+      for (const f of this.page.frames()) {
+        try {
+          const details = await f.evaluate(() => {
+            const out: any[] = [];
+            (document.querySelectorAll('input, select') as any as HTMLInputElement[]).forEach((el) => {
+              const name = (el.name || '').toUpperCase();
+              if (name && (name.includes('REGION') || name.includes('TDS_TBL') || name.includes('CUST_LANGUAGE'))) {
+                out.push({ name: el.name, value: (el.tagName === 'SELECT' ? (el as HTMLSelectElement).value : el.value) || '', tag: el.tagName });
+              }
+            });
+            return out;
+          });
+          if (details.length) console.log(`  frame ${f.name()} (${f.url().split('/').pop()}): ${JSON.stringify(details)}`);
+        } catch (_) {}
+      }
+
       // Try calling selectProcess() directly from buttonFrm
       try {
         const submitResult = await bf.evaluate(() => {
@@ -304,16 +432,35 @@ export class CrmEndToEndPage extends CrmBasePage {
       return '';
     };
 
+    const scanFrame = async (fr: any) => {
+      try {
+        return await fr.evaluate(() => {
+          const inputs = Array.from(document.querySelectorAll('input')) as HTMLInputElement[];
+          for (const inp of inputs) {
+            const name = (inp.name || '').toUpperCase();
+            const val = (inp.value || '').trim();
+            if (name && (name.includes('GCIF') || name.includes('CIF') || name.includes('ENTITY') || name.includes('CUST_ID')) && val) {
+              const m = val.match(/\d{5,}/);
+              if (m) return { source: inp.name, id: m[0] };
+            }
+          }
+          const text = document.body?.innerText || '';
+          const m = text.match(/(?:CIF|Entity|Customer|Client)\s*(?:ID|Id|id)?\s*[:\s-]*(\d{5,})/i) || text.match(/\b([46]\d{9})\b/);
+          return m ? { source: 'text', id: m[1] } : null;
+        });
+      } catch (_) { return null; }
+    };
+
     let cifId = '';
     const msgCountBefore = this.lastDialogMessages.length;
     // Poll for CIF ID in dialog messages — reduced to 5 attempts (10s) since PS popup may also contain it
-    for (let attempt = 0; attempt < 5 && !cifId; attempt++) {
+    for (let attempt = 0; attempt < 15 && !cifId; attempt++) {
       await page.waitForTimeout(2000);
       for (const msg of this.lastDialogMessages.slice(-15)) {
         const id = extractCifFromMsg(msg);
         if (id) { cifId = id; console.log(`  CIF ID from dialog: "${msg.substring(0, 120)}" → ${cifId}`); break; }
       }
-      // Also check formSaveFrame each iteration
+      // Also check formSaveFrame and all frame inputs each iteration
       if (!cifId) {
         const fsf2 = page.frame({ name: 'formSaveFrame' });
         if (fsf2) {
@@ -322,6 +469,22 @@ export class CrmEndToEndPage extends CrmBasePage {
             const id = extractCifFromMsg(text);
             if (id) { cifId = id; console.log(`  CIF ID from formSaveFrame: ${cifId}`); }
           }
+        }
+      }
+      if (!cifId) {
+        for (const f of page.frames()) {
+          const res = await scanFrame(f);
+          if (res && res.id) { cifId = res.id; console.log(`  CIF ID from ${f.name() || 'frame'} input/text (${res.source}): ${cifId}`); break; }
+        }
+      }
+      if (!cifId) {
+        for (const p of page.context().pages()) {
+          if (p === page || p.isClosed()) continue;
+          for (const f of p.frames()) {
+            const res = await scanFrame(f);
+            if (res && res.id) { cifId = res.id; console.log(`  CIF ID from popup page input/text (${res.source}): ${cifId}`); break; }
+          }
+          if (cifId) break;
         }
       }
     }
@@ -464,7 +627,15 @@ export class CrmEndToEndPage extends CrmBasePage {
       } catch (_) {}
     }
 
-    if (saved) this._processSaveConfirmed = true;
+    if (
+      saved &&
+      !this._processSaveConfirmed
+    ) {
+      console.log(
+        '⚠ Save Process Selection was clicked, ' +
+        'but a success confirmation was not received'
+      );
+    }
 
     // Last attempt to capture CIF ID from all dialogs
     if (!this._cifId) {

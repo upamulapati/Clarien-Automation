@@ -1,4 +1,5 @@
 import { Page, Dialog } from '@playwright/test';
+import { test } from '@playwright/test';
 import { AppConfig } from '../../config/crmTestData';
 
 // =====================================================================
@@ -23,20 +24,39 @@ export class CrmBasePage {
   protected get timeouts() { return this.config.timeouts; }
 
   // =====================================================================
+  // Screenshot Helper
+  // =====================================================================
+  async takeScreenshot(name: string) {
+    try {
+      const screenshot = await this.page.screenshot({ fullPage: false });
+      await test.info().attach(name, { body: screenshot, contentType: 'image/png' });
+      console.log(`Screenshot taken: ${name}`);
+    } catch (e) {
+      console.log(`Could not take screenshot (${name}): ${e}`);
+    }
+  }
+
+  // =====================================================================
   // Frame Helpers
   // =====================================================================
 
   async findPopupTarget(popup: Page): Promise<any> {
     let bestFrame: any = popup;
     let maxFields = 0;
-    for (const pf of popup.frames()) {
-      const count = await pf.evaluate(() =>
-        Array.from(document.querySelectorAll('input, select, textarea')).filter(el => {
-          const r = (el as HTMLElement).getBoundingClientRect();
-          return r.width > 0 && r.height > 0;
-        }).length
-      ).catch(() => 0);
-      if (count > maxFields) { maxFields = count; bestFrame = pf; }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      if (attempt > 0) await popup.waitForTimeout(2000);
+      maxFields = 0;
+      bestFrame = popup;
+      for (const pf of popup.frames()) {
+        const count = await pf.evaluate(() =>
+          Array.from(document.querySelectorAll('input, select, textarea')).filter(el => {
+            const r = (el as HTMLElement).getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+          }).length
+        ).catch(() => 0);
+        if (count > maxFields) { maxFields = count; bestFrame = pf; }
+      }
+      if (maxFields > 0) break;
     }
     console.log(`Using popup frame with ${maxFields} visible fields`);
     return bestFrame;
@@ -271,6 +291,7 @@ export class CrmBasePage {
       if (await btn.isVisible({ timeout: config.timeouts.short3 }).catch(() => false)) {
         await btn.click();
         console.log(`  ✓ Clicked Submit in LOV for ${label}`);
+        await this.takeScreenshot(`LOV Submit - ${label}`);
         return true;
       }
     }

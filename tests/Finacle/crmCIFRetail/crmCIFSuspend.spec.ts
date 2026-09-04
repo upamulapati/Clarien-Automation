@@ -4,8 +4,11 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmSuspendPage } from '../../pages/CRM/crmSuspendPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
+import { getSharedValue } from '../../helpers/sharedState';
 
-let sharedCifId = '';
+const SHARED_CIF = getSharedValue('cifId');
+let sharedCifId = SHARED_CIF || '';
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const CONFIG = getPrimaryConfig();
 
@@ -22,7 +25,7 @@ test.describe('CIF Suspend', () => {
 
   test('Suspend CIF via Operations', async ({ page }) => {
     const suspendPage = new CrmSuspendPage(page, CONFIG, lastDialogMessages);
-    const cifId = CRM_TEST_DATA.retail.suspend.cifIdToSuspend || sharedCifId;
+    const cifId = sharedCifId || CRM_TEST_DATA.retail.suspend.cifIdToSuspend;
     if (!cifId) throw new Error('No CIF ID — set cifIdToSuspend in crmTestData.json');
 
     // Step 1-2: Select CRM with Admin login and wait for CRM to load

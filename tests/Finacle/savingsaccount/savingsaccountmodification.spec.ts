@@ -33,7 +33,7 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
       await login(page, CONFIG);
 
       homePage = new HomePage(page);
-      accountPage = new AccountPage(page);
+      accountPage = new AccountPage(page, lastDialogMessages);
     });
 
     test(acct.testLabel, async ({ page }) => {

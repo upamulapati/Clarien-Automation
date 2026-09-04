@@ -5,6 +5,7 @@ node_modules/
 tests/basePage/
 data/shared-state.json
 reports/
+screenshots/
 /test-results/
 /test-results-*/
 /playwright-report/

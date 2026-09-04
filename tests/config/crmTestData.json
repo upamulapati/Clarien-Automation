@@ -3,12 +3,12 @@
     "baseUrl": "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp",
     "credentials": {
       "primary": {
-        "username": "finacletest05",
-        "password": "clarien@123"
+        "username": "finacletest5",
+        "password": "clarien@1234"
       },
       "verification": {
-        "username": "finacletest01",
-        "password": "clarien@123"
+        "username": "finacletest1",
+        "password": "clarien@1234"
       }
     },
     "timeouts": {
@@ -103,6 +103,22 @@
         "withholdingTaxFloorLimit": "1000",
         "preferentialExpiryDate": "31/12/2099"
       },
+      "demographicData": {
+        "nationality": "AD",
+        "nationalityDisplay": "ANDORRA",
+        "countryOfBirth": "BM",
+        "countryOfBirthDisplay": "BERMUDA",
+        "maritalStatus": "Married"
+      },
+      "employmentData": {
+        "employmentType": "SALARIED"
+      },
+      "incomeExpenseData": {
+        "incomeType": "SALARIED",
+        "currency": "BMD",
+        "grossIncome": "50000",
+        "annualOperatingExpense": "15000"
+      },
       "expectedDocCodes": ["CODOC", "IDCUS", "MIGR", "OTHER", "TRUST"],
       "expectedGridColumnsDocument": ["IsPreferred", "Document Code", "Unique ID", "Place of Issue", "Issue Date", "Expiry Date", "Received On", "Select"],
       "expectedGridColumns": ["CCY", "Credit Discount Pcnt", "Debit Discount Pcnt", "Withholding Tax Pcnt", "Withholding Tax Floor Limit", "Preferential Expiry Date", "Select"],
@@ -133,10 +149,10 @@
       "processName": "CIF Retail Process"
     },
     "suspend": {
-      "cifIdToSuspend": "4100058363"
+      "cifIdToSuspend": "4100058396"
     },
     "undoSuspend": {
-      "cifIdToUndoSuspend": "4100058363"
+      "cifIdToUndoSuspend": "4100058396"
     },
     "verification": {
       "popupCloseUrls": ["AccountDetWizard", "AccountDet", "FinacleCRM"],

@@ -13,6 +13,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
   async navigateToNewEntity(): Promise<void> {
     console.log('=== Step 2: Navigate to CIF Corporate > New Entity > Customer ===');
     let page = this.workingPage;
+    await this.takeScreenshot('Before Navigate to New Entity (Corporate)');
 
     const functionMainFrame = page.frame({ name: 'Functionmain' });
     if (functionMainFrame) {

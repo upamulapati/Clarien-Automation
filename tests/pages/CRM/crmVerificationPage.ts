@@ -583,7 +583,14 @@ export class CrmVerificationPage extends CrmBasePage {
     // ================================================================
     console.log(`=== Step 10: Navigate to 360 Degrees View > ${options.searchMenuItem} ===`);
 
-    const funcMainFrame = page.frame({ name: 'Functionmain' });
+    let funcMainFrame = page.frame({ name: 'Functionmain' });
+    if (!funcMainFrame) {
+      // Wait for main page frame structure to reestablish after popup
+      for (let attempt = 0; attempt < 5 && !funcMainFrame; attempt++) {
+        await page.waitForTimeout(3000);
+        funcMainFrame = page.frame({ name: 'Functionmain' });
+      }
+    }
     if (funcMainFrame) {
       await funcMainFrame.evaluate(() => { const el = document.getElementById('screen0'); if (el) el.click(); });
       console.log('✓ Clicked 360 Degrees View');

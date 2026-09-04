@@ -168,8 +168,8 @@ export class AccountPage {
   async searchMenu(searchTerm: string) {
     await this.page.waitForTimeout(3000);
     await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
+    await this.menuSelect.press('Enter');
+    await this.page.waitForTimeout(5000);
     
     // Select the option that contains the searched code - try loginFrame first
     const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
@@ -336,6 +336,49 @@ export class AccountPage {
       return null;
     } catch (e) {
       console.log(`Could not read status message: ${e}`);
+      return null;
+    }
+  }
+
+  // Reads the 'Suspended Till' / 'Suspension End Date' value on the HSIM
+  // (Standing Instruction) screen. Returns the trimmed value if it is rendered,
+  // otherwise null, so the test can assert it is not populated after a cancelled
+  // freeze (defect TOL000000678784).
+  async getHsimSuspendedTillValue(): Promise<string | null> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = [
+        '#suspendedTill',
+        '#suspensionEndDate',
+        '#suspTill',
+        '#siSuspTill',
+        'input[id*="susp" i]',
+        'input[id*="till" i]',
+        'input[id*="endDate" i]',
+        'td[id*="susp" i]',
+        'span[id*="susp" i]',
+      ];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count().catch(() => 0) > 0) {
+          const value = (await el.inputValue().catch(() => '')) ||
+                        (await el.innerText().catch(() => ''));
+          if (value && value.trim()) {
+            console.log(`Read Suspended Till from ${sel}: ${value.trim()}`);
+            return value.trim();
+          }
+        }
+      }
+      // Fallback: search the body text for a date near a Suspended/End Date label.
+      const body = await finwFrame.locator('body').innerText().catch(() => '');
+      const match = body.match(/(?:Suspended\s*Till|Suspension\s*End\s*Date)[^\d]*(\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+      if (match && match[1]) {
+        console.log(`Read Suspended Till from body text: ${match[1]}`);
+        return match[1];
+      }
+      return null;
+    } catch (e) {
+      console.log(`Could not read HSIM Suspended Till: ${e}`);
       return null;
     }
   }
@@ -1846,14 +1889,14 @@ export class AccountPage {
       const finwFrame = this.getFinwFrame();
       const checkbox = finwFrame
         .locator(
-          'table input[type="checkbox"]:visible, ' +
-          'input[type="checkbox"][name*="select" i]:visible, ' +
-          'input[type="checkbox"][id*="chk" i]:visible'
+          'table input[type="checkbox"]:enabled:visible:not([id*="PageSelectAll" i]):not([name*="PageSelectAll" i]), ' +
+          'input[type="checkbox"][name*="select" i]:enabled:visible, ' +
+          'input[type="checkbox"][id*="chk" i]:enabled:visible'
         )
         .first();
       await checkbox.waitFor({ state: 'visible', timeout: 15000 });
       await checkbox.scrollIntoViewIfNeeded();
-      await checkbox.check();
+      await checkbox.check({ timeout: 15000 });
       await this.page.waitForTimeout(1000);
       console.log('Selected account row checkbox');
     } catch (e) {

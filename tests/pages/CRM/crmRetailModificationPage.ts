@@ -48,6 +48,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // ---------------------------------------------------------------
   async navigateToEditEntity(): Promise<Frame> {
     const page = this.page;
+    await this.takeScreenshot('Before Navigate to Edit Entity');
 
     // Wait for the CRM frameset (Functionmain) to be ready — the Finacle CRM
     // menu is driven from that frame, and its items are DOM-clickable by id even

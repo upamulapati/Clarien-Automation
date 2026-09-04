@@ -40,7 +40,7 @@ test.describe('Transfer Maintenance - Verification', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    tmPage = new AccountPage(page);
+    tmPage = new AccountPage(page, lastDialogMessages);
   });
 
   // HTM (V - Verify) — Authorise/verify the transfer posted by the maker.

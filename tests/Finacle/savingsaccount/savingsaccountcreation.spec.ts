@@ -27,7 +27,7 @@ test.describe('Savings Account Creation', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    savingsAccountPage = new AccountPage(page);
+    savingsAccountPage = new AccountPage(page, lastDialogMessages);
 
     // Select Core Server from the solution drop down
     console.log('Selecting Core Server...');

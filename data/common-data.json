@@ -1,19 +1,97 @@
 {
   "credentials": {
-    "username": "finacletest05",
-    "password": "clarien@123"
+    "username": "finacletest5",
+    "password": "clarien@1234"
   },
   "secondCredentials": {
-    "username": "finacletest01",
-    "password": "clarien@123"
+    "username": "finacletest13",
+    "password": "clarien@1234"
   },
   "thirdCredentials": {
     "username": "",
     "password": ""
   },
   "verifierCredentials": {
-    "username": "finacletest01",
-    "password": "clarien@123"
+    "username": "finacletest1",
+    "password": "clarien@1234"
+  },
+  "paymentOrderData": {
+    "debitAccount": "7010003820",
+    "ccy": "BMD",
+    "amount": "1000",
+    "beneficiaryAddressType": "F",
+    "beneficiaryAccountId": "1468907",
+    "beneficiaryBic": "50601006",
+    "beneficiaryBankCode": "",
+    "beneficiaryBranchCode": "",
+    "beneficiaryCountry": "BM",
+    "institutionAddressType": "F",
+    "bic": "50601006",
+    "bankCode": "",
+    "branchCode": "",
+    "country": "BM",
+    "paymentMethod": "BCBBM",
+    "chargeOption": "OUR",
+    "paymentProduct": "customer transfer"
+  },
+  "paymentOrderDataSwift": {
+    "debitAccount": "7010003820",
+    "ccy": "BMD",
+    "amount": "1000",
+    "beneficiaryAddressType": "F",
+    "beneficiaryAccountId": "1468907",
+    "beneficiaryBic": "50601006",
+    "beneficiaryBankCode": "BPBKBM",
+    "beneficiaryBranchCode": "HMXXX",
+    "beneficiaryCountry": "BM",
+    "institutionAddressType": "F",
+    "bic": "50601006",
+    "bankCode": "BPBKBM",
+    "branchCode": "HMXXX",
+    "country": "BM",
+    "paymentMethod": "SWIFT",
+    "chargeOption": "OUR",
+    "paymentProduct": "customer transfer"
+  },
+  "paymentOrderDataAchFcc": {
+    "debitAccount": "7010003820",
+    "ccy": "USD",
+    "amount": "1000",
+    "beneficiaryAddressType": "A",
+    "beneficiaryAccountId": "010247526001",
+    "beneficiaryName": "Anna Evelyn Carr",
+    "beneficiaryAddress": "14140 Abbington Avenue",
+    "beneficiaryCountry": "BM",
+    "institutionAddressType": "F",
+    "bic": "50601002",
+    "bankCode": "BBDABM",
+    "branchCode": "HMXXX",
+    "country": "BM",
+    "paymentMethod": "HSBUS",
+    "chargeOption": "OUR",
+    "paymentProduct": "customer transfer",
+    "needsUsdPopup": true,
+    "rateCode": "TTB"
+  },
+  "paymentOrderDataSwiftFcc": {
+    "debitAccount": "7010003820",
+    "ccy": "USD",
+    "amount": "1000",
+    "beneficiaryAddressType": "A",
+    "beneficiaryAccountId": "010247526001",
+    "beneficiaryName": "Anna Evelyn Carr",
+    "beneficiaryAddress": "14140 Abbington Avenue",
+    "beneficiaryCountry": "BM",
+    "institutionAddressType": "F",
+    "bic": "50601002",
+    "bankCode": "BBDABM",
+    "branchCode": "HMXXX",
+    "country": "BM",
+    "paymentMethod": "SWIFT",
+    "chargeOption": "OUR",
+    "paymentProduct": "customer transfer",
+    "needsUsdPopup": true,
+    "rateCode": "TTB"
   },
   "baseAccountData": {
     "functionOption": "O",
@@ -114,5 +192,19 @@
       "accountId": "4600000111",
       "testLabel": "HACM - modify current account scheme A/c status to inactive"
     }
-  ]
+  ],
+  "demandDraftData": {
+    "demandDraftCurrency": "BMD",
+    "demandDraftAccount": "100BMD2003000",
+    "transactionType": "Transfer-Customer Induced",
+    "purchaserAccountType": "SB",
+    "purchaserAccount": "7500001517",
+    "amount": "1000",
+    "payee": "ABC enterprises"
+  },
+  "siFreezeCancel": {
+    "type": "savings",
+    "accountId": "7710003367",
+    "testLabel": "HSIM - SI not suspended when account freeze is cancelled before verification"
+  }
 }

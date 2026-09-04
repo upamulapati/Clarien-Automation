@@ -31,7 +31,7 @@ test.describe('Add Related Party to Savings Account', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    accountPage = new AccountPage(page);
+    accountPage = new AccountPage(page, lastDialogMessages);
   });
 
   // HACM - Add related party (joint holder) details to an existing savings account

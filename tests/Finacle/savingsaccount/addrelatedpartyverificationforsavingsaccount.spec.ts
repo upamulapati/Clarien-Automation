@@ -25,7 +25,7 @@ test.describe('Verify Related Party for Savings Account', () => {
     await login(page, VERIFY_CONFIG);
 
     homePage = new HomePage(page);
-    accountPage = new AccountPage(page);
+    accountPage = new AccountPage(page, lastDialogMessages);
   });
 
   // HACM - Verify/authorise the related party that was added to a savings account

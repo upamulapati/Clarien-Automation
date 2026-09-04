@@ -49,7 +49,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
     const msg = d.message();
     lastDialogMessages?.push(msg);
     console.log(`Dialog message: ${msg.substring(0, 150)}`);
-    await d.accept().catch(() => {});
+    if (d.type() === 'prompt') {
+      await d.accept(d.defaultValue()).catch(() => {});
+    } else {
+      await d.accept().catch(() => {});
+    }
   });
 
   page.on('popup', async popup => {
@@ -58,6 +62,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
       if (popup.isClosed()) return;
       const url = popup.url();
       console.log(`Global popup handler: ${url.substring(url.lastIndexOf('/') + 1).substring(0, 80)}`);
+
+      if (url.includes('excp_popup_screen')) {
+        console.log(`excp_popup_screen detected: ${url.substring(url.lastIndexOf('/') + 1).substring(0, 80)}`);
+      }
+
       popup.on('dialog', async (dialog) => {
         const msg = dialog.message();
         console.log(`Popup dialog: "${msg}"`);

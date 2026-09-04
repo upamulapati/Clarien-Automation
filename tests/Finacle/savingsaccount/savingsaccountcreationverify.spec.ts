@@ -28,7 +28,7 @@ test.describe('Savings Account Verification', () => {
     await login(page, VERIFY_CONFIG);
 
     homePage = new HomePage(page);
-    savingsAccountPage = new AccountPage(page);
+    savingsAccountPage = new AccountPage(page, lastDialogMessages);
   });
 
   // HOAACVSB - Verify/authorise a savings account opening.
