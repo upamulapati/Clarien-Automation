@@ -34,7 +34,7 @@ test('HACM - verify added related party for current account', async ({ page }) =
 
   // Step 2: Type menu option "HACM" in finacle
   console.log('Searching for HACM...');
-  await savingsAccountPage.searchMenu('HACM');
+  await savingsAccountPage.searchMenu(COMMON_DATA.currentAccount.screens.modifyAndVerify);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - V - Verify

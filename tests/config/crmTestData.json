@@ -158,6 +158,32 @@
       "popupCloseUrls": ["AccountDetWizard", "AccountDet", "FinacleCRM"],
       "searchMenuItem": "Search Retail Entity",
       "searchCriteria": "Retail Search Criteria"
+    },
+    "modification": {
+      "fallbackCifId": "4100058362",
+      "lastName": "JAMES",
+      "address": {
+        "type": "Mailing",
+        "houseNo": "BLOCK NO 13",
+        "streetNo": "13",
+        "streetName": "HM STREET",
+        "postalCode": "531310",
+        "state": "CALIFORNIA",
+        "stateCode": "US005",
+        "city": "JAFFREY",
+        "country": "Bermuda",
+        "countryCode": "BM"
+      },
+      "phone": {
+        "type": "MOBILE NUMBER 1",
+        "phoneNo": "9132345678"
+      },
+      "processName": "CIFCustomerKYCApproval",
+      "expectedColumns": [
+        "Blacklisted", "Negated", "Suspended", "Segment", "Record Status", "CIF ID",
+        "Preferred Contact No. Type", "Preferred Contact No.", "First Name", "Last Name",
+        "City", "Unique ID", "Unique ID Type", "Primary SOL ID", "Start from Date", "Status"
+      ]
     }
   },
   "corporate": {
@@ -273,6 +299,44 @@
       "popupCloseUrls": ["CorpCreateDetWizard", "AccountDetWizard", "CorpModDet", "CorpSuspendDet", "AccountDet", "FinacleCRM"],
       "searchMenuItem": "Search Corporate Entity",
       "searchCriteria": "Corporate Search Criteria"
+    },
+    "modification": {
+      "fallbackCifId": "0001000516",
+      "processName": "CIFCustomerKYCApproval",
+      "lastName": "",
+      "address": {
+        "type": "Mailing",
+        "houseNo": "14-126",
+        "streetNo": "14A",
+        "streetName": "DAVIDS STREET",
+        "postalCode": "PI 09",
+        "state": "CALIFORNIA",
+        "stateCode": "US005",
+        "city": "JAFFREY",
+        "country": "Bermuda",
+        "countryCode": "BM"
+      },
+      "phone": {
+        "type": "WORK PHONE 1",
+        "phoneNo": "1111111111"
+      },
+      "expectedColumns": [
+        "Blacklisted", "Negated", "Suspended", "Segment", "Record Status", "CIF ID",
+        "Record Status", "Primary SOL ID", "Status"
+      ]
+    },
+    "otherBankDetails": {
+      "fallbackCifId": "0001000516",
+      "retailFallbackCifId": "4100058365",
+      "bankName": "CLARIEN BANK LIMITED",
+      "branchName": "CLARIEN BANK LIMITED",
+      "productCategory": "CLARIEN TRUST MICROGEN",
+      "accountId": "666666666",
+      "channel": "EMAIL",
+      "addressLine1": "SYENT STREET 08",
+      "city": "AFORE",
+      "state": "CALIFORNIA",
+      "country": "Bermuda"
     }
   }
 }

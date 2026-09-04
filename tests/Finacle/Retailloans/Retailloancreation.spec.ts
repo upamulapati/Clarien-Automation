@@ -4,7 +4,7 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 
 // Retail loan creation (HOAACLA) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -14,13 +14,13 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const CURRENCY = 'BMD';
 const SOL_ID = '100';
 //const CIF_ID = COMMON_DATA.baseAccountData.cifCode;
-const SHARED_CIF = getSharedValue('cifId');
+const SHARED_CIF = getSharedValue<string>(state => (state as any).cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 const CIF_ID = SHARED_CIF ?? '0005000599';
 
 // NOTE: Set this to a valid retail-loan scheme code. If left blank, the scheme
 // search popup will fall back to selecting the first available scheme.
-const LOAN_SCHEME_CODE = 'LNCOV';
+const LOAN_SCHEME_CODE = 'LNCCS';
 
 // Operative (repayment) SB account number used on the Loan details tab. This is
 // the savings account under CIF 0005000599 used across the savings specs.
@@ -62,7 +62,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
 
   // Step 2: Type menu option "HOAACLA" in finacle
   console.log('Searching for HOAACLA...');
-  await loanPage.searchMenu('HOAACLA');
+  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.create);
   await page.waitForTimeout(3000);
 
   // Step 3: Function Open, Currency BMD, Sol id 100, CIF Id + scheme code, Go
@@ -148,10 +148,12 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   console.log('=== GENERATED LOAN ACCOUNT NUMBER:', loanAccountNumber, '===');
 
   // Persist the CIF ID and loan Account ID for downstream specs
-  writeSharedState({ loanCifId: CIF_ID });
-  if (loanAccountNumber) {
-    writeSharedState({ loanAccountId: loanAccountNumber });
-  }
+  updateSharedState((state) => {
+    (state as any).loanCifId = CIF_ID;
+    if (loanAccountNumber) {
+      (state as any).loanAccountId = loanAccountNumber;
+    }
+  });
 
   // Step 17: Click Accept to finalise the loan after the A/c ID is generated.
   console.log('Clicking Accept button...');

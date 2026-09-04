@@ -12,8 +12,8 @@ const SECOND_USERNAME = CREDENTIALS.secondCredentials.username;
 const SECOND_PASSWORD = CREDENTIALS.secondCredentials.password;
 
 // Current account opening (HOAACCA) and verification (HOAACVCA) menu options.
-const CURRENT_ACCOUNT_MENU = 'HOAACCA';
-const CURRENT_ACCOUNT_VERIFY_MENU = 'HOAACVCA';
+const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
+const CURRENT_ACCOUNT_VERIFY_MENU = COMMON_DATA.currentAccount.screens.verify;
 
 // Current account scheme codes under test.
 const CURRENT_ACCOUNT_SCHEMES = COMMON_DATA.currentAccountSchemes;

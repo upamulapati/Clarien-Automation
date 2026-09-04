@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 const CONFIG = getPrimaryConfig();
 
 // Existing retail loan account number to which the related party will be added.
-const SHARED_ACCOUNT_ID = getSharedValue('loanAccountId') ?? getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue<string>(state => (state as any).loanAccountId) ?? getSharedValue<string>(state => (state as any).accountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001492';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 

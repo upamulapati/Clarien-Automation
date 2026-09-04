@@ -71,7 +71,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
         const msg = dialog.message();
         console.log(`Popup dialog: "${msg}"`);
         lastDialogMessages?.push(msg);
-        await dialog.accept().catch(() => {});
+        if (dialog.type() === 'beforeunload' || /log\s*out|logoff|are you sure/i.test(msg)) {
+          await dialog.dismiss().catch(() => {});
+        } else {
+          await dialog.accept().catch(() => {});
+        }
       });
     } catch (_) {}
   });

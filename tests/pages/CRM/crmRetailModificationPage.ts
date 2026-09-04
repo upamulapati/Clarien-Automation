@@ -1,7 +1,8 @@
 import { Frame, Page, Locator } from '@playwright/test';
 import { expect } from '@playwright/test';
 import * as fs from 'fs';
-import { AppConfig, CRM_TEST_DATA } from '../../config/crmTestData';
+import { AppConfig, CRM_TEST_DATA, getMakerConfig } from '../../config/crmTestData';
+import { getCreatedCif } from '../../config/cifStore';
 import { CrmModificationBasePage } from './crmModificationBasePage';
 import { ServicePackPage } from './servicePackPage';
 
@@ -16,17 +17,24 @@ import { ServicePackPage } from './servicePackPage';
 // and remain overridable via environment variables to preserve prior behaviour.
 // =====================================================================
 
-const MOD = CRM_TEST_DATA.retail.modification;
-
 export class CrmRetailModificationPage extends CrmModificationBasePage {
   crmMenuFrame: Frame | null = null;
   resultFrame: Frame | null = null;
   editPage: Page;
   formFrame: Frame | null = null;
 
-  constructor(page: Page, config: AppConfig, lastDialogMessages: string[] = []) {
+  constructor(
+    page: Page,
+    config: AppConfig = getMakerConfig(),
+    lastDialogMessages: string[] = [],
+    readonly cifType: 'retail' | 'corporate' = 'retail'
+  ) {
     super(page, config, lastDialogMessages);
     this.editPage = page;
+  }
+
+  get mod(): any {
+    return CRM_TEST_DATA[this.cifType].modification;
   }
 
   // ---------------------------------------------------------------
@@ -44,11 +52,83 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   }
 
   // ---------------------------------------------------------------
+  // Reusable maker workflows (data + orchestration owned by the POM)
+  // ---------------------------------------------------------------
+
+  async loginAsMaker(): Promise<boolean> {
+    await this.login(this.config.username, this.config.password);
+    return this.waitForDashboard(this.page);
+  }
+
+  async openCreatedCifForModification(): Promise<string> {
+    const cifId = getCreatedCif(this.cifType, this.mod.fallbackCifId);
+    await this.selectCrmDashboard();
+    await this.navigateToEditEntity();
+    await this.searchCif(cifId);
+    await this.openGeneralDetailsEdit(cifId);
+    return cifId;
+  }
+
+  async modifyRetailCifWorkflow(): Promise<boolean> {
+    const cifId = await this.openCreatedCifForModification();
+    const lastName = await this.modifyLastName();
+    const address = await this.deleteMailingAndAddAddress();
+    const phone = await this.modifyPhone();
+    const submitted = await this.submitGeneralDetails(cifId);
+    const shown = await this.verifyRecordInGrid(cifId, lastName);
+    return lastName.toUpperCase().includes(this.mod.lastName.toUpperCase()) &&
+      address.streetName.toUpperCase().includes(this.mod.address.streetName.toUpperCase()) &&
+      address.postalCode.toUpperCase().includes(this.mod.address.postalCode.toUpperCase()) &&
+      phone.replace(/\s/g, '').includes(this.mod.phone.phoneNo.replace(/\s/g, '')) &&
+      submitted && shown;
+  }
+
+  async modifyAddressWorkflow(): Promise<boolean> {
+    const cifId = await this.openCreatedCifForModification();
+    const address = await this.deleteMailingAndAddAddress();
+    const submitted = await this.submitGeneralDetails(cifId);
+    const shown = await this.verifyRecordInGrid(cifId);
+    return address.streetName.toUpperCase().includes(this.mod.address.streetName.toUpperCase()) &&
+      address.postalCode.toUpperCase().includes(this.mod.address.postalCode.toUpperCase()) &&
+      submitted && shown;
+  }
+
+  async modifyPhoneWorkflow(): Promise<boolean> {
+    const cifId = await this.openCreatedCifForModification();
+    const phone = await this.modifyPhone();
+    const submitted = await this.submitGeneralDetails(cifId);
+    const shown = await this.verifyRecordInGrid(cifId);
+    return phone.replace(/\s/g, '').includes(this.mod.phone.phoneNo.replace(/\s/g, '')) && submitted && shown;
+  }
+
+  async modifyCifWorkflow(): Promise<boolean> {
+    const cifId = await this.openCreatedCifForModification();
+    let lastName = '';
+    if (this.cifType === 'retail') {
+      lastName = await this.modifyLastName();
+    }
+    const address = await this.deleteMailingAndAddAddress();
+    const phone = await this.modifyPhone();
+    const submitted = await this.submitGeneralDetails(cifId);
+    const shown = await this.verifyRecordInGrid(cifId, lastName || undefined);
+    const lastNameOk = this.cifType !== 'retail' || lastName.toUpperCase().includes(this.mod.lastName.toUpperCase());
+    return lastNameOk &&
+      address.streetName.toUpperCase().includes(this.mod.address.streetName.toUpperCase()) &&
+      address.postalCode.toUpperCase().includes(this.mod.address.postalCode.toUpperCase()) &&
+      phone.replace(/\s/g, '').includes(this.mod.phone.phoneNo.replace(/\s/g, '')) &&
+      submitted && shown;
+  }
+
+  // ---------------------------------------------------------------
   // TC_003: Navigate CIF Retail > Edit Entity
   // ---------------------------------------------------------------
   async navigateToEditEntity(): Promise<Frame> {
     const page = this.page;
     await this.takeScreenshot('Before Navigate to Edit Entity');
+    const cfg = CRM_TEST_DATA[this.cifType];
+    const screenId = cfg.screenId;
+    const menuFrameName = cfg.menuFrameName;
+    const searchCriteria = cfg.verification.searchCriteria;
 
     // Wait for the CRM frameset (Functionmain) to be ready — the Finacle CRM
     // menu is driven from that frame, and its items are DOM-clickable by id even
@@ -59,8 +139,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
 
     let searchFrame: Frame | null = null;
     for (let navTry = 1; navTry <= 4 && !searchFrame; navTry++) {
-      // 1) Click "CIF Retail" (screen1) in the Functionmain frame. Re-wait for the
-      // frame each attempt in case the dashboard is still settling.
+      // 1) Click the CIF type icon (screen1/screen2) in the Functionmain frame.
       let functionMainFrame = page.frame({ name: 'Functionmain' });
       for (let i = 0; i < 8 && !functionMainFrame; i++) {
         await page.waitForTimeout(1000);
@@ -68,34 +147,35 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
       }
       if (functionMainFrame) {
         await functionMainFrame
-          .evaluate(() => {
-            const el = document.getElementById('screen1');
+          .evaluate((id: string) => {
+            const el = document.getElementById(id);
             if (el) el.click();
-          })
+          }, screenId)
           .catch(() => {});
-        console.log('Clicked CIF Retail (screen1)');
+        console.log(`Clicked ${this.cifType} CIF (${screenId})`);
         await page.waitForTimeout(2000);
       }
 
-      // 2) Locate the CIF Retail menu frame ("1504") and click "Edit Entity".
-      const menuFrame = page.frame({ name: '1504' }) || (await this.findMenuFrame(page));
+      // 2) Locate the CIF menu frame and click "Edit Entity".
+      const menuFrame = page.frame({ name: menuFrameName }) || (await this.findMenuFrame(page));
       if (menuFrame) {
         const items = await menuFrame.locator('span.submenuout').allInnerTexts().catch(() => []);
-        if (items.length) console.log(`CIF Retail menu items: ${items.map((t: string) => `"${t.trim()}"`).join(', ')}`);
+        if (items.length) console.log(`${this.cifType} menu items: ${items.map((t: string) => `"${t.trim()}"`).join(', ')}`);
         await this.clickMenuItem(menuFrame, page, 'Edit Entity', 3000);
       } else {
-        console.log('CIF Retail menu frame ("1504") not found.');
+        console.log(`${this.cifType} CIF menu frame ("${menuFrameName}") not found.`);
       }
       await page.waitForTimeout(3000);
 
-      searchFrame = await this.findFrameByText(page, /Retail Search Criteria|Search Entity|Search Accounts/i, 12000);
+      const criteriaRe = new RegExp(`${searchCriteria.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|Search Entity|Search Accounts`, 'i');
+      searchFrame = await this.findFrameByText(page, criteriaRe, 12000);
       if (!searchFrame) {
         console.log(`Edit Entity search form not loaded (attempt ${navTry}); retrying...`);
         await page.waitForTimeout(1500);
       }
     }
-    if (!searchFrame) throw new Error('Retail Search Criteria form must load.');
-    console.log('✓ Retail Search Criteria displayed (Search Entity default + Search Accounts tabs)');
+    if (!searchFrame) throw new Error(`${searchCriteria} form must load.`);
+    console.log(`✓ ${searchCriteria} displayed (Search Entity default + Search Accounts tabs)`);
     return searchFrame;
   }
 
@@ -396,7 +476,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // ---------------------------------------------------------------
   // TC_008: Modify Last Name
   // ---------------------------------------------------------------
-  async modifyLastName(lastName = process.env.LAST_NAME || MOD.lastName): Promise<string> {
+  async modifyLastName(lastName = process.env.LAST_NAME || this.mod.lastName): Promise<string> {
     console.log(`Setting Last Name = ${lastName}...`);
     const formFrame = this.formFrame!;
     const editPage = this.editPage;
@@ -422,7 +502,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   async deleteMailingAndAddAddress(): Promise<{ streetName: string; postalCode: string }> {
     const editPage = this.editPage;
     const context = this.page.context();
-    const addr = MOD.address;
+    const addr = this.mod.address;
     const ADDR_TYPE = process.env.ADDR_TYPE || addr.type;
     const HOUSE_NO = process.env.HOUSE_NO || addr.houseNo;
     const STREET_NO = process.env.STREET_NO || addr.streetNo;
@@ -960,8 +1040,8 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // whose Type matches phoneType, and sets the Phone No.
   // ---------------------------------------------------------------
   async modifyPhone(
-    phoneType = process.env.PHONE_TYPE || MOD.phone.type,
-    phoneNo = process.env.PHONE_NO || MOD.phone.phoneNo
+    phoneType = process.env.PHONE_TYPE || this.mod.phone.type,
+    phoneNo = process.env.PHONE_NO || this.mod.phone.phoneNo
   ): Promise<string> {
     const editPage = this.editPage;
     const context = this.page.context();
@@ -1073,7 +1153,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // ---------------------------------------------------------------
   // TC_012: Submit General Details + Process Selection
   // ---------------------------------------------------------------
-  async submitGeneralDetails(cifId: string, processName = MOD.processName): Promise<boolean> {
+  async submitGeneralDetails(cifId: string, processName = this.mod.processName): Promise<boolean> {
     const editPage = this.editPage;
     const context = this.page.context();
     let submitDialog = '';
@@ -1189,12 +1269,13 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // ---------------------------------------------------------------
   // TC_014: Re-search and confirm the submitted record shows in the grid
   // ---------------------------------------------------------------
-  async verifyRecordInGrid(cifId: string, lastName = process.env.LAST_NAME || MOD.lastName): Promise<boolean> {
+  async verifyRecordInGrid(cifId: string, lastName = process.env.LAST_NAME || this.mod.lastName): Promise<boolean> {
     const page = this.page;
+    const criteria = CRM_TEST_DATA[this.cifType].verification.searchCriteria;
     console.log('Re-searching the CIF so the submitted record displays in the grid...');
     const searchFrame2 = await this.findFrameByText(
       page,
-      /Retail Search Criteria|Customer Search Results|Search Criteria/i,
+      new RegExp(`${criteria.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|Customer Search Results|Search Results`, 'i'),
       12000
     );
     if (searchFrame2) {
@@ -1219,7 +1300,8 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
         break;
       }
     }
-    const recordShown = gridText.includes(cifId) || new RegExp(lastName, 'i').test(gridText);
+    const lastNameRe = lastName ? new RegExp(lastName, 'i') : null;
+    const recordShown = gridText.includes(cifId) || (lastNameRe !== null && lastNameRe.test(gridText));
     console.log(`✓ Record (CIF ${cifId}) displayed in grid after submission = ${recordShown}`);
     return recordShown;
   }

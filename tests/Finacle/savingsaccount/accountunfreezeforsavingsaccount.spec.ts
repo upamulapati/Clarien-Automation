@@ -29,7 +29,7 @@ for (const acct of COMMON_DATA.accountUnfreeze) {
       await accountPage.selectCoreServer();
 
       console.log('Searching for HAFSM...');
-      await accountPage.searchMenu('HAFSM');
+      await accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.freeze);
       await page.waitForTimeout(3000);
 
       console.log('Selecting Unfreeze function...');
