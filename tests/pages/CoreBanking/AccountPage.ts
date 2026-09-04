@@ -3974,7 +3974,7 @@ export class AccountPage {
     const isDataGrid = async (table: Locator): Promise<boolean> => {
       const headerText = await table.evaluate(el => {
         const headers = Array.from(el.querySelectorAll('th, thead td, tr:first-child td, tr:first-child th'));
-        return headers.map(h => (h.innerText || h.textContent || '').trim().toLowerCase()).join(' ');
+        return headers.map(h => ((h as HTMLElement).innerText || h.textContent || '').trim().toLowerCase()).join(' ');
       }).catch(() => '');
       return dataHeaders.some(h => headerText.includes(h));
     };
@@ -4106,7 +4106,7 @@ export class AccountPage {
   }
 
   // ============ Verification Methods ============
-  async verifyAccountCreated(): Promise<{ success: boolean; message?: string; accountNumber?: string; allFields?: Record<string, string> }> {
+  async verifyAccountCreated(): Promise<{ accountNumber: string | null; message: string | null }> {
     const finwFrame = this.getFinwFrame();
     const bodyText = await finwFrame.locator('body').innerText();
     
@@ -4116,7 +4116,7 @@ export class AccountPage {
       || bodyText.includes('successfully')
       || bodyText.includes('generated');
     
-    const accountNumber = await this.getAccountId() ?? undefined;
+    const accountNumber = await this.getAccountId() ?? null;
     
     // Capture all visible input and label fields
     const allFields: Record<string, string> = {};
@@ -4138,10 +4138,8 @@ export class AccountPage {
     }
     
     return {
-      success,
-      message: success ? 'Operation completed successfully' : 'Operation failed',
       accountNumber,
-      allFields
+      message: success ? 'Operation completed successfully' : 'Operation failed'
     };
   }
 

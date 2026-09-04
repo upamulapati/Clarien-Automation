@@ -106,7 +106,7 @@ export class DemandDraftPage {
           let seen = 0;
           for (const td of labelEls) {
             if (td.querySelector('td') || td.querySelector('th')) continue;
-            const tdText = normalize(td.innerText || '');
+            const tdText = normalize((td as HTMLElement).innerText || '');
             if (!tokens.every((tok) => tdText.includes(tok))) continue;
             const row = td.closest('tr') as HTMLTableRowElement | null;
             const cells = row ? Array.from(row.cells) : [];
@@ -332,7 +332,7 @@ export class DemandDraftPage {
     console.log(`Demand Draft lookup using frame: ${targetFrame.url().substring(targetFrame.url().lastIndexOf('/') + 1).substring(0, 80)}`);
 
     // 2) Fill the CCY field in the popup.
-    const ccyResult = await targetFrame.evaluate((ccy) => {
+    const ccyResult = await targetFrame.evaluate((ccy: string) => {
       let input = document.querySelector('input[name="AcctCurrency"], input#AcctCurrency') as HTMLInputElement | HTMLSelectElement | null;
       if (!input) input = document.querySelector('input[name="consCrncy"], input#consCrncy, input[name="CCY" i], input#CCY, input[name="ccy" i], input#ccy, input[name*="ccy" i], input[id*="ccy" i], select[name="CCY" i], select#CCY, select[name="ccy" i], select#ccy, select[name*="ccy" i], select[id*="ccy" i]') as HTMLInputElement | HTMLSelectElement | null;
       if (input) {
@@ -381,19 +381,19 @@ export class DemandDraftPage {
     // Find the actual sub-frame that contains the account number in the list.
     let listFrame: any = null;
     for (const f of popup.frames()) {
-      const hasAcct = await f.evaluate((acct) => document.body.innerText.includes(acct), accountId).catch(() => false);
+      const hasAcct = await f.evaluate((acct: string) => document.body.innerText.includes(acct), accountId).catch(() => false);
       if (hasAcct) { listFrame = f; break; }
     }
     if (!listFrame) listFrame = targetFrame;
     targetFrame = listFrame;
     console.log(`DD lookup list frame: ${targetFrame.url().substring(targetFrame.url().lastIndexOf('/') + 1).substring(0, 80)}`);
-    await targetFrame.waitForFunction((acct) => document.body.innerText.includes(acct), accountId, { timeout: 15000 }).catch(() => {});
+    await targetFrame.waitForFunction((acct: string) => document.body.innerText.includes(acct), accountId, { timeout: 15000 }).catch(() => {});
 
     // 4) Select the requested account from the list.
-    const selected = await targetFrame.evaluate((acctId) => {
+    const selected = await targetFrame.evaluate((acctId: string) => {
       const rows = Array.from(document.querySelectorAll('tr, li'));
       for (const row of rows) {
-        if (row.innerText.includes(acctId)) {
+        if ((row as HTMLElement).innerText.includes(acctId)) {
           const radio = row.querySelector('input[type="radio"]') as HTMLInputElement | null;
           const link = row.querySelector('a[href*="javascript"], a') as HTMLElement | null;
           if (radio) { radio.checked = true; radio.dispatchEvent(new Event('change', { bubbles: true })); return true; }
@@ -594,7 +594,7 @@ export class DemandDraftPage {
     await finw.evaluate(() => {
       const cells = Array.from(document.querySelectorAll('td.textlabel, td.textlabel1, th.textlabel, th.textlabel1'));
       const rows = cells.map((td, i) => {
-        const label = td.innerText.replace(/\s+/g, ' ').replace(/setMandatory\([^)]*\)/gi, '').trim();
+        const label = (td as HTMLElement).innerText.replace(/\s+/g, ' ').replace(/setMandatory\([^)]*\)/gi, '').trim();
         const valueCell = td.nextElementSibling;
         const input = valueCell ? valueCell.querySelector('input:not([type="hidden"]), select, textarea') as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) | null : null;
         return {

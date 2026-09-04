@@ -251,8 +251,8 @@ export class CrmEndToEndPage extends CrmBasePage {
             selfName: (window as any).name,
             parentName: window.parent ? (window.parent as any).name : 'none',
             topName: window.top ? (window.top as any).name : 'none',
-            parentFrames: names(window.parent),
-            topFrames: names(window.top),
+            parentFrames: window.parent ? names(window.parent) : [],
+            topFrames: window.top ? names(window.top) : [],
             fdInfo: fd,
             tabViewFrames: (() => { try { const tv = (window.parent as any).frames['tabViewFrm']; return tv ? Array.from(tv.frames).map((f: any) => f.name || 'noname') : ['no-tabViewFrm']; } catch (e: any) { return ['err']; } })(),
             tabContentFrames: (() => { try { const tc = (window.parent as any).frames['tabContentFrm']; return tc ? Array.from(tc.frames).map((f: any) => f.name || 'noname') : ['no-tabContentFrm']; } catch (e: any) { return ['err']; } })(),
@@ -342,7 +342,8 @@ export class CrmEndToEndPage extends CrmBasePage {
             (document.querySelectorAll('input, select') as any as HTMLInputElement[]).forEach((el) => {
               const name = (el.name || '').toUpperCase();
               if (name && (name.includes('REGION') || name.includes('TDS_TBL') || name.includes('CUST_LANGUAGE'))) {
-                out.push({ name: el.name, value: (el.tagName === 'SELECT' ? (el as HTMLSelectElement).value : el.value) || '', tag: el.tagName });
+                const value = el.tagName === 'SELECT' ? (el as unknown as HTMLSelectElement).value : (el as HTMLInputElement).value;
+                out.push({ name: el.name, value: value || '', tag: el.tagName });
               }
             });
             return out;

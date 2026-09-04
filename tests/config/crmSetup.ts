@@ -3,6 +3,19 @@ import { AppConfig } from './crmTestData';
 import { LoginPage } from '../pages/HomePages/LoginPage';
 
 // =====================================================================
+// Global logout state flag
+// =====================================================================
+let logoutInProgress = false;
+
+export function setLogoutInProgress(value: boolean): void {
+  logoutInProgress = value;
+}
+
+export function isLogoutInProgress(): boolean {
+  return logoutInProgress;
+}
+
+// =====================================================================
 // Helper: Login to the application
 // =====================================================================
 export async function login(page: Page, config: AppConfig) {

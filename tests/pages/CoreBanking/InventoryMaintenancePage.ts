@@ -45,7 +45,7 @@ export class InventoryMaintenancePage {
           let seen = 0;
           for (const td of labelEls) {
             if (td.querySelector('td') || td.querySelector('th')) continue;
-            const tdText = normalize(td.innerText || '');
+            const tdText = normalize((td as HTMLElement).innerText || '');
             if (!tokens.every((tok) => tdText.includes(tok))) continue;
             const row = td.closest('tr') as HTMLTableRowElement | null;
             const cells = row ? Array.from(row.cells) : [];

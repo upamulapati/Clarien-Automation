@@ -1261,9 +1261,10 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         el.disabled = false; el.removeAttribute('disabled'); el.removeAttribute('readonly');
         if (el.tagName === 'SELECT') {
           const up = v.toUpperCase();
-          const opt = Array.from(el.options).find((o: any) => o.text.trim().toUpperCase() === up || o.value.toUpperCase() === up);
-          if (opt) { el.value = opt.value; } else { el.value = v; }
-        } else { el.value = v; }
+          const selectEl = el as HTMLSelectElement;
+          const opt = Array.from(selectEl.options).find((o: HTMLOptionElement) => o.text.trim().toUpperCase() === up || o.value.toUpperCase() === up);
+          if (opt) { selectEl.value = opt.value; } else { selectEl.value = v; }
+        } else { (el as HTMLInputElement).value = v; }
         fire(el);
       }
     }, { city: TD.contactData.city || 'ALTA FLORESTA', addressLabel: TD.contactData.addressLabel || TD.contactData.streetName || 'Mailing' }).catch(() => {});
@@ -2484,16 +2485,16 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       for (let i = 0; i < 20; i++) {
         const f = page.frames().find(fr => { try { return fr.url().includes('AccountMod_det'); } catch (_) { return false; } });
         if (f) {
-          const len = await f.evaluate(() => document.querySelectorAll('input, select').length).catch(() => 0);
+          const len = await f!.evaluate(() => document.querySelectorAll('input, select').length).catch(() => 0);
           if (len > 50) { this.accountFrame = f; break; }
         }
         await page.waitForTimeout(this.timeouts.short);
       }
       // Wait for buttonFrm to reappear with Submit button
       for (let i = 0; i < 20; i++) {
-        const bf = page.frames().find(f => f.url().includes('CifShowButtons')) || page.frame({ name: 'buttonFrm' });
+        const bf = page.frames().find(f => { try { return f.url().includes('CifShowButtons'); } catch (_) { return false; } }) || page.frame({ name: 'buttonFrm' });
         if (bf) {
-          const hasSubmit = await bf.evaluate(() => { const btn = document.getElementById('submitBut'); return !!(btn && btn.getBoundingClientRect().width > 0); }).catch(() => false);
+          const hasSubmit = await bf!.evaluate(() => { const btn = document.getElementById('submitBut'); return !!(btn && btn.getBoundingClientRect().width > 0); }).catch(() => false);
           if (hasSubmit) break;
         }
         await page.waitForTimeout(this.timeouts.short);
@@ -2676,7 +2677,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
           subSegment: TD.customerData.subSegment || '',
           primaryRelationshipManagerId: TD.customerData.primaryRelationshipManagerId || 'NSTEVENS',
           accessOwnerSegment: TD.customerData.accessOwnerSegment || 'Private Banking'
-        }).catch(e => { console.log(`  \u26a0 Final evaluate error: ${(e as any).message?.substring(0, 120)}`); return [] as string[]; });
+        }).catch((e: any) => { console.log(`  \u26a0 Final evaluate error: ${(e as any).message?.substring(0, 120)}`); return [] as string[]; });
         console.log(`  Final re-fill fixes (${refillResult.length}): ${refillResult.slice(0, 40).join(', ') || '(none)'}`);
       }
     } catch (e) { console.log(`  \u26a0 Final re-fill error: ${(e as any).message?.substring(0, 100)}`); }
@@ -2690,7 +2691,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
           const [popup] = await Promise.all([
             page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null),
             this.accountFrame!.evaluate((p: string) => {
-              const b = Array.from(document.querySelectorAll('input[type="button"]')).find(el => el.name.toUpperCase().includes('BTNONE') && el.name.toUpperCase().includes(p));
+              const b = Array.from(document.querySelectorAll('input[type="button"]')).find((el: any) => el.name && el.name.toUpperCase().includes('BTNONE') && el.name.toUpperCase().includes(p));
               if (b) (b as HTMLInputElement).click();
             }, pattern)
           ]);
@@ -2801,8 +2802,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
             for (const f of page.frames()) {
               const name = await f.evaluate((a: { p: string; ex: boolean }) => {
                 const up = a.p.toUpperCase();
-                const b = Array.from(document.querySelectorAll('input[type="button"]')).find(el => {
-                  const n = el.name.toUpperCase();
+                const b = Array.from(document.querySelectorAll('input[type="button"]')).find((el: any) => {
+                  const n = el.name ? el.name.toUpperCase() : '';
                   return n.includes(up) && !(a.ex && n.includes('COUNTRY'));
                 });
                 return b ? b.name : '';
@@ -2812,9 +2813,9 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
             return null;
           };
           const baselLov = await findLovBtn('BASELPROFILING');
-          if (baselLov) await this.selectLovValue({ parentPage: page, target: baselLov.frame, buttonName: baselLov.name, searchValue: 'NO', label: 'Basel Profiling', config: this.config });
+          if (baselLov) await this.selectLovValue({ parentPage: page, target: baselLov!.frame, buttonName: baselLov.name, searchValue: 'NO', label: 'Basel Profiling', config: this.config });
           const foreignLov = await findLovBtn('FOREIGNTAXREPORTING', true);
-          if (foreignLov) await this.selectLovValue({ parentPage: page, target: foreignLov.frame, buttonName: foreignLov.name, searchValue: 'NO TIN', label: 'Foreign Tax Reporting', config: this.config });
+          if (foreignLov) await this.selectLovValue({ parentPage: page, target: foreignLov!.frame, buttonName: foreignLov.name, searchValue: 'NO TIN', label: 'Foreign Tax Reporting', config: this.config });
         } catch (e) { console.log('  \u26a0 Basel/Foreign LOV error: ' + ((e as any).message || '').substring(0, 120)); }
       }
     } catch (e) { console.log(`  \u26a0 LOV fill error: ${(e as any).message?.substring(0, 100)}`); }
@@ -2901,7 +2902,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         const tdsDisplay = (this as any).lastTdsDisplay || TD.customerData.taxDeductedAtSourceTableDisplay || tdsCode;
         const custCode = this.custLanguageCode || TD.customerData.preferredLanguage || '';
         const custDisplay = this.custLanguageDisplay || TD.customerData.preferredNativeLanguage || custCode;
-        await buttonFrm.evaluate((vals: any) => {
+        await buttonFrm!.evaluate((vals: any) => {
           const setField = (win: any, name: string, value: string, display: string) => {
             try {
               const doc = win.document;
@@ -3050,8 +3051,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
                             Array.from(sel.options).find((o: any) => o.text.trim().toUpperCase().includes('NO'));
                 if (opt) {
                   sel.disabled = false;
-                  sel.value = opt.value;
-                  sel.selectedIndex = opt.index;
+                  sel.value = (opt as HTMLOptionElement).value;
+                  sel.selectedIndex = (opt as HTMLOptionElement).index;
                   sel.dispatchEvent(new Event('change', { bubbles: true }));
                   sel.dispatchEvent(new Event('blur', { bubbles: true }));
                   if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }

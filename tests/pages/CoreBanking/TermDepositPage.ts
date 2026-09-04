@@ -234,10 +234,10 @@ export class TermDepositPage extends AccountPage {
         lefts: [monthInput.getBoundingClientRect().left, dayInput.getBoundingClientRect().left],
       };
     }, { m: months, d: days }).catch((e) => ({ ok: false, reason: String(e) }));
-    if (ok && ok.ok) {
+    if (ok && ok.ok && 'ids' in ok && 'names' in ok && 'lefts' in ok) {
       const fields = [
-        { id: ok.ids[0], name: ok.names[0], val: months },
-        { id: ok.ids[1], name: ok.names[1], val: days },
+        { id: ok.ids?.[0], name: ok.names?.[0], val: months },
+        { id: ok.ids?.[1], name: ok.names?.[1], val: days },
       ];
       for (const f of fields) {
         const attr = f.id || f.name;
@@ -299,7 +299,7 @@ export class TermDepositPage extends AccountPage {
       }
       return { ok: false };
     }, choice.toLowerCase()).catch((e) => ({ ok: false, error: String(e) }));
-    if (result && result.ok) {
+    if (result && result.ok && 'id' in result && 'value' in result && 'clicked' in result) {
       console.log(`Selected Print Renewal Confirmation: ${choice} (id=${result.id}, value=${result.value}, clicked=${result.clicked})`);
       return;
     }
