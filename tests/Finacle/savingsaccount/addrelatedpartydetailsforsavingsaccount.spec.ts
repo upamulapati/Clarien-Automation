@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 const CONFIG = getPrimaryConfig();
 
 // Existing savings account number to which the related party will be added.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -31,7 +31,7 @@ test.describe('Add Related Party to Savings Account', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    accountPage = new AccountPage(page, lastDialogMessages);
+    accountPage = new AccountPage(page);
   });
 
   // HACM - Add related party (joint holder) details to an existing savings account
@@ -53,7 +53,7 @@ test.describe('Add Related Party to Savings Account', () => {
 
     // Step 4: A/c Id - Enter the existing account number
     console.log('Entering account ID to modify...');
-    await accountPage.enterHacmAccountId(ACCOUNT_ID);
+    await accountPage.enterHacmAccountId(ACCOUNT_ID || '7500001476');
 
     // Click Go to load the account
     console.log('Clicking Go button...');

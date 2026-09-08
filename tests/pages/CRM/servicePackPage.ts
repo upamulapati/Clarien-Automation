@@ -17,8 +17,26 @@ import { CrmBasePage } from './crmBasePage';
 
 export class ServicePackPage extends CrmBasePage {
 
-  constructor(page: Page, config: AppConfig, lastDialogMessages: string[]) {
-    super(page, config, lastDialogMessages);
+  constructor(page: Page, config?: AppConfig, lastDialogMessages?: string[]) {
+    const defaultConfig: AppConfig = {
+      baseUrl: '',
+      username: '',
+      password: '',
+      timeouts: {
+        veryShort: 1000,
+        short: 2000,
+        short3: 3000,
+        medium: 5000,
+        medium4: 4000,
+        long: 10000,
+        long15: 15000,
+        popupLoad: 30000,
+        formLoad: 60000,
+        crmLoad: 120000,
+        testTimeout: 900000
+      }
+    };
+    super(page, config || defaultConfig, lastDialogMessages || []);
   }
 
   // -------------------------------------------------------------------

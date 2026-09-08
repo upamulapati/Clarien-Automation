@@ -21,7 +21,7 @@ for (const scenario of SCENARIOS) {
   test(`HPORDM - verify payment order (${scenario.name})`, async ({ page }) => {
     test.setTimeout(900000);
 
-    const paymentOrderId = getSharedValue(scenario.sharedKey) ?? '';
+    const paymentOrderId = getSharedValue((state) => (state as any)[scenario.sharedKey]) ?? '';
     if (paymentOrderId) console.log(`[SharedState] [${scenario.name}] Using Payment Order ID: ${paymentOrderId}`);
 
     expect(paymentOrderId, 'Payment order ID must be available for verification').toMatch(/\d{6,}/);
@@ -30,8 +30,8 @@ for (const scenario of SCENARIOS) {
   setupDialogHandlers(page, lastDialogMessages);
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
-  const accountPage = new AccountPage(page, lastDialogMessages);
-  const paymentOrderPage = new PaymentOrderPage(page, lastDialogMessages);
+  const accountPage = new AccountPage(page);
+  const paymentOrderPage = new PaymentOrderPage(page);
 
   // Step 1: Select "Core Server".
   console.log('Selecting Core Server...');

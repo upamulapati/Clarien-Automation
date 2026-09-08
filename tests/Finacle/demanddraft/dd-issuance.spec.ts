@@ -18,7 +18,7 @@ test('HDDMI - demand draft issuance', async ({ page }) => {
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
   const accountPage = new AccountPage(page);
-  const ddPage = new DemandDraftPage(page, lastDialogMessages);
+  const ddPage = new DemandDraftPage(page);
 
   const today = todayDDMMYYYY();
 
@@ -47,7 +47,8 @@ test('HDDMI - demand draft issuance', async ({ page }) => {
   expect(transactionId, 'DD Transaction ID must be generated').toMatch(/[A-Z0-9]{2,}/i);
 
   if (transactionId) {
-    writeSharedState({ demandDraftId: transactionId, demandDraftIssueDate: today });
+    const { updateSharedState } = require('../../helpers/sharedState');
+    updateSharedState((state: any) => { state.demandDraftId = transactionId; state.demandDraftIssueDate = today; });
   }
 
   await homePage.logout();

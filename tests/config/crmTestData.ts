@@ -70,8 +70,8 @@ export function getVerificationConfig(overrides?: Partial<AppConfig>): AppConfig
 export function getMakerConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: crmTestData.common.credentials.maker.username,
-    password: crmTestData.common.credentials.maker.password,
+    username: crmTestData.common.credentials.primary.username,
+    password: crmTestData.common.credentials.primary.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };
@@ -81,8 +81,8 @@ export function getMakerConfig(overrides?: Partial<AppConfig>): AppConfig {
 export function getCheckerConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: crmTestData.common.credentials.checker.username,
-    password: crmTestData.common.credentials.checker.password,
+    username: crmTestData.common.credentials.verification.username,
+    password: crmTestData.common.credentials.verification.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };

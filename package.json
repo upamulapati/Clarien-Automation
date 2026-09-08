@@ -17,6 +17,7 @@
     "test-crmCIFCorporate": "node scripts/runOrdered.js crmCIFCorporate && npm run allure:generate",
     "test-customFlowOne": "node scripts/runOrdered.js customFlow1 && npm run allure:generate",
     "test-paymentorder": "node scripts/runOrdered.js paymentorder && npm run allure:generate",
+    "test-endtoendcustom": "node scripts/runOrdered.js endtoendcustom && npm run allure:generate",
     "allure:generate": "npx allure generate ./reports/allureReports --clean -o ./reports/allure-report && node scripts/generateAllurePdf.js",
     "pdf:generate": "node scripts/generateAllurePdf.js",
     "allure:open": "npx allure open ./reports/allure-report",

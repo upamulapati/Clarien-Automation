@@ -1,0 +1,989 @@
+<html><head>
+
+  <base href="https://clrnuat.clarienbank.com:443/finbranch/pordm/">  
+	
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta http-equiv="PRAGMA" content="-1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Expires" content="-1">
+<title>Maintain Payment Order </title> 
+<script language="javascript" src="../Renderer/javascripts/102250_finbranchResource_INFENG.js"> </script> 
+<link href="../Renderer/stylesheets/10225_services.css" rel="STYLESHEET" title="Finacle Stylesheet" type="text/css">
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_FIN_LEVEL01.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_SC_FIN.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/Renderer/mtree/precArray.js"></script>
+
+<script language="javascript" src="../Renderer/javascripts/1022528670_cust_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_loc_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_resource_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/1022528670_login_common_functions.js"> </script>
+
+
+<script language="JavaScript">
+var dom_to_set = 'clarienbank.com';
+var prodEnv = 'Y'; 
+var SSO = (dom_to_set != "") && true;
+if (SSO) {
+	document.domain = dom_to_set;
+}
+if(prodEnv == 'Y')
+{
+	document.oncontextmenu = function ()
+	{
+		return false;
+	}
+}
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+var reqId = "fx329s1k0ifq";
+var rtId = "1nzd9wcw56s0z";
+var reqUnqId = "reqUnqId";
+var reqParamValReqd  = "N";
+if(reqParamValReqd == "Y"){
+	var reqParamsIgnoreList = "[]";
+	var tmpReqParamsIgnoreList = ","+reqParamsIgnoreList.slice(1,-1)+",";
+	reqParamsIgnoreList = tmpReqParamsIgnoreList.replace(/ /g, "");
+}
+var isPopup = "N";
+var reqIdChkByPass = "null";
+var silentPrntReqd = "N";
+var jnlpMode = "N";
+var silentPrintWaitingTime = "10000";
+var calbase = "00";
+var lowHijYear = 1300;
+var highHijYear = 1599;
+var CURR_GROUP_NAME= "pordm";
+var localeCode= "DF";
+var encodeLst = "[hidden_amendGoodsDesc, hidden_amendDocReq, hidden_amendAddConditions, hidden_amendSpcPaymentConForBenf, hidden_amendSpecPaymentConForRecBank, customData, screen_amendDescGoodsServ, screen_amendDocReq, screen_amendAddConditions, screen_amendSpcPaymentConForBenf, screen_amendSpecPaymentConForRecBank, descGoodsServ1, goodsDesc1, screen_docReq, hidden_docReq, screen_addConditions, hidden_addConditions, screen_spcPaymentConForBenf, hidden_spcPaymentConForBenf, screen_specPaymentConForRecBank, hidden_specPaymentConForRecBank, mtt.textDesc, hidden_ctextarea, screen_ctextarea]";
+var tmpEncodeLst = ","+encodeLst.slice(1,-1)+",";
+encodeLst = tmpEncodeLst.replace(/ /g, "");
+var isEncodeReqd = "{isEncodeReqd}";
+var onsJSErrLogReqd = "N";
+var dateFormat = "00";
+var NumLocYears="0";
+var dateInputCal ="00";
+var DECIMAL_SEPARATOR = '.';
+var MANTISSA_SEPARATOR = ',';
+var LANGCODE = "INFENG";
+var finContextPath = "\/finbranch";
+var crvContextPath = '/fincrv';
+var lastCalMappedDate = "";
+var iCalCount = 1;
+var iFeatureCount = 0;
+var FeatureStringArr = new Array(0);
+var calStringArr = new Array(1);
+var ContextSwitchDoneFrom = "";
+var fileDownloadApplet = "Y";
+var fileDownloadApplet = (fileDownloadApplet == "Y")?true:false;
+var isChromeOrEdge=((navigator.userAgent.indexOf("MSIE") != -1) || (navigator.userAgent.indexOf('Trident') != -1))?false:true;
+
+            calStringArr[0] = '00';
+
+
+
+var profileId  = 'NOPROFILE';
+var literalContext = 'C';
+var defaultLiteralContext = 'C';
+var dualFlg = "N"; 
+
+function checkIfSwitchEnabled(feature)
+{
+        for (var i=0; i<FeatureStringArr.length; i++)
+        {
+		if(feature === FeatureStringArr[i])
+			return true;
+        }
+	return false;	
+}
+
+function isFeatureEnabledFor(ftrString){
+                var e = false;
+                var x = ftrString.split(","); //loop thru the list of features 
+                for(var i = 0; i< x.length;i++)
+                {
+                   e = checkIfSwitchEnabled (x[i]); // find out if the current feature is enabled
+                   if (e) break;         // If any feature is enabled, that is enough.. return true.
+                }
+                return e;
+}
+
+
+if (LANGCODE == "ARABIC")
+{
+    document.write('<HTML dir=RTL></HTML>');
+}
+
+</script>
+<meta http-equiv="PRAGMA" content="no-cache"> 
+<meta http-equiv="Cache-Control" content="no-cache,no-store">
+<meta http-equiv="Expires" content="-1"> 
+
+
+<script language="JavaScript" src="../Renderer/javascripts/jspjs/INFENG/102250_pordmpod_INFENG.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_hotkeyprocessor_link.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_getRateDtls.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_listBankCodes.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showBICCodes.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showBranchCodes.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showCurrency.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/1022528670_showRefCode.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_getEvtIdList.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showSearcher.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showAccountIdList.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showFCList.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showSolId.js"> </script><script language="javascript" src="../Renderer/javascripts/1022528670_common_functions.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_common_constants.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_po_common_functions.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_layer_functions.js"> </script><script language="javascript" src="../Renderer/props/102250_pordmprops.js"> </script><script language="javascript" src="../Renderer/javascripts/pordm/1022528670_pordmpod_link.js"> </script><script language="javascript" src="../Renderer/javascripts/pordm/1022528670_pordmpod_glink.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_hotkeydata_link.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_getInstrTypeList.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showCustId.js"> </script></head>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<body class="cbody" onload="javascript:return pordmpod_ONLOAD3(this,document.forms[0]);" onkeydown="javascript:return pordmpod_ONKEYDOWN1(this,event);" onkeyup="javascript:return pordmpod_ONKEYUP2(this,event);" leftmargin="0" topmargin="0" marginwidth="0" marginheight="0" onresize="adjustMenuDiv();">
+<form name="pordm" method="post" action="../pordm/pordm_ctrl.jsp" onsubmit="javascript:return pordmpod_ONSUBMIT4(this);">
+
+
+ <script language="javascript" src="../Renderer/custom/samples/custfetch/custom_functions.js"></script>
+ <script language="JavaScript" src="../Renderer/javascripts/jspjs/INFENG/102250_header_INFENG.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/1022528670_header_link.js"></script>
+<script language="javascript" src="../Renderer/javascripts/lists/10225_showSearcher.js"> </script>
+<script>
+
+
+var prodEnv = "Y"; 
+var isProdEnv  = "Y";
+var nonSSOLogin = false;
+var toPaintHeader = true; 
+if((typeof(isSSOLogin) != 'undefined')&&(typeof(isSSOLogin) != null)){
+   nonSSOLogin = isSSOLogin(); 
+} 
+if((typeof(paintHeader) != 'undefined')&&(typeof(paintHeader) != null)){ 
+   toPaintHeader = paintHeader(); 
+} 
+
+var enterKey = 13;
+var logTestCase = "";
+var currIp = "";
+var strBaseRef = "https:\/\/clrnuat.clarienbank.com:443";
+var sessionid = "O:154147";
+var sectok = "f018248f377969676aa0a17e5cb235bb";
+var fabsessionid = "";
+var finsessionid = "O:154147";
+var FinAvailFlg = "Y";
+var FabAvailFlg = "N";
+var headDate = getDateForDisplay("08 September, 2026", "08", "09", "2026");
+var headUserId = "FINACLETEST14";
+var headCtxSol = "100";
+var contextBankId = '01';
+var crvBaseUrl = '';
+var fabBaseUrl = '';
+var finBaseUrl = '';
+var userMenuId = '01_GU_BT_APPLICATIONS';
+var userMenuTreeObj = new MenuProperties();
+var userSCMenuTreeObj = new MenuShortCutProperties();
+userMenuTreeObj.setUsrMenuId(userMenuId);
+userMenuTreeObj.setMenuObj(userMenuTreeObj);
+userSCMenuTreeObj.setUsrSCMenuId(userMenuId);
+userSCMenuTreeObj.setMenuSCObj(userSCMenuTreeObj);
+var isAuditEnabled = false;
+var isBackGround = false;
+var bgParentGroup = '';
+var isCalledMenu = false;
+var crvAcctId = '';
+var crvCustId = '';
+var sGroupName = 'pordm';
+var menuType = '';
+var mopId = '';
+var isLoggedInFin = false;
+var isLoggedInFab = false;
+var IS_ERROR_PAGE = false;
+var menuInfoDownloaded = false;
+var appLangCode = "INFENG";
+var isONSLogin = true;
+var finSecTok = "";
+var fabSecTok = "";
+var ssoAuthUrl = "http://fininfra-svc:8080/fininfra/SSOServlet";
+var menuTitle = '';
+var isMenuShrtcutProt = 'N';
+var multiBankEnabled = "N";
+var isPortalCtxt =  "";
+var inPortal = false;
+var IsFinacleLite = "N";
+var Literal = "";
+var displayMenuShortcutBar = 'N';
+var disableMenuTree = 'N';
+
+userInfoUtil.setEffTenor("F");
+userInfoUtil.setContextSol("100");
+
+
+inPortal 		= false;
+isAuditEnabled = false;
+isCalledMenu    =       false;
+gfkmCookie = '';
+mopId = 'HPORDM';
+menuType = '�';
+
+menuTitle = 'Payment Order Maintenance';
+
+isBackGround = false;
+userMenuTreeObj.setBgMode(isBackGround);
+bgParentGroup = '';
+iMemopad = 0;
+menuInfoDownloaded = true;
+downloadedLevel = 1;
+if (menuInfoDownloaded)
+{
+  for(i=2;i<=downloadedLevel;i++) 
+   { 
+           levelList = eval("finMenuLevel0"+i); 
+           finMenu = finMenu.concat(levelList); 
+   } 
+
+userMenuTreeObj.setMenuProps(USER_MENU_ID, finMenu, fabMenu, crvMenu, bgMenu, portalTabMenuArr, portalLhnAMenuArr, portalLhnBMenuArr, miscMenu);
+userSCMenuTreeObj.setMenuSCProps(USER_MENU_ID,normalONSMenu, fcfgMenu, icfgMenu, bcfgMenu,radfxMenu);
+}
+isLoggedInFin = true;
+isLoggedInFab = false;
+
+if(!nonSSOLogin){ 
+	writeLayer(); 
+} 
+	 hideMenuTreeForNonIE();
+
+
+</script><table width="100%" border="0" cellpadding="0" cellspacing="0" background="../Renderer/images/INFENG/toptile.gif"><tbody><tr><td width="80%" align="right" valign="top"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td colspan="12" style="background-image:url(../Renderer/images/INFENG/dotstile.gif); background-repeat:repeat-x;"><spacer type="block" width="1" height="1"></spacer></td></tr><tr><td><img src="../Renderer/images/INFENG/arrow.gif" width="18" height="17" style="cursor: pointer;"></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_Home" href="javascript:fnBacktoLandingPage();" class="topnavi" style="cursor: pointer;">Home</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_html" href="javascript:fnHtmlMenu();" class="topnavi" style="cursor: pointer;">Menu</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td id="showmemoleftcurve" class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_hdrm" href="javascript:fnMenuHdr('showmemopad','false');" class="topnavi" style="cursor: pointer;">Show Memo Pad</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td id="bgmenuleftcurve" class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_mhdr" href="javascript:fnMenuHdr('showbglist','true');" class="topnavi" style="cursor: pointer;">Background Menu</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_hcrnc" href="javascript:showCrncyConverter();" class="topnavi" style="cursor: pointer;">CCY Converter</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;08 September, 2026&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;100&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;01&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td></tr></tbody></table></td><td colspan="2"></td></tr><tr><input type="hidden" name="bgMenuUrl" value=""><input type="hidden" id="menuName" name="menuName" value=""></tr></tbody></table><div id="menutree_div" style="position: absolute; width: 263px; z-index: -1; left: 0px; top: 62px; visibility: hidden;" border="0"><table id="mtitle_tab" width="100%" border="0" cellspacing="0" cellpadding="1" style="z-index: -1; visibility: hidden;"><tbody><tr><td width="57%" align="right" bgcolor="#9AB4CB">Menu</td><td width="43%" align="right" bgcolor="#9AB4CB"><img src="../Renderer/images/INFENG/X.gif" alt="Close" width="15" height="14" border="0" onclick="HIDE_menutree()" style="cursor:hand" hspace="0"></td></tr></tbody></table><iframe name="menutree" id="menutree" frameborder="0" marginheight="0" marginwidth="0" scrolling="auto" height="100%" width="100%" src="javascript:false;" style="z-index: -1; visibility: hidden;"></iframe></div><div id="cancelwait_div" style="position:absolute; width:100px; height:100px; z-index:0; visibility:hidden;"><iframe name="cancelwait" id="cancelwait" frameborder="0" marginheight="0" marginwidth="0" scrolling="no" height="100%" width="100%" src="javascript:false;"></iframe></div>
+
+
+
+
+
+<table class="ctable" cellspacing="0" cellpadding="0" width="100%" border="0">
+  <tbody><tr>
+    <td colspan="5" class="page-heading"><script>jsUtil.htmlEncode('Maintain Payment Order ')</script>Maintain Payment Order &nbsp;</td> 
+  </tr>
+  
+  
+  <tr>
+  <td class="textlabel">&nbsp;&nbsp;&nbsp;Function </td>  
+  <td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('A - Add')</script>A - Add</td>  
+  <td class="columnwidth">&nbsp;</td>  
+    <td class="textlabel">&nbsp;&nbsp;&nbsp;Payment Order ID :</td>
+    <td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('')</script></td>
+   </tr>
+   <tr>
+    <td class="textlabel">&nbsp;&nbsp;&nbsp;SOL ID :</td>
+    <td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('100')</script>100</td>
+    <td class="columnwidth">&nbsp;</td>  
+    <td class="textlabel">&nbsp;&nbsp;&nbsp;Transaction Type</td>  
+    <td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('Transfer')</script>Transfer</td>  
+  </tr>
+  <tr>
+        <td class="textlabel">&nbsp;&nbsp;&nbsp;Payment Order Status</td> 
+	<td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('')</script></td> 
+	<td class="columnwidth">&nbsp;</td>
+	<td class="textlabel">&nbsp;&nbsp;&nbsp;In\/Out Indicator :</td>
+	<td class="textfielddisplaylabel"><script>jsUtil.htmlEncode('Outward')</script>Outward</td>
+  </tr>	
+  </tbody></table>
+
+
+<script language="javascript" src="../Renderer/javascripts/jspjs/INFENG/102250_pordm_PordmTabResource_INFENG.js"></script>
+
+
+
+
+<script language="javascript" src="../Renderer/javascripts/10225_tabgen_link.js"></script>
+<script language="javascript">
+    var verticalTabPosition = 139;
+    var tabResourceDetails = [
+["pordmpod","FTT000190","N","FHK000016","1","N","0","N","P"],
+["reimb","FTT000212","N","FHK000018","1","N","0","N","R"],
+["addnl","FTT000009","N","FHK000001","1","N","0","N","A"],
+["errlog","FTT000100","N","FHK000012","1","N","0","N","L"],
+["memo","FTT000164","N","FHK000013","1","N","0","N","M"],
+["map","FTT000428","N","FHK000015","1","N","0","N","O"]
+];
+    convertTabLiterals(tabResourceDetails, jstabResArr);
+    var DynaTabGen = new DynaTabGenClass("pordmpod", false);
+    DynaTabGen.writeHtmlTabString(tabResourceDetails, verticalTabPosition);
+</script><div id="hTab" style="position:absolute; visibility:hidden;"><table class="htable" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td valign="top"><table cellspacing="0" cellpadding="0" border="0" width="100%"><tbody><tr></tr></tbody></table></td></tr><tr><td valign="top"><table cellspacing="0" cellpadding="0" border="0" width="100%"><tbody><tr><td class="activetab1"><span class="accesskey">P</span>ayment Order</td><td class="activetab"><span class="accesskey">R</span>eimbursement Details</td><td class="activetab3"><span class="accesskey">A</span>dditional Details</td><td class="activetab3">Error <span class="accesskey">L</span>og</td><td class="activetab3"><span class="accesskey">M</span>emo</td><td class="activetab3"><span class="accesskey">O</span>utward Message</td></tr></tbody></table></td></tr></tbody></table></div><div id="sTab" align="left" <table="" class="ctable" border="0" cellspacing="0" cellpadding="0" width="100%"><table cellspacing="0" cellpadding="0" border="0" width="100%"><tbody><tr></tr></tbody></table><table cellspacing="0" cellpadding="0" border="0" width="100%"><tbody><tr><td class="activetab1">&nbsp;<a ondblclick="return false;" id="pordmpod" onmouseover="displayHand(this)" onclick=" return getStatus('N','pordmpod')" style="cursor: pointer;"><span class="accesskey">P</span>ayment Order</a></td><td class="activetab">&nbsp;<a ondblclick="return false;" id="reimb" onmouseover="displayHand(this)" onclick=" return getStatus('N','reimb')" style="cursor: pointer;"><span class="accesskey">R</span>eimbursement Details</a></td><td class="activetab3">&nbsp;<a ondblclick="return false;" id="addnl" onmouseover="displayHand(this)" onclick=" return getStatus('N','addnl')" style="cursor: pointer;"><span class="accesskey">A</span>dditional Details</a></td><td class="activetab3">&nbsp;<a ondblclick="return false;" id="errlog" onmouseover="displayHand(this)" onclick=" return getStatus('N','errlog')" style="cursor: pointer;">Error <span class="accesskey">L</span>og</a></td><td class="activetab3">&nbsp;<a ondblclick="return false;" id="memo" onmouseover="displayHand(this)" onclick=" return getStatus('N','memo')" style="cursor: pointer;"><span class="accesskey">M</span>emo</a></td><td class="activetab3">&nbsp;<a ondblclick="return false;" id="map" onmouseover="displayHand(this)" onclick=" return getStatus('N','map')" style="cursor: pointer;"><span class="accesskey">O</span>utward Message</a></td></tr></tbody></table><script language="javascript"> tfkmResource = {"CAP|FORM" : "fkmResourceOnCAP" ,"CAR|FORM" : "fkmResourceOnCAR" ,"CAA|FORM" : "fkmResourceOnCAA" ,"CAL|FORM" : "fkmResourceOnCAL" ,"CAM|FORM" : "fkmResourceOnCAM" ,"CAO|FORM" : "fkmResourceOnCAO" }; function fkmResourceOnCAP() { getStatus("N","pordmpod"); } function fkmResourceOnCAR() { getStatus("N","reimb"); } function fkmResourceOnCAA() { getStatus("N","addnl"); } function fkmResourceOnCAL() { getStatus("N","errlog"); } function fkmResourceOnCAM() { getStatus("N","memo"); } function fkmResourceOnCAO() { getStatus("N","map"); }   function goToNextTab() { getStatus('pordmpod','reimb');  }   function goToPrevTab() {getStatus('pordmpod','map');  } </script>
+
+
+
+
+<script src="../Renderer/javascripts/1022528670_timeout_link.js"></script>
+<script>
+window.history.forward(1);
+var timeid;
+var USERID = "FINACLETEST14";
+var USER_TIME_OUT = 23580000;
+
+fnSetTimers();
+enableTimers();
+
+</script>
+
+
+
+
+
+
+<script language="JavaScript">
+var fromAppId = 'CoreServer';
+var svsServer = 'Fininfra';
+var SVS_Flag = 'Y';
+var SVS_Verfication_Mandatory = 'N';
+</script>
+
+
+
+
+<script>
+	var pymtRefNum	= "" ;
+	var templateMode = "";
+    	var templateType = "";
+    	var templateFuncCode = "";
+		var isPageVisited = "";
+		var totChrgAmt   ="";
+		var sFocusField = "";
+		var data = "";
+</script>
+
+<script language="JavaScript">
+	var sContextBankId = "01"; 
+</script>
+
+
+
+<script>
+
+	var hTranRefNum = '';
+	var relatedRefNum = '';
+	var reqExecutionDate = '';
+	var drAcct = '';
+	var drAcctCrncy = '';
+	var drAcctSol = '';
+	var drAcctName = '';
+	var remitCrncy = 'BMD';
+	var remitAmt = '0';
+	var drExecutionDate = '';
+	var OrideDrExecDate = '';
+	var exchRateCode = 'TTB';
+	var tresExchRefNo = '';
+	var tresExchRate = '0.0000';
+	var tresDrRefNo = '';
+	var tresDrRate = '0.0000';
+	var drValueDate = '08-09-2026';
+	var OrideDrValueDate = '';
+	var netCharges = '';
+	var pRemarks = '';
+	var pTranRefNum = '';
+	var settlementMode = '';
+	var instructedCrncy = 'BMD';
+	var instructedAmt = '0';
+	var crExecutionDate = '';
+	var OrideCrExecDate = '';
+	var crValueDate = '';
+	var OrideCrValueDate = '';
+	var benefPartyBic = '';
+	var benefPartyBankCode = '';
+	var benefPartyBranchCode = '';
+	var benefPartyLBC = '';
+	var benefPartyAcct = '';
+	var benefPartyName = '';
+	var benefPartyAddress1 = '';
+	var benefPartyAddress2 = '';
+	var benefPartyAddress3 = '';
+	var awiAddrInd = '';
+	var awiBic = '';
+	var awiBankCode = '';
+	var awiBranchCode = '';
+	var awiLBC = '';
+	var awiAcct = '';
+	var awiName = '';
+	var awiAddress1 = '';
+	var awiAddress2 = '';
+	var awiAddress3 = '';
+	var interInstnAddrInd = '';
+	var interInstnBic = '';
+	var interInstnBankCode = '';
+	var interInstnBranchCode = '';
+	var interInstnLBC = '';
+	var interInstnAcct = '';
+	var interInstnName = '';
+	var interInstnAddress1 = '';
+	var interInstnAddress2 = '';
+	var interInstnAddress3 = '';
+	var recvrCorrespAddrInd = '';
+	var recvrCorrespBic = '';
+	var recvrCorrespBankCode = '';
+	var recvrCorrespBranchCode = '';
+	var recvrCorrespLBC = '';
+	var recvrCorrespAcct = '';
+	var recvrCorrespName = '';
+	var recvrCorrespAddress1 = '';
+	var recvrCorrespAddress2 = '';
+	var recvrCorrespAddress3 = '';
+	var crAcct = '';
+	var crAcctCrncy = '';
+	var crAcctSol = '';
+	var crAcctName = '';
+	var chargeOption = '';
+	var repairCharges = '';
+	var waiverCharges = '';
+	var senderToRecvrInfo1 = '';
+	var senderToRecvrInfo2 = '';
+	var senderToRecvrInfo3 = '';
+	var senderToRecvrInfo4 = '';
+	var senderToRecvrInfo5 = '';
+	var senderToRecvrInfo6 = '';
+	var remitInfo1 = '';
+	var remitInfo2 = '';
+	var remitInfo3 = '';
+	var remitInfo4 = '';
+	var exchRate = '0.0000';
+	var remitFreeText = '';
+	var routedPaysysId = '';
+	var chrgAcct = '';
+	var chrgAcctCrncy = '';
+	var chrgAcctSol = '';
+	var crchrgAcct = '';
+	var crchrgAcctCrncy = '';
+	var crchrgAcctSol = '';
+	var crchrgAcctName = '';
+	var chrgEventId = 'FCC_ACH_OWT';
+	var benefPartyAddrInd = '';
+	var frwrdCntrctNo = '';
+	var frwrdCntrctSolId = '';
+	var crFrwrdCntrctNo = '';
+	var crFrwrdCntrctSolId = '';
+	var chrgAcctName = '';
+	var todGrantedFlg = '';
+	var lienMarkedFlg = 'N';
+	var suspendFlg = 'N';
+	var ourCorrespBic = '';
+	var ourCorrespBankCode = '';
+	var ourCorrespBranchCode = '';
+	var drexchRateCode = '';
+	var drexchRate = '0.0000';
+	var orderType = 'CT';
+	var benefPartyCntryCode = '';
+	var benefPartyCntryName = '';
+	var awiCntryCode = '';
+	var awiCntryName = '';
+	var interInstnCntryCode = '';
+	var interInstnCntryName = '';
+	var recvrCorrespCntryCode = '';
+	var recvrCorrespCntryName = '';
+	var deptNum = '';
+	var rejectionCode = '';
+	var rejectionDesc = '';
+	var misReasonCode = '';
+	var misReasonCodeDesc = '';
+	var instrType = '';
+	var instrAlpha = '';
+	var instrNum = '';
+	var instrDate = '';
+	var benefCifId = '';
+	var Input4 = '';
+	var pymtDerivationMethod = '';
+	var purposeCode = '';
+	var userId = 'FINACLETEST14';
+	var groupName = 'pordm';
+	var format = 'Million';
+	var funcCode = 'A';
+	var sAction = 'Accept';
+	var status = '';
+	var reserveRefNum = '';
+	var origPaysysId = '';
+	var origPaysysRefNum = '';
+	var origEntityId = '';
+	var origEntityType = 'PORD';
+	var slaCategory = '';
+	var inMesgType = '';
+	var hRemarks = '';
+	var srlNum = '00001';
+	var routedPaysysRefNum = '';
+	var recvrBic = '';
+	var recvrBankCode = '';
+	var recvrBranchCode = '';
+	var outwardMappingEqn = '';
+	var freeText = '';
+	var todVisitFlg = 'false';
+	var todAcctId = '';
+	var isInstTODErr = '';
+	var solId = '100';
+	var BODDate = '08-09-2026';
+	var tranId = '';
+	var tranDate = '';
+	var displayMesg = '';
+	var chrgEventType = '';
+	var crTranId = '';
+	var crTranDate = '';
+	var followUpEnabled = '';
+	var backOfficeSelectionFlag = '';
+	var tranType = 'T';
+	var poInOutInd = 'O';
+	var pgNum = '';
+	var FocusField = '';
+	var prevChrgEventId = 'FCC_ACH_OWT';
+	var prevRemitCrncy = 'BMD';
+	var prevRemitAmt = '0';
+	var prevChargeOption = '';
+	var prevWaiverCharges = '';
+	var prevNetCharges = '';
+	var prevRepairCharges = '';
+	var prevRoutedPaysysId = '';
+	var prevDrAcct = '';
+	var prevReqExecutionDate = '';
+	var prevCrExecutionDate = '';
+	var sPopUpExceptionWindow = 'false' ;
+	var sReferralMode = '' ;
+
+</script>
+
+
+
+
+<script language="Javascript">
+var dispUsrInfoLLSize = 0;
+var dispErrLLSize = 0;
+</script>
+
+
+
+<script language="javascript">
+printBlock1();
+</script><input type="hidden" name="actionCode" id="actionCode" value=""><input type="hidden" name="tabName" value=""><input type="hidden" name="callMode" id="callMode" value="E"><input type="hidden" name="screenName" value="pordmpod"><input type="hidden" name="expldQryStr" id="expldQryStr" value=""><input type="hidden" name="reqId" id="reqId" value="fx329s1k0ifq"><input type="hidden" name="rtId" id="rtId" value="1nzd9wcw56s0z"><input type="hidden" name="reqIdChkByPass" id="reqIdChkByPass" value="null"><input type="hidden" name="ContextSwitchDoneFrom" id="ContextSwitchDoneFrom" value=""><div id="overlay" style="display: none;"></div><input type="hidden" id="reqExecutionDate" fmnd="Y" fdt="fdate" mneb1="N" vfldid="reqExecutionDate_ui" name="pordm.reqExecutionDate" value="08-09-2026"><input type="hidden" id="instrDate" fmnd="N" fdt="fdate" mneb1="N" vfldid="instrDate_ui" name="pordm.instrDate" value=""><input type="hidden" id="drExecutionDate" fmnd="Y" fdt="fdate" mneb1="N" vfldid="drExecutionDate_ui" name="pordm.drExecutionDate" value="08-09-2026"><input type="hidden" id="drValueDate" fmnd="Y" fdt="fdate" mneb1="N" vfldid="drValueDate_ui" name="pordm.drValueDate" value="08-09-2026"><input type="hidden" id="crExecutionDate" fmnd="Y" fdt="fdate" mneb1="N" vfldid="crExecutionDate_ui" name="pordm.crExecutionDate" value="08-09-2026"><input type="hidden" id="crValueDate" fmnd="Y" fdt="fdate" mneb1="N" vfldid="crValueDate_ui" name="pordm.crValueDate" value="08-09-2026"><input type="hidden" name="targetBankId" value=""><input type="hidden" name="pordm.submitform" id="submitform" value=""><input type="hidden" name="pordm.OrideDrExecDate" id="OrideDrExecDate" value="N"><input type="hidden" name="pordm.OrideDrValueDate" id="OrideDrValueDate" value="N"><input type="hidden" name="pordm.OrideCrExecDate" id="OrideCrExecDate" value="N"><input type="hidden" name="pordm.OrideCrValueDate" id="OrideCrValueDate" value="N"><input type="hidden" name="pordm.crncyCodeDesc" id="crncyCodeDesc" value=""><input type="hidden" name="pordm.status" id="status" value=""><input type="hidden" name="pordm.reserveRefNum" id="reserveRefNum" value=""><input type="hidden" name="pordm.origPaysysId" id="origPaysysId" value=""><input type="hidden" name="pordm.origPaysysRefNum" id="origPaysysRefNum" value=""><input type="hidden" name="pordm.origEntityId" id="origEntityId" value=""><input type="hidden" name="pordm.origEntityType" id="origEntityType" value="PORD"><input type="hidden" name="pordm.slaCategory" id="slaCategory" value=""><input type="hidden" name="pordm.inMesgType" id="inMesgType" value=""><input type="hidden" name="pordm.hRemarks" id="hRemarks" value=""><input type="hidden" name="pordm.hFreeText" id="hFreeText" value=""><input type="hidden" name="pordm.srlNum" id="srlNum" value=""><input type="hidden" name="pordm.routedPaysysRefNum" id="routedPaysysRefNum" value=""><input type="hidden" name="pordm.recvrBic" id="recvrBic" value=""><input type="hidden" name="pordm.recvrBankCode" id="recvrBankCode" value=""><input type="hidden" name="pordm.recvrBranchCode" id="recvrBranchCode" value=""><input type="hidden" name="pordm.outwardMappingEqn" id="outwardMappingEqn" value=""><input type="hidden" name="pordm.routedPaysysIdDesc" id="routedPaysysIdDesc" value=""><input type="hidden" name="pordm.solId" id="solId" value="100"><input type="hidden" name="pordm.tranDate" id="tranDate" value=""><input type="hidden" name="pordm.tranId" id="tranId" value=""><input type="hidden" name="pordm.crTranDate" id="crTranDate" value=""><input type="hidden" name="pordm.crTranId" id="crTranId" value=""><input type="hidden" name="pordm.displayMesg" id="displayMesg" value="1"><input type="hidden" name="pordm.chrgEventType" id="chrgEventType" value=""><input type="hidden" name="pordm.followUpEnabled" id="followUpEnabled" value=""><input type="hidden" name="pordm.isPageVisited" id="isPageVisited" value=""><input type="hidden" name="pordm.totChrgAmt" id="totChrgAmt" value=""><input type="hidden" name="benefAcctCrncy" value=""><input type="hidden" name="benefAcctSol" value=""><input type="hidden" name="benefAcctName" value=""><input type="hidden" name="poInOutInd" value="O"><input type="hidden" name="pgNum" value="1"><input type="hidden" name="FocusField" value=""><table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td valign="top">	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table"><tbody><tr><td>	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="innertable"><tbody><tr><td>	<table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td id="toggleDisplay" width="10%" valign="top" class="msgtext" style="display: none;">	<div><textarea id="data" name="pordm.data" enabled="" class="msgtext" style="width:240px;height:555px;border:0px;" readonly="" fmb="N" fdt="default" fblk="defaultFblk1"></textarea></div></td><td width="90%" valign="top" style="padding-left:2px">	<div id="data" style="width:100%;z-index:1;visibility: visible;left: 2px;"><table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td id="hideMessage" colspan="4" style="display: none;">&nbsp;<a id="sLnk1" href="Javascript:fnToggleInwMesg()" style="cursor: pointer;"><img src="../images/INFENG/hide_arrow.gif" alt="Hide Message" border="0" style="cursor: pointer;"></a></td><td id="showMessage" colspan="4" style="z-index: 1000;">&nbsp;<a id="sLnk2" href="Javascript:fnToggleInwMesg()" style="cursor: pointer; display: none;"><img src="../images/INFENG/show_arrow.gif" alt="Show Message" border="0" style="cursor: pointer;"></a></td><td align="right">	<table border="0" cellspacing="0" cellpadding="0"><tbody><tr><td align="right"><a id="sLnk0" href="javascript:showHelpFile('pordm_help_paymentorder.htm');" style="cursor: pointer;"><img src="../Renderer/images/INFENG/help.gif" width="47" height="21" vspace="1" border="0" hotkeyid="finHelp" style="cursor: pointer;"></a></td></tr></tbody></table></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Remittance Details</td></tr><tr align="right" class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer>&nbsp;<a id="sLnk4" href="javascript:fnOnFormSubmit('viewDrTranDet')" class="url" style="cursor: pointer; display: none;">Debit Tran. Details</a>&nbsp;</td></tr><tr align="right" class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer>&nbsp;<a id="sLnk53" href="javascript:fnOnFormSubmit('viewCrTranDet')" class="url" style="cursor: pointer; display: none;">Credit Tran. Details</a>&nbsp;</td></tr><tr><td class="textlabel">Payment Order ID</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld0">	</label></td><td class="columnwidth">&nbsp;</td></tr><tr><td class="textlabel">Payment Product<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><select onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="orderType" name="pordm.orderType" enabled="" class="listboxfont" fmnd="Y" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""><option value="">Select</option><option value="CT">Customer Transfer</option><option value="BT">Interbank Transfer</option><option value="OT">Own A/c. Transfer</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Senders Ref.</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="hTranRefNum" name="pordm.hTranRefNum" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Related Ref.<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="relatedRefNum" name="pordm.relatedRefNum" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Requested Execution Date<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="reqExecutionDate_ui" name="pordm.reqExecutionDate_ui" hotkeyid="calender1" enabled="" type="text" class="textfieldfont" size="18" maxlength="10" fmnd="Y" mnebl="false" fmb="N" fdt="uidate" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR5(this,this,this);">&nbsp;<a id="sLnk5" href="javascript:openDate(document.forms[0].reqExecutionDate_ui,BODDate)" style="cursor: pointer;"><img id="daysOfMonth1Pos" width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" style="cursor:hand" hotkeyid="calender1"></a><div id="daysOfMonth1" style="position:absolute;"></div></td></tr><tr><td class="textlabel">Debit A/c.<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td colspan="4" class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drAcct" name="pordm.drAcct" hotkeyid="search1" explodeid="explode1" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" onchange="javascript:return pordmpod_ONCHANGE6(this);" fmnd="Y" fmb="N" fdt="account" fblk="defaultFblk1">&nbsp;<a id="sLnk6" href="javascript:showAcctIdList()" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search1" style="cursor: pointer;"></a>&nbsp;<a id="sLnk7" href="javascript:showAcctDtls(document.forms[0].drAcct)" style="cursor: pointer;"><img src="../images/INFENG/explode.gif" width="16" height="16" border="0" explodeid="explode1" style="cursor: pointer;"></a>&nbsp;<a id="sLnk64" href="javascript:showFinacleSignature()" style="cursor: pointer;"><img src="../images/INFENG/sig_new1.gif" width="16" height="16" border="0" style="cursor: pointer;"></a>&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drAcctCrncy" name="pordm.drAcctCrncy" type="text" disabled="true" class="labelwithoutwidth" size="3" maxlength="3" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drAcctSol" name="pordm.drAcctSol" type="text" disabled="true" class="labelwithoutwidth" size="8" maxlength="8" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drAcctName" name="pordm.drAcctName" type="text" disabled="true" class="label" size="25" maxlength="25" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr><td class="textlabel">Instrument Type<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="instrType" name="pordm.instrType" hotkeyid="search2" type="text" class="textfieldfont" maxlength="5" fmnd="N" fmb="N" fdt="default" fblk="fblk1">&nbsp;<a id="sLnk59" href="javascript:getInstrTypeList(objForm.instrType,'','ctrl','F')" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search2" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Instrument Alpha/Serial No.</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="instrAlpha" name="pordm.instrAlpha" type="text" class="twotextfieldsearchicon" maxlength="6" fmnd="N" fmb="N" fdt="default" fblk="fblk1">&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="instrNum" name="pordm.instrNum" type="text" class="twotextfieldsearchicon" maxlength="16" fmnd="N" fmb="N" fdt="fpint" fblk="fblk1"></td></tr><tr><td class="textlabel">Instrument Date<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="instrDate_ui" name="pordm.instrDate_ui" hotkeyid="calender2" type="text" class="textfieldfont" maxlength="10" fmnd="N" mnebl="false" fmb="N" fdt="uidate" fblk="fblk1" onblur="javascript:return pordmpod_ONBLUR7(this,this,this);">&nbsp;<a id="sLnk63" href="javascript:openDate(document.forms[0].instrDate_ui,BODDate)" style="cursor: pointer;"><img width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" alt="Date picker" hotkeyid="calender2" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">&nbsp;</td><td class="textfield">&nbsp;</td></tr><tr><td class="textlabel">Remittance CCY/Amt.<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitCrncy" name="pordm.remitCrncy" hotkeyid="search3" enabled="" type="text" class="textfieldcode" size="2" maxlength="3" onchange="javascript:return pordmpod_ONCHANGE8(this);" fmnd="Y" fmb="N" fdt="currency" fblk="defaultFblk1">&nbsp;<a id="sLnk8" href="javascript:showCurrencyListForPO()" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search3" style="cursor: pointer;"></a><input id="remitAmt" name="pordm.remitAmt" explodeid="explode2" enabled="" type="TEXT" class="textfieldamount" size="22" maxlength="17" fmnd="Y" fmb="N" fdt="amount" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR9(this,'Million',document.forms[0].remitAmt,document.forms[0].remitCrncy.value,'N');" onchange="javascript:return pordmpod_ONCHANGE10(this);"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">TOD</td><td class="textfielddisplaylabel"><input id="todGrantedFlg" name="pordm.todGrantedFlg" enabled="" type="radio" value="Y" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onclick="javascript:return pordmpod_ONCLICK11(this);">Yes<input id="todGrantedFlg" name="pordm.todGrantedFlg" enabled="" type="radio" value="N" checked="" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onclick="javascript:return pordmpod_ONCLICK12(this);">No<a id="sLnk9" href="Javascript:invokeTODDtlScreen()" style="cursor: pointer; display: none;"><img src="../images/INFENG/explode.gif" width="16" height="16" border="0" explodeid="explode2" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Lien Flg</td><td class="textfielddisplaylabel"><input id="lienMarkedFlg" name="pordm.lienMarkedFlg" enabled="" type="radio" value="Y" checked="" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">Yes<input id="lienMarkedFlg" name="pordm.lienMarkedFlg" enabled="" type="radio" value="N" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">No</td><td class="columnwidth">&nbsp;</td><td class="textlabel">Debit Execution Date<script>setMandatory("N");</script>	<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="drExecutionDate_ui" name="pordm.drExecutionDate_ui" hotkeyid="calender3" enabled="" type="text" class="textfieldfont" size="18" maxlength="10" fmnd="Y" mnebl="false" fmb="N" fdt="uidate" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR13(this,this,this);">&nbsp;<a id="sLnk10" href="javascript:openDate(document.forms[0].drExecutionDate_ui,BODDate)" style="cursor: pointer;"><img id="daysOfMonth1Pos" width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" style="cursor:hand" hotkeyid="calender3"></a><div id="daysOfMonth1" style="position:absolute;"></div><input id="chkOrideDrExecDate" name="pordm.chkOrideDrExecDate" enabled="" type="checkbox" onclick="javascript:return pordmpod_ONCLICK14(this,this);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Forward Contract<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="frwrdCntrctNo" name="pordm.frwrdCntrctNo" hotkeyid="search4" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE15(this);" disabled="">&nbsp;<a id="sLnk11" href="javascript:showFwdList()" style="cursor: pointer; z-index: 1000; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search4" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Forward Contract SOL<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="frwrdCntrctSolId" name="pordm.frwrdCntrctSolId" hotkeyid="search5" enabled="" type="text" class="textfieldfont" size="25" maxlength="8" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE16(this);" disabled="">&nbsp;<a id="sLnk12" href="javascript:showSolId(document.forms[0].frwrdCntrctSolId,'ctrl','F')" style="cursor: pointer; z-index: 1000; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search5" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Debit Value Date<script>setMandatory("N");</script>	<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="drValueDate_ui" name="pordm.drValueDate_ui" hotkeyid="calender4" enabled="" type="text" class="textfieldfont" size="18" maxlength="10" fmnd="Y" mnebl="false" fmb="N" fdt="uidate" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR17(this,this,this);">&nbsp;<a id="sLnk13" href="javascript:openDate(document.forms[0].drValueDate_ui,BODDate)" style="cursor: pointer;"><img id="daysOfMonth1Pos" width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" style="cursor:hand" hotkeyid="calender4"></a><div id="daysOfMonth1" style="position:absolute;"></div><input id="chkOrideDrValueDate" name="pordm.chkOrideDrValueDate" enabled="" type="checkbox" onclick="javascript:return pordmpod_ONCLICK18(this,this);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">FX Rate<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="exchRateCode" name="pordm.exchRateCode" enabled="" type="text" class="twotextfieldnoicon" onchange="javascript:return pordmpod_ONCHANGE19(this);" maxlength="5" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="exchRate" name="pordm.exchRate" hotkeyid="search6" enabled="" type="text" class="twotextfieldnoicon" maxlength="12" fmnd="N" fmb="N" fdt="frate" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk14" href="Javascript:showExchRateCode()" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search6" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Treasury Rate<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="tresExchRate" name="pordm.tresExchRate" type="text" class="textfieldfont" maxlength="16" fmnd="N" fmb="Y" fdt="frate" fblk="fblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Treasury Ref. No.</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="tresExchRefNo" name="pordm.tresExchRefNo" hotkeyid="search7" type="text" class="textfieldfont" maxlength="16" fmb="Y" fdt="default" fblk="fblk1" disabled="">&nbsp;<a id="sLnk65" href="javascript:callExchTrRefNoSearcher()" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search7" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Charging A/c.<script>setMandatory("N");</script></td><td colspan="4" class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="chrgAcct" name="pordm.chrgAcct" hotkeyid="search8" explodeid="explode3" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" onchange="javascript:return pordmpod_ONCHANGE20(this,this,'chrgAcctName','chrgAcctSol','chrgAcctCrncy',true,'VALACCTID');" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk15" href="Javascript:showAccountIdList(document.forms[0].chrgAcct,document.forms[0].chrgAcctSol,document.forms[0].chrgAcctName,'F',document.forms[0].chrgAcctCrncy)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search8" style="cursor: pointer;"></a>&nbsp;<a id="sLnk16" href="javascript:showAcctDtls(document.forms[0].chrgAcct)" style="cursor: pointer;"><img src="../images/INFENG/explode.gif" width="16" height="16" border="0" explodeid="explode3" style="cursor: pointer;"></a>&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="chrgAcctCrncy" name="pordm.chrgAcctCrncy" type="text" disabled="true" class="labelwithoutwidth" size="3" maxlength="3" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="chrgAcctSol" name="pordm.chrgAcctSol" type="text" disabled="true" class="labelwithoutwidth" size="8" maxlength="8" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="chrgAcctName" name="pordm.chrgAcctName" type="text" disabled="true" class="label" size="25" maxlength="25" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr><td class="textlabel">Department No.<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="deptNum" name="pordm.deptNum" hotkeyid="search9" enabled="" type="text" class="textfieldfont" size="25" maxlength="5" fmnd="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk18" href="javascript:showRefCode(document.forms[0].deptNum,'DP','N','F')" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search9" style="cursor: pointer;"></a>&nbsp;</td><td class="columnwidth">&nbsp;</td><td class="textlabel">Remarks<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="pRemarks" name="pordm.pRemarks" enabled="" type="text" class="textfieldfont" size="25" maxlength="70" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Free Text<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitFreeText" name="pordm.remitFreeText" enabled="" type="text" class="textfieldfont" size="25" maxlength="500" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr>
+
+<script language="javascript">
+printBlock2();
+</script><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Payment Details</td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Transaction Ref.<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="pTranRefNum" name="pordm.pTranRefNum" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Settlement Mode<script>setMandatory("N");</script></td><td class="textfield"><select id="settlementMode" name="pordm.settlementMode" enabled="" class="listboxfont" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE21(this);"><option value="">Select</option><option value="D">D - Demand Draft</option><option value="C">C - Cheque</option><option value="W">W - Within Bank</option></select></td></tr><tr><td class="textlabel">Payment CCY/Amt.</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="instructedCrncy" name="pordm.instructedCrncy" hotkeyid="search10" disabled="" type="TEXT" class="textfieldcode" size="2" maxlength="3" fmnd="N" fmb="N" fdt="currency" fblk="defaultFblk1">&nbsp;<a id="sLnk17" href="javascript:showCurrency(document.forms[0].instructedCrncy,'ctrl','F')" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search10" style="cursor: pointer;"></a><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="instructedAmt" name="pordm.instructedAmt" disabled="" type="TEXT" class="textfieldamount" size="22" maxlength="17" onblur="javascript:return pordmpod_ONBLUR22(this,'Million',document.forms[0].instructedAmt,document.forms[0].instructedCrncy.value,'N');" fmnd="N" fmb="N" fdt="amount" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Suspend<script>setMandatory("N");</script></td><td class="textfielddisplaylabel"><input id="suspendFlg" name="pordm.suspendFlg" enabled="" type="radio" value="Y" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled="" fds="Y">Yes<input id="suspendFlg" name="pordm.suspendFlg" enabled="" type="radio" value="N" checked="" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled="" fds="Y">No</td></tr><tr><td class="textlabel">Credit Execution Date<script>setMandatory("N");</script>	<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input id="crExecutionDate_ui" name="pordm.crExecutionDate_ui" hotkeyid="calender5" enabled="" type="text" class="textfieldfont" size="18" maxlength="10" fmnd="Y" mnebl="false" fmb="N" fdt="uidate" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR23(this,this,this);" onchange="javascript:return pordmpod_ONCHANGE24(this,'crAcct');">&nbsp;<a id="sLnk57" href="javascript:openDate(document.forms[0].crExecutionDate_ui,BODDate)" style="cursor: pointer;"><img id="daysOfMonth1Pos" width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" style="cursor:hand" hotkeyid="calender5"></a><div id="daysOfMonth1" style="position:absolute;"></div><input id="chkOrideCrExecDate" name="pordm.chkOrideCrExecDate" enabled="" type="checkbox" onclick="javascript:return pordmpod_ONCLICK25(this,this);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Credit Value Date<script>setMandatory("N");</script>	<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><input id="crValueDate_ui" name="pordm.crValueDate_ui" hotkeyid="calender6" enabled="" type="text" class="textfieldfont" size="18" maxlength="10" fmnd="Y" mnebl="false" fmb="N" fdt="uidate" fblk="defaultFblk1" onblur="javascript:return pordmpod_ONBLUR26(this,this,this);" onchange="javascript:return pordmpod_ONCHANGE27(this,'crAcct');">&nbsp;<a id="sLnk19" href="javascript:openDate(document.forms[0].crValueDate_ui,BODDate)" style="cursor: pointer;"><img id="daysOfMonth1Pos" width="24" height="19" src="../images/INFENG/calender.gif" align="absmiddle" border="0" style="cursor:hand" hotkeyid="calender6"></a><div id="daysOfMonth1" style="position:absolute;"></div><input id="chkOrideCrValueDate" name="pordm.chkOrideCrValueDate" enabled="" type="checkbox" onclick="javascript:return pordmpod_ONCLICK28(this,this);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Beneficiary Customer</td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">CIF ID<script>setMandatory("N");</script></td><td colspan="4" class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefCifId" name="pordm.benefCifId" hotkeyid="search11" type="text" class="textfieldfont" maxlength="32" fmnd="N" fmb="N" fdt="default" fblk="fblk1">&nbsp;<a id="sLnk60" href="javascript:showDynCritSearcher('HNONCUST','party_code=:document.forms[0].benefCifId',':document.forms[0].benefCifId=party_code')" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search11" style="cursor: pointer;"></a>&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="Input4" name="pordm.Input4" type="text" disabled="true" class="label1" size="25" maxlength="25" fmb="N" fdt="default" fblk="fblk1"></td></tr><tr><td class="textlabel">Address Type<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><select id="benefPartyAddrInd" name="pordm.benefPartyAddrInd" enabled="" class="listboxfont" onchange="javascript:return pordmpod_ONCHANGE29(this,document.forms[0].benefPartyAddrInd.value,benefAddrConst);" fmnd="Y" fmb="N" fdt="default" fblk="defaultFblk1"><option value="">Select</option><option value="B">B - BIC</option><option value="L">L - Local Bank Code</option><option value="F">F - Bank/Branch Code</option><option value="A">A - Name and Address</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">BIC<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyBic" name="pordm.benefPartyBic" hotkeyid="search12" enabled="" type="text" class="textfieldfont" size="25" maxlength="12" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE30(this,benefAddrConst);">&nbsp;<a id="sLnk20" href="javascript:fnShowBankBicDetails(benefAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search12" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyBankCode" name="pordm.benefPartyBankCode" hotkeyid="search13" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE31(this,benefAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk21" href="javascript:fnLocalListBankCodes(benefAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search13" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Branch Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyBranchCode" name="pordm.benefPartyBranchCode" hotkeyid="search14" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE32(this,benefAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk22" href="javascript:fnLocalShowBranchCodes(benefAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search14" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Local Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyLBC" name="pordm.benefPartyLBC" hotkeyid="search15" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk23" href="javascript:fnShowLBCDetails(benefAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search15" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">A/c. ID<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyAcct" name="pordm.benefPartyAcct" hotkeyid="search16" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE33(this);">&nbsp;<a id="sLnk54" href="javascript:fnLocalShowBenefPartyAccId();" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search16" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Name<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyName" name="pordm.benefPartyName" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 1</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyAddress1" name="pordm.benefPartyAddress1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Address Line 2</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyAddress2" name="pordm.benefPartyAddress2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 3</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyAddress3" name="pordm.benefPartyAddress3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Country</td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyCntryCode" name="pordm.benefPartyCntryCode" hotkeyid="search17" enabled="" type="text" class="textfieldfont" size="5" maxlength="5" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE34(this,'benefPartyCntryName');">&nbsp;<a id="sLnk24" href="Javascript:showRefCode(document.forms[0].benefPartyCntryCode,'03','N','F',document.forms[0].benefPartyCntryName)" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search17" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="benefPartyCntryName" name="pordm.benefPartyCntryName" class="label" type="text" disabled="true" size="30" maxlength="30" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Account with Institution</td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Address Type<script>setMandatory("N");</script></td><td class="textfield"><select id="awiAddrInd" name="pordm.awiAddrInd" enabled="" class="listboxfont" onchange="javascript:return pordmpod_ONCHANGE35(this,document.forms[0].awiAddrInd.value,awiAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"><option value="">Select</option><option value="B">B - BIC</option><option value="L">L - Local Bank Code</option><option value="F">F - Bank/Branch Code</option><option value="A">A - Name and Address</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">BIC<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiBic" name="pordm.awiBic" hotkeyid="search18" enabled="" type="text" class="textfieldfont" size="25" maxlength="12" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE36(this,awiAddrConst);">&nbsp;<a id="sLnk25" href="javascript:fnShowBankBicDetails(awiAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search18" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiBankCode" name="pordm.awiBankCode" hotkeyid="search19" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE37(this,awiAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk26" href="javascript:fnLocalListBankCodes(awiAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search19" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Branch Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiBranchCode" name="pordm.awiBranchCode" hotkeyid="search20" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE38(this,awiAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk27" href="javascript:fnLocalShowBranchCodes(awiAddrConst)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search20" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Local Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiLBC" name="pordm.awiLBC" hotkeyid="search21" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk28" href="javascript:fnShowLBCDetails(awiAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search21" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">A/c. ID<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiAcct" name="pordm.awiAcct" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Name<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiName" name="pordm.awiName" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 1</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiAddress1" name="pordm.awiAddress1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Address Line 2</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiAddress2" name="pordm.awiAddress2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 3</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiAddress3" name="pordm.awiAddress3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Country</td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiCntryCode" name="pordm.awiCntryCode" hotkeyid="search22" enabled="" type="text" class="textfieldfont" size="5" maxlength="5" fmnd="N" fmb="N" fdt="refCode" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE39(this,'awiCntryName');">&nbsp;<a id="sLnk29" href="Javascript:showRefCode(document.forms[0].awiCntryCode,'03','N','F',document.forms[0].awiCntryName)" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search22" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="awiCntryName" name="pordm.awiCntryName" class="label" type="text" disabled="true" size="30" maxlength="30" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="3" class="subhdr">Intermediary</td><td colspan="2" align="right">	<div id="interInstnDispText" style="z-index: 1000;"><img id="expand1" align="right" border="0" src="../Renderer/images/INFENG/expand.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK40(this,&quot;interInstnShow&quot;);" style="cursor: pointer;">	</div><div id="interInstnHideText" style="display: none"><img id="collapse1" align="right" border="0" src="../Renderer/images/INFENG/collapse.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK41(this,&quot;interInstnHide&quot;);" style="cursor: pointer;">	</div></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td colspan="5">	<table id="interInstnTable" style="display: none" cellspacing="0" width="100%" cellpadding="0"><tbody><tr><td class="textlabel">Address Type<script>setMandatory("N");</script></td><td class="textfield"><select id="interInstnAddrInd" name="pordm.interInstnAddrInd" enabled="" class="listboxfont" onchange="javascript:return pordmpod_ONCHANGE42(this,document.forms[0].interInstnAddrInd.value,interInstnAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"><option value="">Select</option><option value="B">B - BIC</option><option value="L">L - Local Bank Code</option><option value="F">F - Bank/Branch Code</option><option value="A">A - Name and Address</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">BIC<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnBic" name="pordm.interInstnBic" hotkeyid="search23" enabled="" type="text" class="textfieldfont" size="25" maxlength="12" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE43(this,interInstnAddrConst);" disabled="">&nbsp;<a id="sLnk30" href="javascript:fnShowBankBicDetails(interInstnAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search23" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnBankCode" name="pordm.interInstnBankCode" hotkeyid="search24" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE44(this,interInstnAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk31" href="javascript:fnLocalListBankCodes(interInstnAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search24" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Branch Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnBranchCode" name="pordm.interInstnBranchCode" hotkeyid="search25" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE45(this,interInstnAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk32" href="javascript:fnLocalShowBranchCodes(interInstnAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search25" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Local Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnLBC" name="pordm.interInstnLBC" hotkeyid="search26" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk33" href="javascript:fnShowLBCDetails(interInstnAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search26" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">A/c. ID<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnAcct" name="pordm.interInstnAcct" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Name<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnName" name="pordm.interInstnName" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 1</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnAddress1" name="pordm.interInstnAddress1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Address Line 2</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnAddress2" name="pordm.interInstnAddress2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 3</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnAddress3" name="pordm.interInstnAddress3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Country</td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnCntryCode" name="pordm.interInstnCntryCode" hotkeyid="search27" enabled="" type="text" class="textfieldfont" size="5" maxlength="5" fmnd="N" fmb="N" fdt="refCode" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE46(this,'interInstnCntryName');">&nbsp;<a id="sLnk34" href="Javascript:showRefCode(document.forms[0].interInstnCntryCode,'03','N','F',document.forms[0].interInstnCntryName)" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search27" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="interInstnCntryName" name="pordm.interInstnCntryName" class="label" type="text" disabled="true" size="30" maxlength="30" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr></tbody></table></td></tr><tr class="subhdrbg"><td colspan="3" class="subhdr">Receivers Correspondent</td><td colspan="2" align="right">	<div id="recvrCorrespDispText" style="z-index: 1000;"><img id="expand2" align="right" border="0" src="../Renderer/images/INFENG/expand.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK47(this,&quot;recvrCorrespShow&quot;);" style="cursor: pointer;">	</div><div id="recvrCorrespHideText" style="display: none"><img id="collapse2" align="right" border="0" src="../Renderer/images/INFENG/collapse.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK48(this,&quot;recvrCorrespHide&quot;);" style="cursor: pointer;">	</div></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td colspan="5">	<table id="recvrCorrespTable" style="display: none" cellspacing="0" width="100%" cellpadding="0"><tbody><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Address Type<script>setMandatory("N");</script></td><td class="textfield"><select id="recvrCorrespAddrInd" name="pordm.recvrCorrespAddrInd" enabled="" class="listboxfont" onchange="javascript:return pordmpod_ONCHANGE49(this,document.forms[0].recvrCorrespAddrInd.value,recvrCorrespAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1"><option value="">Select</option><option value="B">B - BIC</option><option value="L">L - Local Bank Code</option><option value="F">F - Bank/Branch Code</option><option value="A">A - Name and Address</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">BIC<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespBic" name="pordm.recvrCorrespBic" hotkeyid="search28" enabled="" type="text" class="textfieldfont" size="25" maxlength="12" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE50(this,recvrCorrespAddrConst);" disabled="">&nbsp;<a id="sLnk35" href="Javascript:fnShowBankBicDetails(recvrCorrespAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search28" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespBankCode" name="pordm.recvrCorrespBankCode" hotkeyid="search29" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE51(this,recvrCorrespAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk36" href="javascript:fnLocalListBankCodes(recvrCorrespAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search29" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Branch Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespBranchCode" name="pordm.recvrCorrespBranchCode" hotkeyid="search30" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE52(this,recvrCorrespAddrConst);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk37" href="javascript:fnLocalShowBranchCodes(recvrCorrespAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search30" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Local Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespLBC" name="pordm.recvrCorrespLBC" hotkeyid="search31" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk38" href="javascript:fnShowLBCDetails(recvrCorrespAddrConst)" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search31" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">A/c. ID<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespAcct" name="pordm.recvrCorrespAcct" enabled="" type="text" class="textfieldfont" size="25" maxlength="34" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Name<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespName" name="pordm.recvrCorrespName" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 1</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespAddress1" name="pordm.recvrCorrespAddress1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Address Line 2</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespAddress2" name="pordm.recvrCorrespAddress2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Address Line 3</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespAddress3" name="pordm.recvrCorrespAddress3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">Country</td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespCntryCode" name="pordm.recvrCorrespCntryCode" hotkeyid="search32" enabled="" type="text" class="textfieldfont" size="5" maxlength="5" fmnd="N" fmb="N" fdt="refCode" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE53(this,'recvrCorrespCntryName');">&nbsp;<a id="sLnk39" href="Javascript:showRefCode(document.forms[0].recvrCorrespCntryCode,'03','N','F',document.forms[0].recvrCorrespCntryName)" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search32" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="recvrCorrespCntryName" name="pordm.recvrCorrespCntryName" class="label" type="text" disabled="true" size="30" maxlength="30" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr></tbody></table></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Credit Details</td></tr><tr><td class="textlabel">Method of Payment Derivation</td><td align="center" valign="top" class="textfielddisplaylabel"><input id="pymtDerivationMethod" name="pordm.pymtDerivationMethod" type="radio" value="M" checked="" fmnd="N" fmb="N" fdt="default" fblk="fblk1">Manual<input id="pymtDerivationMethod" name="pordm.pymtDerivationMethod" type="radio" value="S" fmnd="N" fmb="N" fdt="default" fblk="fblk1">&nbsp;System &nbsp;&nbsp;&nbsp;<input id="fetchPaysysId" name="fetchPaysysId" type="button" class="button" onclick="javascript:return pordmpod_ONCLICK54(this,this);" value="Fetch"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Method of Payment</td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="routedPaysysId" name="pordm.routedPaysysId" hotkeyid="search33" enabled="" type="text" class="textfieldfont" maxlength="5" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE55(this,'chrgEventId');">&nbsp;<a id="sLnk62" href="javascript:showRefCode(document.forms[0].routedPaysysId,'CK','N','B',document.forms[0].routedPaysysIdDesc)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search33" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Our Correspondent BIC<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="ourCorrespBic" name="pordm.ourCorrespBic" hotkeyid="search34" enabled="" type="text" class="textfieldfont" size="25" maxlength="12" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk42" href="javascript:showLocalCrncyCorresList()" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search34" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">&nbsp;</td><td class="textfield">&nbsp;</td></tr><tr><td class="textlabel">Our Correspondent Bank Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="ourCorrespBankCode" name="pordm.ourCorrespBankCode" hotkeyid="search35" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE56(this);" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk43" href="javascript:fnLocalListOurCorrespBankCodes()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search35" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Our Correspondent Branch Code<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="ourCorrespBranchCode" name="pordm.ourCorrespBranchCode" hotkeyid="search36" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" onchange="javascript:return pordmpod_ONCHANGE57(this);" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk44" href="javascript:fnLocalListOurCorrespBranchCodes()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search36" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Credit A/c. ID<script>setMandatory("N");</script></td><td colspan="4" class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crAcct" name="pordm.crAcct" hotkeyid="search37" explodeid="explode4" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" onchange="javascript:return pordmpod_ONCHANGE58(this,this,'crAcctName','crAcctSol','crAcctCrncy',true,'VALACCTID');" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1">&nbsp;<a id="sLnk45" href="javascript:showCreditAccount()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search37" style="cursor: pointer;"></a>&nbsp;<a id="sLnk46" href="javascript:showAcctDtls(document.forms[0].crAcct)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/explode.gif" width="16" height="16" border="0" explodeid="explode4" style="cursor: pointer;"></a>&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crAcctCrncy" name="pordm.crAcctCrncy" type="text" disabled="true" class="labelwithoutwidth" size="3" maxlength="3" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crAcctSol" name="pordm.crAcctSol" type="text" disabled="true" class="labelwithoutwidth" size="8" maxlength="8" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crAcctName" name="pordm.crAcctName" type="text" disabled="true" class="label" size="25" maxlength="25" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr><td class="textlabel">Forward Contract<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crFrwrdCntrctNo" name="pordm.crFrwrdCntrctNo" hotkeyid="search38" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE59(this);">&nbsp;<a id="sLnk58" href="javascript:crShowFwdList()" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search38" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Forward Contract SOL<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crFrwrdCntrctSolId" name="pordm.crFrwrdCntrctSolId" hotkeyid="search39" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1" onchange="javascript:return pordmpod_ONCHANGE60(this);">&nbsp;<a id="sLnk48" href="javascript:showSolId(document.forms[0].crFrwrdCntrctSolId,'ctrl','F')" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search39" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">FX Rate<script>setMandatory("N");</script></td><td class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drexchRateCode" name="pordm.drexchRateCode" enabled="" type="text" class="twotextfieldsearchicon" size="25" maxlength="5" onchange="javascript:return pordmpod_ONCHANGE61(this);" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="drexchRate" name="pordm.drexchRate" hotkeyid="search40" enabled="" type="text" class="twotextfieldsearchicon" size="25" maxlength="12" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk49" href="Javascript:showDrExchRateCode()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search40" style="cursor: pointer;"></a></td><td class="columnwidth">&nbsp;</td><td class="textlabel">&nbsp;</td><td class="textfield">&nbsp;</td></tr><tr><td class="textlabel">Treasury Rate<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="tresDrRate" name="pordm.tresDrRate" type="text" class="textfieldfont" maxlength="16" fmnd="N" fmb="Y" fdt="frate" fblk="fblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Treasury Ref. No.</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="tresDrRefNo" name="pordm.tresDrRefNo" hotkeyid="search41" type="text" class="textfieldfont" maxlength="16" fmb="Y" fdt="default" fblk="fblk1">&nbsp;<a id="sLnk66" href="javascript:callDrTrRefNoSearcher()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search41" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Charging A/c.<script>setMandatory("N");</script></td><td colspan="4" class="textfield"><input onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crchrgAcct" name="pordm.crchrgAcct" hotkeyid="search42" explodeid="explode5" enabled="" type="text" class="textfieldfont" size="25" maxlength="16" onchange="javascript:return pordmpod_ONCHANGE62(this,this,'crchrgAcctName','crchrgAcctSol','crchrgAcctCrncy',true,'VALACCTID');" fmnd="N" fmb="N" fdt="account" fblk="defaultFblk1">&nbsp;<a id="sLnk50" href="Javascript:showAccountIdList(document.forms[0].crchrgAcct,document.forms[0].crchrgAcctSol,document.forms[0].crchrgAcctName,'F',document.forms[0].crchrgAcctCrncy)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search42" style="cursor: pointer;"></a>&nbsp;<a id="sLnk51" href="javascript:showAcctDtls(document.forms[0].crchrgAcct)" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/explode.gif" width="16" height="16" border="0" explodeid="explode5" style="cursor: pointer;"></a>&nbsp;<input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crchrgAcctCrncy" name="pordm.crchrgAcctCrncy" type="text" disabled="true" class="labelwithoutwidth" size="3" maxlength="3" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crchrgAcctSol" name="pordm.crchrgAcctSol" type="text" disabled="true" class="labelwithoutwidth" size="8" maxlength="8" fdt="default" fblk="defaultFblk1" fds="Y"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="crchrgAcctName" name="pordm.crchrgAcctName" type="text" disabled="true" class="label" size="25" maxlength="25" fdt="default" fblk="defaultFblk1" fds="Y"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Charges Details</td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Charge Option<script>setMandatory("Y");</script><font color="red" size="+0.5">&nbsp;*</font></td><td class="textfield"><select onchange="javascript:return custom_ONCHANGE('pordmpod',this);" id="chargeOption" name="pordm.chargeOption" enabled="" class="listboxfont" fmnd="Y" fmb="N" fdt="default" fblk="defaultFblk1"><option value="">Select</option><option value="OUR">Our</option><option value="BEN">Beneficiary</option><option value="SHA">Shared</option></select></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Charge Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="chrgEventId" name="pordm.chrgEventId" hotkeyid="search43" enabled="" type="text" class="textfieldfont" size="25" maxlength="25" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">&nbsp;<a id="sLnk52" href="javascript:showDynCritSearcher('HPOCHG','event_id=:chrgEventId|event_type=:chrgEventType|in_out_ind=:poInOutInd',':document.forms[0].chrgEventId=event_id|:document.forms[0].chrgEventType=event_type')" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search43" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Net Charges<script>setMandatory("N");</script></td><td class="textfielddisplaylabel"><input id="netCharges" name="pordm.netCharges" enabled="" type="radio" value="Y" onclick="javascript:return pordmpod_ONCLICK63(this);" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">Yes<input id="netCharges" name="pordm.netCharges" enabled="" type="radio" value="N" onclick="javascript:return pordmpod_ONCLICK64(this);" checked="" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">No</td><td class="columnwidth">&nbsp;</td><td class="textlabel">Repair Charges<script>setMandatory("N");</script></td><td class="textfielddisplaylabel"><input id="repairCharges" name="pordm.repairCharges" enabled="" type="radio" value="Y" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">Yes<input id="repairCharges" name="pordm.repairCharges" enabled="" type="radio" value="N" checked="" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1">No</td></tr><tr><td class="textlabel">Waive Charges<script>setMandatory("N");</script></td><td class="textfielddisplaylabel"><input id="waiverCharges" name="pordm.waiverCharges" enabled="" type="radio" value="Y" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onclick="javascript:return pordmpod_ONCLICK65(this);">Yes<input id="waiverCharges" name="pordm.waiverCharges" enabled="" type="radio" value="N" checked="" fmnd="N" fmb="N" fdt="default" fblk="defaultFblk1" onclick="javascript:return pordmpod_ONCLICK66(this);">No</td><td class="columnwidth">&nbsp;</td><td width="39" align="right"><input id="ViewCharges" name="ViewCharges" type="button" class="button" onclick="javascript:return pordmpod_ONCLICK67(this,this);" value="View Charges"></td><td class="columnwidth">&nbsp;</td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr class="subhdrbg"><td colspan="3" class="subhdr">Senders to Receiver Info.</td><td colspan="2" align="right">	<div id="senderToRecvrInfoDispText" style="z-index: 1000;"><img id="expand3" align="right" border="0" src="../Renderer/images/INFENG/expand.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK68(this,&quot;senderToRecvrInfoShow&quot;);" style="cursor: pointer;">	</div><div id="senderToRecvrInfoHideText" style="display: none"><img id="collapse3" align="right" border="0" src="../Renderer/images/INFENG/collapse.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK69(this,&quot;senderToRecvrInfoHide&quot;);" style="cursor: pointer;">	</div></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td colspan="5">	<table id="senderToRecvrInfoTable" style="display: none" cellspacing="0" width="100%" cellpadding="0"><tbody><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Purpose Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="purposeCode" name="pordm.purposeCode" hotkeyid="search44" type="text" class="textfieldfont" maxlength="5" fmnd="N" fmb="N" fdt="default" fblk="fblk1">&nbsp;<a id="sLnk61" href="javascript:showRefCode(document.forms[0].purposeCode,81,'N','F')" style="cursor: pointer;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search44" style="cursor: pointer;"></a></td></tr><tr><td class="textlabel">Line 1<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo1" name="pordm.senderToRecvrInfo1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Line 2<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo2" name="pordm.senderToRecvrInfo2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Line 3<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo3" name="pordm.senderToRecvrInfo3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Line 4<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo4" name="pordm.senderToRecvrInfo4" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Line 5<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo5" name="pordm.senderToRecvrInfo5" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Line 6<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="senderToRecvrInfo6" name="pordm.senderToRecvrInfo6" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr></tbody></table></td></tr><tr class="subhdrbg"><td colspan="3" class="subhdr">Remittance Info.</td><td colspan="2" align="right">	<div id="remitInfoDispText" style="z-index: 1000;"><img id="expand4" align="right" border="0" src="../Renderer/images/INFENG/expand.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK70(this,&quot;remitInfoShow&quot;);" style="cursor: pointer;">	</div><div id="remitInfoHideText" style="display: none"><img id="collapse4" align="right" border="0" src="../Renderer/images/INFENG/collapse.gif" onmouseover="displayHand(this)" onclick="javascript:return pordmpod_ONCLICK71(this,&quot;remitInfoHide&quot;);" style="cursor: pointer;">	</div></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td colspan="5">	<table id="remitInfoTable" style="display: none" cellspacing="0" width="100%" cellpadding="0"><tbody><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr><tr><td class="textlabel">Line 1<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitInfo1" name="pordm.remitInfo1" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Line 2<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitInfo2" name="pordm.remitInfo2" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr><td class="textlabel">Line 3<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitInfo3" name="pordm.remitInfo3" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Line 4<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="remitInfo4" name="pordm.remitInfo4" enabled="" type="text" class="textfieldfont" size="25" maxlength="35" fmnd="N" fmb="Y" fdt="default" fblk="defaultFblk1"></td></tr><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr></tbody></table></td></tr><tr class="subhdrbg"><td colspan="5" class="subhdr">Rejection Details</td></tr><tr><td colspan="5" class="rowspacing"><spacer type="block" width="1" height="1"></spacer></td></tr><tr><td class="textlabel">Rejection Code<script>setMandatory("N");</script></td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="rejectionCode" name="pordm.rejectionCode" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" fmnd="N" fdt="default" fblk="defaultFblk1" disabled=""></td><td class="columnwidth">&nbsp;</td><td class="textlabel">Rejection Desc</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="rejectionDesc" name="pordm.rejectionDesc" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" fmnd="N" fdt="default" fblk="defaultFblk1" disabled=""></td></tr><tr><td class="textlabel">MIS reason code</td><td class="textfield"><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="misReasonCode" name="pordm.misReasonCode" hotkeyid="search45" enabled="" type="text" class="textfieldfont" size="25" maxlength="6" fmnd="N" fdt="default" fblk="defaultFblk1" disabled="">&nbsp;<a id="sLnk56" href="javascript:showDynSearcher('HRISPRC','paysys_id=:routedPaysysId|type_of_system=H',':misReasonCode=reason_code|:misReasonCodeDesc=remarks')" style="cursor: pointer; display: none;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search45" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('pordmpod',this);" onblur="javascript:return custom_ONBLUR('pordmpod',this);" id="misReasonCodeDesc" name="pordm.misReasonCodeDesc" type="text" disabled="true" class="label" size="25" maxlength="25" fdt="default" fblk="defaultFblk1" fds="Y"></td><td class="columnwidth">&nbsp;</td><td class="columnwidth">&nbsp;</td><td class="columnwidth">&nbsp;</td></tr></tbody></table></div></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table><table><tbody><tr class="rowspacing"><td colspan="5"><spacer type="block" height="1" width="1"></spacer></td></tr></tbody></table>
+	
+	<input type="hidden" name="customData" value="~dummyPageName|">
+		 
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+	
+
+	
+
+
+ 
+
+
+  <base href="https://clrnuat.clarienbank.com:443/finbranch/custom/jsp">
+
+<meta http-equiv="PRAGMA" content="no-cache"> 
+<meta http-equiv="Cache-Control" content="no-cache"> 
+<meta http-equiv="Expires" content="-1"> 
+
+  
+<link href="../Renderer/stylesheets/10225_services.css" rel="STYLESHEET" title="Finacle Stylesheet" type="text/css">
+<script language="javascript" src="../Renderer/javascripts/1022528670_finbranchResource_INFENG.js"> </script> 
+<script language="javascript" src="../Renderer/javascripts/1022528670_cust_evt.js"> </script>
+     
+ <script language="javascript" src="../Renderer/javascripts/10225_dynamic_combo.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/10225_cust_functions.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/1022528670_login_common_functions.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/1022528670_common_functions.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/10225_multirec_link.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/10225_hotkeyprocessor_link.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/10225_menuLayer.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script>
+	
+
+
+<script language="JavaScript">
+var dom_to_set = 'clarienbank.com';
+var prodEnv = 'Y'; 
+var SSO = (dom_to_set != "") && true;
+if (SSO) {
+	document.domain = dom_to_set;
+}
+if(prodEnv == 'Y')
+{
+	document.oncontextmenu = function ()
+	{
+		return false;
+	}
+}
+</script>
+
+
+
+
+<script src="../Renderer/javascripts/1022528670_timeout_link.js"></script>
+<script>
+window.history.forward(1);
+var timeid;
+var USERID = "FINACLETEST14";
+var USER_TIME_OUT = 23580000;
+
+fnSetTimers();
+enableTimers();
+
+</script>
+
+
+
+	
+	<script language="javascript" src="../Renderer/custom/javascripts/1022528670_custom_functions.js"></script>
+	<script language="javascript" src="../Renderer/custom/javascripts/10225_mrhCustomData.js"></script>
+	<script language="javascript" src="../Renderer/custom/javascripts/10225_cd_atf_functions.js"></script>
+	<script language="javascript" src="../Renderer/custom/javascripts/10225_pordmpod_custom.js"></script>
+	<script language="javascript" src="../Renderer/custom/javascripts/jspjs/INFENG/10225_HPORDM_pordmpod_CD_INFENG.js"></script>
+
+
+	<script language="javascript">
+
+	var pmmFields = ["TranExp"];
+	var validFeatureIdLst = "";
+	var allFeatureIdLst = "";
+	validFeatureIdLst = (validFeatureIdLst == "" || validFeatureIdLst == null) ? allFeatureIdLst : validFeatureIdLst;
+
+	var usePMMShortPageName = "N";
+	var pmmShortPageName = "";
+	var ObjForm = document.forms[0];
+	with (document){
+		setTableHeader(98.6)
+		write('<tr id="EmptRow">' + '</td>');
+		rowStart();
+	write('<td id="TranExp" class="textlabel">' + jspLit.CFLT35309 + '</td>');
+	write('<td>');
+	write('<a id="sLnk41" target="_self" href="javascript:fnShowExplodeDtls();">');
+	write('<img class="img" align="top" border="0" height="17" explodeId = "explodeImg" src="../Renderer/images/INFENG/explode.gif" width="16" />');
+	write('</a>');
+	write('</td>');
+		rowEnd();
+
+		setTableFooter();
+	}
+
+
+	function pordmpod_pre_ONLOAD(obj){
+		var ObjForm = document.forms[0];
+		fnGetPMMFields(pmmFields);
+		return true;
+	}
+
+	function pordmpod_post_ONLOAD(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+		fnGetPMMFields(pmmFields);
+	if(mopId == "HPORDM") {
+	}
+		fnAssignDateOnLoad(ObjForm);
+		if(eval("this.fnFeatureFormHandler") != undefined)
+		{
+			fnFeatureFormHandler(allFeatureIdLst,validFeatureIdLst);
+		}
+		
+	if((fnCdVal == "M") || (fnCdVal == "V") ){
+	 showImage("sLnk41");
+    } else { 
+	  hideImage("sLnk41");
+	 document.getElementById("EmptRow").style.display="none";
+	 document.getElementById("TranExp").style.display="none";
+    }
+	//    return true;
+	}
+
+	function pordmpod_pre_ONCLICK(obj){
+		var ObjForm = document.forms[0];
+		fnSetPMMFields(pmmFields);
+		if ((retVal = fnFrontEndEvents_ONCLICK(obj)) == false) {
+			return false;
+		}
+		return true;
+	}
+
+	function pordmpod_post_ONCLICK(obj){
+		var ObjForm = document.forms[0];
+		fnSetPMMFields(pmmFields);
+		return true;
+	}
+
+	function pordmpod_pre_ONCHANGE(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+		fnSetPMMFields(pmmFields);
+		return true;
+	}
+
+	function pordmpod_ONCHANGE(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+		fnSetPMMFields(pmmFields);
+		return true;
+	}
+
+	function pordmpod_post_ONCHANGE(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+		fnSetPMMFields(pmmFields);
+		if ((retVal = fnFrontEndEvents_ONCHANGE(obj)) == false) {
+			return false;
+		}
+		return true;
+	}
+
+	function pordmpod_pre_ONBLUR(obj){
+		var ObjForm = document.forms[0];
+		fnSetPMMFields(pmmFields);
+		return true;
+	}
+
+	function pordmpod_post_ONBLUR(obj){
+		var ObjForm = document.forms[0];
+		fnSetPMMFields(pmmFields);
+		if ((retVal = fnFrontEndEvents_ONBLUR(obj)) == false) {
+			return false;
+		}
+		return true;
+	}
+
+	function pordmpod_pre_TAB_SWITCH(obj){
+		var ObjForm = document.forms[0];
+		fnSetPMMFields(pmmFields);
+		return true;
+	}
+
+	function fnCustomOnClickRadioButton(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+		return true;
+	}
+
+	function fnFrontEndEvents_ONBLUR(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+
+
+		return true;
+	}
+
+	function fnFrontEndEvents_ONCHANGE(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+
+		if (obj.id == "routedPaysysId") {
+			if((fnCdVal == "A") || (fnCdVal == "M")){
+
+	   if ((ObjForm.drAcct.value != "") && (ObjForm.remitCrncy.value != "") && (ObjForm.remitAmt.value != "") && (ObjForm.drValueDate.value != "")) {
+		var scrName = "hpordmAutoPopRate.scr";
+		var input = "acctId|" + ObjForm.drAcct.value + "|tranDate|" + ObjForm.drValueDate.value + "|refAmt|" + ObjForm.remitAmt.value + "|refCrncy|" +  ObjForm.remitCrncy.value + "|methodOfPymnt|" + ObjForm.routedPaysysId.value;
+		var output = "";
+		customCallBackFn_SDS = "fn_ONCHANGE_fxRate_populate";
+		var retVal = appFnExecuteScript(input,output,scrName,false);
+		}
+			}
+		}
+
+		return true;
+	}
+
+	function fnFrontEndEvents_ONCLICK(obj){
+		var ObjForm = document.forms[0];
+		var fnCdVal = (ObjForm.funcCode) ? (ObjForm.funcCode.value) : funcCode;
+
+
+		return true;
+	}
+
+
+		function fn_ONCHANGE_fxRate_populate(retVal){
+			retValArr = retVal.split("|");
+			if (retValArr[0]  != ""){
+				if (retValArr[0] == "retVal") {
+					let amt = retValArr[1];
+					let amount = amt.toString().trim();
+					if(amount.includes(".")){
+						let parts = amount.split(".");
+						let decimalPart = parts[1] || "";
+						if(decimalPart.length === 0){
+							amount = parts[0] + ".0000";
+						}
+						if(decimalPart.length === 1){
+							amount = amount + "000";
+						}
+						if(decimalPart.length === 2){
+							amount = amount + "00";
+						}
+						if(decimalPart.length === 3){
+							amount = amount + "00";
+						}
+					}
+					else{
+						amount = amount + ".0000";
+					}
+					let rateCode1 = retValArr[3];
+					ObjForm.exchRate.value = amount;
+					ObjForm.exchRate.disabled = true;
+					
+					ObjForm.exchRateCode.value = rateCode1;
+					ObjForm.exchRateCode.disabled = true;
+				}
+			}
+			else{
+				ObjForm.exchRate.disabled = false;
+				ObjForm.exchRateCode.disabled = false;
+			}
+		}
+		function fnPopupCallBack(retVal){
+			var ObjForm = document.forms[0];
+			inqtranexp_det_setFields(retVal);
+		}
+		function fnShowFundDtls(){
+			  var ObjForm = document.forms[0];
+			  callBackFn = "fnPopupCallBack";
+			  var sUrl = "../custom/jsp/inqtranexp_det.jsp?menuId=CDD&appLangCode="+appLangCode+ "&calbase="+calbase+ "&rtId=" +rtId+ "&funcCode=" +"I"+ "&earningsPerUnit=" +earningsPerUnit;
+			  var retVal = window.open(sUrl,"Transaction Details","dialogWidth:71;dialogHeight:35;status=no;toolbar=no;menubar=no;resizable=yes");
+		}
+		function inqtranexp_det_setFields(retVal)
+		{
+			convertToCaps();
+			setFieldsInCustomData_explode(retVal);
+		}
+		
+		function setFieldsInCustomData_explode(retVal)
+		{
+			var strValue = retVal;
+			var strValueOriginal = document.forms[0].customData.value;
+			var strValueOtherTab = "";
+			var screenDataArray = new Array();
+			screenDataArray = strValueOriginal.split('~');
+			var screenDataArrayLength = screenDataArray.length;
+		
+			var currentScreenName = "inqtranexp_det";
+			for (var screenCounter=0;screenCounter<screenDataArrayLength;screenCounter++)
+			{
+				var screenNameArray = screenDataArray[screenCounter].split('|');
+				var screenName = screenNameArray[0];
+				var length = screenNameArray.length;
+				if(!fnIsNull(screenName)){
+					if(screenName != currentScreenName){
+						strValueOtherTab = strValueOtherTab + "~" + screenName;
+						for (var count=1;count<length;count++)
+						{
+							strValueOtherTab = strValueOtherTab + "|" + screenNameArray[count];
+						}
+					}
+				}
+			}
+			strValue = strValue + strValueOtherTab;
+		
+			document.forms[0].customData.value = strValue;
+		}
+
+				function fnShowExplodeDtls(){
+					var ObjForm = document.forms[0];
+			  if(!fnValidateForm()){
+					 return false;
+				  }
+					callBackFn = "fnPopupCallBack";
+					var sUrl = "../custom/jsp/inqtranexp.jsp?menuId=MBM&appLangCode="+appLangCode+ "&calbase="+calbase+ "&rtId=" +rtId+ "&funcCode=" +"I";
+					var retVal = window.open(sUrl,"TransactionDetails","dialogWidth:71;dialogHeight:35;status=no;toolbar=no;menubar=no;resizable=yes");
+			  }
+				
+
+
+				function fnPopupCallBack(retVal){
+					var ObjForm = document.forms[0];
+					inqtranexp_setFields(retVal);
+					doSubmit("Validate");
+				}
+				
+
+
+				function inqtranexp_setFields(retVal){
+					convertToCaps();
+					setFieldsInCustomData_explode(retVal);
+				}
+				
+
+
+				function setFieldsInCustomData_explode(retVal){
+					var strValue = retVal;
+					var strValueOriginal = document.forms[0].customData.value;
+					var strValueOtherTab = "";
+					var screenDataArray = new Array();
+					screenDataArray = strValueOriginal.split('~');
+					var screenDataArrayLength = screenDataArray.length;
+				
+					var currentScreenName = "inqtranexp_det";
+					for (var screenCounter=0;screenCounter<screenDataArrayLength;screenCounter++)
+					{
+						var screenNameArray = screenDataArray[screenCounter].split('|');
+						var screenName = screenNameArray[0];
+						var length = screenNameArray.length;
+						if(!fnIsNull(screenName)){
+							if(screenName != currentScreenName){
+								strValueOtherTab = strValueOtherTab + "~" + screenName;
+								for (var count=1;count<length;count++)
+								{
+									strValueOtherTab = strValueOtherTab + "|" + screenNameArray[count];
+								}
+							}
+						}
+					}
+					strValue = strValue + strValueOtherTab;
+					console.log("Final",strValue);
+					document.forms[0].customData.value = strValue;
+				}
+				
+	</script><table width="98.6%" border="0" cellpadding="0" cellspacing="0" class="tableborder" align="center"><tbody><tr><td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="innertable"><tbody><tr id="EmptRow" style="display: none;"></tr><tr><td id="TranExp" class="textlabel" style="display: none;">TransactionDetails</td><td><a id="sLnk41" target="_self" href="javascript:fnShowExplodeDtls();" style="cursor: pointer; z-index: 1000; display: none;"><img class="img" align="top" border="0" height="17" explodeid="explodeImg" src="../Renderer/images/INFENG/explode.gif" width="16" style="cursor: pointer;"></a></td></tr></tbody></table></td></tr></tbody></table><br>
+
+
+	<script language="JavaScript">
+		printFooterBlock();
+	</script><input id="Submit" name="Submit" type="button" class="button" onclick="javascript:return pordmpod_ONCLICK73(this,this);" value="Submit" hotkeyid="Submit"><input id="Validate" name="Validate" type="button" class="button" onclick="javascript:return pordmpod_ONCLICK74(this,this);" value="Validate" hotkeyid="Validate"><input id="Cancel" name="Cancel" type="button" class="button" onclick="javascript:return pordmpod_ONCLICK75(this,this);" value="Cancel" hotkeyid="Cancel">
+
+
+
+
+
+
+</div></form></body></html>

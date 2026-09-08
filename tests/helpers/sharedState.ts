@@ -33,6 +33,17 @@ export interface SharedState {
     topUpDeposit?: string;
     topUpDepositPartial?: string;
   };
+  loanAccountId?: string;
+  accountId?: string;
+  transactionId?: string;
+  demandDraftId?: string;
+  demandDraftCancellationId?: string;
+  inventoryVaultId?: string;
+  inventoryDoubleLockId?: string;
+  inventoryVaultDate?: string;
+  inventoryDoubleLockDate?: string;
+  hpordmId?: string;
+  cifId?: string;
 }
 
 export function readSharedState(): SharedState {

@@ -1,6 +1,6 @@
 {
   "credentials": {
-    "username": "finacletest5",
+    "username": "finacletest14",
     "password": "clarien@1234"
   },
   "secondCredentials": {
@@ -8,11 +8,11 @@
     "password": "clarien@1234"
   },
   "thirdCredentials": {
-    "username": "FINACLETEST13",
+    "username": "FINACLE-TEST13",
     "password": "clarien@1234"
   },
   "verifierCredentials": {
-    "username": "finacletest1",
+    "username": "finacle-test13",
     "password": "clarien@1234"
   },
   "paymentOrderData": {
@@ -356,5 +356,16 @@
     "type": "savings",
     "accountId": "7710003367",
     "testLabel": "HSIM - SI not suspended when account freeze is cancelled before verification"
+  },
+  "accountClosure": {
+    "accountIdToClose": "7710003367",
+    "transferAccountId": "7500001515",
+    "transferAmount": "1000",
+    "transactionParticularCode": "001",
+    "particulars": "Account closure transfer",
+    "screens": {
+      "htm": "HTM",
+      "hcaac": "HCAAC"
+    }
   }
 }

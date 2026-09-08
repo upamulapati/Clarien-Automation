@@ -3,11 +3,11 @@
     "baseUrl": "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp",
     "credentials": {
       "primary": {
-        "username": "finacletest5",
+        "username": "finacletest14",
         "password": "clarien@1234"
       },
       "verification": {
-        "username": "finacletest1",
+        "username": "finacle-test13",
         "password": "clarien@1234"
       }
     },

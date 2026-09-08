@@ -785,6 +785,7 @@ export class ServicePackPage {
     currencyCode?: string;
     solId?: string;
     modeOfOperation?: string;
+    dispatchMode?: string;
     initialDepositAmt?: string;
     instalmentAmt?: string;
     depositPeriodMonths?: string;

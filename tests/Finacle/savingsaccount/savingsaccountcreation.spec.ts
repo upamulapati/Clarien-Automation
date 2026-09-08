@@ -8,7 +8,7 @@ import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
 // otherwise fall back to the hardcoded value in common-data.json.
-const SHARED_CIF = getSharedValue('cifId');
+const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const CONFIG = getPrimaryConfig();
@@ -27,7 +27,7 @@ test.describe('Savings Account Creation', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    savingsAccountPage = new AccountPage(page, lastDialogMessages);
+    savingsAccountPage = new AccountPage(page);
 
     // Select Core Server from the solution drop down
     console.log('Selecting Core Server...');
@@ -40,7 +40,7 @@ test.describe('Savings Account Creation', () => {
 
   test('create savings account - SVREG scheme', async () => {
     const accountData = { ...COMMON_DATA.svregTestData };
-    if (SHARED_CIF) accountData.cifCode = SHARED_CIF;
+    if (SHARED_CIF) (accountData as any).cifCode = SHARED_CIF;
     console.log(`Creating savings account SVREG (CIF: ${accountData.cifCode})...`);
     await savingsAccountPage.createSavingsAccount(accountData);
 
@@ -50,7 +50,8 @@ test.describe('Savings Account Creation', () => {
 
     // Persist the generated Account ID for downstream verification specs
     if (result.accountNumber) {
-      writeSharedState({ accountId: result.accountNumber });
+      const { updateSharedState } = require('../../helpers/sharedState');
+      updateSharedState((state: any) => { state.accountId = result.accountNumber; });
     }
 
     await homePage.logout();

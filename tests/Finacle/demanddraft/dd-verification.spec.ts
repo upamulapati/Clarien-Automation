@@ -12,7 +12,7 @@ test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 test('HDDMI - demand draft verification', async ({ page }) => {
   test.setTimeout(900000);
 
-  const transactionId = getSharedValue('demandDraftId') ?? '';
+  const transactionId = getSharedValue((state) => state.demandDraftId) ?? '';
   console.log(`[SharedState] Demand Draft Transaction ID: ${transactionId}`);
   expect(transactionId, 'Demand Draft Transaction ID must be available for verification').toMatch(/[A-Z0-9]{2,}/i);
 
@@ -21,7 +21,7 @@ test('HDDMI - demand draft verification', async ({ page }) => {
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
   const accountPage = new AccountPage(page);
-  const ddPage = new DemandDraftPage(page, lastDialogMessages);
+  const ddPage = new DemandDraftPage(page);
 
   await accountPage.selectCoreServer();
   await accountPage.searchTransactionManagement('HDDMI');

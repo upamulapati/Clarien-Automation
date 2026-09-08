@@ -99,7 +99,7 @@ export class TermDepositPage extends AccountPage {
     }, glCode).catch(() => {});
   }
 
-  private async clickValidate() {
+  public async clickValidate() {
     const selector = 'input[type="button"][value="Validate" i], input[type="submit"][value="Validate" i], button:has-text("Validate")';
     const frames = [this.getTdFrame(), ...this.page.frames()].filter((f): f is Frame => !!f);
     for (const frame of frames) {

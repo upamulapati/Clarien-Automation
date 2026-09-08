@@ -13,7 +13,7 @@ test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 test('HIMC - verify transfer to vault', async ({ page }) => {
   test.setTimeout(900000);
 
-  const transactionId = getSharedValue('inventoryVaultId') ?? '';
+  const transactionId = getSharedValue((state) => state.inventoryVaultId) ?? '';
   console.log(`[SharedState] Inventory Vault Transaction ID: ${transactionId}`);
   expect(transactionId, 'Inventory Vault Transaction ID must be available for verification').toMatch(/[A-Z0-9]{2,}/i);
 

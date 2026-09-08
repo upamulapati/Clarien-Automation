@@ -2806,16 +2806,16 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
                   const n = el.name ? el.name.toUpperCase() : '';
                   return n.includes(up) && !(a.ex && n.includes('COUNTRY'));
                 });
-                return b ? b.name : '';
+                return b ? (b as any).name : '';
               }, { p: pattern, ex: excludeCountry }).catch(() => '');
               if (name) return { name, frame: f };
             }
             return null;
           };
           const baselLov = await findLovBtn('BASELPROFILING');
-          if (baselLov) await this.selectLovValue({ parentPage: page, target: baselLov!.frame, buttonName: baselLov.name, searchValue: 'NO', label: 'Basel Profiling', config: this.config });
+          if (baselLov) await this.selectLovValue({ parentPage: page, target: baselLov!.frame, buttonName: baselLov!.name, searchValue: 'NO', label: 'Basel Profiling', config: this.config });
           const foreignLov = await findLovBtn('FOREIGNTAXREPORTING', true);
-          if (foreignLov) await this.selectLovValue({ parentPage: page, target: foreignLov!.frame, buttonName: foreignLov.name, searchValue: 'NO TIN', label: 'Foreign Tax Reporting', config: this.config });
+          if (foreignLov) await this.selectLovValue({ parentPage: page, target: foreignLov!.frame, buttonName: foreignLov!.name, searchValue: 'NO TIN', label: 'Foreign Tax Reporting', config: this.config });
         } catch (e) { console.log('  \u26a0 Basel/Foreign LOV error: ' + ((e as any).message || '').substring(0, 120)); }
       }
     } catch (e) { console.log(`  \u26a0 LOV fill error: ${(e as any).message?.substring(0, 100)}`); }
@@ -3059,7 +3059,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
                   // Update the matching hidden h_<name> field if it exists
                   try {
                     const h = doc.querySelector('[name="h_' + sel.name + '"]') as any;
-                    if (h) { h.value = opt.value; h.dispatchEvent(new Event('change', { bubbles: true })); }
+                    if (h) { h.value = (opt as HTMLOptionElement).value; h.dispatchEvent(new Event('change', { bubbles: true })); }
                   } catch (_) {}
                 } else if (target) {
                   const o = document.createElement('option');
@@ -3247,7 +3247,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         attachPreload(window.parent);
         // Patch selectTabForID on the tab-view frame so every tab switch prefills before validation
         try {
-          const tv = window.parent.frames[0];
+          const tv = window.parent.frames[0] as any;
           if (tv && typeof tv.selectTabForID === 'function' && !tv._patched) {
             const orig = tv.selectTabForID;
             tv.selectTabForID = function(...args: any[]) {
@@ -3255,7 +3255,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
               if (typeof (window as any).fillMandatory === 'function') { try { (window as any).fillMandatory(); } catch (e) {} }
               return r;
             };
-            (tv as any)._patched = true;
+            tv._patched = true;
           }
         } catch (e) {}
         // Wrap submitForm so it always prefills mandatory fields and patches checkStat before validation
