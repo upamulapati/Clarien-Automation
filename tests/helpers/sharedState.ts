@@ -25,6 +25,7 @@ export interface SharedState {
     latest?: string;
     ids: string[];
   };
+  collateralRecords?: { type: string; id: string }[];
   transactionIds?: string[];
   termDepositAccounts?: Record<string, string>;
   topUpDepositAccounts?: Record<string, string>;
@@ -100,7 +101,7 @@ export function readCollateralIds(): string[] {
   return getCollateralIds().ids;
 }
 
-export function recordCollateralId(id: string): void {
+export function recordCollateralId(id: string, type?: string): void {
   if (!id || id.trim() === '') return;
   updateSharedState((state) => {
     const existing = state.collateralIds ?? { ids: [] };
@@ -108,6 +109,11 @@ export function recordCollateralId(id: string): void {
       latest: id,
       ids: [id, ...(existing.ids ?? []).filter((existingId) => existingId !== id)],
     };
+    const records = state.collateralRecords ?? [];
+    if (!records.some((r) => r.id === id)) {
+      records.unshift({ type: type ?? 'Unknown', id });
+    }
+    state.collateralRecords = records;
   });
   console.log(`[sharedState] Persisted collateral id: ${id}`);
 }
@@ -115,8 +121,14 @@ export function recordCollateralId(id: string): void {
 export function resetCollateralIds(): void {
   updateSharedState((state) => {
     state.collateralIds = { ids: [] };
+    state.collateralRecords = [];
   });
-  console.log('[sharedState] Cleared persisted collateral ids');
+  console.log('[sharedState] Cleared persisted collateral ids and records');
+}
+
+export function readCollateralRecords(): { type: string; id: string }[] {
+  const state = readSharedState();
+  return state.collateralRecords ?? [];
 }
 
 // ----------------------------------------------------------------------
