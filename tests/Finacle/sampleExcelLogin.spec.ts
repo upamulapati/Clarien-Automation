@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { getExcelPrimaryConfig, readSheet } from '../config/excelReader';
 import { login } from '../config/crmSetup';
+import { captureEvidence } from '../helpers/evidence';
 
 // =====================================================================
 // Sample Test — reads credentials from data/testdata.xlsx (Excel)
@@ -39,5 +40,12 @@ test.describe('Sample Excel Data Login', () => {
     const appSelectVisible = await appSelect.isVisible({ timeout: 30_000 }).catch(() => false);
     expect(appSelectVisible, 'appSelect must be visible after login').toBeTruthy();
     console.log('✓ Login successful using Excel-sourced credentials');
+    await captureEvidence(page, 'Excel login complete', { username: config.username, baseUrl: config.baseUrl });
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

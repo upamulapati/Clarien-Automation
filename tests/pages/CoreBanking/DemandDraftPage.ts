@@ -1,4 +1,5 @@
 import { Page, Locator, Frame } from '@playwright/test';
+import { captureEvidence } from '../../helpers/evidence';
 
 /**
  * Page object for the Finacle HDDMI (Demand Draft) screens.
@@ -272,6 +273,7 @@ export class DemandDraftPage {
           }
           await this.page.waitForTimeout(1000);
           console.log(`Selected function: ${match}`);
+          await captureEvidence(this.page, `Function selected: ${match}`, { function: match });
           return;
         }
       }
@@ -587,6 +589,8 @@ export class DemandDraftPage {
   async clickAccept() {
     await this.clickButtonByValue('Accept');
     await this.clickButtonById('Accept');
+    await this.page.waitForTimeout(1000);
+    await captureEvidence(this.page, 'Demand draft Accept clicked', {});
   }
 
   async logAllFieldLabels() {
@@ -639,12 +643,15 @@ export class DemandDraftPage {
     }
     await this.acceptExceptionPopup(10000);
     await this.page.waitForTimeout(3000);
+    await captureEvidence(this.page, 'Demand draft submit clicked', {});
   }
 
   async clickOk() {
     await this.clickButtonByValue('Ok');
     await this.clickButtonByValue('OK');
     await this.clickButtonById('Ok');
+    await this.page.waitForTimeout(1000);
+    await captureEvidence(this.page, 'Demand draft Ok clicked', {});
   }
 
   async clickGo() {
@@ -665,6 +672,7 @@ export class DemandDraftPage {
       await this.page.waitForTimeout(1000);
     }
     await this.acceptExceptionPopup(10000);
+    await captureEvidence(this.page, 'Demand draft Go clicked', {});
   }
 
   // ============ Transaction ID Capture ============

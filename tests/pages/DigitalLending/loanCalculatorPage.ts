@@ -1,4 +1,5 @@
 import { Page, Locator, expect } from "@playwright/test";
+import { captureEvidence } from "../../helpers/evidence";
 
 export class LoanCalculatorPage {
     readonly page: Page;
@@ -17,6 +18,7 @@ export class LoanCalculatorPage {
         await this.page.goto(url);
         await this.page.waitForLoadState('domcontentloaded');
         await this.page.waitForLoadState('networkidle');
+        await captureEvidence(this.page, 'Loan calculator navigated', { url });
     }
 
     private vehicleTypeTile(type: string): Locator {
@@ -30,6 +32,8 @@ export class LoanCalculatorPage {
         const tile = this.vehicleTypeTile(type);
         await tile.waitFor({ timeout: 15_000 });
         await tile.click();
+        await this.page.waitForTimeout(500);
+        await captureEvidence(this.page, `Vehicle type selected: ${type}`, { vehicleType: type });
     }
 
     private interestRateValue(expectedRate: string): Locator {
@@ -44,12 +48,14 @@ export class LoanCalculatorPage {
     async validateInterestRate(expectedRate: string) {
         await expect(this.interestRateValue(expectedRate))
             .toBeVisible({ timeout: 20_000 });
+        await captureEvidence(this.page, `Interest rate validated: ${expectedRate}`, { expectedRate });
     }
 
     async enterVehiclePrice(price: number) {
         await this.vehiclePriceInput.click();
         await this.vehiclePriceInput.fill(String(price));
         await this.page.keyboard.press('Tab');
+        await captureEvidence(this.page, `Vehicle price entered: ${price}`, { vehiclePrice: price });
     }
 
     async validateDownPayment(expectedAmount: number) {
@@ -57,6 +63,7 @@ export class LoanCalculatorPage {
         const expectedText = expectedAmount.toLocaleString('en-US');
         await expect(this.downPaymentInput)
             .toHaveValue(expectedText, { timeout: 20_000 });
+        await captureEvidence(this.page, `Down payment validated: ${expectedText}`, { expectedAmount });
     }
 
     private maxLoanLengthOption(length: string): Locator {
@@ -68,5 +75,6 @@ export class LoanCalculatorPage {
     async validateMaxLoanLength(length: string) {
         await expect(this.maxLoanLengthOption(length))
             .toBeVisible({ timeout: 20_000 });
+        await captureEvidence(this.page, `Max loan length validated: ${length}`, { maxLoanLength: length });
     }
 }

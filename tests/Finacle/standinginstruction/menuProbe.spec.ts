@@ -52,3 +52,9 @@ test('probe menu codes for standing instruction', async ({ page }) => {
 
   expect(true).toBe(false); // Force failure to keep artifacts
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

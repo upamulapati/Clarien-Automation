@@ -1256,3 +1256,9 @@ test.describe("CIF Corporate Modification Checker", () => {
     console.log(`✓ CHK_015: ${MAKER_USER} logout attempted (success=${loggedOut}).`);
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

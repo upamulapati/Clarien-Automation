@@ -5,6 +5,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { captureEvidence } from '../../helpers/evidence';
 
 const CONFIG = getPrimaryConfig();
 
@@ -13,13 +14,13 @@ const SOL_ID = '100';
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
-const DEBIT_ACCOUNT = '7010003820';   // account to be debited
+const DEBIT_ACCOUNT = '6000123165';   // account to be debited
 // Credit the dynamically created savings account if available.
 const SHARED_ACCOUNT_ID = getSharedValue('accountId');
 const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? '4600000119';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
-const AMOUNT = '1000';
+const AMOUNT = '2000';
 
 test.describe('Transfer Maintenance - Fund Savings Account', () => {
   
@@ -46,6 +47,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     // Step 1: Select "core server" from the solution drop down.
     console.log('Selecting Core Server...');
     await tmPage.selectCoreServer();
+    await captureEvidence(page, 'Step 1: Core server selected', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
 
     // Step 2: Type menu option "HTM" in finacle.
     console.log('Searching for HTM...');
@@ -69,6 +71,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Diagnostic: surface the part-transaction field ids on the posting screen.
     await tmPage.logVisibleFields('HTM posting screen');
+    await captureEvidence(page, 'Step 3: HTM form opened', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE });
 
     // Step 4-7: Debit part transaction - select Debit, enter debit a/c id and
     // amount (Tab to commit the amount), then Add.
@@ -89,6 +92,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Diagnostic: verify field values before posting
     await tmPage.logVisibleFields('HTM after credit entry');
+    await captureEvidence(page, 'Step 4-10: Part transactions entered', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
 
     // With the debit added (record 1) and the credit entered, scroll down and
     // click Post to post both part transactions.
@@ -105,6 +109,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     // "Posted successfully" confirmation screen for verification.
     const transactionId = await tmPage.getHtmTransactionId();
     console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
+    await captureEvidence(page, 'Step: Transaction posted', { transactionId, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
 
     // Persist the transaction ID so the verification spec can authorise it.
     if (transactionId) {
@@ -130,6 +135,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.clickHaclinqGo();
     const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
     console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
+    await captureEvidence(page, 'Step: HACLINQ verification complete', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT, transactionId, debitOk, creditOk });
 
     // Logout.
     console.log('Logging out...');
@@ -179,18 +185,11 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
     await tmPage.enterHtmAmount(AMOUNT, true);
 
-    // Click PostPartTran button to open Post by Part Transaction screen.
-    const finwFrame = (tmPage as any).getFinwFrame();
-    const postPartTranButton = finwFrame.locator('#PostPartTran, input[name="PostPartTran"]').first();
-    const postPartTranCount = await postPartTranButton.count().catch(() => 0);
-
-    if (postPartTranCount === 0) {
-      throw new Error('PostPartTran button not found on Add screen. Cannot verify Serial 245.');
-    }
-
-    console.log('Clicking PostPartTran button to open Post by Part Transaction screen...');
-    await postPartTranButton.click();
-    await page.waitForTimeout(3000);
+    // Click the Post by Part Transaction button to open its screen.
+    // The current credit part is the active record and is included in the list.
+    console.log('Clicking Post by Part Transaction button to open Post by Part Transaction screen...');
+    await (tmPage as any).htmClickButton('Post by Part Transaction');
+    await page.waitForTimeout(5000);
 
     // Call the Serial 245 wrapper to verify master Post checkbox selects all.
     const result = await spPage.verifyHtmPostCheckboxSelectsAll(page);
@@ -202,9 +201,10 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     expect(result.allSelected).toBe(true);
 
     console.log(`[Serial 245] Verification complete: masterPostCheckboxFound=${result.masterPostCheckboxFound}, allSelected=${result.allSelected}`);
+    await captureEvidence(page, 'Serial 245: Post checkbox verification', { masterPostCheckboxFound: result.masterPostCheckboxFound, allSelected: result.allSelected, partTransactionCheckboxesFound: result.partTransactionCheckboxesFound });
 
     // Cancel and logout.
-    await finwFrame.locator('#Cancel, input[value="Cancel"]').first().click().catch(() => {});
+    await (tmPage as any).getFinwFrame().locator('#Cancel, input[value="Cancel"]').first().click().catch(() => {});
     await page.waitForTimeout(2000);
     await homePage.logout();
   });
@@ -293,10 +293,17 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     expect(result.debitCreditOrder[0]).toBe('Debit');
 
     console.log(`[Serial 261] Verification complete: modifyScreenOpened=${result.modifyScreenOpened}, debitCreditOrder=${JSON.stringify(result.debitCreditOrder)}, firstTransactionIsDebit=${result.firstTransactionIsDebit}`);
+    await captureEvidence(page, 'Serial 261: Debit/credit order verification', { modifyScreenOpened: result.modifyScreenOpened, firstTransactionIsDebit: result.firstTransactionIsDebit, debitCreditOrder: result.debitCreditOrder });
 
     // Cancel and logout.
     await tmPage.clickHtmOk().catch(() => {});
     await page.waitForTimeout(2000);
     await homePage.logout();
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

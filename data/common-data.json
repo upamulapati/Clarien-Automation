@@ -1,6 +1,6 @@
 {
   "credentials": {
-    "username": "finacletest5",
+    "username": "finacletest14",
     "password": "clarien@1234"
   },
   "secondCredentials": {
@@ -12,7 +12,7 @@
     "password": "clarien@1234"
   },
   "verifierCredentials": {
-    "username": "finacletest1",
+    "username": "finacle-test13",
     "password": "clarien@1234"
   },
   "paymentOrderData": {
@@ -102,7 +102,7 @@
     "functionOption": "O",
     "ccy": "BMD",
     "solId": "100",
-    "cifCode": "0005000599",
+    "cifCode": "4100058368",
     "schemeCode": "SVREG"
   },
   "svregTestData": {
@@ -226,7 +226,7 @@
     "functionOption": "O",
     "ccy": "BMD",
     "solId": "100",
-    "cifCode": "0001001423",
+    "cifCode": "0005000599",
     "glSubHeadCode": "40300",
     "depositAmount": "1000",
     "depositPeriodMonths": "12",
@@ -349,7 +349,7 @@
     "transactionType": "Transfer-Customer Induced",
     "purchaserAccountType": "SB",
     "purchaserAccount": "7500001517",
-    "amount": "1000",
+    "amount": "100",
     "payee": "ABC enterprises"
   },
   "siFreezeCancel": {

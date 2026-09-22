@@ -1,10 +1,10 @@
-import { Page, Dialog } from '@playwright/test';
+﻿import { Page, Dialog } from '@playwright/test';
 import { AppConfig, CRM_TEST_DATA } from '../../config/crmTestData';
 import { CrmBasePage } from './crmBasePage';
 import { HomePage } from '../HomePages/HomePage';
 
 // =====================================================================
-// CrmEndToEndPage — shared E2E methods for both Retail and Corporate.
+// CrmEndToEndPage â€” shared E2E methods for both Retail and Corporate.
 // Retail/Corporate pages extend this with their specific tab methods.
 // =====================================================================
 
@@ -25,7 +25,7 @@ export class CrmEndToEndPage extends CrmBasePage {
     const homePage = new HomePage(this.workingPage);
     await homePage.selectCRM({ useAdmin });
     await this.workingPage.waitForTimeout(this.timeouts.medium);
-    console.log('✓ CRM selected');
+    console.log('âœ“ CRM selected');
   }
 
   // ==================== WAIT FOR CRM LOAD ====================
@@ -34,7 +34,7 @@ export class CrmEndToEndPage extends CrmBasePage {
     await this.waitForCRMLoad(this.workingPage, this.config);
     await this.workingPage.waitForTimeout(this.timeouts.medium);
     await this.ensureCRMReady(this.workingPage, this.config);
-    console.log('✓ CRM loaded and ready');
+    console.log('âœ“ CRM loaded and ready');
   }
 
   // ==================== DOC LOV HELPER (shared by both retail & corporate) ====================
@@ -49,7 +49,7 @@ export class CrmEndToEndPage extends CrmBasePage {
           if (ce) { ce.value = a.codeVal; ce.dispatchEvent(new Event('change', { bubbles: true })); }
           if (cat) { cat.value = a.catVal; cat.dispatchEvent(new Event('change', { bubbles: true })); }
         }, { code: codeFieldName, cat: catFieldName || '', codeVal: fallbackCode || searchValue, catVal: searchValue });
-        console.log(`✓ ${fieldLabel}: ${searchValue} (fallback)`);
+        console.log(`âœ“ ${fieldLabel}: ${searchValue} (fallback)`);
       }
       return;
     }
@@ -64,7 +64,7 @@ export class CrmEndToEndPage extends CrmBasePage {
           if (ce) { ce.value = a.codeVal; ce.dispatchEvent(new Event('change', { bubbles: true })); }
           if (cat) { cat.value = a.catVal; cat.dispatchEvent(new Event('change', { bubbles: true })); }
         }, { code: codeFieldName, cat: catFieldName || '', codeVal: fallbackCode || searchValue, catVal: searchValue });
-        console.log(`✓ ${fieldLabel}: ${searchValue} (no LOV popup)`);
+        console.log(`âœ“ ${fieldLabel}: ${searchValue} (no LOV popup)`);
       }
       return;
     }
@@ -92,7 +92,7 @@ export class CrmEndToEndPage extends CrmBasePage {
       }, { code: codeFieldName, cat: catFieldName || '', codeVal: fallbackCode || searchValue, catVal: searchValue });
     }
     if (!popup.isClosed()) await popup.waitForTimeout(this.timeouts.short).catch(() => {});
-    console.log(`✓ ${fieldLabel}: ${searchValue}`);
+    console.log(`âœ“ ${fieldLabel}: ${searchValue}`);
   }
 
   // ==================== ADDRESS LOV HELPER (shared) ====================
@@ -100,13 +100,13 @@ export class CrmEndToEndPage extends CrmBasePage {
     if (addrPopup.isClosed()) return;
     const searchBtn = at.locator(`input[name="${btnName}"]`);
     if (!(await searchBtn.isVisible({ timeout: 3000 }).catch(() => false))) {
-      console.log(`  ⚠ ${label} LOV button not found: ${btnName}`);
+      console.log(`  âš  ${label} LOV button not found: ${btnName}`);
       return;
     }
     const lovPP = addrPopup.context().waitForEvent('page', { timeout: 15000 }).catch(() => null);
     await searchBtn.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
     const lov = await lovPP;
-    if (!lov || lov.isClosed()) { console.log(`  ⚠ No LOV popup for ${label}`); return; }
+    if (!lov || lov.isClosed()) { console.log(`  âš  No LOV popup for ${label}`); return; }
     lov.on('dialog', async (d) => { await d.accept().catch(() => {}); });
     await this.waitForPopupReady(lov, label + ' LOV');
 
@@ -167,14 +167,14 @@ export class CrmEndToEndPage extends CrmBasePage {
 
     // Strategy 1: Exact match on searchValue
     if (!selected && !lov.isClosed()) selected = await trySelectValue(searchValue);
-    if (selected) { console.log(`  ✓ Selected ${label}: "${searchValue}"`); }
+    if (selected) { console.log(`  âœ“ Selected ${label}: "${searchValue}"`); }
 
-    // Strategy 2: Partial match — find a value containing the searchValue
+    // Strategy 2: Partial match â€” find a value containing the searchValue
     if (!selected && !lov.isClosed() && lovValues.length > 0) {
       const partial = lovValues.find(v => v.toUpperCase().includes(searchValue.toUpperCase()));
       if (partial) {
         selected = await trySelectValue(partial);
-        if (selected) console.log(`  ✓ Selected ${label} (partial match): "${partial}"`);
+        if (selected) console.log(`  âœ“ Selected ${label} (partial match): "${partial}"`);
       }
     }
 
@@ -190,16 +190,16 @@ export class CrmEndToEndPage extends CrmBasePage {
       // Try partial match
       if (!selected && !lov.isClosed()) {
         const partial = lovValues.find(v => v.toUpperCase().includes(searchValue.toUpperCase()));
-        if (partial) { selected = await trySelectValue(partial); if (selected) console.log(`  ✓ Selected ${label} (partial): "${partial}"`); }
+        if (partial) { selected = await trySelectValue(partial); if (selected) console.log(`  âœ“ Selected ${label} (partial): "${partial}"`); }
       }
       // Fallback: select first data value
       if (!selected && !lov.isClosed() && lovValues.length > 0) {
         selected = await trySelectValue(lovValues[0]);
-        if (selected) console.log(`  ✓ Selected ${label} (first available): "${lovValues[0]}"`);
+        if (selected) console.log(`  âœ“ Selected ${label} (first available): "${lovValues[0]}"`);
       }
     }
 
-    if (!selected) console.log(`  ⚠ ${label} LOV: could not select any value`);
+    if (!selected) console.log(`  âš  ${label} LOV: could not select any value`);
     if (!lov.isClosed()) await lov.close().catch(() => {});
     if (!addrPopup.isClosed()) await addrPopup.waitForTimeout(500).catch(() => {});
   }
@@ -208,10 +208,22 @@ export class CrmEndToEndPage extends CrmBasePage {
   async submitForm(): Promise<string> {
     console.log('\n=== Submitting Form ===');
     const page = this.workingPage;
+    await this.closeUnexpectedPopups(page);
 
     let clicked = false;
     // Prefer Submit in buttonFrm first (correct frame for form submission)
-    const bf = page.frame({ name: 'buttonFrm' });
+    let bf = page.frame({ name: 'buttonFrm' });
+    if (!bf) bf = this.page.frame({ name: 'buttonFrm' });
+    if (!bf) {
+      for (const host of [page, this.page]) {
+        if (!host || host.isClosed()) continue;
+        for (const f of host.frames()) {
+          const u = f.url().toLowerCase();
+          if (f.name() === 'buttonFrm' || u.includes('cifshowbuttons') || u.includes('showbuttons') || u.includes('button')) { bf = f; break; }
+        }
+        if (bf) break;
+      }
+    }
     if (bf) {
       // Log Submit button attributes for diagnosis
       const btnInfo = await bf.evaluate(() => {
@@ -352,6 +364,8 @@ export class CrmEndToEndPage extends CrmBasePage {
         } catch (_) {}
       }
 
+      await this.closeUnexpectedPopups(page);
+
       // Try calling selectProcess() directly from buttonFrm
       try {
         const submitResult = await bf.evaluate(() => {
@@ -369,13 +383,14 @@ export class CrmEndToEndPage extends CrmBasePage {
           }
         });
         clicked = true;
-        console.log(`✓ Submit via buttonFrm: ${submitResult}`);
+        console.log(`âœ“ Submit via buttonFrm: ${submitResult}`);
       } catch (e: any) {
-        console.log(`  ⚠ buttonFrm evaluate error: ${e.message?.substring(0, 100)}`);
+        console.log(`  âš  buttonFrm evaluate error: ${e.message?.substring(0, 100)}`);
       }
     }
     if (!clicked) {
-      for (const f of page.frames()) { const btn = f.locator('input[value="Submit"]').first(); if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) { await btn.click(); clicked = true; console.log('✓ Clicked Submit (frame: ' + f.name() + ')'); break; } }
+      await this.closeUnexpectedPopups(page);
+      for (const f of page.frames()) { const btn = f.locator('input[value="Submit"]').first(); if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) { await btn.click(); clicked = true; console.log('âœ“ Clicked Submit (frame: ' + f.name() + ')'); break; } }
     }
 
     // Listen for JS errors
@@ -414,7 +429,7 @@ export class CrmEndToEndPage extends CrmBasePage {
       } catch (_) {}
     }
 
-    // Extract CIF ID from dialog messages — try multiple patterns
+    // Extract CIF ID from dialog messages â€” try multiple patterns
     const extractCifFromMsg = (msg: string): string => {
       // Pattern 1: "CIF ID: 4100058363" or "CIF 4100058363"
       const m1 = msg.match(/CIF\s*(?:ID)?\s*[:?\s]*(\d{5,})/i);
@@ -454,12 +469,12 @@ export class CrmEndToEndPage extends CrmBasePage {
 
     let cifId = '';
     const msgCountBefore = this.lastDialogMessages.length;
-    // Poll for CIF ID in dialog messages — reduced to 5 attempts (10s) since PS popup may also contain it
+    // Poll for CIF ID in dialog messages â€” reduced to 5 attempts (10s) since PS popup may also contain it
     for (let attempt = 0; attempt < 15 && !cifId; attempt++) {
       await page.waitForTimeout(2000);
       for (const msg of this.lastDialogMessages.slice(-15)) {
         const id = extractCifFromMsg(msg);
-        if (id) { cifId = id; console.log(`  CIF ID from dialog: "${msg.substring(0, 120)}" → ${cifId}`); break; }
+        if (id) { cifId = id; console.log(`  CIF ID from dialog: "${msg.substring(0, 120)}" â†’ ${cifId}`); break; }
       }
       // Also check formSaveFrame and all frame inputs each iteration
       if (!cifId) {
@@ -540,131 +555,16 @@ export class CrmEndToEndPage extends CrmBasePage {
     if (jsErrors.length > 0) console.log(`  JS errors after submit: ${jsErrors.join('; ')}`);
 
     this._cifId = cifId;
-    if (cifId) console.log(`✓✓ CIF ID CAPTURED: ${cifId}`);
-    else console.log('⚠ CIF ID not captured');
+    if (cifId) console.log(`âœ“âœ“ CIF ID CAPTURED: ${cifId}`);
+    else console.log('âš  CIF ID not captured');
     await page.screenshot({ path: 'test-results-temp/after-submit.png' }).catch(() => {});
     return cifId;
-  }
-
-  // ==================== HANDLE PROCESS SELECTION ====================
-  async handleProcessSelection(): Promise<void> {
-    console.log('\n=== Process Selection ===');
-    const page = this.workingPage;
-
-    // Close leftover LOV/lookup popups that might interfere
-    for (const p of page.context().pages()) {
-      if (p !== page && !p.isClosed()) {
-        const u = p.url();
-        if (u.includes('Lookup') || u.includes('lookup') || u.includes('LookupforCategory')) {
-          console.log(`  Closing leftover popup: ${u.substring(u.lastIndexOf('/') + 1).substring(0, 60)}`);
-          await p.close().catch(() => {});
-        }
-      }
-    }
-
-    let psPopup: Page | null = null;
-    for (const p of page.context().pages()) { if (p !== page && !p.isClosed()) { try { if (p.url().includes('CIFProcessSelection') || p.url().includes('ProcessSelection')) { psPopup = p; break; } } catch (_) {} } }
-    if (!psPopup) { try { psPopup = await page.waitForEvent('popup', { timeout: this.timeouts.long15 }); } catch (_) { for (const p of page.context().pages()) { if (p !== page && !p.isClosed() && !p.url().includes('Lookup')) { psPopup = p; break; } } } }
-
-    if (!psPopup || psPopup.isClosed()) { console.log('⚠ Process Selection popup not found'); return; }
-
-    console.log(`  PS popup URL: ${psPopup.url().substring(psPopup.url().lastIndexOf('/') + 1).substring(0, 80)}`);
-    psPopup.on('dialog', async (d) => { const msg = d.message(); this.lastDialogMessages.push(msg); console.log(`📢 PS popup dialog: "${msg.substring(0, 200)}"`); await d.accept().catch(() => {}); });
-    await psPopup.waitForLoadState('domcontentloaded', { timeout: this.timeouts.long15 }).catch(() => {});
-    await psPopup.waitForTimeout(this.timeouts.medium);
-
-    // Try to extract CIF ID from PS popup content
-    if (!this._cifId) {
-      for (const f of psPopup.frames()) {
-        try {
-          const text = await f.evaluate(() => document.body?.innerText || '').catch(() => '');
-          if (text.length > 5) {
-            // Look for CIF/Entity ID patterns
-            const m = text.match(/(?:CIF|Entity|Customer)\s*(?:ID|Id|id)?\s*[:\s-]*(\d{5,})/i) || text.match(/\b([46]\d{9})\b/);
-            if (m) { this._cifId = m[1]; console.log(`  ✓ CIF ID from PS popup: ${this._cifId}`); break; }
-          }
-        } catch (_) {}
-      }
-    }
-
-    // Wait for Save Process Selection button
-    let ready = false;
-    for (let i = 0; i < 10 && !ready; i++) {
-      for (const f of psPopup.frames()) { const btn = f.locator('input[value*="Save Process Selection"]').first(); if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { ready = true; break; } }
-      if (!ready) await psPopup.waitForTimeout(this.timeouts.short);
-    }
-
-    // Click Save Process Selection
-    let saved = false;
-    for (const f of psPopup.frames()) { const btn = f.locator('input[value*="Save Process Selection"]').first(); if (await btn.isVisible({ timeout: 5000 }).catch(() => false)) { await btn.click(); saved = true; console.log('✓ Clicked Save Process Selection'); break; } }
-    if (!saved) {
-      for (const f of psPopup.frames()) {
-        const clicked = await f.evaluate(() => { for (const b of Array.from(document.querySelectorAll('input[type="button"], input[type="submit"], button'))) { const v = (b.getAttribute('value') || b.textContent || '').trim(); if (v.includes('Save Process Selection')) { (b as HTMLElement).click(); return true; } } return false; }).catch(() => false);
-        if (clicked) { saved = true; console.log('✓ Save Process Selection (evaluate)'); break; }
-      }
-    }
-
-    // Wait for confirmation
-    for (let attempt = 0; attempt < 15 && !this._processSaveConfirmed; attempt++) {
-      await page.waitForTimeout(2000);
-      for (const msg of this.lastDialogMessages.slice(-10)) {
-        if (msg.toLowerCase().includes('process was saved successfully') || msg.toLowerCase().includes('saved successfully')) {
-          this._processSaveConfirmed = true; console.log(`✓ CONFIRMED: "${msg}"`); break;
-        }
-      }
-      if (this._processSaveConfirmed) break;
-      if (psPopup.isClosed()) {
-        for (const msg of this.lastDialogMessages.slice(-10)) { if (msg.toLowerCase().includes('saved successfully')) { this._processSaveConfirmed = true; break; } }
-        break;
-      }
-    }
-
-    // Close popup if still open
-    if (!psPopup.isClosed()) {
-      try {
-        for (const f of psPopup.frames()) { const closeBtn = f.locator('input[value="Close"]').first(); if (await closeBtn.isVisible({ timeout: 3000 }).catch(() => false)) { await closeBtn.click(); break; } }
-        await psPopup.waitForTimeout(this.timeouts.short).catch(() => {});
-        if (!psPopup.isClosed()) await psPopup.close().catch(() => {});
-      } catch (_) {}
-    }
-
-    if (
-      saved &&
-      !this._processSaveConfirmed
-    ) {
-      console.log(
-        '⚠ Save Process Selection was clicked, ' +
-        'but a success confirmation was not received'
-      );
-    }
-
-    // Last attempt to capture CIF ID from all dialogs
-    if (!this._cifId) {
-      const extractCifFromMsg = (msg: string): string => {
-        const m1 = msg.match(/CIF\s*(?:ID)?\s*[:?\s]*(\d{5,})/i);
-        if (m1) return m1[1];
-        const m2 = msg.match(/Entity\s*(?:ID)?\s*[:?\s]*(\d{5,})/i);
-        if (m2) return m2[1];
-        if (/(?:created|saved)\s+successfully/i.test(msg)) { const m3 = msg.match(/\b(\d{10})\b/); if (m3) return m3[1]; }
-        const m4 = msg.match(/\b([46]\d{9})\b/);
-        if (m4) return m4[1];
-        return '';
-      };
-      for (const msg of this.lastDialogMessages.slice(-20)) {
-        const id = extractCifFromMsg(msg);
-        if (id) { this._cifId = id; console.log(`  ✓ CIF ID from post-PS dialog: ${this._cifId}`); break; }
-      }
-    }
-
-    console.log(`✓ Process Selection: ${this._processSaveConfirmed ? 'confirmed' : 'pending'}`);
-    await page.waitForTimeout(this.timeouts.short3);
-    await page.screenshot({ path: 'test-results-temp/final-state.png' }).catch(() => {});
   }
 
   // ==================== LOGOUT ====================
   async doLogout(): Promise<void> {
     console.log('\n=== Logging out ===');
     await new HomePage(this.workingPage).logout();
-    console.log('✓ Logout complete');
+    console.log('âœ“ Logout complete');
   }
 }

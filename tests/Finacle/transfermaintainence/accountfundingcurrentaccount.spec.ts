@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -14,7 +14,7 @@ const SOL_ID = '100';
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
-const DEBIT_ACCOUNT = '7010003820';   // account to be debited
+const DEBIT_ACCOUNT = '6000123165';   // account to be debited
 const CREDIT_ACCOUNT = '4600000119';  // SB/CA account to be credited
 const AMOUNT = '1000';
 
@@ -122,4 +122,10 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   // Logout.
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

@@ -11,3 +11,9 @@ test(`${SCREEN_CODE} - term deposit credit frozen closure`, async ({ page }) => 
   expect(result.status).toBeTruthy();
   console.log('Credit frozen closure status:', result.status);
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

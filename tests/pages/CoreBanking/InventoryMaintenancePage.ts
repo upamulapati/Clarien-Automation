@@ -1,4 +1,5 @@
 import { Page, Frame, Locator } from '@playwright/test';
+import { captureEvidence } from '../../helpers/evidence';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -534,6 +535,7 @@ export class InventoryMaintenancePage {
           }
           await this.page.waitForTimeout(1000);
           console.log(`Selected function: ${match}`);
+          await captureEvidence(this.page, `Function selected: ${match}`, { function: match });
           return;
         }
       }
@@ -568,6 +570,7 @@ export class InventoryMaintenancePage {
     await this.clickButtonByValue('Go');
     await this.clickButtonByValue('go');
     await this.page.waitForTimeout(2000);
+    await captureEvidence(this.page, 'Inventory Go clicked', {});
   }
 
   async clickAccept() {
@@ -588,6 +591,7 @@ export class InventoryMaintenancePage {
       console.log(`Could not click Accept: ${e}`);
     }
     await this.page.waitForTimeout(3000);
+    await captureEvidence(this.page, 'Inventory Accept clicked', {});
   }
 
   async selectFromLocationClass(value: string) {
@@ -775,6 +779,7 @@ export class InventoryMaintenancePage {
         await submit.scrollIntoViewIfNeeded();
         await submit.click();
         console.log('Clicked submit button');
+        await captureEvidence(this.page, 'Inventory submit clicked', {});
         return;
       }
       // Fallback: HIMC uses 'Accept' as the transaction submit on some screens.
@@ -786,6 +791,7 @@ export class InventoryMaintenancePage {
         await accept.scrollIntoViewIfNeeded();
         await accept.click();
         console.log('Clicked Accept as submit fallback');
+        await captureEvidence(this.page, 'Inventory submit (Accept fallback)', {});
         return;
       }
       await this.clickButtonByValue('Submit');

@@ -977,3 +977,9 @@ test.describe("CIF Corporate Modification Maker - Phone (TC_009)", () => {
     console.log(`✓ CIF Corporate Modification Maker (Phone) flow completed: WORK PHONE 1 updated, submitted, and record shown in grid for CIF ${CIF_ID}.`);
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

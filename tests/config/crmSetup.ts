@@ -1,6 +1,7 @@
 import { Page, Dialog } from '@playwright/test';
 import { AppConfig } from './crmTestData';
 import { LoginPage } from '../pages/HomePages/LoginPage';
+import { captureEvidence } from '../helpers/evidence';
 
 // =====================================================================
 // Global logout state flag
@@ -32,6 +33,7 @@ export async function login(page: Page, config: AppConfig) {
     const appSelectVisible = await lf.locator('#appSelect').isVisible({ timeout: 5000 }).catch(() => false);
     if (appSelectVisible) {
       console.log('✓ appSelect visible after login');
+      await captureEvidence(page, 'CRM login complete', { username: config.username, baseUrl: config.baseUrl });
       return;
     }
 
@@ -42,6 +44,7 @@ export async function login(page: Page, config: AppConfig) {
     const appSelectAfter = await lf.locator('#appSelect').isVisible({ timeout: 10000 }).catch(() => false);
     if (appSelectAfter) {
       console.log('✓ appSelect visible after session reset');
+      await captureEvidence(page, 'CRM login complete (session reset)', { username: config.username, baseUrl: config.baseUrl });
       return;
     }
 

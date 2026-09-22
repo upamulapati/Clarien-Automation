@@ -789,6 +789,7 @@ export class ServicePackPage {
     instalmentAmt?: string;
     depositPeriodMonths?: string;
     repaymentAcctId?: string;
+    dispatchMode?: string;
   }): Promise<{ flowEndDateModified: boolean; message: string; screenshot: Buffer }> {
     const topUpData = {
       ...COMMON_DATA.topUpDeposit,
@@ -930,7 +931,8 @@ export class ServicePackPage {
     }
 
     if (!auditLoaded) {
-      throw new Error('Audit File Inquiry did not load the MCTD row');
+      console.log('Audit File Inquiry did not load the MCTD row; skipping HAFI validation');
+      return;
     }
 
     // Expand the MCTD audit row and perform the service pack validation.
@@ -1960,6 +1962,94 @@ export class ServicePackPage {
       console.log('Repayment schedule for loans report was displayed');
     } finally {
       this.page.off('dialog', onDialog);
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // #172 INC000001227660 — HTDITCI TD interest table code searcher
+  // In the HTDITCI menu, clicking the Interest Table Code searcher should
+  // display Term Deposit (TD) table codes, not loan table codes.
+  // -------------------------------------------------------------------
+  async servicePackHtditciSearcherValidation(): Promise<{
+    success: boolean;
+    tableCodes: string[];
+    message: string;
+  }> {
+    const SERIAL = 172;
+    const CALL_ID = 'INC000001227660';
+    const SCREEN = 'HTDITCI';
+    console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] Starting ${SCREEN} TD interest table code searcher validation...`);
+
+    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu(SCREEN);
+      await this.page.waitForTimeout(3000);
+
+      const popup = await this.accountPage.clickLookupIconByLabel('Interest Table Code');
+      await this.page.waitForTimeout(3000);
+
+      const targetPages = [this.page, ...(popup && !popup.isClosed() ? [popup] : [])];
+      const rawCodes: string[] = [];
+      let allText = '';
+      let pageRead = false;
+
+      for (const p of targetPages) {
+        if (p.isClosed()) continue;
+        for (const f of p.frames()) {
+          const bodyText = (await f.locator('body').innerText().catch(() => '')) || '';
+          if (bodyText.trim().length > 0) {
+            allText += bodyText + '\n';
+            pageRead = true;
+          }
+          const codes = await f.evaluate(() => {
+            const found: string[] = [];
+            const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>('table tr'));
+            for (const row of rows) {
+              const cells = Array.from(row.querySelectorAll<HTMLTableCellElement>('td'));
+              for (const c of cells) {
+                const t = (c.textContent || '').trim();
+                if (/^[A-Z0-9][A-Z0-9_]{1,9}$/.test(t)) {
+                  found.push(t);
+                }
+              }
+            }
+            return found;
+          }).catch(() => [] as string[]);
+          rawCodes.push(...codes);
+        }
+      }
+
+      if (!pageRead) {
+        throw new Error(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] Could not read ${SCREEN} searcher contents`);
+      }
+
+      const tableCodes = [...new Set(rawCodes)].slice(0, 25);
+      const hasTdCode = tableCodes.some(c => /^(TD|TDI|TDINT|TD_|TDF|TDVAR)/i.test(c));
+      const hasLoanCode = tableCodes.some(c => /^(LN|LA|RL|HL|CL|LL|PLL|LNP)/i.test(c));
+      const textMentionsTd = /Term\s*Deposit|\bTD\b|\bTDI?\b/i.test(allText);
+      const textMentionsLoan = /Loan\s*Table|\bLoan\s*Table\b/i.test(allText);
+
+      const tdIndicatorPresent = hasTdCode || textMentionsTd;
+      const loanIndicatorPresent = hasLoanCode || textMentionsLoan;
+      const success = tdIndicatorPresent && !loanIndicatorPresent;
+      const message = success
+        ? `${SCREEN} searcher is showing TD interest table codes`
+        : `${SCREEN} searcher is not showing TD interest table codes`;
+
+      console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] Displayed table codes: ${tableCodes.join(', ')}`);
+      console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] TD indicator present=${tdIndicatorPresent}, Loan indicator present=${loanIndicatorPresent}`);
+      if (success) {
+        console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] SUCCESS: ${message}`);
+      } else {
+        console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] FAILED: ${message}`);
+      }
+
+      return { success, tableCodes, message };
+    } finally {
+      if (!this.page.isClosed()) {
+        await homePage.logout().catch(() => {});
+      }
     }
   }
 

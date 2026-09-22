@@ -3,11 +3,11 @@
     "baseUrl": "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp",
     "credentials": {
       "primary": {
-        "username": "finacletest5",
+        "username": "finacletest14",
         "password": "clarien@1234"
       },
       "verification": {
-        "username": "finacletest1",
+        "username": "finacle-test13",
         "password": "clarien@1234"
       }
     },
@@ -56,7 +56,7 @@
         "preferredAddressType": "Mailing",
         "addressType": "Mailing",
         "addressLabel": "HAMILTON",
-        "startDate": "27/03/2026",
+        "startDate": "01/01/2020",
         "streetNo": "45",
         "streetName": "Main Street",
         "houseNo": "123",
@@ -242,7 +242,7 @@
         "preferredAddressType": "Mailing",
         "addressType": "Mailing",
         "addressLabel": "HAMILTON",
-        "startDate": "27/03/2026",
+        "startDate": "01/01/2020",
         "streetNo": "45",
         "streetName": "Main Street",
         "houseNo": "123",

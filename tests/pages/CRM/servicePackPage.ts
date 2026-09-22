@@ -161,10 +161,11 @@ export class ServicePackPage extends CrmBasePage {
 
       if (vals.codeVal || vals.dispVal) {
         result.codeValue = vals.codeVal;
-        result.displayValue = vals.dispVal;
+        // If the Cat_ display input is empty, treat the non-Cat_ code value as the visible text.
+        result.displayValue = vals.dispVal || vals.codeVal;
         // Display text should be descriptive (more than a 2-char code) and not "undefined"
-        result.hasDisplayText = vals.dispVal.length > 2 && vals.dispVal !== 'undefined';
-        console.log(`[SP#3] Nationality code="${vals.codeVal}", display="${vals.dispVal}", hasDisplayText=${result.hasDisplayText}`);
+        result.hasDisplayText = result.displayValue.length > 2 && result.displayValue !== 'undefined';
+        console.log(`[SP#3] Nationality code="${vals.codeVal}", display="${result.displayValue}", hasDisplayText=${result.hasDisplayText}`);
         return result;
       }
     }
@@ -627,44 +628,48 @@ export class ServicePackPage extends CrmBasePage {
       allSelected: false
     };
 
-    for (const frame of workingPage.frames()) {
-      const finwFrame = frame.name() === 'FINW' ? frame : null;
-      if (!finwFrame) continue;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      for (const frame of workingPage.frames()) {
+        const finwFrame = frame.name() === 'FINW' ? frame : null;
+        if (!finwFrame) continue;
 
-      const masterPostCheckbox = finwFrame.locator('#chkPgLvlPostSelector, input[name="ptranposter.chkPgLvlPostSelector"]').first();
-      const masterCount = await masterPostCheckbox.count().catch(() => 0);
+        const masterPostCheckbox = finwFrame.locator('#chkPgLvlPostSelector, input[name="ptranposter.chkPgLvlPostSelector"]').first();
+        const masterCount = await masterPostCheckbox.count().catch(() => 0);
 
-      if (masterCount > 0) {
-        result.masterPostCheckboxFound = true;
-        const wasChecked = await masterPostCheckbox.isChecked().catch(() => false);
+        if (masterCount > 0) {
+          result.masterPostCheckboxFound = true;
+          const wasChecked = await masterPostCheckbox.isChecked().catch(() => false);
 
-        if (!wasChecked) {
-          await masterPostCheckbox.click();
-          await workingPage.waitForTimeout(1000);
-          result.masterPostCheckboxClicked = true;
-        } else {
-          result.masterPostCheckboxClicked = true;
-        }
-
-        const partCheckboxes = finwFrame.locator('input[type="checkbox"][id="arrChkPostIndFlg"]');
-        const partCount = await partCheckboxes.count().catch(() => 0);
-        result.partTransactionCheckboxesFound = partCount;
-
-        let enabledCount = 0;
-        for (let i = 0; i < partCount; i++) {
-          const isDisabled = await partCheckboxes.nth(i).isDisabled().catch(() => true);
-          if (!isDisabled) {
-            enabledCount++;
-            const isChecked = await partCheckboxes.nth(i).isChecked().catch(() => false);
-            if (isChecked) result.partTransactionCheckboxesSelected++;
+          if (!wasChecked) {
+            await masterPostCheckbox.click();
+            await workingPage.waitForTimeout(1000);
+            result.masterPostCheckboxClicked = true;
+          } else {
+            result.masterPostCheckboxClicked = true;
           }
+
+          const partCheckboxes = finwFrame.locator('input[type="checkbox"][id="arrChkPostIndFlg"]');
+          const partCount = await partCheckboxes.count().catch(() => 0);
+          result.partTransactionCheckboxesFound = partCount;
+
+          let enabledCount = 0;
+          for (let i = 0; i < partCount; i++) {
+            const isDisabled = await partCheckboxes.nth(i).isDisabled().catch(() => true);
+            if (!isDisabled) {
+              enabledCount++;
+              const isChecked = await partCheckboxes.nth(i).isChecked().catch(() => false);
+              if (isChecked) result.partTransactionCheckboxesSelected++;
+            }
+          }
+
+          result.allSelected = enabledCount > 0 && result.partTransactionCheckboxesSelected === enabledCount;
+
+          console.log(`[SP#15] masterPostCheckboxFound=${result.masterPostCheckboxFound}, masterPostCheckboxClicked=${result.masterPostCheckboxClicked}, partTransactionCheckboxesFound=${result.partTransactionCheckboxesFound}, partTransactionCheckboxesSelected=${result.partTransactionCheckboxesSelected}, allSelected=${result.allSelected}`);
+          return result;
         }
-
-        result.allSelected = enabledCount > 0 && result.partTransactionCheckboxesSelected === enabledCount;
-
-        console.log(`[SP#15] masterPostCheckboxFound=${result.masterPostCheckboxFound}, masterPostCheckboxClicked=${result.masterPostCheckboxClicked}, partTransactionCheckboxesFound=${result.partTransactionCheckboxesFound}, partTransactionCheckboxesSelected=${result.partTransactionCheckboxesSelected}, allSelected=${result.allSelected}`);
-        return result;
       }
+
+      await workingPage.waitForTimeout(1000);
     }
 
     console.log('[SP#15] Master Post checkbox not found in FINW frame');

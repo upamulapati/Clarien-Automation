@@ -10,6 +10,7 @@ import * as path from 'path';
 
 const DATA_DIR = path.resolve(__dirname, '../../data');
 export const SHARED_STATE_FILE = path.join(DATA_DIR, 'shared-state.json');
+const CIF_POOL_FILE = path.join(DATA_DIR, 'cif-pool.json');
 
 export interface CifEntry {
   cifId: string;
@@ -33,6 +34,8 @@ export interface SharedState {
     topUpDeposit?: string;
     topUpDepositPartial?: string;
   };
+  loanAccountNumber?: string;
+  [key: string]: any;
 }
 
 export function readSharedState(): SharedState {
@@ -48,12 +51,29 @@ export function readSharedState(): SharedState {
   }
 }
 
-export function writeSharedState(state: SharedState): void {
+export function writeSharedState(state: Partial<SharedState>): void {
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(SHARED_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    const current = readSharedState();
+    const merged: Record<string, any> = { ...current, ...state };
+    // merge nested objects (cifs, collateralIds, etc.) instead of overwriting them
+    for (const key of Object.keys(state)) {
+      const newVal = state[key];
+      const curVal = (current as any)[key];
+      if (
+        newVal &&
+        typeof newVal === 'object' &&
+        !Array.isArray(newVal) &&
+        curVal &&
+        typeof curVal === 'object' &&
+        !Array.isArray(curVal)
+      ) {
+        merged[key] = { ...curVal, ...newVal };
+      }
+    }
+    fs.writeFileSync(SHARED_STATE_FILE, JSON.stringify(merged, null, 2), 'utf8');
   } catch (e) {
     console.log(`[sharedState] Could not write ${SHARED_STATE_FILE}: ${e}`);
   }
@@ -70,7 +90,31 @@ export function updateSharedState(updater: (state: SharedState) => void): void {
 // ----------------------------------------------------------------------
 export type CifSection = 'retail' | 'corporate';
 
+function readCifPool(): Record<CifSection, CifEntry | undefined> {
+  if (!fs.existsSync(CIF_POOL_FILE)) return {} as Record<CifSection, CifEntry | undefined>;
+  try {
+    return JSON.parse(fs.readFileSync(CIF_POOL_FILE, 'utf8')) as Record<CifSection, CifEntry | undefined>;
+  } catch (e) {
+    return {} as Record<CifSection, CifEntry | undefined>;
+  }
+}
+
+function writeCifPool(section: CifSection, cifId: string): void {
+  const pool = readCifPool();
+  pool[section] = { cifId, savedAt: new Date().toISOString() };
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  fs.writeFileSync(CIF_POOL_FILE, JSON.stringify(pool, null, 2), 'utf8');
+}
+
 export function getCif(section: CifSection): string | undefined {
+  // cif-pool.json is the persistent, user-editable source of truth.
+  // saveCif() always keeps this in sync, so it takes precedence over transient shared-state.
+  const pool = readCifPool();
+  if (pool[section]?.cifId) {
+    return pool[section].cifId;
+  }
   const state = readSharedState();
   return state.cifs?.[section]?.cifId;
 }
@@ -81,7 +125,8 @@ export function saveCif(section: CifSection, cifId: string): void {
     if (!state.cifs) state.cifs = {};
     state.cifs[section] = { cifId, savedAt: new Date().toISOString() };
   });
-  console.log(`[sharedState] Saved ${section} CIF ID "${cifId}"`);
+  writeCifPool(section, cifId);
+  console.log(`[sharedState] Saved ${section} CIF ID "${cifId}" (persisted to cif-pool)`);
 }
 
 // ----------------------------------------------------------------------
@@ -240,10 +285,33 @@ export function saveClosedAccountId(type: ClosedAccountType, accountId: string):
 }
 
 // ----------------------------------------------------------------------
+// Loan account helpers
+// ----------------------------------------------------------------------
+export function readLatestLoanAccount(): string | undefined {
+  const state = readSharedState();
+  return state.loanAccountNumber ?? (state as any).loanAccountId;
+}
+
+export function saveLoanAccount(accountNumber: string): void {
+  updateSharedState((state) => {
+    state.loanAccountNumber = accountNumber;
+  });
+  console.log(`[sharedState] Saved loan account number: ${accountNumber}`);
+}
+
+// ----------------------------------------------------------------------
 // Generic helpers for ad-hoc shared values
 // ----------------------------------------------------------------------
-export function getSharedValue<T>(getter: (state: SharedState) => T | undefined): T | undefined {
-  return getter(readSharedState());
+export function getSharedValue<T = any>(key: string): T | undefined;
+export function getSharedValue<T = any>(getter: (state: SharedState) => T | undefined): T | undefined;
+export function getSharedValue<T = any>(
+  keyOrGetter: string | ((state: SharedState) => T | undefined)
+): T | undefined {
+  const state = readSharedState();
+  if (typeof keyOrGetter === 'function') {
+    return keyOrGetter(state);
+  }
+  return (state as any)[keyOrGetter] as T | undefined;
 }
 
 export function setSharedValue<T>(

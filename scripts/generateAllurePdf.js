@@ -7,6 +7,7 @@ const OUTPUT_DIR = path.resolve('reports');
 const OUTPUT_HTML = path.join(OUTPUT_DIR, 'allure-pdf.html');
 const OUTPUT_PDF = path.join(OUTPUT_DIR, 'allure-report.pdf');
 const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
+const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 
 const SP_REGEX = /\[SP#\d+\]/i;
 
@@ -22,6 +23,52 @@ function escapeHtml(text) {
 function getLabel(result, name) {
   const label = (result.labels || []).find(l => l.name === name);
   return label ? label.value : '';
+}
+
+function getPackageFile(result) {
+  const label = getLabel(result, 'package') || getLabel(result, 'suite') || '';
+  if (!label) return '';
+  if (label.includes('\\')) {
+    return 'tests/' + label.split('\\').join('/');
+  }
+  const parts = label.split('.');
+  if (parts.length >= 2) {
+    const fileName = parts.slice(-2).join('.');
+    return 'tests/' + parts.slice(0, -2).join('/') + '/' + fileName;
+  }
+  return 'tests/' + label;
+}
+
+function resolveSuiteName(results) {
+  let testOrder;
+  try {
+    testOrder = require(TEST_ORDER_FILE);
+  } catch (e) {
+    return 'Allure';
+  }
+  const resultFiles = new Set(results.map(getPackageFile).filter(Boolean));
+  if (!resultFiles.size) return 'Allure';
+  let best = 'Allure';
+  let bestLen = Infinity;
+  for (const [suiteName, files] of Object.entries(testOrder)) {
+    if (Array.isArray(files) && [...resultFiles].every(f => files.includes(f))) {
+      if (files.length < bestLen) {
+        best = suiteName;
+        bestLen = files.length;
+      }
+    }
+  }
+  if (best !== 'Allure') return best;
+  const counts = {};
+  for (const f of resultFiles) {
+    const pathParts = f.split('/');
+    if (pathParts.length >= 3) {
+      const folder = pathParts[2];
+      counts[folder] = (counts[folder] || 0) + 1;
+    }
+  }
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return entries.length ? entries[0][0] : 'Allure';
 }
 
 function formatDuration(start, stop) {
@@ -53,77 +100,68 @@ function readAttachment(source) {
   }
 }
 
-function renderSteps(steps, level = 0) {
-  if (!steps || steps.length === 0) return '';
-  const items = steps.map(step => {
-    const status = step.status || 'unknown';
-    const name = escapeHtml(step.name || 'unnamed step');
-    const duration = formatDuration(step.start, step.stop);
-    const children = renderSteps(step.steps, level + 1);
-    const attachments = (step.attachments || []).map(att => {
-      const file = readAttachment(att.source);
-      if (!file) return '';
-      if ((att.type || '').startsWith('image/')) {
-        const b64 = file.toString('base64');
-        return `<div class="attachment"><img src="data:${att.type};base64,${b64}" alt="${escapeHtml(att.name)}" /></div>`;
-      }
-      if ((att.type || '').startsWith('text/')) {
-        const text = file.toString('utf8');
-        return `<div class="attachment log"><div class="att-name">${escapeHtml(att.name)} (${att.type})</div><div class="log-block">${formatLogContent(text)}</div></div>`;
-      }
-      return `<div class="attachment note">Attachment: ${escapeHtml(att.name)} (${escapeHtml(att.type)})</div>`;
-    }).join('');
-    return `
-      <div class="step level-${level} status-${status}">
-        <div class="step-header">
-          <span class="status-icon">${status}</span>
-          <span class="step-name">${name}</span>
-          <span class="step-duration">${duration}</span>
-        </div>
-        ${attachments}
-        ${children}
-      </div>`;
-  }).join('');
-  return `<div class="steps">${items}</div>`;
+function collectAttachments(node, out = { images: [], logs: [] }) {
+  for (const att of (node.attachments || [])) {
+    const type = att.type || '';
+    if (type.startsWith('image/')) {
+      out.images.push(att);
+    } else if (type.startsWith('text/')) {
+      out.logs.push(att);
+    }
+  }
+  for (const step of (node.steps || [])) {
+    collectAttachments(step, out);
+  }
+  return out;
+}
+
+function getActionName(name) {
+  return String(name).replace(/\s*-\s*screenshot\s*$/i, '').trim();
+}
+
+function renderImageAttachment(att) {
+  const file = readAttachment(att.source);
+  if (!file) return '';
+  const b64 = file.toString('base64');
+  const action = escapeHtml(getActionName(att.name));
+  return `<div class="attachment screenshot">
+    <img src="data:${att.type};base64,${b64}" alt="${action}" />
+    <div class="screenshot-caption">Action: ${action}</div>
+  </div>`;
 }
 
 function renderTest(result) {
-  const status = result.status || 'unknown';
   const title = escapeHtml(result.name || 'Unnamed test');
   const suite = getLabel(result, 'suite') || 'Unknown suite';
   const duration = formatDuration(result.start, result.stop);
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
-  const trace = result.statusDetails && result.statusDetails.trace ? escapeHtml(result.statusDetails.trace) : '';
+  const { images } = collectAttachments(result);
 
-  const topAttachments = (result.attachments || []).map(att => {
-    const file = readAttachment(att.source);
-    if (!file) return '';
-    if ((att.type || '').startsWith('image/')) {
-      const b64 = file.toString('base64');
-      return `<div class="attachment"><img src="data:${att.type};base64,${b64}" alt="${escapeHtml(att.name)}" /></div>`;
+  const seen = new Set();
+  const actions = [];
+  for (const att of images) {
+    const action = getActionName(att.name);
+    if (!seen.has(action)) {
+      seen.add(action);
+      actions.push(action);
     }
-    if ((att.type || '').startsWith('text/')) {
-      const text = file.toString('utf8');
-      return `<div class="attachment log"><div class="att-name">${escapeHtml(att.name)} (${att.type})</div><div class="log-block">${formatLogContent(text)}</div></div>`;
-    }
-    return `<div class="attachment note">Attachment: ${escapeHtml(att.name)} (${escapeHtml(att.type)})</div>`;
-  }).join('');
+  }
+
+  const mainActionsHtml = actions.length
+    ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
+    : '';
+  const imgHtml = images.map(renderImageAttachment).join('');
 
   return `
-    <section class="test status-${status}">
-      <h2 class="test-title">
-        <span class="status-icon">${status}</span>
-        ${title}
-      </h2>
+    <section class="test">
+      <h2 class="test-title">${title}</h2>
       <div class="test-meta">
         <span><strong>Suite:</strong> ${escapeHtml(suite)}</span>
-        <span><strong>Status:</strong> ${status}</span>
         <span><strong>Duration:</strong> ${duration}</span>
       </div>
       ${message ? `<div class="message">${message}</div>` : ''}
-      ${trace ? `<div class="trace"><strong>Trace:</strong><pre>${trace}</pre></div>` : ''}
-      ${topAttachments ? `<div class="top-attachments">${topAttachments}</div>` : ''}
-      ${renderSteps(result.steps)}
+      ${mainActionsHtml}
+      ${imgHtml ? `<div class="screenshots-section"><h3>Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
     </section>`;
 }
 
@@ -163,6 +201,37 @@ function detectLatestRun(parsed) {
   }
 
   return sorted.map(p => p.file);
+}
+
+function renderDashboard(results) {
+  if (!results.length) return '';
+  const start = Math.min(...results.map(r => r.start || 0));
+  const stop = Math.max(...results.map(r => r.stop || 0));
+  const counts = { passed: 0, failed: 0, broken: 0, skipped: 0, unknown: 0 };
+  for (const r of results) {
+    const status = r.status || 'unknown';
+    counts[status] = (counts[status] || 0) + 1;
+  }
+  const total = results.length;
+  const passed = counts.passed || 0;
+  const successRate = total ? Math.round((passed / total) * 100) : 0;
+  const statBox = (status, label) => {
+    const count = counts[status] || 0;
+    return count ? `<div class="dashboard-box stat-${status}"><span class="value">${count}</span><span class="label">${label}</span></div>` : '';
+  };
+  return `
+    <section class="dashboard">
+      <h2>Summary</h2>
+      <div class="dashboard-grid">
+        ${statBox('passed', 'Passed')}
+        ${statBox('failed', 'Failed')}
+        ${statBox('broken', 'Broken')}
+        ${statBox('skipped', 'Skipped')}
+        <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total</span></div>
+        <div class="dashboard-box stat-rate"><span class="value">${successRate}%</span><span class="label">Pass Rate</span></div>
+        <div class="dashboard-box stat-duration"><span class="value">${formatDuration(start, stop)}</span><span class="label">Duration</span></div>
+      </div>
+    </section>`;
 }
 
 async function main() {
@@ -214,17 +283,22 @@ async function main() {
 
   const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
   const testsHtml = results.map(renderTest).join('');
+  const dashboardHtml = renderDashboard(results);
+  const suiteName = resolveSuiteName(results);
+  const pageTitle = `${suiteName} Test Report (PDF)`;
+  const htmlTitle = `${suiteName} Test Report - PDF`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Allure Report - PDF</title>
+  <title>${escapeHtml(htmlTitle)}</title>
   <style>
     @page { margin: 1cm; }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #222; }
     h1 { font-size: 18px; margin: 0 0 12px; }
     h2 { font-size: 14px; margin: 0 0 8px; }
+    h3 { font-size: 12px; margin: 10px 0 6px; text-transform: uppercase; }
     .header { border-bottom: 2px solid #444; padding-bottom: 8px; margin-bottom: 16px; }
     .test { border: 1px solid #ccc; padding: 12px; margin-bottom: 16px; }
     .test:not(:first-of-type) { page-break-before: always; }
@@ -249,17 +323,34 @@ async function main() {
     .attachment { margin: 6px 0; }
     .attachment img { max-width: 100%; border: 1px solid #ddd; }
     .att-name { font-weight: bold; margin: 4px 0; }
+    .main-actions { margin: 8px 0; }
+    .main-actions ol { margin: 0 0 12px 18px; padding: 0; }
+    .main-actions li { margin-bottom: 4px; }
+    .screenshot-caption { margin-top: 6px; font-weight: 600; color: #333; }
     .log-block { background: #1e1e1e; color: #d4d4d4; padding: 8px; border-radius: 4px; font-family: Consolas, monospace; font-size: 9px; white-space: pre-wrap; }
     .line { padding: 1px 0; }
     .sp-line { background: #3c2a00; color: #ffdd57; font-weight: bold; }
     .note { font-style: italic; color: #555; }
+    .dashboard { margin-bottom: 16px; }
+    .dashboard h2 { margin-bottom: 10px; }
+    .dashboard-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-width: 90px; text-align: center; background: #fafafa; }
+    .dashboard-box .value { display: block; font-size: 20px; font-weight: bold; color: #333; }
+    .dashboard-box .label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .stat-passed .value { color: #2da94f; }
+    .stat-failed .value { color: #d00; }
+    .stat-broken .value { color: #f39c12; }
+    .stat-skipped .value { color: #aaa; }
+    .stat-unknown .value { color: #777; }
+    .stat-total .value, .stat-rate .value, .stat-duration .value { color: #333; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Allure Test Report (PDF)</h1>
+    <h1>${escapeHtml(pageTitle)}</h1>
     <div>Generated: ${generated} | Tests: ${results.length}</div>
   </div>
+  ${dashboardHtml}
   ${testsHtml}
 </body>
 </html>`;

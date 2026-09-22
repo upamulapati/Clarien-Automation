@@ -80,3 +80,9 @@ test.describe('HSIM - SI not suspended when account freeze is cancelled before v
     await homePage.logout();
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

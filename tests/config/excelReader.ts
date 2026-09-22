@@ -14,6 +14,14 @@ const EXCEL_PATH = path.resolve(
   'testdata.xlsx'
 );
 
+const RETAIL_EXCEL_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'data',
+  'testdata1.xlsx'
+);
+
 type RawExcelRow = Record<string, unknown>;
 
 interface NormalizedInstanceRow {
@@ -135,9 +143,10 @@ function findInstanceColumn(
  * 2 | SGD
  */
 function readNormalizedInstanceRows(
-  sheetName: string
+  sheetName: string,
+  filePath = EXCEL_PATH
 ): NormalizedInstanceRow[] {
-  const rawRows = readSheet<RawExcelRow>(sheetName);
+  const rawRows = readSheet<RawExcelRow>(sheetName, filePath);
   const normalizedRows: NormalizedInstanceRow[] = [];
 
   let currentInstance: number | undefined;
@@ -216,9 +225,10 @@ function readNormalizedInstanceRows(
  */
 function readMergedInstance(
   sheetName: string,
-  instance = 1
+  instance = 1,
+  filePath = EXCEL_PATH
 ): Record<string, string> {
-  const rows = readNormalizedInstanceRows(sheetName);
+  const rows = readNormalizedInstanceRows(sheetName, filePath);
   const result: Record<string, string> = {};
 
   for (const row of rows) {
@@ -246,9 +256,10 @@ function readMergedInstance(
  */
 function readInstanceRows(
   sheetName: string,
-  instance = 1
+  instance = 1,
+  filePath = EXCEL_PATH
 ): Record<string, string>[] {
-  return readNormalizedInstanceRows(sheetName)
+  return readNormalizedInstanceRows(sheetName, filePath)
     .filter(row => row.instance === instance)
     .map(row => ({ ...row.values }));
 }
@@ -355,7 +366,8 @@ export function getExcelCheckerConfig(
 // =====================================================================
 
 export function getExcelRetailEndToEndData(
-  instance = 1
+  instance = 1,
+  filePath = RETAIL_EXCEL_PATH
 ): RetailEndToEndExcelData {
   if (
     !Number.isInteger(instance) ||
@@ -368,7 +380,8 @@ export function getExcelRetailEndToEndData(
 
   const customerData = readMergedInstance(
     'RetailCustomerData',
-    instance
+    instance,
+    filePath
   );
 
   if (Object.keys(customerData).length === 0) {
@@ -379,22 +392,26 @@ export function getExcelRetailEndToEndData(
 
   const contacts = readInstanceRows(
     'RetailContactData',
-    instance
+    instance,
+    filePath
   );
 
   const documents = readInstanceRows(
     'RetailDocData',
-    instance
+    instance,
+    filePath
   );
 
   const currencies = readInstanceRows(
     'RetailCcyData',
-    instance
+    instance,
+    filePath
   );
 
   const otherBanks = readInstanceRows(
     'RetailOtherBankData',
-    instance
+    instance,
+    filePath
   );
 
   return {
@@ -404,32 +421,38 @@ export function getExcelRetailEndToEndData(
     // Compatibility objects for existing singular page-object code.
     contactData: readMergedInstance(
       'RetailContactData',
-      instance
+      instance,
+      filePath
     ),
 
     validDocData: readMergedInstance(
       'RetailDocData',
-      instance
+      instance,
+      filePath
     ),
 
     validCcyData: readMergedInstance(
       'RetailCcyData',
-      instance
+      instance,
+      filePath
     ),
 
     demographicData: readMergedInstance(
       'RetailDemographicData',
-      instance
+      instance,
+      filePath
     ),
 
     employmentData: readMergedInstance(
       'RetailEmploymentData',
-      instance
+      instance,
+      filePath
     ),
 
     incomeExpenseData: readMergedInstance(
       'RetailIncomeExpenseData',
-      instance
+      instance,
+      filePath
     ),
 
     // Repeatable records.
@@ -445,11 +468,12 @@ export function getExcelRetailEndToEndData(
 // =====================================================================
 
 export function getAllInstances(
-  sheetName: string
+  sheetName: string,
+  filePath = EXCEL_PATH
 ): number[] {
   const instances = new Set<number>();
 
-  for (const row of readNormalizedInstanceRows(sheetName)) {
+  for (const row of readNormalizedInstanceRows(sheetName, filePath)) {
     instances.add(row.instance);
   }
 
@@ -458,6 +482,8 @@ export function getAllInstances(
   );
 }
 
-export function getAllRetailInstances(): number[] {
-  return getAllInstances('RetailCustomerData');
+export function getAllRetailInstances(
+  filePath = RETAIL_EXCEL_PATH
+): number[] {
+  return getAllInstances('RetailCustomerData', filePath);
 }

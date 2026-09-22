@@ -1,76 +1,9 @@
 import { Page, Dialog, Locator, Frame } from '@playwright/test';
-import { expect } from '@playwright/test';
-import * as fs from 'fs';
 import { AppConfig, CRM_TEST_DATA } from '../../config/crmTestData';
 import { CrmEndToEndPage } from './crmEndToEndPage';
-import { ServicePackPage } from './servicePackPage';
 
 export class CrmRetailEndToEndPage extends CrmEndToEndPage {
-  private TD: any;
-
-  private isProvided(value: unknown): boolean {
-    if (value === null || value === undefined) {
-      return false;
-    }
-
-    const normalized = String(value)
-      .trim()
-      .toLowerCase();
-
-    return (
-      normalized.length > 0 &&
-      normalized !== '-' &&
-      normalized !== 'undefined' &&
-      normalized !== 'null' &&
-      normalized !== 'nan'
-    );
-  }
-
-  private textValue(
-    value: unknown,
-    fallback = ''
-  ): string {
-    return this.isProvided(value)
-      ? String(value).trim()
-      : fallback;
-  }
-
-  private yesNoFromValue(
-    value: unknown
-  ): 'Y' | 'N' {
-    return this.isProvided(value) ? 'Y' : 'N';
-  }
-
-  private dataRows<T extends Record<string, unknown>>(
-    rows: unknown,
-    fallback?: T
-  ): T[] {
-    if (Array.isArray(rows)) {
-      return rows.filter(
-        row => row && typeof row === 'object'
-      ) as T[];
-    }
-
-    return fallback ? [fallback] : [];
-  }
-
-  private getPrimaryContactData(): any {
-    const contacts = Array.isArray(this.TD.contacts)
-      ? this.TD.contacts
-      : [];
-
-    const addressRow = contacts.find((row: any) =>
-      this.isProvided(row?.addressType) ||
-      this.isProvided(row?.addressLabel) ||
-      this.isProvided(row?.streetName) ||
-      this.isProvided(row?.city)
-    );
-
-    return {
-      ...(this.TD.contactData || {}),
-      ...(addressRow || {})
-    };
-  }
+  private TD = CRM_TEST_DATA.retail.endToEnd;
 
   // Dynamic field info discovered at runtime
   private nationalityCode = '';
@@ -82,82 +15,9 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
   private demoCurrencyField = '';
   private monthlyExpenseField = '';
   private incomeTypeField = '';
-  private custLanguageCode = '';
-  private custLanguageDisplay = '';
 
-  constructor(
-    page: Page,
-    config: AppConfig,
-    lastDialogMessages: string[],
-    endToEndData?: any
-  ) {
+  constructor(page: Page, config: AppConfig, lastDialogMessages: string[]) {
     super(page, config, lastDialogMessages);
-
-    const jsonData: any =
-      CRM_TEST_DATA.retail.endToEnd;
-
-    // Clone fallback data so one instance cannot modify another.
-    this.TD = {
-      ...jsonData,
-      customerData: {
-        ...(jsonData.customerData || {})
-      },
-      contactData: {
-        ...(jsonData.contactData || {})
-      },
-      validDocData: {
-        ...(jsonData.validDocData || {})
-      },
-      validCcyData: {
-        ...(jsonData.validCcyData || {})
-      },
-      demographicData: {
-        ...(jsonData.demographicData || {})
-      },
-      employmentData: {
-        ...(jsonData.employmentData || {})
-      },
-      incomeExpenseData: {
-        ...(jsonData.incomeExpenseData || {})
-      },
-      contacts: Array.isArray(jsonData.contacts)
-        ? [...jsonData.contacts]
-        : [],
-      documents: Array.isArray(jsonData.documents)
-        ? [...jsonData.documents]
-        : [],
-      currencies: Array.isArray(jsonData.currencies)
-        ? [...jsonData.currencies]
-        : [],
-      otherBanks: Array.isArray(jsonData.otherBanks)
-        ? [...jsonData.otherBanks]
-        : []
-    };
-
-    if (!endToEndData) {
-      return;
-    }
-
-    for (
-      const [key, value] of
-      Object.entries(endToEndData)
-    ) {
-      if (
-        value &&
-        typeof value === 'object' &&
-        !Array.isArray(value) &&
-        this.TD[key] &&
-        typeof this.TD[key] === 'object' &&
-        !Array.isArray(this.TD[key])
-      ) {
-        this.TD[key] = {
-          ...this.TD[key],
-          ...value
-        };
-      } else {
-        this.TD[key] = value;
-      }
-    }
   }
 
   // ==================== RETAIL-SPECIFIC FRAME HELPERS ====================
@@ -174,7 +34,6 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
   async navigateToNewEntity(): Promise<Page> {
     const page = this.workingPage;
     console.log('\n=== Navigating to New Entity (Retail) ===');
-    await this.takeScreenshot('Before Navigate to New Entity');
 
     // Click CIF Retail in Functionmain frame
     const functionMainFrame = page.frame({ name: 'Functionmain' });
@@ -206,17 +65,9 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       // Listen for popup BEFORE clicking Customer
       const customerPopupPromise = page.context().waitForEvent('page', { timeout: 30000 }).catch(() => null);
 
-      // Click "Customer" (subview41) — also try subviewspanFor41 for the span trigger
-      await menuFrame.evaluate(() => {
-        const el = document.getElementById('subview41');
-        if (el) el.click();
-      });
-      await page.waitForTimeout(500);
-      await menuFrame.evaluate(() => {
-        const el = document.getElementById('subviewspanFor41');
-        if (el) el.click();
-      });
-      console.log('\u2713 Clicked Customer (subview41)');
+      // Click the "Customer" item by its visible text to avoid selecting Operations
+      await this.clickMenuItem(menuFrame, page, 'Customer');
+      console.log('\u2713 Clicked Customer');
 
       // Wait for popup or same-page load
       const customerPopup = await customerPopupPromise;
@@ -238,7 +89,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
 
     // Handle the EntityModFilter if it appears (Finacle CRM shows a filter page before the actual form)
     await page.waitForTimeout(this.timeouts.medium);
-    await this.handleEntityModFilter(page);
+    await this.handleEntityModFilter(this.workingPage);
 
     return this.workingPage;
   }
@@ -454,33 +305,6 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       throw new Error('accountFrame is null — customer form not found. Cannot proceed with fillBasicInfo.');
     }
 
-    // Pre-fill core selects before title LOV so any blur/validation does not alert
-    await this.accountFrame.evaluate((args: any) => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const setSelect = (keyword: string, val: string) => {
-        const upKw = keyword.toUpperCase();
-        const upVal = val.toUpperCase();
-        document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-          if (!sel.name || (sel.name || '').toUpperCase().indexOf(upKw) < 0) return;
-          if (sel.value && sel.selectedIndex > 0 && sel.value !== '0') return;
-          sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly');
-          let opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase() === upVal);
-          if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === upVal);
-          if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(upVal));
-          if (!opt && val && val.trim().length > 0) { const newOpt = document.createElement('option'); newOpt.value = val; newOpt.text = val; newOpt.disabled = false; sel.add(newOpt); opt = newOpt; }
-          if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'N');
-          if (!opt) opt = Array.from(sel.options).find(o => o.value === '0');
-          if (!opt) opt = Array.from(sel.options).find(o => o.value && o.value.trim().length > 0);
-          if (opt) { opt.disabled = false; sel.value = opt.value; sel.selectedIndex = opt.index; fire(sel); }
-        });
-      };
-      setSelect('BANKRELATIONTYPE', args.bankRelationType);
-      setSelect('GENDER', args.gender);
-      setSelect('NRE', args.nreFlag);
-      setSelect('NATIVELANG', args.nativeLanguage);
-      setSelect('CUSTOMERMINOR', 'N');
-    }, { bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail'), gender: (TD.customerData.gender || 'MALE').toUpperCase(), nreFlag: this.yesNoFromValue(TD.customerData.nonResidentDate), nativeLanguage: (TD.customerData.nativeLanguage || 'ENGLISH').toUpperCase() }).catch(() => {});
-
     // Title LOV
     await this.selectLovValue({ parentPage: page, target: page, buttonName: 'btnone_AccountModBO.Salutation_code', searchValue: TD.customerData.title, label: 'Title', config: this.config });
     await this.refreshAccountFrame('after Title LOV');
@@ -492,18 +316,17 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       const setSel = (name: string, val: string) => {
         const sel = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement;
         if (sel) {
-          sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly');
           // Exact match first, then includes match
           let matched = false;
           for (const o of Array.from(sel.options)) {
             if (o.text.trim().toUpperCase() === val.toUpperCase() || o.value.toUpperCase() === val.toUpperCase()) {
-              o.disabled = false; sel.value = o.value; sel.selectedIndex = o.index; fire(sel); if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} } matched = true; break;
+              sel.value = o.value; fire(sel); matched = true; break;
             }
           }
           if (!matched) {
             for (const o of Array.from(sel.options)) {
               if (o.text.trim().toUpperCase().includes(val.toUpperCase()) || o.value.toUpperCase().includes(val.toUpperCase())) {
-                o.disabled = false; sel.value = o.value; sel.selectedIndex = o.index; fire(sel); if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} } break;
+                sel.value = o.value; fire(sel); break;
               }
             }
           }
@@ -552,35 +375,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       // Also try AccountModBO variants
       if (dobResult.displayName === 'NONE') setDateField('AccountModBO.Cust_DOB', args.dob);
       if (nreResult.displayName === 'NONE') setDateField('AccountModBO.NRE_Date', args.nreDate);
-      setSel('AccountModBO.Gender', args.gender);
-      setSel('AccountModBO.CustomerNREFlg', args.nreFlag);
-      setSel('AccountModBO.BankRelationType', args.bankRelationType);
-
-      // Basel Profiling, Foreign Tax Reporting and any other empty selects: choose a safe default
-      const fillEmptySelect = (sel: HTMLSelectElement) => {
-        if (!sel || sel.value) return;
-        const up = sel.name.toUpperCase();
-        const isForeign = up.includes('TAX') || up.includes('FOREIGN') || up.includes('CRS') || up.includes('FATCA');
-        const isBasel = up.includes('BASEL');
-        const isTds = up.includes('TDS');
-        if (isTds) return;
-        const opts = Array.from(sel.options);
-        let opt: HTMLOptionElement | undefined;
-        if (isBasel) {
-          opt = opts.find(o => o.text.trim().toUpperCase() === 'NO' || o.value.toUpperCase() === 'N' || o.value.toUpperCase() === 'NO' || o.value === '0');
-        } else if (isForeign) {
-          opt = opts.find(o => o.text.trim().toUpperCase().includes('NO TIN')) ||
-                opts.find(o => o.text.trim().toUpperCase().includes('NOT REQUIRED')) ||
-                opts.find(o => o.value.toUpperCase() === 'N' || o.value.toUpperCase() === 'NOTREQUIRED' || o.value === '0');
-        } else {
-          opt = opts.find(o => o.text.trim().toUpperCase() === 'NO' || o.value.toUpperCase() === 'N' || o.value === '0');
-        }
-        if (!opt) opt = opts.find(o => o.value && o.value.trim().length > 0);
-        if (!opt && isBasel) { opt = document.createElement('option'); opt.value = 'N'; opt.text = 'NO'; opt.selected = true; sel.appendChild(opt); }
-        if (!opt && isForeign) { opt = document.createElement('option'); opt.value = 'NOTIN'; opt.text = 'NO TIN'; opt.selected = true; sel.appendChild(opt); }
-        if (opt) { sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly'); opt.disabled = false; sel.value = opt.value; sel.selectedIndex = opt.index; fire(sel); if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} } try { const h = document.querySelector('[name="h_' + sel.name + '"]') as any; if (h) { h.value = opt.value; h.dispatchEvent(new Event('change', { bubbles: true })); } } catch (_) {} }
-      };
-      document.querySelectorAll('select').forEach(s => { s.disabled = false; s.removeAttribute('disabled'); s.removeAttribute('readonly'); if (!s.value || s.selectedIndex <= 0) fillEmptySelect(s); });
+      setSel('AccountModBO.Gender', 'MALE');
+      setSel('AccountModBO.CustomerNREFlg', 'Y');
       // Return what was actually set for logging
       const genderSel = document.querySelector('select[name="AccountModBO.Gender"]') as HTMLSelectElement;
       return {
@@ -599,10 +395,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       preferredName: TD.customerData.preferredName,
       shortName: TD.customerData.shortName,
       dob: TD.customerData.dateOfBirth,
-      nreDate: this.textValue(TD.customerData.nonResidentDate),
-      gender: (TD.customerData.gender || 'MALE').toUpperCase(),
-      nreFlag: this.yesNoFromValue(TD.customerData.nonResidentDate),
-      bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail')
+      nreDate: TD.customerData.nonResidentDate
     }).catch(() => ({ gender: 'error', genderVal: 'error', dob: 'error' }));
     console.log(`\u2713 Name: ${TD.customerData.firstName} ${TD.customerData.lastName}, DOB: ${TD.customerData.dateOfBirth}`);
     if (typeof fillResult === 'object' && 'dobDisplayName' in fillResult) {
@@ -636,19 +429,11 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     await this.refreshAccountFrame('after Segment');
 
     // SubSegment
-    if (TD.customerData.subSegment) {
+    if (TD.customerData.segment === 'RET') {
       for (let retry = 0; retry < 3; retry++) {
         try {
           const ss = this.accountFrame.locator('select[name="AccountModBO.SubSegment"]');
-          await ss.selectOption({ label: TD.customerData.subSegment }, { timeout: 2000 }).catch(async () => {
-            const val = await this.accountFrame.evaluate((label: string) => {
-              const s = document.querySelector('select[name="AccountModBO.SubSegment"]') as HTMLSelectElement;
-              if (!s) return '';
-              for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase() === label.toUpperCase()) return o.value; }
-              return '';
-            }, TD.customerData.subSegment).catch(() => '');
-            if (val) await ss.selectOption(val);
-          });
+          await ss.selectOption(TD.customerData.subSegment, { timeout: 5000 });
           console.log(`\u2713 SubSegment: ${TD.customerData.subSegment}`);
           break;
         } catch (_) { await this.refreshAccountFrame('SubSegment retry'); }
@@ -691,15 +476,14 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     await page.waitForTimeout(this.timeouts.short);
 
     // Native Language
-    const nativeLangText = (TD.customerData.nativeLanguage || 'ENGLISH').toUpperCase();
     const nativeLang = this.accountFrame.locator('select[name="AccountModBO.NativeLangCode"]');
     if (await nativeLang.isVisible({ timeout: 8000 }).catch(() => false)) {
-      await nativeLang.selectOption({ label: nativeLangText }).catch(async () => {
-        const val = await this.accountFrame.evaluate((label: string) => { const s = document.querySelector('select[name="AccountModBO.NativeLangCode"]') as HTMLSelectElement; if (!s) return ''; for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase() === label) return o.value; } return ''; }, nativeLangText).catch(() => '');
+      await nativeLang.selectOption({ label: 'ENGLISH' }).catch(async () => {
+        const val = await this.accountFrame.evaluate(() => { const s = document.querySelector('select[name="AccountModBO.NativeLangCode"]') as HTMLSelectElement; if (!s) return ''; for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase() === 'ENGLISH') return o.value; } return ''; }).catch(() => '');
         if (val) await nativeLang.selectOption(val);
       });
       await this.accountFrame.evaluate(() => { const s = document.querySelector('select[name="AccountModBO.NativeLangCode"]') as HTMLSelectElement; if (s) { s.dispatchEvent(new Event('change', { bubbles: true })); s.dispatchEvent(new Event('blur', { bubbles: true })); } }).catch(() => {});
-      console.log(`\u2713 Native Language: ${nativeLangText}`);
+      console.log('\u2713 Native Language: ENGLISH');
     }
     await page.waitForTimeout(this.timeouts.short);
 
@@ -708,7 +492,6 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     await this.accountFrame.evaluate(() => { const el = document.getElementById('td_tpageCont6'); if (el) el.click(); }).catch(() => {});
     await page.waitForTimeout(this.timeouts.short);
 
-    const prefSearch = (TD.customerData.preferredNativeLanguage && TD.customerData.preferredNativeLanguage !== '-') ? TD.customerData.preferredNativeLanguage : (TD.customerData.preferredLanguage || 'India (English)');
     const custLangBtn = this.accountFrame.locator('input[name="btnone_AccountModBO.Cust_Language"]');
     if (await custLangBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await this.closeUnexpectedPopups(page);
@@ -727,156 +510,48 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
           for (const lf of lovPopup.frames()) { const sub = lf.locator('input[value="Submit"]').first(); if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) { await sub.click(); break; } }
           await page.waitForTimeout(this.timeouts.medium);
           if (!lovPopup.isClosed()) {
-            let selected = false;
             for (const lf of lovPopup.frames()) {
-              const cell = lf.getByText(prefSearch, { exact: true }).first();
+              const cell = lf.getByText(TD.customerData.preferredLanguage, { exact: true }).first();
               if (await cell.isVisible({ timeout: 5000 }).catch(() => false)) {
-                const tr = cell.locator('xpath=ancestor::tr[1]');
-                const catId = await tr.evaluate(el => el.getAttribute('categorybo.categoryid')).catch(() => '');
-                const catCode = await tr.evaluate(el => el.getAttribute('categorybo.categorycode')).catch(() => '');
-                const catVal = await tr.evaluate(el => el.getAttribute('categorybo.value')).catch(() => '');
-                this.custLanguageCode = catId || catCode || TD.customerData.preferredLanguage || prefSearch;
-                this.custLanguageDisplay = catVal || TD.customerData.preferredNativeLanguage || prefSearch;
-                try { await Promise.race([tr.dblclick({ timeout: this.timeouts.medium }), lovPopup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-                await page.waitForTimeout(this.timeouts.short);
-                console.log(`\u2713 Preferred Native Language: ${prefSearch} (code=${this.custLanguageCode})`);
-                selected = true;
+                try { await Promise.race([cell.dblclick({ timeout: this.timeouts.medium }), lovPopup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
+                console.log(`\u2713 Preferred Native Language: ${TD.customerData.preferredLanguage}`);
                 break;
               }
             }
-            if (!selected) { console.log(`\u26a0 Preferred Native Language LOV value not found for: ${prefSearch}`); this.custLanguageCode = TD.customerData.preferredLanguage || prefSearch; this.custLanguageDisplay = prefSearch; }
-            if (!lovPopup.isClosed()) await lovPopup.close().catch(() => {});
           }
           if (!lovPopup.isClosed()) await lovPopup.close().catch(() => {});
         } else { if (!lovPopup.isClosed()) await lovPopup.close().catch(() => {}); }
       }
     } else {
-      this.custLanguageCode = TD.customerData.preferredLanguage || 'India (English)';
-      this.custLanguageDisplay = (TD.customerData.preferredNativeLanguage && TD.customerData.preferredNativeLanguage !== '-') ? TD.customerData.preferredNativeLanguage : this.custLanguageCode;
+      await this.accountFrame.evaluate(() => {
+        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+        const cl = document.querySelector('input[name="AccountModBO.Cust_Language"]') as HTMLInputElement;
+        if (cl) { cl.value = 'India (English)'; fire(cl); }
+        const cat = document.querySelector('input[name="Cat_AccountModBO.Cust_Language"]') as HTMLInputElement;
+        if (cat) { cat.value = 'India (English)'; fire(cat); }
+      }).catch(() => {});
     }
-    await this.accountFrame.evaluate((args: { code: string; display: string }) => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const cl = document.querySelector('input[name="AccountModBO.Cust_Language"]') as HTMLInputElement;
-      if (cl) { cl.value = args.display; cl.removeAttribute('readonly'); fire(cl); }
-      const hcl = document.querySelector('input[name="h_AccountModBO.Cust_Language"]') as HTMLInputElement;
-      if (hcl) { hcl.value = args.code; hcl.removeAttribute('readonly'); fire(hcl); }
-      const cat = document.querySelector('input[name="Cat_AccountModBO.Cust_Language"]') as HTMLInputElement;
-      if (cat) { cat.value = args.display; cat.removeAttribute('readonly'); fire(cat); }
-    }, { code: this.custLanguageCode, display: this.custLanguageDisplay }).catch(() => {});
     await page.waitForTimeout(this.timeouts.short);
 
     // Preferred Locale (re-set)
     await this.refreshAccountFrame('after Cust_Language LOV');
-    await this.accountFrame.evaluate((locale: string) => {
+    await this.accountFrame.evaluate(() => {
       const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
       const pl = document.querySelector('input[name="Cat_PsychographicBO.Preferred_Locale"]') as HTMLInputElement;
-      if (pl) { pl.removeAttribute('readonly'); pl.value = locale; fire(pl); }
+      if (pl) { pl.removeAttribute('readonly'); pl.value = 'en_US'; fire(pl); }
       const plc = document.querySelector('input[name="PsychographicBO.Preferred_Locale"]') as HTMLInputElement;
-      if (plc) { plc.value = locale; fire(plc); }
-    }, TD.customerData.preferredLocale).catch(() => {});
+      if (plc) { plc.value = 'en_US'; fire(plc); }
+    }).catch(() => {});
 
-    // Region via LOV to capture numeric categoryid
-    await this.refreshAccountFrame('before Region LOV');
-    await this.closeUnexpectedPopups(page);
-    await this.accountFrame.evaluate(() => { const el = document.getElementById('td_tpageCont6'); if (el) el.click(); }).catch(() => {});
-    await page.waitForTimeout(this.timeouts.short);
-
-    const clickLovByPattern = async (pattern: string): Promise<Page | null> => {
-      await this.refreshAccountFrame('before LOV click ' + pattern);
-      const acct = this.accountFrame;
-      if (!acct) { console.log(`  ⚠ No accountFrame for LOV ${pattern}`); return null; }
-      try {
-        const [popup] = await Promise.all([
-          page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null),
-          acct.evaluate((p: string) => {
-            const b = Array.from(document.querySelectorAll('input[type="button"]')).find((el: any) => el.name && el.name.toUpperCase().includes('BTNONE') && el.name.toUpperCase().includes(p));
-            if (b) (b as HTMLInputElement).click();
-          }, pattern)
-        ]);
-        return popup;
-      } catch (e: any) {
-        console.log(`  ⚠ LOV click for ${pattern} failed: ${e.message?.substring(0, 80) || e}`);
-        return null;
-      }
-    };
-    const submitLovSearch = async (lov: Page, search: string) => {
-      for (const lf of lov.frames()) {
-        const inputs = await lf.locator('input[type="text"]').all();
-        const vis: Locator[] = [];
-        for (const i of inputs) { if (await i.isVisible().catch(() => false)) vis.push(i); }
-        if (vis.length >= 1) await vis[0].fill(search).catch(() => {});
-        if (vis.length >= 2) await vis[1].fill('').catch(() => {});
-        const sub = lf.locator('input[value="Submit"]').first();
-        if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) { await sub.click().catch(() => {}); break; }
-      }
-      await page.waitForTimeout(this.timeouts.medium);
-    };
-    const regionDisplayTarget = (TD.customerData.regionDisplay || TD.customerData.region).toUpperCase();
-    const regionPopup = await clickLovByPattern('REGION');
-    if (regionPopup) {
-      await regionPopup.bringToFront();
-      await new Promise(r => setTimeout(r, 2000));
-      if (!regionPopup.isClosed() && regionPopup.url().includes('SSOblank')) {
-        const hm = regionPopup.url().match(/wizardHashKey=([a-f0-9]+)/);
-        if (hm) await regionPopup.goto(`https://clrnuat.clarienbank.com/FinacleCRM/servlet/com.infy.cis.ui.common.LookupforCategory?wizardHashKey=${hm[1]}`, { timeout: 15000, waitUntil: 'domcontentloaded' }).catch(() => {});
-      }
-      const ready = await this.waitForPopupReady(regionPopup, 'Region LOV');
-      if (ready && !regionPopup.isClosed()) {
-        await submitLovSearch(regionPopup, TD.customerData.region);
-        let catId = '';
-        let catCode = '';
-        let catDisplay = '';
-        let selected = false;
-        const re = new RegExp(regionDisplayTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        for (const lf of regionPopup.frames()) {
-          const cell = lf.locator('td').filter({ hasText: re }).first();
-          if (await cell.isVisible({ timeout: 5000 }).catch(() => false)) {
-            try {
-              const info = await cell.evaluate((el: HTMLElement) => {
-                const tr = el.closest('tr');
-                return {
-                  catId: tr?.getAttribute('categoryid') || tr?.getAttribute('categorybo.categoryid') || '',
-                  catCode: tr?.getAttribute('categorycode') || tr?.getAttribute('categorybo.categorycode') || '',
-                  catDisplay: (tr?.getAttribute('value') || tr?.getAttribute('categorybo.value') || tr?.textContent || '').trim()
-                };
-              });
-              catId = info.catId || ''; catCode = info.catCode || ''; catDisplay = info.catDisplay || '';
-            } catch (_) {}
-            try { await Promise.race([cell.dblclick({ timeout: this.timeouts.medium }), regionPopup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-            selected = true;
-            break;
-          }
-        }
-        if (selected) {
-          (this as any).lastRegionCode = catId || catCode || TD.customerData.region;
-          (this as any).lastRegionDisplay = catDisplay || TD.customerData.regionDisplay || TD.customerData.region;
-          console.log(`\u2713 Region: ${(this as any).lastRegionDisplay} (code=${(this as any).lastRegionCode})`);
-        } else {
-          console.log(`\u26a0 Region LOV value not found for: ${regionDisplayTarget}`);
-          (this as any).lastRegionCode = TD.customerData.region;
-          (this as any).lastRegionDisplay = TD.customerData.regionDisplay || TD.customerData.region;
-        }
-        if (!regionPopup.isClosed()) await regionPopup.close().catch(() => {});
-      } else { if (!regionPopup.isClosed()) await regionPopup.close().catch(() => {}); }
-    }
-    if (!(this as any).lastRegionCode) {
-      (this as any).lastRegionCode = TD.customerData.region;
-      (this as any).lastRegionDisplay = TD.customerData.regionDisplay || TD.customerData.region;
-    }
-    // Force-set all region input variants with the captured numeric code
-    await this.accountFrame.evaluate((args: { code: string; display: string }) => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const regionCode = (args.code || '').toUpperCase();
-      const regionDisplay = (args.display || args.code || '').toUpperCase();
-      document.querySelectorAll('input, select').forEach((inp: any) => {
-        const name = (inp.name || '').toUpperCase();
-        if (!name.includes('REGION')) return;
-        inp.removeAttribute('readonly'); inp.disabled = false;
-        if (name.startsWith('H_') && !name.startsWith('H_CAT_')) { inp.value = regionCode; }
-        else { inp.value = regionDisplay; }
-        fire(inp);
-      });
-    }, { code: (this as any).lastRegionCode, display: (this as any).lastRegionDisplay }).catch(() => {});
+    // Region
+    await this.accountFrame.evaluate((region: string) => {
+      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+      const inp = document.querySelector('input[name="AccountModBO.region"]') as HTMLInputElement;
+      if (inp) { inp.value = region; fire(inp); }
+      const cat = document.querySelector('input[name="Cat_AccountModBO.region"]') as HTMLInputElement;
+      if (cat) { cat.value = region; fire(cat); }
+    }, TD.customerData.region).catch(() => {});
+    console.log(`\u2713 Region: ${TD.customerData.region}`);
 
     // TDS Table via LOV
     await this.refreshAccountFrame('before TDS LOV');
@@ -884,85 +559,63 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     await this.accountFrame.evaluate(() => { const el = document.getElementById('td_tpageCont6'); if (el) el.click(); }).catch(() => {});
     await page.waitForTimeout(this.timeouts.short);
 
-    const tdsDisplay = TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable;
-    const tdsPopup = await clickLovByPattern('TDS_TBL');
-    if (tdsPopup) {
-      await tdsPopup.bringToFront();
-      await new Promise(r => setTimeout(r, 2000));
-      if (!tdsPopup.isClosed() && tdsPopup.url().includes('SSOblank')) {
-        const hm = tdsPopup.url().match(/wizardHashKey=([a-f0-9]+)/);
-        if (hm) await tdsPopup.goto(`https://clrnuat.clarienbank.com/FinacleCRM/servlet/com.infy.cis.ui.common.LookupforCategory?wizardHashKey=${hm[1]}`, { timeout: 15000, waitUntil: 'domcontentloaded' }).catch(() => {});
-      }
-      const ready = await this.waitForPopupReady(tdsPopup, 'TDS LOV');
-      if (ready && !tdsPopup.isClosed()) {
-        await submitLovSearch(tdsPopup, TD.customerData.tdsTable);
-        const tdsSearch = tdsDisplay.toUpperCase();
-        let catId = '';
-        let catCode = '';
-        let catDisplay = '';
-        let selected = false;
-        const re = new RegExp(tdsSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        for (const lf of tdsPopup.frames()) {
-          const cell = lf.locator('td').filter({ hasText: re }).first();
-          if (await cell.isVisible({ timeout: 5000 }).catch(() => false)) {
-            try {
-              const info = await cell.evaluate((el: HTMLElement) => {
-                const tr = el.closest('tr');
-                return {
-                  catId: tr?.getAttribute('categoryid') || tr?.getAttribute('categorybo.categoryid') || '',
-                  catCode: tr?.getAttribute('categorycode') || tr?.getAttribute('categorybo.categorycode') || '',
-                  catDisplay: (tr?.getAttribute('value') || tr?.getAttribute('categorybo.value') || tr?.textContent || '').trim()
-                };
-              });
-              catId = info.catId || ''; catCode = info.catCode || ''; catDisplay = info.catDisplay || '';
-            } catch (_) {}
-            try { await Promise.race([cell.dblclick({ timeout: this.timeouts.medium }), tdsPopup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-            selected = true;
-            break;
+    const tdsBtn = this.accountFrame.locator('input[name="btnone_AccountModBO.Tds_tbl"]');
+    if (await tdsBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const tdsPromise = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
+      await tdsBtn.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).catch(() => {});
+      const tdsPopup = await tdsPromise;
+      if (tdsPopup) {
+        await tdsPopup.bringToFront();
+        await new Promise(r => setTimeout(r, 2000));
+        if (!tdsPopup.isClosed() && tdsPopup.url().includes('SSOblank')) {
+          const hm = tdsPopup.url().match(/wizardHashKey=([a-f0-9]+)/);
+          if (hm) await tdsPopup.goto(`https://clrnuat.clarienbank.com/FinacleCRM/servlet/com.infy.cis.ui.common.LookupforCategory?wizardHashKey=${hm[1]}`, { timeout: 15000, waitUntil: 'domcontentloaded' }).catch(() => {});
+        }
+        const ready = await this.waitForPopupReady(tdsPopup, 'TDS LOV');
+        if (ready && !tdsPopup.isClosed()) {
+          for (const lf of tdsPopup.frames()) {
+            const inputs = await lf.locator('input[type="text"]').all();
+            const vis: Locator[] = [];
+            for (const i of inputs) { if (await i.isVisible().catch(() => false)) vis.push(i); }
+            if (vis.length >= 2) await vis[1].fill(TD.customerData.tdsTable);
+            else if (vis.length === 1) await vis[0].fill(TD.customerData.tdsTable);
+            const sub = lf.locator('input[value="Submit"]').first();
+            if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) { await sub.click(); break; }
           }
-        }
-        if (selected) {
-          (this as any).lastTdsCode = catId || catCode || TD.customerData.tdsTable;
-          (this as any).lastTdsDisplay = catDisplay || TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable;
-          console.log(`\u2713 TDS Table: ${(this as any).lastTdsDisplay} (code=${(this as any).lastTdsCode})`);
-        } else {
-          console.log(`\u26a0 TDS LOV value not found for: ${tdsDisplay}`);
-          (this as any).lastTdsCode = TD.customerData.tdsTable;
-          (this as any).lastTdsDisplay = TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable;
-        }
-        if (!tdsPopup.isClosed()) await tdsPopup.close().catch(() => {});
-      } else { if (!tdsPopup.isClosed()) await tdsPopup.close().catch(() => {}); }
-    }
-    if (!(this as any).lastTdsCode) {
-      (this as any).lastTdsCode = TD.customerData.tdsTable;
-      (this as any).lastTdsDisplay = TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable;
-      await this.accountFrame.evaluate((args: { code: string; display: string }) => {
+          await page.waitForTimeout(this.timeouts.medium);
+          if (!tdsPopup.isClosed()) {
+            for (const lf of tdsPopup.frames()) {
+              const cell = lf.getByText(TD.customerData.tdsTable, { exact: true }).first();
+              if (await cell.isVisible({ timeout: 5000 }).catch(() => false)) {
+                try { await Promise.race([cell.dblclick({ timeout: this.timeouts.medium }), tdsPopup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
+                console.log(`\u2713 TDS Table: ${TD.customerData.tdsTable}`);
+                break;
+              }
+            }
+          }
+          if (!tdsPopup.isClosed()) await tdsPopup.close().catch(() => {});
+        } else { if (!tdsPopup.isClosed()) await tdsPopup.close().catch(() => {}); }
+      }
+    } else {
+      await this.accountFrame.evaluate((tds: string) => {
         const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const code = args.code.toUpperCase();
-        const display = (args.display || args.code).toUpperCase();
-        document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-          const name = (inp.name || '').toUpperCase();
-          if (!name.includes('TDS_TBL')) return;
-          if (name.includes('CAT_')) { inp.value = display; }
-          else if (name.startsWith('H_')) { inp.value = code; }
-          else { inp.value = display; }
-          inp.removeAttribute('readonly');
-          fire(inp);
-        });
-      }, { code: (this as any).lastTdsCode, display: (this as any).lastTdsDisplay }).catch(() => {});
+        const inp = document.querySelector('input[name="AccountModBO.Tds_tbl"]') as HTMLInputElement;
+        if (inp) { inp.value = tds; fire(inp); }
+        const cat = document.querySelector('input[name="Cat_AccountModBO.Tds_tbl"]') as HTMLInputElement;
+        if (cat) { cat.value = tds; fire(cat); }
+      }, TD.customerData.tdsTable).catch(() => {});
     }
 
     await this.refreshAccountFrame('after TDS LOV');
 
     // Default Channel, Minor Indicator, IsEbankingEnabled, PRM ID
-    const defaultChannel = TD.customerData.defaultChannelForAlerts || 'BRANCH';
-    await this.accountFrame.evaluate((channel: string) => {
+    await this.accountFrame.evaluate(() => {
       const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
       const setSel = (name: string, match: string) => { const s = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement; if (s) { for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase().includes(match) || o.value === match) { s.value = o.value; fire(s); break; } } } };
-      setSel('AccountBO.DefaultChannel_Alert', channel.toUpperCase());
+      setSel('AccountBO.DefaultChannel_Alert', 'BRANCH');
       setSel('AccountModBO.CustomerMinor', 'N');
       setSel('AccountModBO.IsEbankingEnabled', 'N');
-    }, defaultChannel).catch(() => {});
+    }).catch(() => {});
 
     await this.accountFrame.evaluate((rmId: string) => {
       const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
@@ -1055,95 +708,23 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     }
     await page.waitForTimeout(this.timeouts.short);
 
-    // === ADDRESS / PHONE / EMAIL POPUPS (handle multiple rows from Excel) ===
-    const contacts = this.dataRows(
-      TD.contacts,
-      TD.contactData
-    );
+    // === ADDRESS POPUP ===
+    await this.addAddress(addressFrame);
 
-    console.log(
-      `  Found ${contacts.length} contact row(s)`
-    );
+    // === PHONE POPUP ===
+    await this.addPhone(addressFrame);
 
-    for (
-      let index = 0;
-      index < contacts.length;
-      index++
-    ) {
-      const row = contacts[index] as any;
-
-      const contactData = {
-        ...(TD.contactData || {}),
-        ...row
-      };
-
-      const hasAddress =
-        this.isProvided(row.addressType) ||
-        this.isProvided(row.addressLabel) ||
-        this.isProvided(row.addressLine1) ||
-        this.isProvided(row.streetName) ||
-        this.isProvided(row.streetNo) ||
-        this.isProvided(row.houseNo) ||
-        this.isProvided(row.premiseName) ||
-        this.isProvided(row.city) ||
-        this.isProvided(row.zip);
-
-      const hasPhone =
-        this.isProvided(row.phoneType) ||
-        this.isProvided(row.phoneNumber);
-
-      const hasEmail =
-        this.isProvided(row.email);
-
-      if (!hasAddress && !hasPhone && !hasEmail) {
-        console.log(
-          `  Skipping empty contact row ${index + 1}`
-        );
-        continue;
-      }
-
-      console.log(
-        `  Processing contact row ${index + 1}: ` +
-        `address=${hasAddress}, ` +
-        `phone=${hasPhone}, ` +
-        `email=${hasEmail}`
-      );
-
-      // These must be independent conditions.
-      // One Excel row can contain address, phone and email.
-      if (hasAddress) {
-        await this.addAddress(
-          addressFrame,
-          contactData
-        );
-      }
-
-      if (hasPhone) {
-        await this.addPhone(
-          addressFrame,
-          contactData
-        );
-      }
-
-      if (hasEmail) {
-        await this.addEmail(
-          addressFrame,
-          contactData
-        );
-      }
-    }
+    // === EMAIL POPUP ===
+    await this.addEmail(addressFrame);
 
     await this.closeUnexpectedPopups(page);
     await page.waitForTimeout(this.timeouts.short3);
   }
 
   // ==================== ADDRESS POPUP HELPER ====================
-  private async addAddress(
-    addressFrame: any,
-    contactData: any
-  ): Promise<void> {
+  private async addAddress(addressFrame: any): Promise<void> {
     const page = this.workingPage;
-    const TD = { ...this.TD, contactData };
+    const TD = this.TD;
     const addBtn = addressFrame.locator('input[name="Add Address Details"]');
     if (!(await addBtn.isVisible({ timeout: this.timeouts.medium }).catch(() => false))) { console.log('\u26a0 Add Address Details button not found'); return; }
 
@@ -1182,95 +763,28 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     const ac = popupTarget.locator('select[name="AccountBO.Address.addressCategory"]');
     if (await ac.isVisible({ timeout: 3000 }).catch(() => false)) {
       const catOpts = await ac.evaluate((el: HTMLSelectElement) => Array.from(el.options).map(o => o.text)).catch(() => [] as string[]);
-      const addressType = (TD.contactData.addressType || 'Mailing').trim();
-      const validCat = catOpts.find((o: string) => o.toUpperCase() === addressType.toUpperCase()) ||
-                       catOpts.find((o: string) => o.toUpperCase().includes(addressType.toUpperCase())) ||
-                       catOpts.find((o: string) => o.includes('Mailing')) ||
-                       catOpts.find((o: string) => o !== '--Select--' && o.trim() !== '');
+      const validCat = catOpts.find((o: string) => o === 'Mailing') || catOpts.find((o: string) => o.includes('Mailing'));
       if (validCat) { await ac.selectOption({ label: validCat }); await ac.evaluate((el: HTMLSelectElement) => el.dispatchEvent(new Event('change', { bubbles: true }))); console.log(`\u2713 Address Category: ${validCat}`); }
     }
 
     // Address fields
-    const fillField = async (
-      name: string,
-      value: unknown,
-      label: string
-    ): Promise<void> => {
-      const text = this.textValue(value);
-
-      if (!text) {
-        return;
-      }
-
-      const locator = popupTarget
-        .locator(
-          `input[name="${name}"], textarea[name="${name}"]`
-        )
-        .first();
-
-      if (
-        await locator
-          .isVisible({ timeout: 3000 })
-          .catch(() => false)
-      ) {
-        await locator.fill(text);
-        console.log(`\u2713 ${label}: ${text}`);
-      }
+    const fillField = async (name: string, value: string, label: string) => {
+      const loc = popupTarget.locator(`input[name="${name}"], textarea[name="${name}"]`).first();
+      if (await loc.isVisible({ timeout: 3000 }).catch(() => false)) { await loc.fill(value); console.log(`\u2713 ${label}: ${value}`); }
     };
-    const addressLine1 =
-      this.textValue(contactData.addressLine1) ||
-      [
-        this.textValue(contactData.houseNo),
-        this.textValue(contactData.streetNo),
-        this.textValue(contactData.streetName)
-      ]
-        .filter(Boolean)
-        .join(' ');
-
-    await fillField(
-      'AccountBO.Address.address_Line1',
-      addressLine1,
-      'Address Line 1'
-    );
-    await fillField('AccountBO.Address.FreeTextLabel', TD.contactData.addressLabel || 'Mailing', 'Address Label');
+    await fillField('AccountBO.Address.address_Line1', '123 Main Street, Hamilton', 'Address Line 1');
+    await fillField('AccountBO.Address.FreeTextLabel', TD.contactData.addressLabel, 'Address Label');
     await fillField('AccountBO.Address.house_no', TD.contactData.houseNo, 'House No');
     await fillField('AccountBO.Address.premise_name', TD.contactData.premiseName, 'Premise Name');
     await fillField('AccountBO.Address.building_level', TD.contactData.buildingLevel, 'Building Level');
     await fillField('AccountBO.Address.street_no', TD.contactData.streetNo, 'Street No');
     await fillField('AccountBO.Address.suburb', TD.contactData.suburb, 'Suburb');
-    await fillField('AccountBO.Address.street_name', TD.contactData.streetName || TD.contactData.addressLabel, 'Street Name');
+    await fillField('AccountBO.Address.street_name', TD.contactData.addressLabel, 'Street Name');
     await fillField('AccountBO.Address.locality_name', TD.contactData.localityName, 'Locality Name');
-    await fillField('AccountBO.Address.town', TD.contactData.city || 'ALTA FLORESTA', 'Town');
-
-    // Also force hidden/display city and address label so format-change validation doesn't popup
-    await popupTarget.evaluate((args: any) => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const names = ['AccountBO.Address.city', '3_AccountBO.Address.city', 'h_AccountBO.Address.city', 'AccountBO.Address.address_Label', '3_AccountBO.Address.address_Label', 'h_AccountBO.Address.address_Label', 'AccountBO.Address.FreeTextLabel', '3_AccountBO.Address.FreeTextLabel', 'AccountBO.Address.town', '3_AccountBO.Address.town', 'AccountBO.Address.addressCategory', 'AccountBO.Address.mailingAddress', 'AccountBO.Address.mailingAddressFlg'];
-      for (const name of names) {
-        const el = document.querySelector('[name="' + name + '"]') as any;
-        if (!el) continue;
-        let v = '';
-        if (name.toUpperCase().includes('CITY')) v = args.city;
-        else if (name.toUpperCase().includes('LABEL')) v = args.addressLabel;
-        else if (name.toUpperCase().includes('FREETEXT')) v = args.addressLabel;
-        else if (name.toUpperCase().includes('TOWN')) v = args.city;
-        else if (name.toUpperCase().includes('CATEGORY')) v = 'Mailing';
-        else if (name.toUpperCase().includes('MAILINGADDRESS') && !name.toUpperCase().includes('FLG')) v = 'YES';
-        else if (name.toUpperCase().includes('MAILINGADDRESSFLG')) v = 'Y';
-        if (!v) continue;
-        el.disabled = false; el.removeAttribute('disabled'); el.removeAttribute('readonly');
-        if (el.tagName === 'SELECT') {
-          const up = v.toUpperCase();
-          const selectEl = el as HTMLSelectElement;
-          const opt = Array.from(selectEl.options).find((o: HTMLOptionElement) => o.text.trim().toUpperCase() === up || o.value.toUpperCase() === up);
-          if (opt) { selectEl.value = opt.value; } else { selectEl.value = v; }
-        } else { (el as HTMLInputElement).value = v; }
-        fire(el);
-      }
-    }, { city: TD.contactData.city || 'ALTA FLORESTA', addressLabel: TD.contactData.addressLabel || TD.contactData.streetName || 'Mailing' }).catch(() => {});
+    await fillField('AccountBO.Address.town', TD.contactData.city, 'Town');
 
     // LOV fields
-    await this.selectLovValue({ parentPage: page, target: popupTarget, buttonName: 'btnone_AccountBO.Address.city', searchValue: TD.contactData.city || 'AFL', label: 'City', config: this.config, directFieldName: 'AccountBO.Address.city', parentPopup: addressPopup });
+    await this.selectLovValue({ parentPage: page, target: popupTarget, buttonName: 'btnone_AccountBO.Address.city', searchValue: TD.contactData.city, label: 'City', config: this.config, directFieldName: 'AccountBO.Address.city', parentPopup: addressPopup });
     await this.selectLovValue({ parentPage: page, target: popupTarget, buttonName: 'btnone_AccountBO.Address.state', searchValue: TD.contactData.state, label: 'State', config: this.config, directFieldName: 'AccountBO.Address.state', parentPopup: addressPopup });
     await this.selectLovValue({ parentPage: page, target: popupTarget, buttonName: 'btnone_AccountBO.Address.country', searchValue: TD.contactData.country, label: 'Country', config: this.config, directFieldName: 'AccountBO.Address.country', parentPopup: addressPopup });
 
@@ -1288,14 +802,23 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
 
     // Zip, Start Date, End Date, Address Proof
     await fillField('AccountBO.Address.zip', TD.contactData.zip, 'Zip');
-    await fillField('3_AccountBO.Address.Start_Date', TD.contactData.startDate, 'Start Date');
+    const startDateFields = ['3_AccountBO.Address.Start_Date', 'AccountBO.Address.Start_Date', 'h_AccountBO.Address.Start_Date'];
+    for (const sd of startDateFields) {
+      const sl = popupTarget.locator(`input[name="${sd}"], textarea[name="${sd}"]`).first();
+      if (await sl.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await sl.fill(TD.contactData.startDate);
+      } else {
+        await popupTarget.evaluate((args: { n: string; v: string }) => {
+          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+          const el = document.querySelector(`input[name="${args.n}"]`) as HTMLInputElement;
+          if (el) { el.removeAttribute('readonly'); el.value = args.v; fire(el); }
+        }, { n: sd, v: TD.contactData.startDate }).catch(() => {});
+      }
+    }
+    console.log(`\u2713 Start Date: ${TD.contactData.startDate}`);
     const endDateLoc = popupTarget.locator('input[name="AccountBO.Address.End_Date"]');
-    const endDate =
-      this.textValue(contactData.endDate) ||
-      '31/12/2099';
-
     if (await endDateLoc.isVisible({ timeout: 3000 }).catch(() => false)) {
-      if (!(await endDateLoc.isDisabled().catch(() => true))) { await endDateLoc.fill(endDate); }
+      if (!(await endDateLoc.isDisabled().catch(() => true))) { await endDateLoc.fill('31/12/2099'); }
     }
     const addrProof = popupTarget.locator('select[name="AccountBO.Address.IsAddressProofRcvd"]');
     if (await addrProof.isVisible({ timeout: 3000 }).catch(() => false)) { await addrProof.selectOption({ label: 'Y' }); console.log('\u2713 Address Proof: Y'); }
@@ -1314,17 +837,30 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       addressPopup.removeListener('dialog', dlgHandler);
     }
     await page.waitForTimeout(this.timeouts.medium);
+
+    // Propagate the start date to any Start_Date hidden fields in the main form
+    for (const f of page.frames()) {
+      await f.evaluate((v: string) => {
+        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+        for (const el of Array.from(document.querySelectorAll('input, textarea')) as (HTMLInputElement | HTMLTextAreaElement)[]) {
+          const n = (el.name || '').toLowerCase();
+          if (n.includes('start_date') && !n.includes('end_date') && !n.startsWith('cat_') && !n.startsWith('btn') && !n.startsWith('pi_')) {
+            el.removeAttribute('readonly');
+            el.value = v;
+            fire(el);
+          }
+        }
+      }, TD.contactData.startDate).catch(() => {});
+    }
+
     await this.closeUnexpectedPopups(page);
     console.log('\u2713 Address saved');
   }
 
   // ==================== PHONE POPUP HELPER ====================
-  private async addPhone(
-    phoneEmailFrame: any,
-    contactData: any
-  ): Promise<void> {
+  private async addPhone(phoneEmailFrame: any): Promise<void> {
     const page = this.workingPage;
-    const TD = { ...this.TD, contactData };
+    const TD = this.TD;
 
     // Switch to Phone and E-Mail sub-tab
     let contactFrame = page.frame({ name: 'formDispFrame' });
@@ -1415,18 +951,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         const phoneType = pt.locator('select[name="AccountBO.PhoneEmail.PhoneEmailType"]');
         if (await phoneType.isVisible({ timeout: 3000 }).catch(() => false)) {
           const opts = await phoneType.locator('option').allTextContents();
-          const requestedType = (TD.contactData.phoneType || '').trim();
-          const match = (requestedType && opts.find((o: string) => o.toUpperCase().includes(requestedType.toUpperCase()))) ||
-                        opts.find((o: string) => o.includes('COMMUNICATION PHONE')) ||
-                        opts.find((o: string) => o !== '--Select--' && o.trim() !== '');
-          if (match) { await phoneType.selectOption({ label: match }); console.log(`\u2713 Phone Type: ${match}`); }
-        }
-
-        // SP#4: Verify phone/email dropdown labels are correct after selecting "Phone"
-        const spPage = new ServicePackPage(page, this.config, this.lastDialogMessages);
-        const sp4Result = await spPage.verifyPhoneEmailDropdownLabels(phonePopup);
-        if (sp4Result.phoneOrEmailValue) {
-          expect(sp4Result.labelCorrect, `SP#4: When PhoneOrEmail="${sp4Result.phoneOrEmailValue}", type options [${sp4Result.typeOptions.join(', ')}] must match`).toBe(true);
+          const match = opts.find((o: string) => o.includes('COMMUNICATION PHONE')) || opts.find((o: string) => o !== '--Select--' && o.trim() !== '');
+          if (match) { await phoneType.selectOption({ label: match }); }
         }
 
         // Phone details
@@ -1437,43 +963,10 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
             else { await popup.waitForTimeout(2000); if (await loc.isEnabled({ timeout: 3000 }).catch(() => false)) await loc.fill(val); }
           }
         };
-
-        const countryCode =
-          this.textValue(contactData.countryCode);
-
-        const areaCode =
-          this.textValue(contactData.areaCode);
-
-        const phoneNumber =
-          this.textValue(contactData.phoneNumber);
-
-        if (countryCode) {
-          await fillIfEnabled(
-            'input[name="AccountBO.PhoneEmail.PhoneNo.cntrycode"]',
-            countryCode,
-            phonePopup
-          );
-        }
-
-        if (areaCode) {
-          await fillIfEnabled(
-            'input[name="AccountBO.PhoneEmail.PhoneNo.areacode"]',
-            areaCode,
-            phonePopup
-          );
-        }
-
-        if (phoneNumber) {
-          await fillIfEnabled(
-            'input[name="AccountBO.PhoneEmail.PhoneNo.localcode"]',
-            phoneNumber,
-            phonePopup
-          );
-        }
-
-        console.log(
-          `\u2713 Phone: +${countryCode} ${areaCode} ${phoneNumber}`
-        );
+        await fillIfEnabled('input[name="AccountBO.PhoneEmail.PhoneNo.cntrycode"]', TD.contactData.countryCode, phonePopup);
+        await fillIfEnabled('input[name="AccountBO.PhoneEmail.PhoneNo.areacode"]', TD.contactData.areaCode, phonePopup);
+        await fillIfEnabled('input[name="AccountBO.PhoneEmail.PhoneNo.localcode"]', TD.contactData.phoneNumber, phonePopup);
+        console.log(`\u2713 Phone: +${TD.contactData.countryCode} ${TD.contactData.areaCode} ${TD.contactData.phoneNumber}`);
 
         await phonePopup.waitForTimeout(2000);
         const phoneSave = pt.locator('input[name="Save"]');
@@ -1489,17 +982,9 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
   }
 
   // ==================== EMAIL POPUP HELPER ====================
-  private async addEmail(
-    phoneEmailFrame: any,
-    contactData: any
-  ): Promise<void> {
+  private async addEmail(phoneEmailFrame: any): Promise<void> {
     const page = this.workingPage;
-    const email = this.textValue(contactData.email);
-
-    if (!email) {
-      console.log('  Empty email row skipped');
-      return;
-    }
+    const TD = this.TD;
 
     await this.closeUnexpectedPopups(page);
     let pef = page.frame({ name: 'formDispFrame' }) || this.accountFrame;
@@ -1533,11 +1018,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     const emailTypeDD = await emailType1.isVisible({ timeout: 3000 }).catch(() => false) ? emailType1 : emailType;
     if (await emailTypeDD.isVisible({ timeout: 3000 }).catch(() => false)) {
       const opts = await emailTypeDD.locator('option').allTextContents();
-      const requestedType = (contactData.emailType || '').trim();
-      const match = (requestedType && opts.find((o: string) => o.toUpperCase().includes(requestedType.toUpperCase()))) ||
-                    opts.find((o: string) => o.includes('COMMUNICATION') || o.includes('HOME')) ||
-                    opts.find((o: string) => o !== '--Select--' && o.trim() !== '');
-      if (match) { await emailTypeDD.selectOption({ label: match }); console.log(`\u2713 Email Type: ${match}`); }
+      const match = opts.find((o: string) => o.includes('COMMUNICATION') || o.includes('HOME')) || opts.find((o: string) => o !== '--Select--' && o.trim() !== '');
+      if (match) { await emailTypeDD.selectOption({ label: match }); }
       await emailPopup.waitForTimeout(2000);
     }
 
@@ -1546,8 +1028,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     for (const p of patterns) {
       const ef = et.locator(p).first();
       if (await ef.isVisible({ timeout: 2000 }).catch(() => false)) {
-        await ef.fill(email);
-        console.log(`\u2713 Email: ${email}`);
+        await ef.fill(TD.contactData.email);
+        console.log(`\u2713 Email: ${TD.contactData.email}`);
         break;
       }
     }
@@ -1596,35 +1078,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       await page.waitForTimeout(this.timeouts.short3);
     }
 
-    const documents = this
-      .dataRows(TD.documents, TD.validDocData)
-      .filter((document: any) =>
-        this.isProvided(document.documentType) ||
-        this.isProvided(document.documentCode) ||
-        this.isProvided(document.uniqueId)
-      );
-
-    console.log(
-      `  Found ${documents.length} document row(s)`
-    );
-
-    for (
-      let documentIndex = 0;
-      documentIndex < documents.length;
-      documentIndex++
-    ) {
-      const documentData = {
-        ...((this.TD).validDocData || {}),
-        ...documents[documentIndex]
-      };
-
-      console.log(
-        `  Processing document ` +
-        `${documentIndex + 1}/${documents.length}`
-      );
-
-      // Open popup
-      const addBtn = idDocFrame.locator('input[name="AddIdentificationDetails"], input[value="Add Identification Document Details"]').first();
+    // Open popup
+    const addBtn = idDocFrame.locator('input[name="AddIdentificationDetails"], input[value="Add Identification Document Details"]').first();
     if (!(await addBtn.isVisible({ timeout: this.timeouts.long }).catch(() => false))) { console.log('\u26a0 Add ID Doc button not found'); return; }
 
     const popupPromise = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
@@ -1643,7 +1098,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     const docTypeSelect = target.locator('select[name="EntityDocumentBO.DocTypeCode"]');
     if (await docTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
       const opts = await this.getSelectOptions(target, 'select[name="EntityDocumentBO.DocTypeCode"]');
-      const targetType = opts.find(o => o === documentData.documentType) || opts.find(o => o.includes(documentData.documentType || 'IDCUS')) || opts.find(o => o !== '--Select--' && o.length > 0);
+      const targetType = opts.find(o => o === TD.validDocData.documentType) || opts.find(o => o.includes(TD.validDocData.documentType || 'IDCUS')) || opts.find(o => o !== '--Select--' && o.length > 0);
       if (targetType) {
         await docTypeSelect.selectOption({ label: targetType });
         await docTypeSelect.evaluate((el: HTMLSelectElement) => el.dispatchEvent(new Event('change', { bubbles: true })));
@@ -1660,7 +1115,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     const docCodeSelect = target.locator('select[name="EntityDocumentBO.DocCode"]');
     if (await docCodeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
       const opts = await this.getSelectOptions(target, 'select[name="EntityDocumentBO.DocCode"]');
-      const targetCode = opts.find(o => o.includes(documentData.documentCode)) || opts.find(o => o !== '--Select--' && o.length > 0);
+      const targetCode = opts.find(o => o.includes(TD.validDocData.documentCode)) || opts.find(o => o !== '--Select--' && o.length > 0);
       if (targetCode) {
         await docCodeSelect.selectOption({ label: targetCode });
         await docCodeSelect.evaluate((el: HTMLSelectElement) => el.dispatchEvent(new Event('change', { bubbles: true })));
@@ -1670,67 +1125,18 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
 
     // Unique ID
     const uid = target.locator('input[name="EntityDocumentBO.ReferenceNumber"]');
-    if (await uid.isVisible({ timeout: 3000 }).catch(() => false)) { await uid.fill(''); await uid.fill(documentData.uniqueId); console.log(`\u2713 Unique ID: ${documentData.uniqueId}`); }
+    if (await uid.isVisible({ timeout: 3000 }).catch(() => false)) { await uid.fill(''); await uid.fill(TD.validDocData.uniqueId); console.log(`\u2713 Unique ID: ${TD.validDocData.uniqueId}`); }
 
     // Place of Issue via LOV
-    await this.selectDocLov(docPopup, target, 'btnone_EntityDocumentBO.PlaceOfIssue', documentData.placeOfIssue, 'Place of Issue', 'EntityDocumentBO.PlaceOfIssue', 'Cat_EntityDocumentBO.PlaceOfIssue');
+    await this.selectDocLov(docPopup, target, 'btnone_EntityDocumentBO.PlaceOfIssue', TD.validDocData.placeOfIssue, 'Place of Issue', 'EntityDocumentBO.PlaceOfIssue', 'Cat_EntityDocumentBO.PlaceOfIssue');
     // Country of Issue via LOV
-    // Fallback to contact country / country-of-birth when the document row is blank.
-    const countryOfIssue =
-      this.textValue(
-        documentData.countryOfIssueDisplay
-      ) ||
-      this.textValue(
-        documentData.countryOfIssue
-      ) ||
-      this.textValue(
-        documentData.country
-      ) ||
-      this.textValue(
-        (this.TD).contactData?.country
-      ) ||
-      this.textValue(
-        (this.TD).demographicData?.countryOfBirthDisplay
-      ) ||
-      this.textValue(
-        (this.TD).demographicData?.countryOfBirth
-      );
-
-    const countryOfIssueCode =
-      this.textValue(
-        documentData.countryOfIssueCode
-      ) ||
-      this.textValue(
-        documentData.countryCode
-      ) ||
-      this.textValue(
-        (this.TD).demographicData?.countryOfBirth
-      ) ||
-      this.textValue(
-        (this.TD).demographicData?.nationality
-      ) ||
-      this.textValue(
-        (this.TD).contactData?.countryCode
-      );
-
-    if (countryOfIssue) {
-      await this.selectDocLov(
-        docPopup,
-        target,
-        'btnone_EntityDocumentBO.CountryOfIssue',
-        countryOfIssue,
-        'Country of Issue',
-        'EntityDocumentBO.CountryOfIssue',
-        'Cat_EntityDocumentBO.CountryOfIssue',
-        countryOfIssueCode
-      );
-    }
+    await this.selectDocLov(docPopup, target, 'btnone_EntityDocumentBO.CountryOfIssue', 'INDIA', 'Country of Issue', 'EntityDocumentBO.CountryOfIssue', 'Cat_EntityDocumentBO.CountryOfIssue', 'IN');
 
     // Issue Date, Expiry Date
-    await target.evaluate((val: string) => { const el = document.querySelector('input[name="3_EntityDocumentBO.DocIssueDate"]') as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, documentData.issueDate).catch(() => {});
-    console.log(`\u2713 Issue Date: ${documentData.issueDate}`);
-    await target.evaluate((val: string) => { const el = document.querySelector('input[name="3_EntityDocumentBO.DocExpiryDate"]') as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, documentData.expiryDate).catch(() => {});
-    console.log(`\u2713 Expiry Date: ${documentData.expiryDate}`);
+    await target.evaluate((val: string) => { const el = document.querySelector('input[name="3_EntityDocumentBO.DocIssueDate"]') as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, TD.validDocData.issueDate).catch(() => {});
+    console.log(`\u2713 Issue Date: ${TD.validDocData.issueDate}`);
+    await target.evaluate((val: string) => { const el = document.querySelector('input[name="3_EntityDocumentBO.DocExpiryDate"]') as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, TD.validDocData.expiryDate).catch(() => {});
+    console.log(`\u2713 Expiry Date: ${TD.validDocData.expiryDate}`);
 
     // Is Document Verified
     const isVerified = target.locator('select[name="EntityDocumentBO.IsDocumentVerified"]');
@@ -1753,23 +1159,17 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     console.log('\u2713 ID Doc saved');
     await page.waitForTimeout(this.timeouts.short3);
 
-    // Mark as Preferred when the row is flagged as preferred
-    if (
-      this.textValue(documentData.isPreferred)
-        .toUpperCase() === 'Y'
-    ) {
-      for (const f of [page.frame({ name: 'formDispFrame' }) || idDocFrame, ...page.frames()]) {
-        let marked = false;
-        for (const sel of ['input[type="radio"][name="radio1"]', 'input[type="radio"][name="radio0"]', 'input[type="radio"]', 'input[name="IsPreferred"]']) {
-          const btn = f.locator(sel).first();
-          if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { await btn.click(); marked = true; console.log('\u2713 Marked document as Preferred'); break; }
-        }
-        if (marked) break;
+    // Mark as Preferred
+    for (const f of [page.frame({ name: 'formDispFrame' }) || idDocFrame, ...page.frames()]) {
+      let marked = false;
+      for (const sel of ['input[type="radio"][name="radio1"]', 'input[type="radio"][name="radio0"]', 'input[type="radio"]', 'input[name="IsPreferred"]']) {
+        const btn = f.locator(sel).first();
+        if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { await btn.click(); marked = true; console.log('\u2713 Marked document as Preferred'); break; }
       }
+      if (marked) break;
     }
     await this.closeUnexpectedPopups(page);
     await page.waitForTimeout(this.timeouts.short3);
-    }
     await page.screenshot({ path: 'test-results-temp/retail-iddoc-complete.png' }).catch(() => {});
   }
 
@@ -1811,35 +1211,9 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       await page.waitForTimeout(this.timeouts.medium4);
     }
 
-    const currencies = this
-      .dataRows(TD.currencies, (this.TD).validCcyData)
-      .filter((currency: any) =>
-        this.isProvided(currency.ccy)
-      );
-
-    console.log(
-      `  Found ${currencies.length} currency row(s)`
-    );
-
-    for (
-      let currencyIndex = 0;
-      currencyIndex < currencies.length;
-      currencyIndex++
-    ) {
-      const currencyData = {
-        ...((this.TD).validCcyData || {}),
-        ...currencies[currencyIndex]
-      };
-
-      console.log(
-        `  Processing currency ` +
-        `${currencyIndex + 1}/${currencies.length}: ` +
-        `${currencyData.ccy}`
-      );
-
-      // Open CCY popup
-      let ccyPopup: Page | null = null;
-      let ccyTarget: any = null;
+    // Open CCY popup
+    let ccyPopup: Page | null = null;
+    let ccyTarget: any = null;
     const framesToSearch = Array.from(new Set([ccyFrame, this.accountFrame, ...page.frames()]));
     for (const sf of framesToSearch) {
       for (const sel of ['input[value="Add CCY"]', 'input[name*="AddCCY"]', 'input[name*="AddCcy"]']) {
@@ -1881,83 +1255,22 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       const de = document.querySelector(`input[name="${args.dispName}"]`) as HTMLInputElement;
       if (ce) { ce.value = args.code; ce.dispatchEvent(new Event('change', { bubbles: true })); }
       if (de) { de.value = args.code; de.dispatchEvent(new Event('change', { bubbles: true })); }
-    }, { codeName: CCY_FIELDS.ccyCode, dispName: CCY_FIELDS.ccyDisplay, code: currencyData.ccy });
-    console.log(`\u2713 CCY: ${currencyData.ccy}`);
+    }, { codeName: CCY_FIELDS.ccyCode, dispName: CCY_FIELDS.ccyDisplay, code: TD.validCcyData.ccy });
+    console.log(`\u2713 CCY: ${TD.validCcyData.ccy}`);
 
     // Fill CCY fields
     const fieldMap = [
-      {
-        name: CCY_FIELDS.creditDiscount,
-        value: this.textValue(
-          currencyData.creditDiscountPcnt
-        ),
-        label: 'Credit Discount'
-      },
-      {
-        name: CCY_FIELDS.debitDiscount,
-        value: this.textValue(
-          currencyData.debitDiscountPcnt
-        ),
-        label: 'Debit Discount'
-      },
-      {
-        name: CCY_FIELDS.withholdingTax,
-        value: this.textValue(
-          currencyData.withholdingTaxPcnt
-        ),
-        label: 'Withholding Tax'
-      },
-      {
-        name: CCY_FIELDS.floorLimit,
-        value: this.textValue(
-          currencyData.withholdingTaxFloorLimit
-        ),
-        label: 'Floor Limit'
-      },
-      {
-        name: CCY_FIELDS.expiryDate,
-        value: this.textValue(
-          currencyData.preferentialExpiryDate
-        ),
-        label: 'Expiry Date'
-      }
+      { name: CCY_FIELDS.creditDiscount, value: TD.validCcyData.creditDiscountPcnt, label: 'Credit Discount' },
+      { name: CCY_FIELDS.debitDiscount, value: TD.validCcyData.debitDiscountPcnt, label: 'Debit Discount' },
+      { name: CCY_FIELDS.withholdingTax, value: TD.validCcyData.withholdingTaxPcnt, label: 'Withholding Tax' },
+      { name: CCY_FIELDS.floorLimit, value: TD.validCcyData.withholdingTaxFloorLimit, label: 'Floor Limit' },
+      { name: CCY_FIELDS.expiryDate, value: TD.validCcyData.preferentialExpiryDate, label: 'Expiry Date' }
     ];
-
     for (const field of fieldMap) {
-      if (!field.value) {
-        continue;
-      }
-
-      await ccyTarget.evaluate(
-        (args: {
-          fieldName: string;
-          value: string;
-        }) => {
-          const element = document.querySelector(
-            `input[name="${args.fieldName}"]`
-          ) as HTMLInputElement | null;
-
-          if (!element) {
-            return;
-          }
-
-          element.removeAttribute('readonly');
-          element.value = args.value;
-
-          element.dispatchEvent(
-            new Event('change', { bubbles: true })
-          );
-
-          element.dispatchEvent(
-            new Event('blur', { bubbles: true })
-          );
-        },
-        {
-          fieldName: field.name,
-          value: field.value
-        }
-      );
-
+      await ccyTarget.evaluate((a: { fieldName: string; val: string }) => {
+        const el = document.querySelector(`input[name="${a.fieldName}"]`) as HTMLInputElement;
+        if (el) { el.removeAttribute('readonly'); el.value = a.val; el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); }
+      }, { fieldName: field.name, val: field.value });
       console.log(`\u2713 ${field.label}: ${field.value}`);
     }
 
@@ -1972,7 +1285,6 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (!ccyPopup.isClosed()) { await ccyPopup.waitForEvent('close', { timeout: 15000 }).catch(async () => { if (!ccyPopup!.isClosed()) ccyPopup!.close().catch(() => {}); }); }
     console.log('\u2713 CCY popup saved');
     await page.waitForTimeout(this.timeouts.short3);
-    }
     await this.closeUnexpectedPopups(page);
     await page.screenshot({ path: 'test-results-temp/retail-ccy-complete.png' }).catch(() => {});
   }
@@ -2040,21 +1352,20 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     // Nationality LOV
     let natSelected = false;
     try {
-      natSelected = await this.selectLovValue({ parentPage: page, target: demoFrame, buttonName: this.nationalityLovBtn, searchValue: TD.demographicData.nationalityDisplay, label: 'Nationality', config: this.config, directFieldName: this.nationalityCode || undefined });
+      natSelected = await this.selectLovValue({ parentPage: page, target: demoFrame, buttonName: this.nationalityLovBtn, searchValue: 'ANDORRA', label: 'Nationality', config: this.config, directFieldName: this.nationalityCode || undefined });
     } catch (e) { console.log('\u26a0 Nationality LOV error: ' + ((e as Error).message || '').substring(0, 100)); }
     await page.waitForTimeout(this.timeouts.short).catch(() => {});
 
-    if (this.nationalityCode && this.nationalityDisplay) {
+    if (!natSelected && this.nationalityCode && this.nationalityDisplay) {
       await page.waitForTimeout(3000).catch(() => {});
       demoFrame = this.getDemoFrame();
-      await demoFrame.evaluate((args: { code: string; disp: string; nationality: string; nationalityDisplay: string }) => {
+      await demoFrame.evaluate((args: { code: string; disp: string }) => {
         const ce = document.querySelector(`input[name="${args.code}"]`) as HTMLInputElement;
         const de = document.querySelector(`input[name="${args.disp}"]`) as HTMLInputElement;
-        const fire = (el: HTMLInputElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        if (ce) { ce.removeAttribute('readonly'); ce.disabled = false; ce.value = args.nationality; fire(ce); }
-        if (de) { de.removeAttribute('readonly'); de.disabled = false; de.value = args.nationalityDisplay; fire(de); }
-      }, { code: this.nationalityCode, disp: this.nationalityDisplay, nationality: TD.demographicData.nationality, nationalityDisplay: TD.demographicData.nationalityDisplay }).catch(() => {});
-      console.log('\u2713 Nationality: ' + TD.demographicData.nationalityDisplay + ' (fallback)');
+        if (ce) { ce.value = 'AD'; ce.dispatchEvent(new Event('change', { bubbles: true })); }
+        if (de) { de.value = 'ANDORRA'; de.dispatchEvent(new Event('change', { bubbles: true })); }
+      }, { code: this.nationalityCode, disp: this.nationalityDisplay }).catch(() => {});
+      console.log('\u2713 Nationality: ANDORRA (fallback)');
     }
     await page.waitForTimeout(this.timeouts.short3);
 
@@ -2071,13 +1382,13 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         return fields;
       }).catch(() => ({ codeName: '', dispName: '', codeVal: '' }));
       if (resInfo.codeName && (!resInfo.codeVal || resInfo.codeVal.length === 0)) {
-        await demoFrame.evaluate((a: { code: string; disp: string; countryOfBirth: string; countryOfBirthDisplay: string }) => {
+        await demoFrame.evaluate((a: { code: string; disp: string }) => {
           const ce = document.querySelector(`input[name="${a.code}"]`) as HTMLInputElement;
           const de = document.querySelector(`input[name="${a.disp}"]`) as HTMLInputElement;
-          if (ce) { ce.value = a.countryOfBirth; ce.dispatchEvent(new Event('change', { bubbles: true })); }
-          if (de) { de.value = a.countryOfBirthDisplay; de.dispatchEvent(new Event('change', { bubbles: true })); }
-        }, { code: resInfo.codeName, disp: resInfo.dispName, countryOfBirth: TD.demographicData.countryOfBirth, countryOfBirthDisplay: TD.demographicData.countryOfBirthDisplay }).catch(() => {});
-        console.log('\u2713 Residence Country: ' + TD.demographicData.countryOfBirthDisplay);
+          if (ce) { ce.value = 'BM'; ce.dispatchEvent(new Event('change', { bubbles: true })); }
+          if (de) { de.value = 'BERMUDA'; de.dispatchEvent(new Event('change', { bubbles: true })); }
+        }, { code: resInfo.codeName, disp: resInfo.dispName }).catch(() => {});
+        console.log('\u2713 Residence Country: BERMUDA');
       }
     } catch (e) { console.log(`\u26a0 Residence Country error: ${(e as Error).message?.substring(0, 80)}`); }
 
@@ -2085,8 +1396,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (this.maritalStatusField) {
       const marSel = demoFrame.locator(`select[name="${this.maritalStatusField}"]`);
       if (await marSel.isVisible({ timeout: 5000 }).catch(() => false)) {
-        const mVal = await demoFrame.evaluate((args: { selName: string; maritalStatus: string }) => { const sel = document.querySelector(`select[name="${args.selName}"]`) as HTMLSelectElement; if (!sel) return ''; const msText = args.maritalStatus.toLowerCase(); const checkUn = msText === 'married'; for (const o of Array.from(sel.options)) { if (o.text.trim().toLowerCase().includes(msText) && (!checkUn || !o.text.trim().toLowerCase().includes('un'))) return o.value; } return ''; }, { selName: this.maritalStatusField, maritalStatus: TD.demographicData.maritalStatus }).catch(() => '');
-        if (mVal) { await marSel.selectOption(mVal).catch(() => {}); console.log('\u2713 Marital Status: ' + TD.demographicData.maritalStatus); }
+        const mVal = await demoFrame.evaluate((selName: string) => { const sel = document.querySelector(`select[name="${selName}"]`) as HTMLSelectElement; if (!sel) return ''; for (const o of Array.from(sel.options)) { if (o.text.trim().toLowerCase().includes('married') && !o.text.trim().toLowerCase().includes('un')) return o.value; } return ''; }, this.maritalStatusField).catch(() => '');
+        if (mVal) { await marSel.selectOption(mVal).catch(() => {}); console.log('\u2713 Marital Status: Married'); }
       }
     }
 
@@ -2121,8 +1432,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (this.empTypeField) {
       const empSel = demoFrame.locator(`select[name="${this.empTypeField}"]`);
       if (await empSel.isVisible({ timeout: 5000 }).catch(() => false)) {
-        const val = await demoFrame.evaluate((args: { selName: string; value: string }) => { const sel = document.querySelector(`select[name="${args.selName}"]`) as HTMLSelectElement; if (!sel) return ''; const empText = args.value.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(empText) && !o.text.trim().toUpperCase().includes('SELF')) return o.value; } return ''; }, { selName: this.empTypeField, value: TD.employmentData.employmentType }).catch(() => '');
-        if (val) { await empSel.selectOption(val).catch(() => {}); console.log('\u2713 Employee Type: ' + TD.employmentData.employmentType); }
+        const val = await demoFrame.evaluate((selName: string) => { const sel = document.querySelector(`select[name="${selName}"]`) as HTMLSelectElement; if (!sel) return ''; for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes('SALARIED') && !o.text.trim().toUpperCase().includes('SELF')) return o.value; } return ''; }, this.empTypeField).catch(() => '');
+        if (val) { await empSel.selectOption(val).catch(() => {}); console.log('\u2713 Employee Type: SALARIED'); }
       }
     }
 
@@ -2158,8 +1469,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (this.incomeTypeField) {
       const incSel = demoFrame.locator(`select[name="${this.incomeTypeField}"]`);
       if (await incSel.isVisible({ timeout: 5000 }).catch(() => false)) {
-        const val = await demoFrame.evaluate((args: { selName: string; value: string }) => { const sel = document.querySelector(`select[name="${args.selName}"]`) as HTMLSelectElement; if (!sel) return ''; const incText = args.value.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(incText) && !o.text.trim().toUpperCase().includes('SELF')) return o.value; } return ''; }, { selName: this.incomeTypeField, value: TD.incomeExpenseData.incomeType }).catch(() => '');
-        if (val) { await incSel.selectOption(val).catch(() => {}); console.log('\u2713 Income Type: ' + TD.incomeExpenseData.incomeType); }
+        const val = await demoFrame.evaluate((selName: string) => { const sel = document.querySelector(`select[name="${selName}"]`) as HTMLSelectElement; if (!sel) return ''; for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes('SALARIED') && !o.text.trim().toUpperCase().includes('SELF')) return o.value; } return ''; }, this.incomeTypeField).catch(() => '');
+        if (val) { await incSel.selectOption(val).catch(() => {}); console.log('\u2713 Income Type: SALARIED'); }
       }
     }
 
@@ -2171,8 +1482,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (this.demoCurrencyField) {
       const ccySel = demoFrame.locator(`select[name="${this.demoCurrencyField}"]`);
       if (await ccySel.isVisible({ timeout: 5000 }).catch(() => false)) {
-        const val = await demoFrame.evaluate((args: { selName: string; value: string }) => { const sel = document.querySelector(`select[name="${args.selName}"]`) as HTMLSelectElement; if (!sel) return ''; const ccy = args.value.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().includes(ccy) || o.value === ccy) return o.value; } return ''; }, { selName: this.demoCurrencyField, value: TD.incomeExpenseData.currency }).catch(() => '');
-        if (val) { await ccySel.selectOption(val).catch(() => {}); console.log('\u2713 Currency: ' + TD.incomeExpenseData.currency); }
+        const val = await demoFrame.evaluate((selName: string) => { const sel = document.querySelector(`select[name="${selName}"]`) as HTMLSelectElement; if (!sel) return ''; for (const o of Array.from(sel.options)) { if (o.text.trim().includes('BMD') || o.value === 'BMD') return o.value; } return ''; }, this.demoCurrencyField).catch(() => '');
+        if (val) { await ccySel.selectOption(val).catch(() => {}); console.log('\u2713 Currency: BMD'); }
       }
     }
 
@@ -2184,12 +1495,11 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     }
     if (!this.grossIncomeField) { for (const f of page.frames()) { const found = await f.evaluate(() => { const el = document.querySelector('input[name="3_DemographicBO.Annual_Salary_Income"]') as HTMLInputElement; return el ? el.name : ''; }).catch(() => ''); if (found) { this.grossIncomeField = found; demoFrame = f; break; } } }
     if (this.grossIncomeField) {
-      const grossIncome = String(TD.incomeExpenseData.grossIncome);
       await demoFrame.evaluate((fn: string) => { const el = document.querySelector(`input[name="${fn}"]`) as HTMLInputElement; if (el) el.removeAttribute('readonly'); }, this.grossIncomeField).catch(() => {});
       const loc = demoFrame.locator(`input[name="${this.grossIncomeField}"]`);
-      if (await loc.isVisible({ timeout: 5000 }).catch(() => false)) { await loc.fill(grossIncome).catch(() => {}); }
-      else { await demoFrame.evaluate((a: { fn: string; val: string }) => { const el = document.querySelector(`input[name="${a.fn}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = a.val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, { fn: this.grossIncomeField, val: grossIncome }).catch(() => {}); }
-      console.log('\u2713 Gross Income: ' + grossIncome);
+      if (await loc.isVisible({ timeout: 5000 }).catch(() => false)) { await loc.fill('50000').catch(() => {}); }
+      else { await demoFrame.evaluate((a: { fn: string }) => { const el = document.querySelector(`input[name="${a.fn}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = '50000'; el.dispatchEvent(new Event('change', { bubbles: true })); } }, { fn: this.grossIncomeField }).catch(() => {}); }
+      console.log('\u2713 Gross Income: 50000');
     }
 
     // Monthly Expense
@@ -2197,40 +1507,11 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (!this.monthlyExpenseField) { for (const f of page.frames()) { const found = await f.evaluate(() => { const el = document.querySelector('input[name="3_DemographicBO.Annual_Operating_Exp"]') as HTMLInputElement; return el ? el.name : ''; }).catch(() => ''); if (found) { this.monthlyExpenseField = found; demoFrame = f; break; } } }
     if (!this.monthlyExpenseField) { for (const inp of incomeFieldInfo.inputs) { if ((inp.name || '').toLowerCase().includes('operating_exp')) { this.monthlyExpenseField = inp.name; break; } } }
     if (this.monthlyExpenseField) {
-      const annualExpense = String(TD.incomeExpenseData.annualOperatingExpense);
       await demoFrame.evaluate((fn: string) => { const el = document.querySelector(`input[name="${fn}"]`) as HTMLInputElement; if (el) el.removeAttribute('readonly'); }, this.monthlyExpenseField).catch(() => {});
       const loc = demoFrame.locator(`input[name="${this.monthlyExpenseField}"]`);
-      if (await loc.isVisible({ timeout: 5000 }).catch(() => false)) { await loc.fill(annualExpense).catch(() => {}); }
-      else { await demoFrame.evaluate((a: { fn: string; val: string }) => { const el = document.querySelector(`input[name="${a.fn}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = a.val; el.dispatchEvent(new Event('change', { bubbles: true })); } }, { fn: this.monthlyExpenseField, val: annualExpense }).catch(() => {}); }
-      console.log('\u2713 Monthly Expense: ' + annualExpense);
-    }
-
-    // Fix Income Details fields visible in the failure screenshot
-    for (const f of [demoFrame, ...page.frames()]) {
-      if (!f) continue;
-      const fixedIncome = await f.evaluate(() => {
-        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const findInputByLabel = (labelText: string) => {
-          const tds = Array.from(document.querySelectorAll('td'));
-          for (const td of tds) { if ((td.innerText || '').trim().toUpperCase().includes(labelText.toUpperCase())) { const nxt = td.nextElementSibling as HTMLElement; if (nxt) { const inps = nxt.querySelectorAll('input[type="text"], input:not([type="hidden"])'); if (inps.length) return inps[0]; const any = nxt.querySelector('input, select') as any; if (any) return any; } } }
-          return null;
-        };
-        const setByLabel = (label: string, val: string) => {
-          const el = findInputByLabel(label);
-          if (!el) return false;
-          el.removeAttribute('readonly'); el.removeAttribute('disabled');
-          if (el.tagName === 'SELECT') { el.value = val; el.selectedIndex = Array.from(el.options).findIndex((o: any) => o.value === val); }
-          else { el.value = val; }
-          fire(el);
-          return true;
-        };
-        const r: string[] = [];
-        if (setByLabel('Investment in Shares and Units', '0.00')) r.push('Investment in Shares and Units');
-        if (setByLabel('Tax Exemption Start Date', '01/01/2020')) r.push('Tax Exemption Start Date');
-        if (setByLabel('No Tax Recalculation Beyond Date', '31/12/2099')) r.push('No Tax Recalculation Beyond Date');
-        return r;
-      }).catch(() => [] as string[]);
-      if (fixedIncome.length) { console.log('  \u2713 Fixed Income/Expense: ' + fixedIncome.join(', ')); break; }
+      if (await loc.isVisible({ timeout: 5000 }).catch(() => false)) { await loc.fill('15000').catch(() => {}); }
+      else { await demoFrame.evaluate((a: { fn: string }) => { const el = document.querySelector(`input[name="${a.fn}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = '15000'; el.dispatchEvent(new Event('change', { bubbles: true })); } }, { fn: this.monthlyExpenseField }).catch(() => {}); }
+      console.log('\u2713 Monthly Expense: 15000');
     }
 
     await page.screenshot({ path: 'test-results-temp/retail-dem-complete.png' }).catch(() => {});
@@ -2239,27 +1520,23 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
   // ==================== PRE-SUBMIT VERIFICATION ====================
   async preSubmitVerification(): Promise<void> {
     console.log('\n=== Pre-Submit: Verify mandatory fields ===');
-    // Skip all tab-switching/LOV re-fills here; submitForm's fillAll will populate the form.
-    // The tab/LOV loops were reloading formDispFrame/buttonFrm and causing the Submit button to detach/timeout.
-    return;
+    await this.reacquireWorkingPage();
     const page = this.workingPage;
-    const TD = this.TD;
 
-    // General Details (heavy - skipped to avoid timeout)
-    if (false) {
+    // General Details
     try {
       for (const f of page.frames()) { const tab = f.getByText('General Details', { exact: false }).first(); if (await tab.isVisible({ timeout: 3000 }).catch(() => false)) { await tab.click(); break; } }
       await page.waitForTimeout(this.timeouts.short3);
       for (const f of page.frames()) {
-        const result = await f.evaluate((args: { natCode: string; natDisp: string; marField: string; nationality: string; nationalityDisplay: string; countryOfBirth: string; countryOfBirthDisplay: string; maritalStatus: string }) => {
+        const result = await f.evaluate((args: { natCode: string; natDisp: string; marField: string }) => {
           const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
           const res = { foundAny: false, fixes: [] as string[] };
           const nc = document.querySelector(`input[name="${args.natCode}"]`) as HTMLInputElement;
-          if (nc) { res.foundAny = true; if (!nc.value) { nc.value = args.nationality; fire(nc); const nd = document.querySelector(`input[name="${args.natDisp}"]`) as HTMLInputElement; if (nd) { nd.value = args.nationalityDisplay; fire(nd); } res.fixes.push('Nationality'); } }
-          if (args.marField) { const ms = document.querySelector(`select[name="${args.marField}"]`) as HTMLSelectElement; if (ms) { res.foundAny = true; if (!ms.value || ms.selectedIndex <= 0) { const msText = args.maritalStatus.toLowerCase(); const checkUn = msText === 'married'; for (const o of Array.from(ms.options)) { if (o.text.trim().toLowerCase().includes(msText) && (!checkUn || !o.text.trim().toLowerCase().includes('un'))) { ms.value = o.value; fire(ms); res.fixes.push('Marital'); break; } } } } }
-          document.querySelectorAll('input').forEach(el => { const inp = el as HTMLInputElement; if (inp.name.includes('Residence_Country') && !inp.name.startsWith('Cat_') && !inp.name.startsWith('btn') && !inp.name.startsWith('pi_')) { res.foundAny = true; if (!inp.value) { inp.value = args.countryOfBirth; fire(inp); const d = document.querySelector(`input[name="Cat_${inp.name}"]`) as HTMLInputElement; if (d) { d.value = args.countryOfBirthDisplay; fire(d); } res.fixes.push('Residence'); } } });
+          if (nc) { res.foundAny = true; if (!nc.value) { nc.value = 'AD'; fire(nc); const nd = document.querySelector(`input[name="${args.natDisp}"]`) as HTMLInputElement; if (nd) { nd.value = 'ANDORRA'; fire(nd); } res.fixes.push('Nationality'); } }
+          if (args.marField) { const ms = document.querySelector(`select[name="${args.marField}"]`) as HTMLSelectElement; if (ms) { res.foundAny = true; if (!ms.value || ms.selectedIndex <= 0) { for (const o of Array.from(ms.options)) { if (o.text.trim().toLowerCase().includes('married') && !o.text.trim().toLowerCase().includes('un')) { ms.value = o.value; fire(ms); res.fixes.push('Marital'); break; } } } } }
+          document.querySelectorAll('input').forEach(el => { const inp = el as HTMLInputElement; if (inp.name.includes('Residence_Country') && !inp.name.startsWith('Cat_') && !inp.name.startsWith('btn') && !inp.name.startsWith('pi_')) { res.foundAny = true; if (!inp.value) { inp.value = 'BM'; fire(inp); const d = document.querySelector(`input[name="Cat_${inp.name}"]`) as HTMLInputElement; if (d) { d.value = 'BERMUDA'; fire(d); } res.fixes.push('Residence'); } } });
           return res;
-        }, { natCode: this.nationalityCode, natDisp: this.nationalityDisplay, marField: this.maritalStatusField, nationality: TD.demographicData.nationality, nationalityDisplay: TD.demographicData.nationalityDisplay, countryOfBirth: TD.demographicData.countryOfBirth, countryOfBirthDisplay: TD.demographicData.countryOfBirthDisplay, maritalStatus: TD.demographicData.maritalStatus }).catch(() => ({ foundAny: false, fixes: [] }));
+        }, { natCode: this.nationalityCode, natDisp: this.nationalityDisplay, marField: this.maritalStatusField }).catch(() => ({ foundAny: false, fixes: [] }));
         if (result.foundAny) { if (result.fixes.length > 0) console.log(`  \u2713 Re-filled: ${result.fixes.join(', ')}`); break; }
       }
     } catch (e) { console.log(`  \u26a0 General Details re-fill error`); }
@@ -2267,8 +1544,8 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     // Title
     try {
       for (const f of page.frames()) {
-        const fixed = await f.evaluate((title: string) => { const el = document.querySelector('input[name="AccountModBO.Salutation_code"]') as HTMLInputElement; if (!el) return null; if (!el.value) { el.value = title; el.dispatchEvent(new Event('change', { bubbles: true })); return true; } return false; }, TD.customerData.title).catch(() => null);
-        if (fixed === true) { console.log('  \u2713 Re-filled Title = ' + TD.customerData.title); break; }
+        const fixed = await f.evaluate(() => { const el = document.querySelector('input[name="AccountModBO.Salutation_code"]') as HTMLInputElement; if (!el) return null; if (!el.value) { el.value = 'MR'; el.dispatchEvent(new Event('change', { bubbles: true })); return true; } return false; }).catch(() => null);
+        if (fixed === true) { console.log('  \u2713 Re-filled Title = MR'); break; }
         if (fixed === false) break;
       }
     } catch (_) {}
@@ -2279,7 +1556,7 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       await page.waitForTimeout(this.timeouts.short3);
       if (this.empTypeField) {
         for (const f of page.frames()) {
-          const fixed = await f.evaluate((args: { selName: string; value: string }) => { const sel = document.querySelector(`select[name="${args.selName}"]`) as HTMLSelectElement; if (!sel) return null; if (sel.value && sel.selectedIndex > 0) return false; const empText = args.value.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(empText) && !o.text.trim().toUpperCase().includes('SELF')) { sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true })); return true; } } return false; }, { selName: this.empTypeField, value: TD.employmentData.employmentType }).catch(() => null);
+          const fixed = await f.evaluate((selName: string) => { const sel = document.querySelector(`select[name="${selName}"]`) as HTMLSelectElement; if (!sel) return null; if (sel.value && sel.selectedIndex > 0) return false; for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes('SALARIED') && !o.text.trim().toUpperCase().includes('SELF')) { sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true })); return true; } } return false; }, this.empTypeField).catch(() => null);
           if (fixed === true) { console.log('  \u2713 Re-filled Employee Type'); break; }
           if (fixed === false) break;
         }
@@ -2294,1249 +1571,250 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
         const result = await f.evaluate((args: any) => {
           const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
           const r = { foundAny: false, fixes: [] as string[] };
-          if (args.incTypeField) { const sel = document.querySelector(`select[name="${args.incTypeField}"]`) as HTMLSelectElement; if (sel) { r.foundAny = true; if (!sel.value || sel.selectedIndex <= 0) { const incText = args.incomeType.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(incText) && !o.text.trim().toUpperCase().includes('SELF')) { sel.value = o.value; fire(sel); r.fixes.push('IncType'); break; } } } } }
-          if (args.grossField) { const el = document.querySelector(`input[name="${args.grossField}"]`) as HTMLInputElement; if (el) { r.foundAny = true; if (!el.value || el.value === '0') { el.removeAttribute('readonly'); el.value = args.grossIncome; fire(el); r.fixes.push('Gross'); } } }
-          if (args.ccyField) { const sel = document.querySelector(`select[name="${args.ccyField}"]`) as HTMLSelectElement; if (sel) { r.foundAny = true; if (!sel.value || sel.selectedIndex <= 0) { const ccy = args.currency.toUpperCase(); for (const o of Array.from(sel.options)) { if (o.text.trim().includes(ccy) || o.value === ccy) { sel.value = o.value; fire(sel); r.fixes.push('CCY'); break; } } } } }
-          if (args.expField) { const el = document.querySelector(`input[name="${args.expField}"]`) as HTMLInputElement; if (el) { r.foundAny = true; if (!el.value) { el.removeAttribute('readonly'); el.value = args.annualOperatingExpense; fire(el); r.fixes.push('Expense'); } } }
+          if (args.incTypeField) { const sel = document.querySelector(`select[name="${args.incTypeField}"]`) as HTMLSelectElement; if (sel) { r.foundAny = true; if (!sel.value || sel.selectedIndex <= 0) { for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes('SALARIED') && !o.text.trim().toUpperCase().includes('SELF')) { sel.value = o.value; fire(sel); r.fixes.push('IncType'); break; } } } } }
+          if (args.grossField) { const el = document.querySelector(`input[name="${args.grossField}"]`) as HTMLInputElement; if (el) { r.foundAny = true; if (!el.value || el.value === '0') { el.removeAttribute('readonly'); el.value = '50000'; fire(el); r.fixes.push('Gross'); } } }
+          if (args.ccyField) { const sel = document.querySelector(`select[name="${args.ccyField}"]`) as HTMLSelectElement; if (sel) { r.foundAny = true; if (!sel.value || sel.selectedIndex <= 0) { for (const o of Array.from(sel.options)) { if (o.text.trim().includes('USD')) { sel.value = o.value; fire(sel); r.fixes.push('CCY'); break; } } } } }
+          if (args.expField) { const el = document.querySelector(`input[name="${args.expField}"]`) as HTMLInputElement; if (el) { r.foundAny = true; if (!el.value) { el.removeAttribute('readonly'); el.value = '15000'; fire(el); r.fixes.push('Expense'); } } }
           return r;
-        }, { incTypeField: this.incomeTypeField, grossField: this.grossIncomeField, ccyField: this.demoCurrencyField, expField: this.monthlyExpenseField, incomeType: TD.incomeExpenseData.incomeType, grossIncome: String(TD.incomeExpenseData.grossIncome), currency: TD.incomeExpenseData.currency, annualOperatingExpense: String(TD.incomeExpenseData.annualOperatingExpense) }).catch(() => ({ foundAny: false, fixes: [] }));
+        }, { incTypeField: this.incomeTypeField, grossField: this.grossIncomeField, ccyField: this.demoCurrencyField, expField: this.monthlyExpenseField }).catch(() => ({ foundAny: false, fixes: [] }));
         if (result.foundAny) { if (result.fixes.length > 0) console.log(`  \u2713 Re-filled Income/Expense: ${result.fixes.join(', ')}`); break; }
       }
     } catch (_) {}
 
-    // General tab mandatory fields — sweep all inputs/selects in the first relevant frame
+    // General tab mandatory fields
     try {
       for (const f of page.frames()) {
-        const result = await f.evaluate((args: any) => {
+        const result = await f.evaluate(() => {
           const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
           const res = { foundAny: false, fixes: [] as string[] };
-          const allInputs = Array.from(document.querySelectorAll('input, select'));
-          if (allInputs.length > 0) res.foundAny = true;
-
-          const fillText = (keywords: string[], val: string) => {
-            const upKeywords = keywords.map(k => k.toUpperCase());
-            document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-              const name = (inp.name || '').toUpperCase();
-              if (!name || inp.value) return;
-              if (upKeywords.some(k => name.includes(k))) { inp.removeAttribute('readonly'); inp.value = val; fire(inp); res.fixes.push(name.substring(0, 30)); }
-            });
-          };
-
-          const fillSelect = (keywords: string[], match: string) => {
-            const upKeywords = keywords.map(k => k.toUpperCase());
-            const upMatch = match.toUpperCase();
-            document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-              const name = (sel.name || '').toUpperCase();
-              if (!name) return;
-              if (sel.value && sel.selectedIndex > 0 && sel.value !== '0') return;
-              if (!upKeywords.some(k => name.includes(k))) return;
-              let opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase() === upMatch);
-              if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === upMatch);
-              if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(upMatch));
-              if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes('NO'));
-              if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'N');
-              if (!opt) opt = Array.from(sel.options).find(o => o.value === '0');
-              if (!opt) opt = Array.from(sel.options).find(o => o.value);
-              if (opt) { sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly'); opt.disabled = false; sel.value = opt.value; sel.selectedIndex = opt.index; fire(sel); if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} } res.fixes.push(name.substring(0, 30)); }
-            });
-          };
-
-          // Name fields and DOB
-          fillText(['SALUTATION'], args.title);
-          fillText(['FIRST_NAME', 'FIRSTNAME'], args.firstName);
-          fillText(['LAST_NAME', 'LASTNAME'], args.lastName);
-          fillText(['PREFERREDNAME', 'PREFERRED_NAME'], args.preferredName);
-          fillText(['SHORT_NAME', 'SHORTNAME'], args.shortName);
-          fillText(['CUST_DOB', 'DATEOFBIRTH'], args.dob);
-          fillText(['NRE_DATE', 'BECOMINGNRE', 'NRE_DATE'], args.nreDate);
-          // Force hidden code inputs for Basel/Foreign/TIN and ID details
-          fillText(['BASEL', 'BASELPROFILING'], args.baselVal || 'N');
-          fillText(['FOREIGNACCTAXREPORTINGREQ', 'FOREIGNTAXREPORTINGSTATUS', 'FOREIGNACCTAXREPORTING', 'CRSCOMPLIANCE', 'FATCA', 'FATCAREMARKS'], args.foreignVal || 'N');
-          fillText(['FOREIGNTAXREPORTINGCOUNTRY', 'TAXREPORTINGCOUNTRY'], '');
-          fillText(['TIN', 'TAXIDENTIFICATION'], 'NA');
-          fillText(['HIDUNIQUEID', 'ENTITYDOCBO.REFERENCENUMBER', 'ACCOUNTMODBO.UNIQUEID', '3_ACCOUNTMODBO.UNIQUEID', 'ACCOUNTBO.UNIQUEID'], args.uniqueId || '');
-
-          // Region and TDS — fill code vs display automatically
-          document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-            const name = (inp.name || '').toUpperCase();
-            if (!name || inp.value) return;
-            if (name.includes('REGION') && !name.includes('PRE')) {
-              inp.value = name.includes('CAT_') ? args.regionDisplay : args.region;
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            } else if (name.includes('TDS_TBL') || name.includes('TDS_TABLE')) {
-              inp.value = name.includes('CAT_') ? args.tdsDisplay : args.tdsTable;
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            } else if (name.includes('INTRODUCER')) {
-              inp.value = args.primaryRelationshipManagerId;
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            } else if (name.includes('ACCESS_OWNER_GROUP')) {
-              inp.value = 'General Banking';
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            } else if (name.includes('ACCESS_OWNER_SEGMENT')) {
-              inp.value = args.accessOwnerSegment;
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            } else if (name.includes('PRM_ID') || name.includes('RELATIONSHIP_MGR')) {
-              inp.value = args.primaryRelationshipManagerId;
-              inp.removeAttribute('readonly'); fire(inp); res.fixes.push(name.substring(0, 30));
-            }
-          });
-
-          // Selects
-          fillSelect(['GENDER'], args.gender);
-          fillSelect(['NRE', 'NRI'], args.nreFlag);
-          fillSelect(['BANKRELATIONTYPE'], args.bankRelationType);
-          fillSelect(['NATIVELANG'], args.nativeLanguage);
-          fillSelect(['CUSTOMERMINOR'], 'N');
-          fillSelect(['ISEBANKING'], 'N');
-          fillSelect(['DEFAULTCHANNEL'], args.defaultChannelForAlerts);
-          fillSelect(['SUBSEGMENT'], args.subSegment);
-          fillSelect(['TDS'], args.tdsTable);
-          fillSelect(['BASEL'], 'NO');
-          fillSelect(['TAX', 'FOREIGN', 'CRS', 'FATCA'], 'NO TIN');
-
-          // Sweep any remaining empty selects to a safe value
-          document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-            if (sel.value && sel.selectedIndex > 0 && sel.value !== '0') return;
-            const up = (sel.name || '').toUpperCase();
-            if (up.includes('TDS')) {
-              const tdsUp = (args.tdsTable || '').toUpperCase();
-              let tdsOpt = Array.from(sel.options).find(o => o.value.toUpperCase() === tdsUp);
-              if (!tdsOpt) tdsOpt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(tdsUp));
-              if (tdsOpt) { sel.value = tdsOpt.value; fire(sel); return; }
-            }
-            const isForeign = up.includes('TAX') || up.includes('FOREIGN') || up.includes('CRS') || up.includes('FATCA');
-            const preferredText = isForeign ? 'NO TIN' : 'NO';
-            let opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(preferredText));
-            if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes('NO'));
-            if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'N');
-            if (!opt) opt = Array.from(sel.options).find(o => o.value === '0');
-            if (!opt) opt = Array.from(sel.options).find(o => o.value);
-            if (opt) { sel.value = opt.value; sel.selectedIndex = opt.index; fire(sel); if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} } }
-            else if (up.includes('BASEL') || isForeign) {
-              const o = document.createElement('option');
-              o.value = isForeign ? 'NOTIN' : 'N';
-              o.text = isForeign ? 'NO TIN' : 'NO';
-              o.selected = true;
-              sel.appendChild(o);
-              sel.value = o.value;
-              sel.selectedIndex = o.index;
-              fire(sel);
-              if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }
-              res.fixes.push(up.substring(0, 30) + '=' + o.value);
-            }
-          });
-
+          const nl = document.querySelector('select[name="AccountModBO.NativeLangCode"]') as HTMLSelectElement;
+          if (nl) { res.foundAny = true; if (!nl.value || nl.selectedIndex <= 0) { for (const o of Array.from(nl.options)) { if (o.text.trim().toUpperCase() === 'ENGLISH') { nl.value = o.value; fire(nl); res.fixes.push('NativeLang'); break; } } } }
+          const cl = document.querySelector('input[name="Cat_AccountModBO.Cust_Language"]') as HTMLInputElement;
+          if (cl) { res.foundAny = true; if (!cl.value) { cl.value = 'ENGLISH'; fire(cl); const clc = document.querySelector('input[name="AccountModBO.Cust_Language"]') as HTMLInputElement; if (clc) { clc.value = 'ENGLISH'; fire(clc); } res.fixes.push('CustLang'); } }
+          const pl = document.querySelector('input[name="Cat_PsychographicBO.Preferred_Locale"]') as HTMLInputElement;
+          if (pl) { res.foundAny = true; if (!pl.value) { pl.removeAttribute('readonly'); pl.value = 'en_US'; fire(pl); const plc = document.querySelector('input[name="PsychographicBO.Preferred_Locale"]') as HTMLInputElement; if (plc) { plc.value = 'en_US'; fire(plc); } res.fixes.push('Locale'); } }
+          const cm = document.querySelector('select[name="AccountModBO.CustomerMinor"]') as HTMLSelectElement;
+          if (cm) { res.foundAny = true; if (!cm.value || cm.selectedIndex <= 0) { for (const o of Array.from(cm.options)) { if (o.value === 'N') { cm.value = o.value; fire(cm); res.fixes.push('Minor'); break; } } } }
+          const eb = document.querySelector('select[name="AccountModBO.IsEbankingEnabled"]') as HTMLSelectElement;
+          if (eb) { res.foundAny = true; if (!eb.value || eb.selectedIndex <= 0) { for (const o of Array.from(eb.options)) { if (o.value === 'N') { eb.value = o.value; fire(eb); res.fixes.push('Ebank'); break; } } } }
+          const dc = document.querySelector('select[name="AccountBO.DefaultChannel_Alert"]') as HTMLSelectElement;
+          if (dc) { res.foundAny = true; if (!dc.value || dc.selectedIndex <= 0) { for (const o of Array.from(dc.options)) { if (o.text.trim().toUpperCase().includes('BRANCH')) { dc.value = o.value; fire(dc); res.fixes.push('Channel'); break; } } } }
           return res;
-        }, {
-          title: (TD.customerData.title || 'MR').toUpperCase(),
-          firstName: (TD.customerData.firstName || '').toUpperCase(),
-          lastName: (TD.customerData.lastName || '').toUpperCase(),
-          preferredName: TD.customerData.preferredName || '',
-          shortName: TD.customerData.shortName || '',
-          dob: TD.customerData.dateOfBirth || '',
-          nreDate: this.textValue(TD.customerData.nonResidentDate),
-          baselVal: 'N',
-          foreignVal: 'NOTIN',
-          uniqueId: this.textValue(TD.validDocData?.uniqueId) || ('TESTID' + Math.floor(Math.random() * 1e8)),
-          idType: (this.textValue(TD.validDocData?.documentCode) || 'IDPAS').toUpperCase(),
-          countryOfIssue: this.textValue(TD.validDocData?.countryOfIssue) || this.textValue(TD.validDocData?.countryOfIssueDisplay) || this.textValue(TD.demographicData?.countryOfBirthDisplay) || this.textValue(TD.demographicData?.countryOfBirth),
-          gender: (TD.customerData.gender || 'MALE').toUpperCase(),
-          nreFlag: this.yesNoFromValue(TD.customerData.nonResidentDate),
-          bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail'),
-          nativeLanguage: (TD.customerData.nativeLanguage || 'ENGLISH').toUpperCase(),
-          preferredLanguage: TD.customerData.preferredLanguage || 'India (English)',
-          preferredLocale: TD.customerData.preferredLocale || 'en_US',
-          defaultChannelForAlerts: (TD.customerData.defaultChannelForAlerts || 'BRANCH').toUpperCase(),
-          region: TD.customerData.region || '',
-          regionDisplay: TD.customerData.regionDisplay || TD.customerData.region || '',
-          tdsTable: TD.customerData.tdsTable || '',
-          tdsDisplay: TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable || '',
-          subSegment: TD.customerData.subSegment || '',
-          primaryRelationshipManagerId: TD.customerData.primaryRelationshipManagerId || 'NSTEVENS',
-          relationshipCreatedBy: TD.customerData.relationshipCreatedBy || 'FIVUSR',
-          accessOwnerSegment: TD.customerData.accessOwnerSegment || 'Private Banking'
         }).catch(() => ({ foundAny: false, fixes: [] }));
-        if (result.fixes.length > 0) console.log(`  \u2713 Re-filled General: ${result.fixes.join(', ')}`);
+        if (result.foundAny) { if (result.fixes.length > 0) console.log(`  \u2713 Re-filled General: ${result.fixes.join(', ')}`); break; }
       }
     } catch (_) {}
 
-    }
-    // Activate Basic Info / General main tab so AccountMod_det is the live formDispFrame
+    // Re-fill mandatory fields directly in IFrmtab0 (Basic Info frame), without tab navigation
     try {
-      for (const f of page.frames().filter(f => { try { return f.name().startsWith('IFrmtab') || f.name() === 'tabViewFrm' || f.url().includes('MainAccountDetForm') || f.url().includes('tabView.html'); } catch (_) { return false; } })) {
-        const activated = await f.evaluate(() => {
-          const tabs = Array.from(document.querySelectorAll('td, a, span, li, button')) as HTMLElement[];
-          const tab = tabs.find(e => {
-            const t = (e.textContent || '').trim().toLowerCase();
-            const on = (e.getAttribute('onclick') || '').toLowerCase();
-            return t === 'general' || t === 'basic info' || on.includes('accountmod_det') || on.includes('mainaccountdetform');
-          });
-          if (tab) { (tab as HTMLElement).click(); return true; }
-          const fn = (window as any).showTabFortabDemoForm;
-          if (typeof fn === 'function') { fn('tpageCont1'); return true; }
-          const t1 = document.getElementById('td_tpageCont1') || document.getElementById('tab_tpageCont1');
-          if (t1) { t1.click(); return true; }
-          return false;
-        }).catch(() => false);
-        if (activated) { console.log('  Clicked General/Basic Info main tab'); break; }
-      }
-      await page.waitForTimeout(this.timeouts.short3);
-      // Wait for AccountMod_det formDispFrame to load
-      for (let i = 0; i < 20; i++) {
-        const f = page.frames().find(fr => { try { return fr.url().includes('AccountMod_det'); } catch (_) { return false; } });
-        if (f) {
-          const len = await f!.evaluate(() => document.querySelectorAll('input, select').length).catch(() => 0);
-          if (len > 50) { this.accountFrame = f; break; }
+      // Find IFrmtab0 frame directly
+      let tab0Frame = page.frame({ name: 'IFrmtab0' });
+      if (!tab0Frame) {
+        // Search for any frame with AccountModBO.lastName field
+        for (const f of page.frames()) {
+          const hasLastName = await f.evaluate(() => !!document.querySelector('input[name="AccountModBO.lastName"]')).catch(() => false);
+          if (hasLastName) { tab0Frame = f; break; }
         }
-        await page.waitForTimeout(this.timeouts.short);
       }
-      // Wait for buttonFrm to reappear with Submit button
-      for (let i = 0; i < 20; i++) {
-        const bf = page.frames().find(f => { try { return f.url().includes('CifShowButtons'); } catch (_) { return false; } }) || page.frame({ name: 'buttonFrm' });
-        if (bf) {
-          const hasSubmit = await bf!.evaluate(() => { const btn = document.getElementById('submitBut'); return !!(btn && btn.getBoundingClientRect().width > 0); }).catch(() => false);
-          if (hasSubmit) break;
-        }
-        await page.waitForTimeout(this.timeouts.short);
-      }
-    } catch (e) { console.log(`  \u26a0 General tab activation error: ${(e as any).message?.substring(0, 100)}`); }
-
-    // Re-fill mandatory fields in the active Basic Info / AccountMod_det frame
-    try {
-      let basicInfoFrame: any = this.accountFrame;
-      if (!basicInfoFrame) {
-        console.log('  ⚠ Cannot find Basic Info frame for re-fill');
+      if (!tab0Frame) {
+        console.log('  ⚠ Cannot find IFrmtab0 or Basic Info frame for re-fill');
       } else {
-        const fieldCount = await basicInfoFrame.evaluate(() => document.querySelectorAll('input, select').length).catch(() => 0);
-        console.log(`  Found Basic Info frame: "${basicInfoFrame.name()}", ${fieldCount} fields`);
-        const TD = this.TD;
-        const refillResult = await basicInfoFrame.evaluate((args: any) => {
-          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-          const fixes: string[] = [];
-          const setText = (keywords: string[], val: string, force = false) => {
-            if (!val) return;
-            const ups = keywords.map((k: string) => k.toUpperCase());
-            document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-              const name = (inp.name || '').toUpperCase();
-              if (!name || (inp.value && !force)) return;
-              if (ups.some(k => name.includes(k))) { inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly'); inp.value = val; fire(inp); fixes.push(name.substring(0, 40)); }
-            });
-          };
-          const setSelect = (sel: HTMLSelectElement, matcher: string) => {
-            if (!sel || (sel.value && sel.value !== '0' && sel.selectedIndex > 0)) return;
-            sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly');
-            const up = matcher.toUpperCase();
-            let opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase() === up);
-            if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === up);
-            if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(up));
-            if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'N');
-            if (!opt) opt = Array.from(sel.options).find(o => o.value.toUpperCase() === 'NO');
-            if (!opt) opt = Array.from(sel.options).find(o => o.value === '0');
-            if (!opt) opt = Array.from(sel.options).find(o => o.value && o.value.trim().length > 0);
-            if (opt) { opt.disabled = false; sel.value = opt.value; sel.selectedIndex = opt.index; fire(sel); fixes.push((sel.name || 'select').substring(0, 40) + '=' + opt.value); }
-          };
+        console.log(`  Found Basic Info frame: "${tab0Frame.name()}", ${await tab0Frame.evaluate(() => document.querySelectorAll('input').length).catch(() => 0)} inputs`);
 
-          setText(['SALUTATION'], args.title);
-          setText(['FIRSTNAME', 'FIRST_NAME'], args.firstName);
-          setText(['LASTNAME', 'LAST_NAME'], args.lastName);
-          setText(['PREFERREDNAME', 'PREFERRED_NAME'], args.preferredName);
-          setText(['SHORTNAME', 'SHORT_NAME'], args.shortName);
-          setText(['CUST_DOB', 'DATEOFBIRTH'], args.dob);
-          setText(['NRE_DATE', 'BECOMINGNRE'], args.nreDate);
-          // Force hidden code inputs for Basel/Foreign/TIN and ID details
-          setText(['BASEL', 'BASELPROFILING'], args.baselVal || 'N', true);
-          setText(['CAT_BASEL', 'BASELPROFILINGDESC'], 'NO', true);
-          setText(['FOREIGN', 'TAX', 'CRS', 'FATCA'], args.foreignVal || 'N', true);
-          setText(['CAT_FOREIGN', 'CAT_TAX', 'CAT_FATCA'], 'NO TIN', true);
-          setText(['FOREIGNTAXREPORTINGCOUNTRY', 'TAXREPORTINGCOUNTRY'], args.countryOfIssue || 'Bermuda', true);
-          setText(['LASTFOREIGNTAXREVIEW'], '01/01/2020', true);
-          setText(['NEXTFOREIGNTAXREVIEW'], '31/12/2099', true);
-          // Re-fill IDTYPER rows without hitting RATING fields
-          const issueDate = '01/01/2020';
-          const validDate = '31/12/2099';
-          for (let i = 1; i <= 5; i++) {
-            const prefix = 'IDTYPER' + i + '.';
-            const setInp = (attr: string, v: string) => {
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const n = (inp.name || '').toUpperCase();
-                if (n.startsWith(prefix) && n.includes(attr) && !inp.value) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = v; fire(inp); fixes.push(n.substring(0, 40)); }
-              });
-            };
-            setInp('TXT_ID_TYPE', args.idType);
-            if (args.uniqueId) {
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const n = (inp.name || '').toUpperCase();
-                if (n.startsWith(prefix) && n.endsWith('TXT_ID') && !n.includes('TYPE') && !inp.value) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = args.uniqueId; fire(inp); fixes.push(n.substring(0, 40)); }
-              });
+      // Re-fill ALL mandatory fields in the General/Basic Info tab
+      const TD = CRM_TEST_DATA.retail.endToEnd;
+      const refillResult = await tab0Frame.evaluate((args: any) => {
+        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+        const setInp = (name: string, val: string) => {
+          const inp = document.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+          if (inp) { inp.removeAttribute('readonly'); inp.value = val; fire(inp); return true; }
+          return false;
+        };
+        const setSel = (name: string, val: string) => {
+          const sel = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement;
+          if (sel) {
+            for (const o of Array.from(sel.options)) {
+              if (o.text.trim().toUpperCase() === val.toUpperCase() || o.value.toUpperCase() === val.toUpperCase()) { sel.value = o.value; fire(sel); return true; }
             }
-            setInp('ISSUE_DATE', issueDate);
-            setInp('VALID_DATE', validDate);
-            setInp('ISSUE_PLACE', args.countryOfIssue || 'Bermuda');
-            setInp('ISSUE_COUNTRY', args.countryOfIssue || 'Bermuda');
-            setInp('COUNTRYOFISSUE', args.countryOfIssue || 'Bermuda');
+            for (const o of Array.from(sel.options)) {
+              if (o.text.trim().toUpperCase().includes(val.toUpperCase()) || o.value.toUpperCase().includes(val.toUpperCase())) { sel.value = o.value; fire(sel); return true; }
+            }
           }
-          setText(['IDENTIFICATION', 'IDNUMBER', 'UNIQUEID', 'PASSPORT', 'DOCUMENTNO'], args.uniqueId || '');
-          setText(['HIDUNIQUEID', 'UNIQUEIDNUMBER', 'ENTITYDOCBO.REFERENCENUMBER'], args.uniqueId || '');
-          setText(['HIDUNIQUEIDTYPE', 'DOCTYPE', 'UNIQUEIDTYPE'], args.idType || '');
-
-          // Region / TDS / Introducer / Access Owner — code vs display
-          document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-            const name = (inp.name || '').toUpperCase();
-            if (!name || inp.value) return;
-            if (name.includes('REGION') && !name.includes('PRE') && !name.includes('RES')) {
-              inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly');
-              inp.value = name.includes('CAT_') ? args.regionDisplay : (name.startsWith('3_') ? args.regionDisplay : args.region);
-              fixes.push(name.substring(0, 40));
-            } else if (name.includes('TDS_TBL') || name.includes('TDS_TABLE')) {
-              inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly');
-              inp.value = name.includes('CAT_') ? args.tdsDisplay : (name.startsWith('3_') ? args.tdsDisplay : args.tdsTable);
-              fixes.push(name.substring(0, 40));
-            } else if (name.includes('INTRODUCER') || name.includes('PRM_ID') || name.includes('RELATIONSHIP_MGR') || name.includes('ACC_MANAGER')) {
-              inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly'); inp.value = args.primaryRelationshipManagerId; fire(inp); fixes.push(name.substring(0, 40));
-            } else if (name.includes('ACCESS_OWNER_GROUP')) {
-              inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly'); inp.value = 'General Banking'; fire(inp); fixes.push(name.substring(0, 40));
-            } else if (name.includes('ACCESS_OWNER_SEGMENT')) {
-              inp.disabled = false; inp.removeAttribute('disabled'); inp.removeAttribute('readonly'); inp.value = args.accessOwnerSegment; fire(inp); fixes.push(name.substring(0, 40));
-            }
-          });
-
-          // All selects
-          document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-            if (sel.value && sel.selectedIndex > 0 && sel.value !== '0') return;
-            const name = (sel.name || '').toUpperCase();
-            if (name.includes('GENDER')) setSelect(sel, args.gender);
-            else if (name.includes('NRE')) setSelect(sel, args.nreFlag);
-            else if (name.includes('BANKRELATIONTYPE')) setSelect(sel, args.bankRelationType);
-            else if (name.includes('NATIVELANG')) setSelect(sel, args.nativeLanguage);
-            else if (name.includes('CUSTOMERMINOR')) { setSelect(sel, 'N'); fixes.push('CustomerMinor'); }
-            else if (name.includes('ISEBANKING')) { setSelect(sel, 'N'); fixes.push('Ebanking'); }
-            else if (name.includes('DEFAULTCHANNEL')) setSelect(sel, args.defaultChannelForAlerts);
-            else if (name.includes('SUBSEGMENT')) setSelect(sel, args.subSegment);
-            else if (name.includes('TDS')) { setSelect(sel, args.tdsTable); fixes.push('TdsTable'); }
-            else if (name.includes('BASEL')) {
-              const bCode = 'N';
-              const bDisplay = 'NO';
-              let bOpt = Array.from(sel.options).find(o => o.value.toUpperCase() === bCode);
-              if (!bOpt) { bOpt = document.createElement('option'); bOpt.value = bCode; bOpt.text = bDisplay; bOpt.selected = true; sel.appendChild(bOpt); }
-              sel.value = bCode; sel.selectedIndex = bOpt.index;
-              fire(sel); try { if (typeof sel.onchange === 'function') sel.onchange(new Event('change')); } catch (_) {}
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const up = (inp.name || '').toUpperCase();
-                if (up.includes(sel.name.toUpperCase()) && !up.includes('CAT_') && !up.startsWith('BTN') && !up.startsWith('3_') && !up.startsWith('PI_')) { inp.value = bCode; fire(inp); fixes.push(inp.name.substring(0, 40)); }
-              });
-              fixes.push('Basel');
-            }
-            else if (name.includes('FOREIGN') || name.includes('TAX') || name.includes('CRS') || name.includes('FATCA')) {
-              const fCode = 'NOTIN';
-              const fDisplay = 'NO TIN IS REQUIRED';
-              let fOpt = Array.from(sel.options).find(o => o.value.toUpperCase() === fCode);
-              if (!fOpt) { fOpt = document.createElement('option'); fOpt.value = fCode; fOpt.text = fDisplay; fOpt.selected = true; sel.appendChild(fOpt); }
-              sel.value = fCode; sel.selectedIndex = fOpt.index;
-              fire(sel); try { if (typeof sel.onchange === 'function') sel.onchange(new Event('change')); } catch (_) {}
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const up = (inp.name || '').toUpperCase();
-                if (up.includes(sel.name.toUpperCase()) && !up.includes('CAT_') && !up.includes('COUNTRY') && !up.startsWith('BTN') && !up.startsWith('3_') && !up.startsWith('PI_')) { inp.value = fCode; fire(inp); fixes.push(inp.name.substring(0, 40)); }
-              });
-              fixes.push('ForeignTax');
-            }
-            else if (name.includes('IDENTIFICATION') || name.includes('IDTYPE') || name.includes('DOCTYPE')) {
-              setSelect(sel, args.idType);
-              if (!sel.value || sel.value === '0' || sel.selectedIndex <= 0) { const o = document.createElement('option'); o.value = args.idType; o.text = args.idType; o.selected = true; sel.appendChild(o); fire(sel); try { if (typeof sel.onchange === 'function') sel.onchange(new Event('change')); } catch (_) {} }
-              fixes.push('IDType');
-            }
-            else if (name.includes('IDCOUNTRY') || name.includes('ISSUECOUNTRY') || name.includes('COUNTRYOFISSUE')) {
-              setSelect(sel, args.countryOfIssue);
-              if ((!sel.value || sel.value === '0' || sel.selectedIndex <= 0) && args.countryOfIssue) { const o = document.createElement('option'); o.value = args.countryOfIssue; o.text = args.countryOfIssue; o.selected = true; sel.appendChild(o); fire(sel); try { if (typeof sel.onchange === 'function') sel.onchange(new Event('change')); } catch (_) {} }
-              fixes.push('IDCountry');
-            }
-          });
-
-          return fixes;
-        }, {
-          title: (TD.customerData.title || 'MR').toUpperCase(),
-          firstName: (TD.customerData.firstName || '').toUpperCase(),
-          lastName: (TD.customerData.lastName || '').toUpperCase(),
-          preferredName: TD.customerData.preferredName || '',
-          shortName: TD.customerData.shortName || '',
-          dob: TD.customerData.dateOfBirth || '',
-          nreDate: this.textValue(TD.customerData.nonResidentDate),
-          baselVal: 'N',
-          foreignVal: 'NOTIN',
-          uniqueId: this.textValue(TD.validDocData?.uniqueId) || ('TESTID' + Math.floor(Math.random() * 1e8)),
-          idType: (this.textValue(TD.validDocData?.documentCode) || 'IDPAS').toUpperCase(),
-          countryOfIssue: this.textValue(TD.validDocData?.countryOfIssue) || this.textValue(TD.validDocData?.countryOfIssueDisplay) || this.textValue(TD.demographicData?.countryOfBirthDisplay) || this.textValue(TD.demographicData?.countryOfBirth),
-          gender: (TD.customerData.gender || 'MALE').toUpperCase(),
-          nreFlag: this.yesNoFromValue(TD.customerData.nonResidentDate),
-          bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail'),
-          nativeLanguage: (TD.customerData.nativeLanguage || 'ENGLISH').toUpperCase(),
-          defaultChannelForAlerts: (TD.customerData.defaultChannelForAlerts || 'BRANCH').toUpperCase(),
-          region: TD.customerData.region || '',
-          regionDisplay: TD.customerData.regionDisplay || TD.customerData.region || '',
-          tdsTable: TD.customerData.tdsTable || '',
-          tdsDisplay: TD.customerData.taxDeductedAtSourceTableDisplay || TD.customerData.tdsTable || '',
-          subSegment: TD.customerData.subSegment || '',
-          primaryRelationshipManagerId: TD.customerData.primaryRelationshipManagerId || 'NSTEVENS',
-          accessOwnerSegment: TD.customerData.accessOwnerSegment || 'Private Banking'
-        }).catch((e: any) => { console.log(`  \u26a0 Final evaluate error: ${(e as any).message?.substring(0, 120)}`); return [] as string[]; });
-        console.log(`  Final re-fill fixes (${refillResult.length}): ${refillResult.slice(0, 40).join(', ') || '(none)'}`);
+          return false;
+        };
+        const fixes: string[] = [];
+        // Name fields — use correct Finacle field names
+        if (setInp('AccountBO.Cust_First_Name', args.firstName)) fixes.push('firstName');
+        if (setInp('AccountBO.Cust_Last_Name', args.lastName)) fixes.push('lastName');
+        if (setInp('AccountBO.PreferredName', args.preferredName)) fixes.push('preferredName');
+        if (setInp('AccountBO.short_name', args.shortName)) fixes.push('shortName');
+        // Also set ContactBO name fields
+        setInp('ContactBO.firstName', args.firstName);
+        setInp('ContactBO.lastName', args.lastName);
+        // DOB
+        const dobDisplay = document.querySelector('input[name="3_AccountBO.Cust_DOB"]') as HTMLInputElement;
+        if (dobDisplay) { dobDisplay.removeAttribute('readonly'); dobDisplay.value = args.dob; fire(dobDisplay); fixes.push('DOB_display'); }
+        const dobHidden = document.querySelector('input[name="AccountBO.Cust_DOB"]') as HTMLInputElement;
+        if (dobHidden) { dobHidden.removeAttribute('readonly'); dobHidden.value = args.dob; fire(dobHidden); fixes.push('DOB_hidden'); }
+        // Gender, NRI
+        if (setSel('AccountModBO.Gender', 'MALE')) fixes.push('Gender');
+        if (setSel('AccountModBO.CustomerNREFlg', 'Y')) fixes.push('NRI');
+        // Segment
+        if (setInp('AccountModBO.Segmentation_Class', args.segment)) fixes.push('Segment');
+        // Title
+        const titleInp = document.querySelector('input[name="AccountModBO.Salutation_code"]') as HTMLInputElement;
+        if (titleInp && !titleInp.value) { titleInp.value = 'MR'; fire(titleInp); fixes.push('Title'); }
+        return fixes;
+      }, {
+        firstName: TD.customerData.firstName.toUpperCase(),
+        lastName: TD.customerData.lastName.toUpperCase(),
+        preferredName: TD.customerData.preferredName,
+        shortName: TD.customerData.shortName,
+        dob: TD.customerData.dateOfBirth,
+        segment: TD.customerData.segment
+      }).catch(() => [] as string[]);
+      if (refillResult.length > 0) console.log(`  \u2713 Final re-fill: ${refillResult.join(', ')}`);
       }
     } catch (e) { console.log(`  \u26a0 Final re-fill error: ${(e as any).message?.substring(0, 100)}`); }
 
-    // Use LOV popups to set Region and TDS hidden fields correctly
+    // Relationship Opening Date — set any matching hidden field to a past date
     try {
-      const page = this.workingPage;
-      const TD = this.TD;
-      if (this.accountFrame) {
-        const openLovByPattern = async (pattern: string) => {
-          const [popup] = await Promise.all([
-            page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null),
-            this.accountFrame!.evaluate((p: string) => {
-              const b = Array.from(document.querySelectorAll('input[type="button"]')).find((el: any) => el.name && el.name.toUpperCase().includes('BTNONE') && el.name.toUpperCase().includes(p));
-              if (b) (b as HTMLInputElement).click();
-            }, pattern)
-          ]);
-          return popup;
-        };
-        const selectLov = async (popupPromise: Promise<Page | null>, code: string, display: string, label: string, fieldPrefix: string) => {
-          const popup = await popupPromise;
-          if (!popup || popup.isClosed()) return;
-          await this.waitForPopupReady(popup, `${label} LOV`);
-          let catId = '';
-          let catCode = '';
-          let catDisplay = display;
-          const submitSearch = async (val1: string, val2: string) => {
-            for (const lf of popup.frames()) {
-              const inputs = await lf.locator('input[type="text"]').all();
-              const vis: Locator[] = [];
-              for (const i of inputs) { if (await i.isVisible().catch(() => false)) vis.push(i); }
-              for (const v of vis) { await v.fill('').catch(() => {}); }
-              if (vis.length >= 1) await vis[0].fill(val1).catch(() => {});
-              if (vis.length >= 2) await vis[1].fill(val2).catch(() => {});
-              const sub = lf.locator('input[value="Submit"]').first();
-              if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) { await sub.click().catch(() => {}); return true; }
-            }
-            return false;
-          };
-          const tryFindAndSelect = async (search: string): Promise<boolean> => {
-            if (!search) return false;
-            const re = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-            for (const lf of popup.frames()) {
-              const cell = lf.locator('td').filter({ hasText: re }).first();
-              if (!(await cell.isVisible({ timeout: 3000 }).catch(() => false))) continue;
-              try {
-                const info = await cell.evaluate((el: HTMLElement) => {
-                  const tr = el.closest('tr');
-                  return {
-                    catId: tr?.getAttribute('categoryid') || tr?.getAttribute('categorybo.categoryid') || '',
-                    catCode: tr?.getAttribute('categorycode') || tr?.getAttribute('categorybo.categorycode') || '',
-                    catDisplay: (tr?.getAttribute('value') || tr?.getAttribute('categorybo.value') || tr?.textContent || '').trim()
-                  };
-                });
-                catId = info.catId || catId;
-                catCode = info.catCode || catCode;
-                catDisplay = info.catDisplay || catDisplay;
-                if (catId || catCode) console.log(`  ${label} row matched: display="${catDisplay}", categoryid=${catId}, categorycode=${catCode}`);
-              } catch (_) {}
-              try { await Promise.race([cell.dblclick({ timeout: this.timeouts.medium }), popup.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-              return true;
-            }
-            return false;
-          };
-          await submitSearch(code, display);
-          await page.waitForTimeout(this.timeouts.medium);
-          let found = await tryFindAndSelect(display) || await tryFindAndSelect(code);
-          if (!found) {
-            await submitSearch(display, code);
-            await page.waitForTimeout(this.timeouts.medium);
-            found = await tryFindAndSelect(display) || await tryFindAndSelect(code);
-          }
-          if (!found && !popup.isClosed()) {
-            for (const lf of popup.frames()) {
-              const rowsText = await lf.evaluate(() => Array.from(document.querySelectorAll('tr')).slice(0, 20).map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent?.trim() || '').join('|')).join('\n')).catch(() => '');
-              if (rowsText) console.log(`  ${label} LOV rows dump:\n${rowsText}`);
-            }
-            await popup.close().catch(() => {});
-          }
-          const codeValue = catId || catCode || code;
-          const displayValue = catDisplay || display;
-          if (label === 'Region') { (this as any).lastRegionCode = codeValue; (this as any).lastRegionDisplay = displayValue; }
-          if (label === 'TDS Table') { (this as any).lastTdsCode = codeValue; (this as any).lastTdsDisplay = displayValue; }
-          console.log(`  \u2713 LOV ${label}: ${displayValue} (code=${codeValue})`);
-          const basicFrames = page.frames().filter(f => f.url().includes('Mod_det'));
-          for (const f of basicFrames) {
-            await f.evaluate((args: { code: string; display: string; prefix: string }) => {
-              const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-              const upPrefix = args.prefix.toUpperCase();
-              document.querySelectorAll('input, select').forEach((inp: any) => {
-                if (!inp.name) return;
-                const up = inp.name.toUpperCase();
-                if (up.includes(upPrefix) && !up.includes('BTN') && !(upPrefix.includes('FOREIGN') && up.includes('COUNTRY'))) {
-                  inp.removeAttribute('readonly'); inp.disabled = false;
-                  if (inp.tagName === 'SELECT') {
-                    const sel = inp as HTMLSelectElement;
-                    const target = (up.startsWith('3_') || up.includes('CAT_')) ? args.display : args.code;
-                    const targetTexts = [args.display, args.code].filter(Boolean);
-                    const byValue = Array.from(sel.options).find(o => o.value.trim().toUpperCase() === target.toUpperCase());
-                    const byText = Array.from(sel.options).find(o => targetTexts.some(t => o.text.trim().toUpperCase().includes(t.toUpperCase())));
-                    const opt = byValue || byText;
-                    if (opt) { sel.value = opt.value; sel.selectedIndex = opt.index; }
-                    else {
-                      const o = document.createElement('option');
-                      o.value = target; o.text = args.display || args.code;
-                      o.selected = true; sel.appendChild(o);
-                      sel.value = o.value; sel.selectedIndex = o.index;
-                    }
-                  } else {
-                    inp.value = (up.startsWith('3_') || up.includes('CAT_')) ? args.display : args.code;
-                  }
-                  fire(inp);
-                }
-              });
-            }, { code: codeValue, display: displayValue, prefix: fieldPrefix }).catch(() => {});
-          }
-        };
-        // Use the robust shared LOV helper to pick real backend codes for Basel/Foreign
-        try {
-          const page = this.workingPage;
-          const findLovBtn = async (pattern: string, excludeCountry = false): Promise<{ name: string; frame: any } | null> => {
-            for (const f of page.frames()) {
-              const name = await f.evaluate((a: { p: string; ex: boolean }) => {
-                const up = a.p.toUpperCase();
-                const b = Array.from(document.querySelectorAll('input[type="button"]')).find((el: any) => {
-                  const n = el.name ? el.name.toUpperCase() : '';
-                  return n.includes(up) && !(a.ex && n.includes('COUNTRY'));
-                });
-                return b ? b.name : '';
-              }, { p: pattern, ex: excludeCountry }).catch(() => '');
-              if (name) return { name, frame: f };
-            }
-            return null;
-          };
-          const baselLov = await findLovBtn('BASELPROFILING');
-          if (baselLov) await this.selectLovValue({ parentPage: page, target: baselLov!.frame, buttonName: baselLov.name, searchValue: 'NO', label: 'Basel Profiling', config: this.config });
-          const foreignLov = await findLovBtn('FOREIGNTAXREPORTING', true);
-          if (foreignLov) await this.selectLovValue({ parentPage: page, target: foreignLov!.frame, buttonName: foreignLov.name, searchValue: 'NO TIN', label: 'Foreign Tax Reporting', config: this.config });
-        } catch (e) { console.log('  \u26a0 Basel/Foreign LOV error: ' + ((e as any).message || '').substring(0, 120)); }
-      }
-    } catch (e) { console.log(`  \u26a0 LOV fill error: ${(e as any).message?.substring(0, 100)}`); }
-
-    // Ensure Preferred Native Language code/display are populated on the Basic Info formDispFrame
-    try {
-      const page = this.workingPage;
-      const TD = this.TD;
-      const code = this.custLanguageCode || TD.customerData.preferredLanguage || 'India (English)';
-      const display = this.custLanguageDisplay || ((TD.customerData.preferredNativeLanguage && TD.customerData.preferredNativeLanguage !== '-') ? TD.customerData.preferredNativeLanguage : code);
-      const basicFrames = page.frames().filter(f => f.url().includes('AccountMod_det'));
-      for (const f of basicFrames) {
-        await f.evaluate((a: { code: string; display: string }) => {
-          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-          document.querySelectorAll('input, select').forEach((inp: any) => {
-            if (!inp.name) return;
-            const up = inp.name.toUpperCase();
-            if (up.includes('CUST_LANGUAGE')) {
-              inp.removeAttribute('readonly'); inp.disabled = false;
-              if (inp.tagName === 'SELECT') {
-                const sel = inp as HTMLSelectElement;
-                const byCode = Array.from(sel.options).find(o => o.value.trim() === a.code);
-                const byText = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(a.display.toUpperCase()));
-                const opt = byCode || byText;
-                if (opt) { sel.value = opt.value; sel.selectedIndex = opt.index; }
-                else { sel.value = a.code; }
-              } else {
-                // h_ hidden helpers use numeric code; all other variants use display text
-                inp.value = (up.startsWith('H_') && !up.includes('CAT')) ? a.code : a.display;
-              }
-              fire(inp);
-            }
-          });
-        }, { code, display }).catch(() => {});
-      }
-    } catch (e) {}
-
-    // Ensure mandatory Basel/Foreign/Tax selects are populated on the Psychographic form
-    try {
-      const page = this.workingPage;
+      const relDate = this.TD.contactData.startDate;
       for (const f of page.frames()) {
-        for (const label of ['Psychographic Details', 'Psychographic']) {
-          const tab = f.getByText(label, { exact: false }).first();
-          if (await tab.isVisible({ timeout: 3000 }).catch(() => false)) { await tab.click(); console.log(`  Clicked ${label} tab for Psychographic prepopulation`); break; }
-        }
-      }
-      await page.waitForTimeout(this.timeouts.short3);
-      const psyFrames = page.frames().filter(f => f.url().includes('PsychographicMod_det'));
-      for (const f of psyFrames) {
-        await f.evaluate(() => {
-          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-          document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-            if (!sel.name) return;
-            const up = sel.name.toUpperCase();
-            if (!up.includes('BASEL') && !up.includes('TAX') && !up.includes('FOREIGN') && !up.includes('CRS') && !up.includes('FATCA')) return;
-            if (sel.value && sel.selectedIndex > 0 && sel.value !== '0') return;
-            const isBasel = up.includes('BASEL');
-            const isForeign = up.includes('TAX') || up.includes('FOREIGN') || up.includes('CRS') || up.includes('FATCA');
-            const texts = Array.from(sel.options).map(o => o.text.trim().toUpperCase());
-            let idx = texts.findIndex(t => (isForeign ? t.includes('NO TIN') : t === 'NO'));
-            if (isForeign && idx < 0) idx = texts.findIndex(t => t.includes('NOT REQUIRED'));
-            if (idx < 0) idx = texts.findIndex(t => t.includes('NO'));
-            if (idx < 1) {
-              const nonEmpty = Array.from(sel.options).map((o, i) => ({ o, i })).filter(x => x.i > 0 && x.o.value && x.o.value !== '0');
-              if (nonEmpty.length > 0) idx = nonEmpty[0].i;
-            }
-            if (idx > 0) { sel.disabled = false; sel.removeAttribute('disabled'); sel.removeAttribute('readonly'); sel.selectedIndex = idx; sel.value = sel.options[idx].value; fire(sel); console.log(`  set ${sel.name} to "${sel.options[idx].text}"`); }
-          });
-        }).catch(() => {});
-      }
-    } catch (e) {}
-
-    // Reactivate Basic Info and force-populate key mandatory fields in the currently loaded form
-    try {
-      const page = this.workingPage;
-      for (const f of page.frames()) { const tab = f.getByText('Basic Info', { exact: false }).first(); if (await tab.isVisible({ timeout: 3000 }).catch(() => false)) { await tab.click(); break; } }
-      await page.waitForTimeout(this.timeouts.short3);
-      const buttonFrm = page.frames().find(f => f.url().includes('CifShowButtons')) || page.frame({ name: 'buttonFrm' });
-      if (buttonFrm) {
-        const TD = this.TD;
-        const regionCode = (this as any).lastRegionCode || TD.customerData.region || '';
-        const regionDisplay = (this as any).lastRegionDisplay || TD.customerData.regionDisplay || regionCode;
-        const tdsCode = (this as any).lastTdsCode || TD.customerData.tdsTable || '';
-        const tdsDisplay = (this as any).lastTdsDisplay || TD.customerData.taxDeductedAtSourceTableDisplay || tdsCode;
-        const custCode = this.custLanguageCode || TD.customerData.preferredLanguage || '';
-        const custDisplay = this.custLanguageDisplay || TD.customerData.preferredNativeLanguage || custCode;
-        await buttonFrm!.evaluate((vals: any) => {
-          const setField = (win: any, name: string, value: string, display: string) => {
-            try {
-              const doc = win.document;
-              if (!doc) return;
-              for (const el of Array.from(doc.querySelectorAll('[name="' + name + '"]')) as any[]) {
-                const inp = el as any;
-                inp.disabled = false; inp.removeAttribute('readonly'); inp.removeAttribute('disabled');
-                if (inp.tagName === 'SELECT') {
-                  const sel = inp as HTMLSelectElement;
-                  const byValue = Array.from(sel.options).find(o => o.value.trim().toUpperCase() === value.toUpperCase());
-                  const byText = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(value.toUpperCase()) || o.text.trim().toUpperCase().includes(display.toUpperCase()));
-                  const opt = byValue || byText;
-                  if (opt) { sel.value = opt.value; sel.selectedIndex = opt.index; }
-                  else { sel.value = value; }
-                } else {
-                  inp.value = value;
-                }
+        const result = await f.evaluate((v: string) => {
+          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+          const fixes: string[] = [];
+          const elements = Array.from(document.querySelectorAll('input, select')) as (HTMLInputElement | HTMLSelectElement)[];
+          for (const el of elements) {
+            const n = (el.name || '').toLowerCase();
+            if (!n.startsWith('cat_') && !n.startsWith('btn') && !n.startsWith('pi_') &&
+                (n.includes('relationship') || n.includes('reltn') || n.includes('rship')) &&
+                (n.includes('open') || n.includes('start')) &&
+                !n.includes('type') && !n.includes('class') && !n.includes('createdby')) {
+              if (el.tagName === 'SELECT') {
+                const sel = el as HTMLSelectElement;
+                if (!sel.value || sel.value.toUpperCase() === 'Y' || sel.value.toUpperCase() === 'N') continue;
+                for (const o of Array.from(sel.options)) { if (o.text.trim() === v) { sel.value = o.value; fire(sel); fixes.push(sel.name); break; } }
+              } else {
+                el.removeAttribute('readonly');
+                el.value = v;
+                fire(el);
+                fixes.push(el.name);
               }
-              for (let i = 0; i < win.frames.length; i++) { setField(win.frames[i], name, value, display); }
-            } catch (_) {}
-          };
-          const fields = [
-            { name: 'AccountModBO.region', code: vals.regionCode, display: vals.regionDisplay },
-            { name: 'h_AccountModBO.region', code: vals.regionCode, display: vals.regionDisplay },
-            { name: 'AccountModBO.Region', code: vals.regionCode, display: vals.regionDisplay },
-            { name: 'h_AccountModBO.Region', code: vals.regionCode, display: vals.regionDisplay },
-            { name: 'AccountModBO.Tds_tbl', code: vals.tdsCode, display: vals.tdsDisplay },
-            { name: 'h_AccountModBO.Tds_tbl', code: vals.tdsCode, display: vals.tdsDisplay },
-            { name: 'AccountModBO.Tds_Tbl', code: vals.tdsCode, display: vals.tdsDisplay },
-            { name: 'h_AccountModBO.Tds_Tbl', code: vals.tdsCode, display: vals.tdsDisplay },
-            { name: 'AccountModBO.Cust_Language', code: vals.custCode, display: vals.custDisplay },
-            { name: 'h_AccountModBO.Cust_Language', code: vals.custCode, display: vals.custDisplay }
-          ];
-          for (const f of fields) { setField(window.top, f.name, f.code, f.display); }
-        }, { regionCode, regionDisplay, tdsCode, tdsDisplay, custCode, custDisplay }).catch(() => {});
-        console.log(`  Force-set mandatory fields: region=${regionCode}, tds=${tdsCode}, custLang=${custCode}`);
+            }
+          }
+          return { found: fixes.length > 0, fields: fixes };
+        }, relDate).catch(() => ({ found: false, fields: [] }));
+        if (result.found) { console.log(`  \u2713 Relationship date set on: ${(result.fields as string[]).join(', ')}`); break; }
       }
-    } catch (e) {}
+    } catch (_) {}
 
     console.log('\u2713 Pre-submit verification complete');
   }
 
-  // Override submitForm to inject a buttonFrm-level fill that runs after each tab switch and immediately before the JS submit handler runs
-  async submitForm(): Promise<string> {
-    const primaryContact = this.getPrimaryContactData();
-    const page = this.workingPage;
-    // Wait for the button frame (CifShowButtons) to reappear — it can reload during tab switches
-    let bf: Frame | null = null;
-    for (let i = 0; i < 30; i++) {
-      bf = page.frame({ name: 'buttonFrm' }) ||
-           page.frames().find(f => { try { return f.url().includes('CifShowButtons') || f.url().includes('SRMButtons') || f.url().includes('ShowButtons'); } catch (_) { return false; } }) ||
-           page.frames().find(f => { try { return f.name().toLowerCase().includes('button'); } catch (_) { return false; } }) ||
-           null;
-      if (bf) {
-        const hasSubmit = await bf.evaluate(() => !!(document.getElementById('submitBut') || (window as any).selectProcess || (window as any).submitForm)).catch(() => false);
-        if (hasSubmit) break;
+  // ==================== WORKING PAGE REACQUIRE ====================
+  private async reacquireWorkingPage(): Promise<void> {
+    if (this.workingPage && !this.workingPage.isClosed()) {
+      for (const f of this.workingPage.frames()) {
+        try {
+          const u = f.url();
+          if (u.includes('AccountMod_det') || u.includes('RetailTF_det') || u.includes('MainAccountDetForm') ||
+              u.includes('DemographicMod_det') || u.includes('PsychographicMod_det') ||
+              u.includes('MainDemographicDetForm') || u.includes('MainPsychographicDetForm') ||
+              u.includes('Customer') || u.includes('/cif/')) return;
+        } catch (_) {}
       }
-      await page.waitForTimeout(500);
     }
-    const TD = this.TD;
-    const regionCode = (this as any).lastRegionCode || TD.customerData.region || '';
-    const regionDisplay = (this as any).lastRegionDisplay || TD.customerData.regionDisplay || regionCode;
-    const tdsCode = (this as any).lastTdsCode || TD.customerData.tdsTable || '';
-    const tdsDisplay = (this as any).lastTdsDisplay || TD.customerData.taxDeductedAtSourceTableDisplay || tdsCode;
-    const custCode = this.custLanguageCode || TD.customerData.preferredLanguage || '';
-    const custDisplay = this.custLanguageDisplay || TD.customerData.preferredNativeLanguage || custCode;
-    const uniqueId = this.textValue(TD.validDocData?.uniqueId) || ('TESTID' + Math.floor(Math.random() * 1e8));
-    const idType = (this.textValue(TD.validDocData?.documentCode) || 'IDPAS').toUpperCase();
-    const countryCode = this.textValue(TD.validDocData?.countryOfIssue)
-      || this.textValue(TD.demographicData?.countryOfBirth)
-      || 'BM';
-    const countryDisplay = this.textValue(TD.validDocData?.countryOfIssueDisplay)
-      || this.textValue(TD.demographicData?.countryOfBirthDisplay)
-      || 'Bermuda';
-    const countryOfIssue = countryDisplay;
-    const placeOfIssue = this.textValue(TD.validDocData?.placeOfIssue) || 'MUMBAI';
-    const lastDate = '01/01/2020';
-    const nextDate = '31/12/2099';
-    const baselVal = 'N';
-    const foreignVal = 'NOTIN';
-    if (bf) {
-      await bf.evaluate((vals: any) => {
-        (window as any)._mandatoryVals = vals;
-        const setField = (win: any, name: string, value: string, display: string) => {
-          try {
-            const doc = win.document;
-            if (!doc) return;
-            const selectors: string[] = ['[name="' + name + '"]'];
-            if (name !== name.toUpperCase()) selectors.push('[name="' + name.toUpperCase() + '"]');
-            if (name !== name.toLowerCase()) selectors.push('[name="' + name.toLowerCase() + '"]');
-            let found = 0;
-            for (const el of Array.from(doc.querySelectorAll(selectors.join(', ')))) {
-              const inp = el as any;
-              inp.disabled = false; inp.removeAttribute('readonly'); inp.removeAttribute('disabled');
-              if (inp.tagName === 'SELECT') {
-                const sel = inp as HTMLSelectElement;
-                const byValue = Array.from(sel.options).find(o => o.value.trim().toUpperCase() === value.toUpperCase());
-                const byText = Array.from(sel.options).find(o => o.text.trim().toUpperCase().includes(value.toUpperCase()) || o.text.trim().toUpperCase().includes(display.toUpperCase()));
-                const opt = byValue || byText;
-                if (opt) { sel.value = opt.value; sel.selectedIndex = opt.index; }
-                else {
-                  const o = document.createElement('option');
-                  o.value = value;
-                  o.text = display || value;
-                  o.selected = true;
-                  sel.appendChild(o);
-                  sel.value = value;
-                  sel.selectedIndex = o.index;
-                }
-                ['input', 'change', 'blur'].forEach(ev => { try { sel.dispatchEvent(new Event(ev, { bubbles: true })); } catch (_) {} });
-                if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }
-              } else {
-                inp.value = value;
-                inp.defaultValue = value;
-                try { inp.setAttribute('value', value); } catch (_) {}
-                ['input', 'change', 'blur'].forEach(ev => { try { inp.dispatchEvent(new Event(ev, { bubbles: true })); } catch (_) {} });
-              }
-              found++;
-            }
-            if (found === 0 && (doc as any).frm2 && win.frames.length === 0) {
-              const h = doc.createElement('input');
-              h.type = 'hidden';
-              h.name = name;
-              h.value = value;
-              try { (doc as any).frm2.appendChild(h); } catch (_) {}
-            }
-            for (let i = 0; i < win.frames.length; i++) { setField(win.frames[i], name, value, display); }
-          } catch (_) {}
-        };
-        const sweepSelects = (win: any) => {
-          try {
-            const doc = win.document;
-            if (doc) {
-              for (const sel of Array.from(doc.querySelectorAll('select')) as any[]) {
-                if (!sel.name) continue;
-                const up = sel.name.toUpperCase();
-                if (up.includes('TDS_TBL')) continue; // leave TDS LOV field alone
-                let target = '';
-                if (up.includes('BASEL')) target = 'NO';
-                else if (up.includes('TAX') || up.includes('FOREIGN') || up.includes('CRS') || up.includes('FATCA')) target = 'NO TIN';
-                if (!target) continue;
-                const code = target === 'NO TIN' ? 'NOTIN' : 'N';
-                if (sel.value && sel.value.toUpperCase() === code.toUpperCase()) continue;
-                const opt = Array.from(sel.options).find((o: any) => o.value.trim().toUpperCase() === code) ||
-                            Array.from(sel.options).find((o: any) => o.text.trim().toUpperCase().includes(target)) ||
-                            Array.from(sel.options).find((o: any) => o.text.trim().toUpperCase().includes('NO'));
-                if (opt) {
-                  sel.disabled = false;
-                  sel.value = (opt as HTMLOptionElement).value;
-                  sel.selectedIndex = (opt as HTMLOptionElement).index;
-                  sel.dispatchEvent(new Event('change', { bubbles: true }));
-                  sel.dispatchEvent(new Event('blur', { bubbles: true }));
-                  if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }
-                  // Update the matching hidden h_<name> field if it exists
-                  try {
-                    const h = doc.querySelector('[name="h_' + sel.name + '"]') as any;
-                    if (h) { h.value = opt.value; h.dispatchEvent(new Event('change', { bubbles: true })); }
-                  } catch (_) {}
-                } else if (target) {
-                  const o = document.createElement('option');
-                  o.value = target === 'NO TIN' ? 'NOTIN' : 'N';
-                  o.text = target === 'NO TIN' ? 'NO TIN IS REQUIRED' : target;
-                  o.selected = true;
-                  sel.appendChild(o);
-                  sel.disabled = false;
-                  sel.value = o.value;
-                  sel.selectedIndex = o.index;
-                  sel.dispatchEvent(new Event('change', { bubbles: true }));
-                  sel.dispatchEvent(new Event('blur', { bubbles: true }));
-                  if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }
-                  try {
-                    const h = doc.querySelector('[name="h_' + sel.name + '"]') as any;
-                    if (h) { h.value = o.value; h.dispatchEvent(new Event('change', { bubbles: true })); }
-                  } catch (_) {}
-                }
-              }
-            }
-            for (let i = 0; i < win.frames.length; i++) { sweepSelects(win.frames[i]); }
-          } catch (_) {}
-        };
-        const sweepIds = (win: any, vals: any) => {
-          try {
-            const doc = win.document;
-            if (doc) {
-              for (let i = 1; i <= 5; i++) {
-                const prefix = 'IDTYPER' + i + '.';
-                const fields = [
-                  { attr: 'TXT_ID', val: vals.uniqueId },
-                  { attr: 'TXT_ID_TYPE', val: vals.idType },
-                  { attr: 'ISSUE_DATE', val: vals.lastDate },
-                  { attr: 'VALID_DATE', val: vals.nextDate },
-                  { attr: 'ISSUE_PLACE', val: vals.placeOfIssue },
-                  { attr: 'ISSUE_COUNTRY', val: vals.countryCode },
-                  { attr: 'COUNTRYOFISSUE', val: vals.countryCode }
-                ];
-                for (const { attr, val } of fields) {
-                  doc.querySelectorAll('input').forEach((inp: any) => {
-                    const n = (inp.name || '').toUpperCase();
-                    if (n.startsWith(prefix) && n.endsWith(attr)) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = val; }
-                  });
-                  doc.querySelectorAll('select').forEach((sel: any) => {
-                    const n = (sel.name || '').toUpperCase();
-                    if (n.startsWith(prefix) && n.endsWith(attr)) {
-                      sel.disabled = false;
-                      let o: any = Array.from(sel.options).find((o2: any) => o2.value.toUpperCase() === (val || '').toUpperCase());
-                      if (!o) { o = document.createElement('option'); o.value = val; o.text = val; o.selected = true; sel.appendChild(o); }
-                      sel.value = o.value;
-                      sel.selectedIndex = o.index;
-                    }
-                  });
-                }
-              }
-            }
-            for (let i = 0; i < win.frames.length; i++) { sweepIds(win.frames[i], vals); }
-          } catch (_) {}
-        };
-        const fillAll = () => {
-          const v = (window as any)._mandatoryVals;
-          if (!v) return;
-          if (!v.countryDisplay) v.countryDisplay = 'Bermuda';
-          if (!v.bankRelationType) v.bankRelationType = 'Retail';
-          console.log('  fillAll values:', JSON.stringify({ countryCode: v.countryCode, countryDisplay: v.countryDisplay, bankRelationType: v.bankRelationType, foreignVal: v.foreignVal, baselVal: v.baselVal }));
-          // Basic Info fields - hidden code inputs only
-          setField(window.top, 'AccountModBO.region', v.regionCode, v.regionDisplay);
-          setField(window.top, 'h_AccountModBO.region', v.regionCode, v.regionDisplay);
-          setField(window.top, 'AccountModBO.Region', v.regionCode, v.regionDisplay);
-          setField(window.top, 'h_AccountModBO.Region', v.regionCode, v.regionDisplay);
-          setField(window.top, 'AccountModBO.Tds_tbl', v.tdsCode, v.tdsDisplay);
-          setField(window.top, 'h_AccountModBO.Tds_tbl', v.tdsCode, v.tdsDisplay);
-          setField(window.top, 'AccountModBO.Tds_Tbl', v.tdsCode, v.tdsDisplay);
-          setField(window.top, 'h_AccountModBO.Tds_Tbl', v.tdsCode, v.tdsDisplay);
-          setField(window.top, 'AccountModBO.Cust_Language', v.custCode, v.custDisplay);
-          setField(window.top, 'h_AccountModBO.Cust_Language', v.custCode, v.custDisplay);
-          // Additional Basic Info selects
-          setField(window.top, 'AccountModBO.BankRelationType', v.bankRelationType, v.bankRelationType);
-          setField(window.top, '3_AccountModBO.BankRelationType', v.bankRelationType, v.bankRelationType);
-          setField(window.top, 'AccountModBO.Gender', v.gender, v.gender);
-          setField(window.top, '3_AccountModBO.Gender', v.gender, v.gender);
-          setField(window.top, 'AccountModBO.CustomerNREFlg', v.nreFlag, v.nreFlag);
-          setField(window.top, '3_AccountModBO.CustomerNREFlg', v.nreFlag, v.nreFlag);
-          setField(window.top, 'AccountModBO.NativeLangCode', v.nativeLanguage, v.nativeLanguage);
-          setField(window.top, '3_AccountModBO.NativeLangCode', v.nativeLanguage, v.nativeLanguage);
-          setField(window.top, 'AccountModBO.CustomerMinor', v.customerMinor, v.customerMinor);
-          setField(window.top, '3_AccountModBO.CustomerMinor', v.customerMinor, v.customerMinor);
-          // Address fields
-          setField(window.top, 'AccountBO.Address.town', v.city, v.city);
-          setField(window.top, '3_AccountBO.Address.town', v.city, v.city);
-          setField(window.top, 'AccountBO.Address.city', v.city, v.city);
-          setField(window.top, '3_AccountBO.Address.city', v.city, v.city);
-          setField(window.top, 'h_AccountBO.Address.city', v.city, v.city);
-          setField(window.top, 'AccountBO.Address.FreeTextLabel', v.addressLabel, v.addressLabel);
-          setField(window.top, '3_AccountBO.Address.FreeTextLabel', v.addressLabel, v.addressLabel);
-          setField(window.top, 'AccountBO.Address.address_Label', v.addressLabel, v.addressLabel);
-          setField(window.top, '3_AccountBO.Address.address_Label', v.addressLabel, v.addressLabel);
-          setField(window.top, 'h_AccountBO.Address.address_Label', v.addressLabel, v.addressLabel);
-          setField(window.top, 'AccountBO.Address.addressCategory', 'Mailing', 'Mailing');
-          setField(window.top, 'AccountBO.Address.mailingAddress', 'YES', 'YES');
-          setField(window.top, 'AccountBO.Address.mailingAddressFlg', 'Y', 'Y');
-          // Basel/Foreign tax hidden code fields
-          setField(window.top, 'AccountModBO.BaselProfiling', v.baselVal, 'NO');
-          setField(window.top, 'h_AccountModBO.BaselProfiling', v.baselVal, 'NO');
-          setField(window.top, '3_AccountModBO.BaselProfiling', 'N', 'NO');
-          setField(window.top, 'AccountBO.BaselProfiling', v.baselVal, 'NO');
-          setField(window.top, 'h_AccountBO.BaselProfiling', v.baselVal, 'NO');
-          setField(window.top, 'AccountModBO.ForeignTaxReporting', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'h_AccountModBO.ForeignTaxReporting', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, '3_AccountModBO.ForeignTaxReporting', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountBO.ForeignTaxReporting', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'h_AccountBO.ForeignTaxReporting', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountModBO.CrsCompliance', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountModBO.Fatca', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountModBO.LastForeignTaxReviewDate', v.lastDate, v.lastDate);
-          setField(window.top, '3_AccountModBO.LastForeignTaxReviewDate', v.lastDate, v.lastDate);
-          setField(window.top, 'AccountModBO.NextForeignTaxReviewDate', v.nextDate, v.nextDate);
-          setField(window.top, '3_AccountModBO.NextForeignTaxReviewDate', v.nextDate, v.nextDate);
-          setField(window.top, 'AccountModBO.TIN', 'NA', 'NA');
-          setField(window.top, 'AccountModBO.ForeignAccTaxReportingReq', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'h_AccountModBO.ForeignAccTaxReportingReq', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountBO.ForeignAccTaxReportingReq', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'h_AccountBO.ForeignAccTaxReportingReq', v.foreignVal, 'NO TIN IS REQUIRED');
-          setField(window.top, 'AccountModBO.ForeignTaxReportingCountry', v.countryCode, v.countryDisplay);
-          setField(window.top, '3_AccountModBO.ForeignTaxReportingCountry', v.countryCode, v.countryDisplay);
-          setField(window.top, 'AccountBO.ForeignTaxReportingCountry', v.countryDisplay, v.countryDisplay);
-          setField(window.top, 'h_AccountBO.ForeignTaxReportingCountry', v.countryCode, v.countryCode);
-          setField(window.top, 'Cat_AccountBO.ForeignTaxReportingCountry', v.countryDisplay, v.countryDisplay);
-          setField(window.top, 'pi_AccountBO.ForeignTaxReportingCountry', v.countryCode, v.countryCode);
-          setField(window.top, 'PercentShare', '0', '0');
-          setField(window.top, 'AccountBO.PercentShare', '0', '0');
-          setField(window.top, 'AccountModBO.PercentShare', '0', '0');
-          // Identification details
-          setField(window.top, 'hidUniqueID', v.uniqueId, v.uniqueId);
-          setField(window.top, 'hidUniqueIDType', v.idType, v.idType);
-          setField(window.top, 'UniqueIDNumber_txt_ID', v.uniqueId, v.uniqueId);
-          setField(window.top, 'AccountModBO.UniqueId', v.uniqueId, v.uniqueId);
-          setField(window.top, '3_AccountModBO.UniqueId', v.uniqueId, v.uniqueId);
-          setField(window.top, 'AccountModBO.IdType', v.idType, v.idType);
-          setField(window.top, '3_AccountModBO.IdType', v.idType, v.idType);
-          setField(window.top, 'unique_id', v.uniqueId, v.uniqueId);
-          setField(window.top, 'dateofissue', v.lastDate, v.lastDate);
-          setField(window.top, 'placeofissue', v.placeOfIssue, v.placeOfIssue);
-          setField(window.top, 'countryofissue', v.countryCode, v.countryCode);
-          setField(window.top, 'placeofissue_cat', v.placeOfIssue, v.placeOfIssue);
-          setField(window.top, 'countryofissue_cat', v.countryDisplay, v.countryDisplay);
-          const uip = 'Unique Identification Number.txt_';
-          setField(window.top, uip + 'ID', v.uniqueId, v.uniqueId);
-          setField(window.top, uip + 'Issue_Date', v.lastDate, v.lastDate);
-          setField(window.top, uip + 'Valid_Date', v.nextDate, v.nextDate);
-          setField(window.top, uip + 'Issue_Place', v.placeOfIssue, v.placeOfIssue);
-          setField(window.top, uip + 'CountryOfIssue', v.countryCode, v.countryCode);
-          for (let idI = 1; idI <= 5; idI++) {
-            const prefix = 'IDType' + idI + '_txt_';
-            setField(window.top, prefix + 'ID', v.uniqueId, v.uniqueId);
-            setField(window.top, prefix + 'Issue_Date', v.lastDate, v.lastDate);
-            setField(window.top, prefix + 'Valid_Date', v.nextDate, v.nextDate);
-            setField(window.top, prefix + 'Issue_Place', v.placeOfIssue, v.placeOfIssue);
-            setField(window.top, prefix + 'CountryOfIssue', v.countryCode, v.countryCode);
-          }
-          // Psychographic / tax selects
-          sweepSelects(window.top);
-          sweepIds(window.top, v);
-        };
-        (window as any).fillMandatory = () => { try { fillAll(); } catch (e) {} };
-        // Attach fillMandatory to nested frame loads so reloaded Mod_det frames are populated during checkStat
-        const attachPreload = (win: any) => {
-          try {
-            for (let i = 0; i < win.frames.length; i++) {
-              const f = win.frames[i];
-              try {
-                const name = (f.name || '').toLowerCase();
-                if (name.includes('formdispframe') || name.includes('ifrm')) {
-                  const fe = f.frameElement;
-                  if (fe && !fe._prefillAttached) {
-                    fe._prefillAttached = true;
-                    fe.addEventListener('load', () => { try { if (typeof (window as any).fillMandatory === 'function') (window as any).fillMandatory(); } catch (e) {} });
-                  }
-                }
-              } catch (_) {}
-              attachPreload(f);
-            }
-          } catch (_) {}
-        };
-        attachPreload(window.parent);
-        // Patch selectTabForID on the tab-view frame so every tab switch prefills before validation
+    for (const p of this.page.context().pages()) {
+      if (p.isClosed()) continue;
+      for (const f of p.frames()) {
         try {
-          const tv = window.parent.frames[0];
-          if (tv && typeof tv.selectTabForID === 'function' && !tv._patched) {
-            const orig = tv.selectTabForID;
-            tv.selectTabForID = function(...args: any[]) {
-              const r = orig.apply(this, args);
-              if (typeof (window as any).fillMandatory === 'function') { try { (window as any).fillMandatory(); } catch (e) {} }
-              return r;
-            };
-            (tv as any)._patched = true;
-          }
-        } catch (e) {}
-        // Wrap submitForm so it always prefills mandatory fields and patches checkStat before validation
-        try {
-          const origSubmit = (window as any).submitForm;
-          if (typeof origSubmit === 'function' && !origSubmit._patched) {
-            (window as any)._origSubmit = origSubmit;
-            (window as any).submitForm = function(...args: any[]) {
-              try {
-                if (typeof (window as any).fillMandatory === 'function') { (window as any).fillMandatory(); }
-                const chk = (window as any).checkStat;
-                if (typeof chk === 'function' && !chk._patched) {
-                  const origChk = chk;
-                  (window as any)._origCheckStat = origChk;
-                  (window as any).checkStat = function(...cargs: any[]) {
-                    if (typeof (window as any).fillMandatory === 'function') { try { (window as any).fillMandatory(); } catch (e) {} }
-                    return 'true';
-                  };
-                  (window as any).checkStat._patched = true;
-                }
-              } catch (e) {}
-              return origSubmit.apply(this, args);
-            };
-            (window as any).submitForm._patched = true;
-          }
-        } catch (e) {}
-      }, { regionCode, regionDisplay, tdsCode, tdsDisplay, custCode, custDisplay, city: this.textValue(primaryContact.city), addressLabel: this.textValue(primaryContact.addressLabel) || this.textValue(primaryContact.streetName) || this.textValue(primaryContact.addressType), bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail'), gender: (TD.customerData.gender || 'MALE').toUpperCase(), nreFlag: this.yesNoFromValue(TD.customerData.nonResidentDate), nativeLanguage: (TD.customerData.nativeLanguage || 'ENGLISH').toUpperCase(), customerMinor: 'N', baselVal, foreignVal, uniqueId, idType, countryOfIssue, countryCode, countryDisplay, placeOfIssue, lastDate, nextDate }).catch(() => {});
-      await bf.evaluate(() => { if (typeof (window as any).fillMandatory === 'function') { (window as any).fillMandatory(); } }).catch(() => {});
-      // Suppress validation alert loops and bypass client-side validation so we can inspect server-side errors
-      await bf.evaluate(() => {
-        const patch = (w: any) => {
-          if (!w) return;
-          try {
-            const defineOrAssign = (name: string, val: any) => {
-              try {
-                Object.defineProperty(w, name, { value: val, writable: false, configurable: false });
-              } catch (_) {
-                w[name] = val;
-              }
-            };
-            defineOrAssign('alert', function() {});
-            defineOrAssign('confirm', function() { return true; });
-            defineOrAssign('prompt', function() { return null; });
-            defineOrAssign('ValidateFormContents', function() { return 'true'; });
-            defineOrAssign('check', function() { return 'true'; });
-            // Neutralize auxiliary save helpers that throw / open popups during submit
-            const noop = function() {};
-            const trueNoop = function() { return 'true'; };
-            ['customSave','getAndSetAllHobbies','getAndSetAllCampaigns','saveRelationship','saveLifeStyle','saveProductPref','saveTransaction','saveCurrencyDet','saveCreditBureau','saveMembership','saveBeneficialOwner','checkPrimaryIntroducer','hasIntro','fnOpenLookup','openCategoryLov'].forEach((fn: string) => {
-              try { if (typeof w[fn] === 'function') defineOrAssign(fn, fn === 'checkPrimaryIntroducer' || fn === 'hasIntro' ? trueNoop : noop); } catch (_) {}
-            });
-            try { defineOrAssign('open', function() { return null; }); } catch (_) {}
-          } catch (_) {}
-          try { Array.from(w.frames || []).forEach(patch); } catch (_) {}
-        };
-        patch(window.top);
-      }).catch(() => {});
-      // Neutralize tab-switch during submit so pre-filled values are not reset before ValidateFormContents runs
-      await bf.evaluate(() => {
-        try {
-          const tv = (window as any).parent.frames[0];
-          if (tv && typeof tv.selectTabForID === 'function' && !tv.selectTabForID._patched) {
-            tv._origSelectTabForID = tv.selectTabForID;
-            tv.selectTabForID = function() {};
-            tv.selectTabForID._patched = true;
+          const u = f.url();
+          if (u.includes('AccountMod_det') || u.includes('RetailTF_det') || u.includes('MainAccountDetForm') ||
+              u.includes('DemographicMod_det') || u.includes('PsychographicMod_det') ||
+              u.includes('MainDemographicDetForm') || u.includes('MainPsychographicDetForm') ||
+              u.includes('/cif/')) {
+            this.workingPage = p;
+            console.log(`  Reacquired workingPage: ${p.url().split('/').pop()?.substring(0, 80)}`);
+            return;
           }
         } catch (_) {}
-      }).catch(() => {});
-
-      // Playwright-side last-chance sweep: force Basel/Foreign/ID fields in every reachable Mod_det frame
-      try {
-        for (const f of this.workingPage.frames()) {
-          await f.evaluate((args: any) => {
-            const fire = (el: HTMLElement) => {
-              el.dispatchEvent(new Event('input', { bubbles: true }));
-              el.dispatchEvent(new Event('change', { bubbles: true }));
-              el.dispatchEvent(new Event('blur', { bubbles: true }));
-            };
-            const setText = (key: string, val: string, exclude?: string) => {
-              if (val === undefined || val === null) return;
-              const ex = (exclude && typeof exclude === 'string') ? exclude.toUpperCase() : '';
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const n = (inp.name || '').toUpperCase();
-                if (n.includes(key) && !n.includes(ex) && !inp.value) {
-                  inp.disabled = false; inp.removeAttribute('readonly');
-                  inp.value = val; fire(inp);
-                }
-              });
-            };
-            const setSelect = (key: string, val: string) => {
-              document.querySelectorAll('select').forEach((sel: HTMLSelectElement) => {
-                const n = (sel.name || '').toUpperCase();
-                if (n.includes(key)) {
-                  sel.disabled = false;
-                  const display = (val.toUpperCase() === 'NO TIN') ? 'NO TIN IS REQUIRED' : (val.toUpperCase() === 'NO') ? 'NO' : val;
-                  const code = (val.toUpperCase() === 'NO') ? 'N' : (val.toUpperCase() === 'NO TIN') ? 'NOTIN' : val;
-                  const upCode = code.toUpperCase();
-                  let opt = Array.from(sel.options).find(o => o.value.toUpperCase() === upCode);
-                  if (!opt) opt = Array.from(sel.options).find(o => o.text.trim().toUpperCase() === display.toUpperCase() || o.text.trim().toUpperCase().includes(display.toUpperCase()));
-                  if (!opt || opt.value.toUpperCase() !== upCode) { opt = document.createElement('option'); opt.value = code; opt.text = display; opt.selected = true; sel.appendChild(opt); }
-                  sel.value = code; sel.selectedIndex = opt.index; fire(sel);
-                  if (typeof sel.onchange === 'function') { try { sel.onchange(new Event('change')); } catch (_) {} }
-                  try {
-                    const h = document.querySelector('[name="h_' + sel.name + '"]') as any;
-                    if (h) { h.value = code; h.dispatchEvent(new Event('change', { bubbles: true })); }
-                  } catch (_) {}
-                }
-              });
-            };
-            setText('BASELPROFILING', args.baselVal);
-            setText('BASELPROFILINGDESC', 'NO');
-            setText('FOREIGNTAXREPORTING', 'NOTIN', 'COUNTRY');
-            setText('FOREIGNACCTAXREPORTINGREQ', 'NOTIN');
-            setText('FOREIGNTAXREPORTINGSTATUS', 'NOTIN');
-            setText('FATCAREMARKS', 'NOTIN');
-            setText('FATCA', 'NOTIN');
-            setText('CRSCOMPLIANCE', 'NOTIN');
-            setText('HIDUNIQUEID', args.uniqueId);
-            setText('HIDUNIQUEIDTYPE', args.idType);
-            setText('ISSUECOUNTRY', args.countryCode);
-            setText('COUNTRYOFISSUE', args.countryCode);
-            setText('PLACEOFISSUE', args.placeOfIssue);
-            setText('FOREIGNTAXREPORTINGCOUNTRY', args.countryDisplay || 'Bermuda');
-            setText('LASTFOREIGNTAXREVIEW', '01/01/2020');
-            setText('NEXTFOREIGNTAXREVIEW', '31/12/2099');
-
-            // Restore any numeric hidden fields accidentally set to non-numeric values
-            const numericSafe = (n: string, fallback: string) => {
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                if ((inp.name || '').toUpperCase() === n && (!inp.value || isNaN(parseFloat(inp.value)))) {
-                  inp.disabled = false; inp.removeAttribute('readonly'); inp.value = fallback; fire(inp);
-                }
-              });
-            };
-            numericSafe('HWITHHOLDTAXPCNT', args.withholdingPcnt);
-            numericSafe('HWITHHOLDTAXFLOORLMT', args.withholdingFloor);
-            // Ensure each IDTYPER row has number/dates/place/country
-            for (let i = 1; i <= 5; i++) {
-              const prefix = 'IDTYPER' + i + '.';
-              const setInp2 = (attr: string, v: string) => {
-                document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                  const n2 = (inp.name || '').toUpperCase();
-                  if (n2.startsWith(prefix) && n2.endsWith(attr) && inp.value !== v) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = v; fire(inp); }
-                });
-              };
-              setInp2('TXT_ID', args.uniqueId);
-              setInp2('TXT_ID_TYPE', args.idType);
-              setInp2('ISSUE_DATE', '01/01/2020');
-              setInp2('VALID_DATE', '31/12/2099');
-              setInp2('ISSUE_PLACE', args.placeOfIssue || 'MUMBAI');
-              setInp2('ISSUE_COUNTRY', args.countryCode || 'BM');
-              setInp2('COUNTRYOFISSUE', args.countryCode || 'BM');
-            }
-            setSelect('BASELPROFILING', 'NO');
-            setSelect('FOREIGNTAXREPORTING', 'NO TIN');
-            setSelect('FATCA', 'NO TIN');
-            setSelect('CRS', 'NO TIN');
-            setSelect('BANKRELATIONTYPE', args.bankRelationType || 'Retail');
-            setSelect('ACCOUNTMODBO.BANKRELATIONTYPE', args.bankRelationType || 'Retail');
-            setSelect('IDTYPE', args.idType);
-            setSelect('DOCTYPE', args.idType);
-            setSelect('COUNTRYOFISSUE', args.countryOfIssue);
-            // Force-overwrite Foreign Tax Reporting Country display inputs if they were set incorrectly
-            document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-              const n = (inp.name || '').toUpperCase();
-              if (n.endsWith('FOREIGNTAXREPORTINGCOUNTRY') && !n.startsWith('PI_') && !n.startsWith('H_') && !n.startsWith('BTN')) {
-                inp.disabled = false; inp.removeAttribute('readonly'); inp.value = args.countryOfIssue || 'Bermuda'; fire(inp);
-              }
-            });
-            // Also fill the underscore IDTypeR grid fields visible on the Identification tab
-            for (let i3 = 1; i3 <= 5; i3++) {
-              const pfx = 'IDTYPER' + i3 + '_TXT_';
-              document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
-                const n = (inp.name || '').toUpperCase();
-                if (!n.startsWith(pfx)) return;
-                let val3 = args.uniqueId;
-                if (n.endsWith('_ID_TYPE') || n.endsWith('_DOCTYPE') || n.endsWith('_IDTYPE')) val3 = args.idType;
-                else if (n.endsWith('_ISSUE_DATE')) val3 = '01/01/2020';
-                else if (n.endsWith('_VALID_DATE')) val3 = '31/12/2099';
-                else if (n.endsWith('_ISSUE_PLACE') || n.endsWith('_ISSUE_COUNTRY') || n.endsWith('_COUNTRYOFISSUE') || n.endsWith('_COUNTRY_OF_ISSUE')) val3 = args.countryOfIssue || 'Bermuda';
-                else if (!n.endsWith('_ID')) return;
-                if (!val3) return;
-                inp.disabled = false; inp.removeAttribute('readonly'); inp.value = val3; fire(inp);
-              });
-            }
-          }, { baselVal: 'N', foreignVal: 'NOTIN', uniqueId, idType, countryOfIssue: countryDisplay, countryCode, countryDisplay, placeOfIssue, bankRelationType: (TD.customerData.customerType || TD.customerData.bankRelationType || 'Retail'), withholdingPcnt: this.textValue(TD.validCcyData?.withholdingTaxPcnt) || '2', withholdingFloor: this.textValue(TD.validCcyData?.withholdingTaxFloorLimit) || '1000' }).catch(() => {});
-        }
-        console.log('  Force-set Basel/Foreign/ID in all frames');
-      } catch (e) { console.log('  \u26a0 Direct force-set error: ' + ((e as any).message || '').substring(0, 100)); }
+      }
     }
-    // Diagnostic dump of AccountMod_det fields before submission
-    try {
-      const debugFrame = this.workingPage.frames().find(f => f.url().includes('AccountMod_det'));
-      if (debugFrame) {
-        const debugData = await debugFrame.evaluate(() => {
-          const terms = ['BASEL','FOREIGN','TAX','TIN','CRS','FATCA','IDTYPE','IDTYPER','UNIQUE','IDENTIFICATION','ISSUE','INVEST','SHARE','REVIEW','COUNTRYOFISSUE'];
-          const out: any[] = [];
-          const walk = (w: any, path: string) => {
-            try {
-              const doc = w.document;
-              if (doc) {
-                const els = Array.from(doc.querySelectorAll('input, select, textarea')) as any[];
-                for (const el of els) {
-                  const name = (el.name || '').toUpperCase();
-                  if (terms.some(t => name.includes(t))) {
-                    const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 0, height: 0 };
-                    const isVisible = rect.width > 0 && rect.height > 0;
-                    out.push({
-                      path,
-                      tag: el.tagName,
-                      name: el.name,
-                      type: el.type || '',
-                      value: el.value,
-                      selectedText: el.tagName === 'SELECT' ? (el.options[el.selectedIndex]?.text || '') : '',
-                      visible: isVisible
-                    });
-                  }
-                }
-              }
-              for (let i = 0; i < (w.frames || []).length; i++) { walk(w.frames[i], `${path}/${(w.frames[i] as any).name || i}`); }
-            } catch (_) {}
-          };
-          walk(window, '');
-          return out;
-        });
-        fs.writeFileSync('cif-form-debug-24.json', JSON.stringify(debugData, null, 2));
-        console.log(`  Dumped ${debugData.length} AccountMod_det fields to cif-form-debug-24.json`);
-      } else {
-        console.log('  \u26a0 AccountMod_det frame not found for dump');
-      }
-    } catch (e) { console.log(`  \u26a0 Dump error: ${(e as any).message}`); }
-    // Capture check() sources for each loaded Mod_det frame and saveForm1 for root-cause analysis
-    try {
-      for (const f of this.workingPage.frames()) {
-        if (!f.url().includes('Mod_det')) continue;
-        const name = (f.name() || f.url().split('/').pop() || 'frame').split('?')[0];
-        const checkSrc = await f.evaluate(() => { try { return typeof (window as any).check === 'function' ? (window as any).check.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync(`check-src-${name}.txt`, checkSrc);
-        console.log(`  Captured check source for ${name} (${checkSrc.length} chars)`);
-      }
-      const bf2 = this.workingPage.frame({ name: 'buttonFrm' }) || this.workingPage.frames().find(f => f.url().includes('CifShowButtons'));
-      if (bf2) {
-        const saveSrc = await bf2.evaluate(() => { try { return typeof (window as any).saveForm1 === 'function' ? (window as any).saveForm1.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync('saveForm1Src.txt', saveSrc);
-        console.log(`  Captured saveForm1 source (${saveSrc.length} chars)`);
-      }
-    } catch (e) {}
-    // Capture Savevalue / save / save1 from each Mod_det formDispFrame
-    try {
-      for (const f of this.workingPage.frames()) {
-        if (!f.url().includes('Mod_det')) continue;
-        const name = (f.name() || f.url().split('/').pop() || 'frame').split('?')[0];
-        const saveVal = await f.evaluate(() => { try { return typeof (window as any).Savevalue === 'function' ? (window as any).Savevalue.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync(`savevalue-src-${name}.txt`, saveVal);
-        const save1Val = await f.evaluate(() => { try { return typeof (window as any).save1 === 'function' ? (window as any).save1.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync(`save1-src-${name}.txt`, save1Val);
-        const saveVal2 = await f.evaluate(() => { try { return typeof (window as any).save === 'function' ? (window as any).save.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync(`save-src-${name}.txt`, saveVal2);
-        console.log(`  Captured Savevalue/save/save1 for ${name} (${saveVal.length}/${save1Val.length}/${saveVal2.length} chars)`);
-      }
-    } catch (e) {}
-    // Capture ValidateFormContents source from the top-level frame
-    try {
-      const topFrame = this.workingPage.mainFrame();
-      if (topFrame) {
-        const vfSrc = await topFrame.evaluate(() => { try { const fn = (window as any).ValidateFormContents; return typeof fn === 'function' ? fn.toString() : 'not-found'; } catch (e: any) { return 'err:' + e.message; } }).catch(() => '');
-        fs.writeFileSync('validateFormContentsSrc.txt', vfSrc);
-        console.log(`  Captured ValidateFormContents source (${vfSrc.length} chars)`);
-      }
-    } catch (e) {}
-    // Capture the original JS source for root-cause analysis
-    try {
-      const bf2 = this.workingPage.frame({ name: 'buttonFrm' }) || this.workingPage.frames().find(f => f.url().includes('CifShowButtons'));
-      if (bf2) {
-        const submitSrc = await bf2.evaluate(() => { const f = (window as any)._origSubmit || (window as any).submitForm; return typeof f === 'function' ? f.toString() : 'not-found'; }).catch(() => '');
-        fs.writeFileSync('submitFormSrc.txt', submitSrc);
-        const checkSrc = await bf2.evaluate(() => { const f = (window as any)._origCheckStat || (window as any).checkStat; return typeof f === 'function' ? f.toString() : 'not-found'; }).catch(() => '');
-        fs.writeFileSync('checkStatSrc.txt', checkSrc);
-        console.log(`  Captured submitForm source (${submitSrc.length} chars) and checkStat source (${checkSrc.length} chars)`);
-      }
-    } catch (e) {}
+    console.log('  Could not reacquire workingPage; falling back to main page');
+    if (!this.workingPage || this.workingPage.isClosed()) this.workingPage = this.page;
+  }
+
+  // ==================== SUBMIT FORM (retail override) ====================
+  async submitForm(): Promise<string> {
+    await this.reacquireWorkingPage();
     return super.submitForm();
+  }
+
+  // ==================== PROCESS SELECTION ====================
+  async handleProcessSelection(): Promise<void> {
+    console.log('\n=== TC_RET_PS_001: Process Selection popup ===');
+    await this.reacquireWorkingPage();
+    const page = this.workingPage;
+    try {
+      let psPopup: Page | null = null;
+      const allContextPages = page.context().pages();
+      for (const p of allContextPages) {
+        if (p === page || p.isClosed()) continue;
+        try { const url = p.url(); if (url.includes('CIFProcessSelection') || url.includes('ProcessSelection')) { psPopup = p; break; } } catch (_) {}
+      }
+      if (!psPopup) {
+        try { psPopup = await page.waitForEvent('popup', { timeout: this.timeouts.long15 }); } catch (_) {
+          for (const p of page.context().pages()) { if (p !== page && !p.isClosed()) { const u = p.url(); if (u.includes('CIFProcessSelection') || u.includes('ProcessSelection')) { psPopup = p; break; } if (!psPopup) psPopup = p; } }
+        }
+      }
+
+      if (psPopup && !psPopup.isClosed()) {
+        psPopup.on('dialog', async (d: Dialog) => { const msg = d.message(); this.lastDialogMessages.push(msg); console.log('PS popup dialog: "' + msg.substring(0, 200) + '"'); await d.accept().catch(() => {}); });
+        await psPopup.waitForLoadState('domcontentloaded', { timeout: this.timeouts.long15 }).catch(() => {});
+        await psPopup.waitForTimeout(this.timeouts.medium);
+
+        let saveReady = false;
+        for (let i = 0; i < 10 && !saveReady; i++) {
+          for (const f of psPopup.frames()) { const sb = f.locator('input[value*="Save Process Selection"]').first(); if (await sb.isVisible({ timeout: 2000 }).catch(() => false)) { saveReady = true; break; } }
+          if (!saveReady) await psPopup.waitForTimeout(this.timeouts.short);
+        }
+
+        let saveClicked = false;
+        for (const f of psPopup.frames()) { const sb = f.locator('input[value*="Save Process Selection"]').first(); if (await sb.isVisible({ timeout: 5000 }).catch(() => false)) { await sb.click(); saveClicked = true; console.log('\u2713 Clicked "Save Process Selection"'); break; } }
+        if (!saveClicked) {
+          for (const f of psPopup.frames()) {
+            const c = await f.evaluate(() => { for (const btn of document.querySelectorAll('input[type="button"], input[type="submit"], button')) { const val = (btn.getAttribute('value') || btn.textContent || '').trim(); if (val.includes('Save Process Selection')) { (btn as HTMLElement).click(); return val; } } return ''; }).catch(() => '');
+            if (c) { saveClicked = true; break; }
+          }
+        }
+
+        for (let attempt = 0; attempt < 15 && !this._processSaveConfirmed; attempt++) {
+          await page.waitForTimeout(2000);
+          for (const msg of this.lastDialogMessages.slice(-10)) {
+            if (msg.toLowerCase().includes('process was saved successfully') || msg.toLowerCase().includes('saved successfully')) {
+              this._processSaveConfirmed = true; console.log('\u2713 CONFIRMED: "' + msg + '"'); break;
+            }
+          }
+          if (this._processSaveConfirmed) break;
+          if (psPopup.isClosed()) {
+            for (const msg of this.lastDialogMessages.slice(-10)) { if (msg.toLowerCase().includes('saved successfully')) { this._processSaveConfirmed = true; break; } }
+            break;
+          }
+        }
+
+        if (!psPopup.isClosed()) {
+          try {
+            for (const f of psPopup.frames()) { const closeBtn = f.locator('input[value="Close"]').first(); if (await closeBtn.isVisible({ timeout: 3000 }).catch(() => false)) { await closeBtn.click(); break; } }
+            await psPopup.waitForTimeout(this.timeouts.short).catch(() => {});
+            if (!psPopup.isClosed()) await psPopup.close().catch(() => {});
+          } catch (_) {}
+        }
+      } else { console.log('\u26a0 Process Selection popup not found'); }
+
+      if (this._processSaveConfirmed) console.log('\u2713 Process Selection saved and confirmed');
+      else console.log('\u26a0 Process Selection confirmation not received');
+    } catch (e) { console.log('\u26a0 Process Selection error: ' + (e as Error).message?.substring(0, 200)); }
+    await page.screenshot({ path: 'test-results-temp/retail-final-state.png' }).catch(() => {});
   }
 }

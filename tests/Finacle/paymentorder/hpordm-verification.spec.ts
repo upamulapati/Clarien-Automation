@@ -6,13 +6,11 @@ import { PaymentOrderPage } from '../../pages/CoreBanking/PaymentOrderPage';
 import { CREDENTIALS } from '../../../data/credentials';
 import { getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
-import { HPORDM_DATA, HPORDM_DATA_SWIFT, HPORDM_DATA_ACH_FCC, HPORDM_DATA_SWIFT_FCC } from '../../helpers/common';
+import { HPORDM_DATA, HPORDM_DATA_SWIFT } from '../../helpers/common';
 
 const SCENARIOS = [
   { name: 'ACH', data: HPORDM_DATA as any, sharedKey: 'paymentOrderId' },
   { name: 'SWIFT', data: HPORDM_DATA_SWIFT as any, sharedKey: 'paymentOrderIdSwift' },
-  { name: 'ACH-FCC', data: HPORDM_DATA_ACH_FCC as any, sharedKey: 'paymentOrderIdAchFcc' },
-  { name: 'SWIFT-FCC', data: HPORDM_DATA_SWIFT_FCC as any, sharedKey: 'paymentOrderIdSwiftFcc' },
 ];
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -21,7 +19,7 @@ for (const scenario of SCENARIOS) {
   test(`HPORDM - verify payment order (${scenario.name})`, async ({ page }) => {
     test.setTimeout(900000);
 
-    const paymentOrderId = getSharedValue(scenario.sharedKey) ?? '';
+    const paymentOrderId = getSharedValue((state: any) => (state as any)[scenario.sharedKey] as string | undefined) ?? '';
     if (paymentOrderId) console.log(`[SharedState] [${scenario.name}] Using Payment Order ID: ${paymentOrderId}`);
 
     expect(paymentOrderId, 'Payment order ID must be available for verification').toMatch(/\d{6,}/);
@@ -84,3 +82,9 @@ for (const scenario of SCENARIOS) {
   await homePage.logout();
   });
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

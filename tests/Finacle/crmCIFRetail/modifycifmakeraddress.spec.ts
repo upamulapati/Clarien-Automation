@@ -67,3 +67,9 @@ test.describe("CIF Modification Maker - Address", () => {
     console.log(`✓ Address modification submitted and record shown in grid for CIF ${CIF_ID}.`);
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

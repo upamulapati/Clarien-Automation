@@ -5,7 +5,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 import { readLatestCollateralId } from '../../helpers/sharedState';
-import { readTermDepositAccounts } from '../../helpers/sharedState';
+import { readLatestLoanAccount } from '../../helpers/sharedState';
 
 // Collateral unlinking verification (HSCLM) MUST be performed by a DIFFERENT
 // user than the maker who unlinked the collateral in
@@ -13,15 +13,13 @@ import { readTermDepositAccounts } from '../../helpers/sharedState';
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
-// TD account number the collateral was linked to. Prefer the term-deposit A/c
-// ID persisted by Termdepositscreation.spec.ts; fall back to this constant.
-const TD_ACCOUNT_ID = '9200000620';
+// Loan account the collateral was linked to. Use the latest from shared state.
+const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
 //const TD_ACCOUNT_ID = readTermDepositAccounts()[0]?.accountNumber ?? FALLBACK_TD_ACCOUNT_ID;
 
 // Collateral ID to verify. Prefer the id persisted by the lodgement spec; fall
 // back to this constant when no persisted id is available.
-const COLLATERAL_ID = 'RBU3533';
-//const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+const COLLATERAL_ID = readLatestCollateralId() ?? 'RBU3533';
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -116,3 +114,9 @@ test('HSCLM - verify collateral unlink', async ({ page }) => {
 
 
 
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

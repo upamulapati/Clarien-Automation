@@ -119,3 +119,9 @@ test.describe('CIF Corporate Approval Verification', () => {
     // here because performVerification() includes logout at the end.
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

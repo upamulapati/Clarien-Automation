@@ -4,7 +4,7 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { resetCollateralIds, recordCollateralId } from '../../helpers/sharedState';
+import { readFirstTermDepositAccount, resetCollateralIds, recordCollateralId } from '../../helpers/sharedState';
 
 // Collateral lodgement (HCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -15,9 +15,6 @@ const COLLATERAL_CODE = 'CBLT1BMD';
 
 // Ceiling Limit per Linkage amount.
 const CEILING_LIMIT = '500';
-
-// Deposit (term deposit) account id linked as collateral on the Particulars tab.
-const DEPOSIT_ACCOUNT_ID = '9200000596';
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -73,15 +70,19 @@ test('HCLM - lodge collateral for term deposit', async ({ page }) => {
   await collateralPage.visitLoanTab('Particulars', 'particulars', 'Full Benefit');
   await collateralPage.logVisibleFields('Collateral Particulars tab');
 
-  // Steps 7-11: Lodged/Review/Received dates (current date), Deposit A/c ID, Full Benefit No.
-  const today = collateralPage.collateralToday();
-  console.log('Filling collateral particulars...');
+  // Steps 7-11: Lodged/Review/Received dates (BOD or current), Deposit A/c ID, Full Benefit No.
+  const depositAccountId = readFirstTermDepositAccount()?.accountNumber ?? '9200000597';
+  const cifId = COMMON_DATA.termDeposit.cifCode;
+  const bod = await collateralPage.getBODDate() || collateralPage.collateralToday();
+  console.log(`Filling HCLM Particulars for TD ${depositAccountId}, CIF ${cifId}, BOD ${bod}...`);
   await collateralPage.fillCollateralParticulars({
-    lodgedDate: today,
-    reviewDate: today,
-    receivedDate: today,
-    depositAccountId: DEPOSIT_ACCOUNT_ID,
-    fullBenefit: 'no',
+    lodgedDate: bod,
+    reviewDate: bod,
+    receivedDate: bod,
+    depositAccountId,
+    fullBenefit: 'yes',
+    cifId,
+    withdraw: 'no',
   });
 
   // Step 12: Click Submit - "Record lodged successfully collateral id Ex: RBU7052".
@@ -93,6 +94,9 @@ test('HCLM - lodge collateral for term deposit', async ({ page }) => {
 
   // Diagnostics: surface the on-screen message after submit.
   await collateralPage.logScreenMessages();
+  const tabError = await collateralPage.getTabSpecificError('Particulars: This tab contains errors');
+  if (tabError) console.log('Particulars tab specific error:', tabError);
+  await collateralPage.logAllFieldErrors();
 
   // Capture the generated collateral id from the success message BEFORE the
   // confirmation is dismissed, otherwise the message disappears and the id is
@@ -120,4 +124,10 @@ test('HCLM - lodge collateral for term deposit', async ({ page }) => {
   // Logout.
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

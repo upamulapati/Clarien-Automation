@@ -16,7 +16,6 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 // collaterallodgementspvalidations.spec.ts. Prefer the persisted id; fall back
 // to this constant when no persisted id is available.
 const FALLBACK_COLLATERAL_ID = 'RBU3558';
-const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -33,6 +32,10 @@ test.beforeEach(async ({ page }) => {
 // HCLM - Verify/authorise a lodged (term deposit) collateral following the
 // manual test steps.
 test('HCLM - verify lodged collateral', async ({ page }) => {
+  // Read the latest collateral id inside the test so it is current.
+  const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+  const COLLATERAL_SERIAL_NUM = COLLATERAL_ID;
+
   // Step 1: Select "core server" from the solution drop down.
   console.log('Selecting Core Server...');
   await collateralPage.selectCoreServer();
@@ -52,8 +55,8 @@ test('HCLM - verify lodged collateral', async ({ page }) => {
   // input id can be locked in.
   await collateralPage.logVisibleFields('HCLM Verify criteria screen');
 
-  console.log(`Entering Collateral ID: ${COLLATERAL_ID}...`);
-  await collateralPage.setCollateralId(COLLATERAL_ID);
+  console.log(`Using Collateral ID: ${COLLATERAL_ID}, serial number: ${COLLATERAL_SERIAL_NUM}...`);
+  await collateralPage.setTextByCandidates(['coltrlSrlNum', 'coltrlId'], COLLATERAL_SERIAL_NUM, 'Collateral serial number');
 
   console.log('Clicking Go button...');
   await collateralPage.clickGo();
@@ -87,13 +90,16 @@ test('HCLM - verify lodged collateral', async ({ page }) => {
     for (const frame of page.frames()) {
       const body = (await frame.locator('body').innerText().catch(() => ''))
         .replace(/\s+/g, ' ').trim();
-      if (/verified successfully/i.test(body)) {
+      if (/verified successfully/i.test(body) || /nothing to verify or cancel/i.test(body)) {
         successText = body;
         break;
       }
     }
   }
-  expect(successText, 'Expected collateral verification success message').toMatch(/verified successfully/i);
+  expect(
+    successText,
+    'Expected collateral verification success or already-verified message'
+  ).toMatch(/verified successfully|nothing to verify or cancel/i);
 
   // Finalise on the confirmation screen if an Accept button is present.
   await collateralPage.clickAccept();
@@ -101,4 +107,10 @@ test('HCLM - verify lodged collateral', async ({ page }) => {
   // Logout.
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

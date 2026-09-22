@@ -17,7 +17,7 @@ export default defineConfig({
 
   use: {
     trace: 'on-first-retry',
-    screenshot: 'on',
+    screenshot: 'only-on-failure',
     video: 'on',
   },
   env: {

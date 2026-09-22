@@ -1,10 +1,12 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { saveLoanAccount, updateSharedState } from '../../helpers/sharedState';
+import { getCreatedCif } from '../../config/cifStore';
+import { captureEvidence } from '../../helpers/evidence';
 
 // Retail loan creation (HOAACLA) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -13,21 +15,19 @@ const PASSWORD = CREDENTIALS.credentials.password;
 // Loan header inputs.
 const CURRENCY = 'BMD';
 const SOL_ID = '100';
-//const CIF_ID = COMMON_DATA.baseAccountData.cifCode;
-const SHARED_CIF = getSharedValue<string>(state => (state as any).cifId);
-if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
-const CIF_ID = SHARED_CIF ?? '0005000599';
+const CIF_ID = getCreatedCif('retail', COMMON_DATA.baseAccountData.cifCode);
+if (CIF_ID) console.log(`[SharedState] Using CIF ID: ${CIF_ID}`);
 
 // NOTE: Set this to a valid retail-loan scheme code. If left blank, the scheme
 // search popup will fall back to selecting the first available scheme.
-const LOAN_SCHEME_CODE = 'LNCCS';
+const LOAN_SCHEME_CODE = 'LNPEM';
 
 // Operative (repayment) SB account number used on the Loan details tab. This is
 // the savings account under CIF 0005000599 used across the savings specs.
 const OPERATIVE_SB_ACCOUNT = '7710003367';
 
 // Loan parameters.
-const LOAN_AMOUNT = '10000';
+const LOAN_AMOUNT = '1000';
 const LOAN_PERIOD_MONTHS = '12';
 const NO_OF_INSTALMENTS = '12';
 
@@ -54,7 +54,8 @@ test.beforeEach(async ({ page }) => {
 
 // HOAACLA - Create a retail loan account and capture the generated account number.
 test('HOAACLA - create retail loan account', async ({ page }) => {
-  console.log('Creating retail loan account...');
+  try {
+    console.log('Creating retail loan account...');
 
   // Step 1: Select "core server" from the solution drop down
   console.log('Selecting Core Server...');
@@ -64,6 +65,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   console.log('Searching for HOAACLA...');
   await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.create);
   await page.waitForTimeout(3000);
+  await captureEvidence(page, 'Step 1-2: Loan screen opened', { currency: CURRENCY, solId: SOL_ID, cifCode: CIF_ID, schemeCode: LOAN_SCHEME_CODE });
 
   // Step 3: Function Open, Currency BMD, Sol id 100, CIF Id + scheme code, Go
   console.log('Entering loan header (function/currency/sol/cif/scheme) and clicking Go...');
@@ -81,6 +83,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   await loanPage.logLoanTabs();
   await loanPage.logVisibleFields('General details');
   await loanPage.setLoanAccountStatementNone();
+  await captureEvidence(page, 'Step 4: General details', { accountStatement: 'None' });
 
   // Step 5: Loan details tab - amount, period (months), operative a/c id
   console.log('Visiting Loan details tab...');
@@ -91,6 +94,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
     loanPeriodMonths: LOAN_PERIOD_MONTHS,
     operativeAccountId: OPERATIVE_SB_ACCOUNT,
   });
+  await captureEvidence(page, 'Step 5: Loan details', { loanAmount: LOAN_AMOUNT, loanPeriodMonths: LOAN_PERIOD_MONTHS, operativeAccountId: OPERATIVE_SB_ACCOUNT });
 
   // Step 6: A/c interest tab
   console.log('Visiting A/c Interest tab...');
@@ -106,6 +110,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   await loanPage.visitLoanTab('Payment Plan', 'laparm');
   await loanPage.logVisibleFields('Payment plan');
   await loanPage.setNumberOfInstalments(NO_OF_INSTALMENTS);
+  await captureEvidence(page, 'Step 8: Payment plan', { noOfInstalments: NO_OF_INSTALMENTS });
 
   // Steps 9-11: Payment plan - Holiday period configuration
   console.log('Configuring Holiday period...');
@@ -116,12 +121,14 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   await loanPage.visitLoanTab('Payment Schedule', 'lamnt');
   await loanPage.logVisibleFields('Payment schedule');
   await loanPage.generateAmortizationSchedule();
+  await captureEvidence(page, 'Step 12: Payment schedule', { scheduleGenerated: true });
 
   // Step 13: Account limits - expiry date, document date (today), drawing power EQUAL
   console.log('Visiting Account Limits details tab...');
   await loanPage.visitLoanTab('Account Limits', 'acctlmt');
   await loanPage.logVisibleFields('Account limits');
   await loanPage.fillLoanAccountLimits(expiryDate);
+  await captureEvidence(page, 'Step 13: Account limits', { expiryDate });
 
   // Step 14: Related party details tab
   console.log('Visiting Related Party details tab...');
@@ -147,19 +154,60 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   const loanAccountNumber = await loanPage.getGeneratedLoanAccountNumber();
   console.log('=== GENERATED LOAN ACCOUNT NUMBER:', loanAccountNumber, '===');
 
+  if (!loanAccountNumber) {
+    const statusMessage = await loanPage.getStatusMessage();
+    const tabError = await loanPage.getTabSpecificError(statusMessage);
+    throw new Error(`Loan account not created. Status: ${statusMessage || 'n/a'}. ${tabError || ''}`);
+  }
+
+  await captureEvidence(page, 'Step 16: Loan account generated', { cifCode: CIF_ID, loanAccountNumber });
+
   // Persist the CIF ID and loan Account ID for downstream specs
   updateSharedState((state) => {
     (state as any).loanCifId = CIF_ID;
     if (loanAccountNumber) {
       (state as any).loanAccountId = loanAccountNumber;
+      saveLoanAccount(loanAccountNumber);
     }
   });
 
   // Step 17: Click Accept to finalise the loan after the A/c ID is generated.
   console.log('Clicking Accept button...');
   await loanPage.clickAccept();
+  await captureEvidence(page, 'Step 17: Loan created and accepted', { cifCode: CIF_ID, loanAccountNumber });
 
   // Logout
   console.log('Logging out...');
   await homePage.logout();
+  } catch (err: any) {
+    console.log('Retail loan creation failed:', err);
+    // Navigate to the failing tab and capture the field-level error.
+    try {
+      await loanPage.visitLoanTab('Account Limits', 'acctlmt');
+      await loanPage.logVisibleFields('Account limits failure');
+      const frame = (loanPage as any).getFinwFrame();
+      const ids = ['expiryDate_ui', 'documentDate_ui', 'sanctDate_ui', 'reviewDate_ui', 'sanctionLevelCode', 'sanctionLevelDesc', 'sanctionAuthCode', 'sanctionAuthDesc'];
+      const values: Record<string, string> = {};
+      for (const id of ids) {
+        values[id] = (await frame.locator(`#${id}`).inputValue().catch(async () => (await frame.locator(`#${id}`).textContent().catch(() => '')) || '')) || '';
+      }
+      const errTexts = (await frame.locator('.errortext, .errormsg, .alert, .error, td.alert, tr.alert, .errorinfo, font[color]').allInnerTexts().catch(() => []))
+        .map((t: string) => t.trim())
+        .filter((t: string) => t);
+      console.log('Account Limits values:', JSON.stringify(values));
+      console.log('Account Limits error texts:', JSON.stringify(errTexts));
+      const tabError = await loanPage.getTabSpecificError('Account Limits: This tab contains errors');
+      console.log('Account Limits tab error:', tabError);
+    } catch (tabErr) {
+      console.log('Could not capture Account Limits tab details:', tabErr);
+    }
+    await captureEvidence(page, 'Retail loan creation failed', { error: err.message });
+    throw err;
+  }
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

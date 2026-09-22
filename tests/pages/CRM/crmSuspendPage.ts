@@ -1,5 +1,6 @@
 import { Page, Dialog } from '@playwright/test';
 import { AppConfig } from '../../config/crmTestData';
+import { captureEvidence } from '../../helpers/evidence';
 import { CrmBasePage } from './crmBasePage';
 import { HomePage } from '../HomePages/HomePage';
 
@@ -156,6 +157,7 @@ export class CrmSuspendPage extends CrmBasePage {
     if (!submitClicked) console.log('⚠ Submit button not found in any frame');
     await this.page.waitForTimeout(this.timeouts.long);
     await this.takeScreenshot('After Submit');
+    await captureEvidence(this.page, 'CRM suspend submit', { submitClicked });
     return submitClicked;
   }
 
