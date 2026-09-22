@@ -9,7 +9,7 @@ import { ServicePackPage } from "../../pages/CRM/servicePackPage";
 // persisted by the retail E2E flow (falls back to the hardcoded CIF with a log).
 const CONFIG = getPrimaryConfig();
 const MOD = CRM_TEST_DATA.retail.modification;
-const SHARED_CIF = getSharedValue('cifId');
+const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
@@ -37,11 +37,11 @@ test.describe("CIF Modification Maker - Address", () => {
     const editFlowResult = await sp.verifyRetailEditEntityFlow(page, '');
     expect(editFlowResult.searchFormLoaded, 'SP#13: Edit Entity search form must load').toBe(true);
 
-    const resultFrame = await retailMod.searchCif(CIF_ID);
-    await expect(resultFrame.getByText(new RegExp(CIF_ID)).first()).toBeVisible({ timeout: 10000 });
+    const resultFrame = await retailMod.searchCif(CIF_ID || MOD.fallbackCifId);
+    await expect(resultFrame.getByText(new RegExp(CIF_ID || MOD.fallbackCifId)).first()).toBeVisible({ timeout: 10000 });
 
     // Open General Details edit window
-    await retailMod.openGeneralDetailsEdit(CIF_ID);
+    await retailMod.openGeneralDetailsEdit(CIF_ID || MOD.fallbackCifId);
 
     // SP#5: Address fields must not contain "undefined" during edit
     const addrUndef = await sp.verifyAddressFieldsNotUndefined(page);
@@ -58,11 +58,11 @@ test.describe("CIF Modification Maker - Address", () => {
     console.log("✓ TC_009: Mailing deleted + new address added");
 
     // Submit + Process Selection
-    const submitted = await retailMod.submitGeneralDetails(CIF_ID);
+    const submitted = await retailMod.submitGeneralDetails(CIF_ID || MOD.fallbackCifId);
     expect(submitted, "Submission must report success").toBeTruthy();
 
     // Record must display in the grid after submitting
-    const shown = await retailMod.verifyRecordInGrid(CIF_ID);
+    const shown = await retailMod.verifyRecordInGrid(CIF_ID || MOD.fallbackCifId);
     expect(shown, "Submitted record must display in the Customer Search Results grid").toBeTruthy();
     console.log(`✓ Address modification submitted and record shown in grid for CIF ${CIF_ID}.`);
   });

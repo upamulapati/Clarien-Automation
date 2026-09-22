@@ -13,7 +13,7 @@ test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 test('HDDC - demand draft cancellation', async ({ page }) => {
   test.setTimeout(900000);
 
-  const originalTransactionId = getSharedValue('demandDraftId') ?? '';
+  const originalTransactionId = getSharedValue((state) => state.demandDraftId) ?? '';
   expect(originalTransactionId, 'Original DD transaction ID must be available for cancellation').toMatch(/[A-Z0-9]{2,}/i);
 
   const lastDialogMessages: string[] = [];
@@ -21,9 +21,9 @@ test('HDDC - demand draft cancellation', async ({ page }) => {
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
   const accountPage = new AccountPage(page);
-  const ddPage = new DemandDraftPage(page, lastDialogMessages);
+  const ddPage = new DemandDraftPage(page);
 
-  const issueDate = getSharedValue('demandDraftIssueDate') ?? todayDDMMYYYY();
+  const issueDate = getSharedValue((state) => (state as any).demandDraftIssueDate) ?? todayDDMMYYYY();
 
   await accountPage.selectCoreServer();
   await accountPage.searchTransactionManagement('HDDC');
@@ -44,7 +44,8 @@ test('HDDC - demand draft cancellation', async ({ page }) => {
   expect(cancellationId, 'DD cancellation transaction ID must be generated').toMatch(/[A-Z0-9]{2,}/i);
 
   if (cancellationId) {
-    writeSharedState({ demandDraftCancellationId: cancellationId });
+    const { updateSharedState } = require('../../helpers/sharedState');
+    updateSharedState((state: any) => { state.demandDraftCancellationId = cancellationId; });
   }
 
   await homePage.logout();

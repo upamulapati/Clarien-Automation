@@ -16,7 +16,7 @@ const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 // Part transaction details.
 const DEBIT_ACCOUNT = '6000123165';   // account to be debited
 // Credit the dynamically created savings account if available.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? '4600000119';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
@@ -37,8 +37,8 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    tmPage = new AccountPage(page, lastDialogMessages);
-    spPage = new ServicePackPage(page, CONFIG, lastDialogMessages);
+    tmPage = new AccountPage(page);
+    spPage = new ServicePackPage(page, CONFIG);
   });
 
   // HTM - Post a transfer (debit one account, credit another) by part
@@ -113,7 +113,8 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Persist the transaction ID so the verification spec can authorise it.
     if (transactionId) {
-      writeSharedState({ transactionId });
+      const { updateSharedState } = require('../../helpers/sharedState');
+      updateSharedState((state: any) => { state.transactionId = transactionId; });
     }
 
     // Acknowledge the confirmation screen.

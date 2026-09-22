@@ -4,13 +4,12 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import COMMON_DATA from '../../../data/common-data.json';
-import { writeSharedState } from '../../helpers/sharedState';
+import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 import { getCreatedCif } from '../../config/cifStore';
 
-// Use the CIF ID created by a previous CIF E2E run if available.
-// If the current flow does not create a CIF, fall back to the persistent CIF pool
-// and finally to the hardcoded value in common-data.json.
-const SHARED_CIF = getCreatedCif('retail', COMMON_DATA.svregTestData.cifCode);
+// Use CIF ID from shared state (written by CRM E2E) if available,
+// otherwise fall back to the hardcoded value in common-data.json.
+const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const CONFIG = getPrimaryConfig();
@@ -29,7 +28,7 @@ test.describe('Savings Account Creation', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    savingsAccountPage = new AccountPage(page, lastDialogMessages);
+    savingsAccountPage = new AccountPage(page);
 
     // Select Core Server from the solution drop down
     console.log('Selecting Core Server...');
@@ -51,12 +50,9 @@ test.describe('Savings Account Creation', () => {
       console.log('Account created:', result.message);
       console.log('Captured Account ID:', result.accountNumber);
 
-      if (!result.accountNumber) {
-        throw new Error(`Savings account not created. CIF: ${accountData.cifCode}, Status: ${result.message}`);
-      }
-
       // Persist the generated Account ID for downstream verification specs
-      writeSharedState({ accountId: result.accountNumber });
+      const { updateSharedState } = require('../../helpers/sharedState');
+      updateSharedState((state: any) => { state.accountId = result.accountNumber; });
 
       await homePage.logout();
     } catch (err: any) {

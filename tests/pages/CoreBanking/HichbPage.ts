@@ -193,7 +193,7 @@ export class HichbPage extends AccountPage {
     );
   }
 
-  async clickValidate(): Promise<boolean> {
+  async clickValidate(): Promise<void> {
     const finwFrame = this.getFinwFrame();
     const selector =
       'input[type="button"][value="Validate" i], ' +
@@ -210,13 +210,13 @@ export class HichbPage extends AccountPage {
         await this.page.waitForTimeout(3000);
         console.log('Clicked Validate button');
         await captureEvidence(this.page, 'Validate button clicked', {});
-        return true;
+        return;
       }
       console.log('Validate button not found or not enabled');
-      return false;
+      return;
     } catch (e) {
       console.log(`Could not click Validate button: ${e}`);
-      return false;
+      return;
     }
   }
 

@@ -35,7 +35,17 @@ export interface SharedState {
     topUpDepositPartial?: string;
   };
   loanAccountNumber?: string;
-  [key: string]: any;
+  loanAccountId?: string;
+  accountId?: string;
+  transactionId?: string;
+  demandDraftId?: string;
+  demandDraftCancellationId?: string;
+  inventoryVaultId?: string;
+  inventoryDoubleLockId?: string;
+  inventoryVaultDate?: string;
+  inventoryDoubleLockDate?: string;
+  hpordmId?: string;
+  cifId?: string;
 }
 
 export function readSharedState(): SharedState {
@@ -60,7 +70,7 @@ export function writeSharedState(state: Partial<SharedState>): void {
     const merged: Record<string, any> = { ...current, ...state };
     // merge nested objects (cifs, collateralIds, etc.) instead of overwriting them
     for (const key of Object.keys(state)) {
-      const newVal = state[key];
+      const newVal = (state as any)[key];
       const curVal = (current as any)[key];
       if (
         newVal &&

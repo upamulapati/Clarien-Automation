@@ -5229,6 +5229,94 @@ export class AccountPage {
       console.log(`Could not log field errors: ${e}`);
     }
   }
+
+  // ============ HCAAC (Account Closure) Methods ============
+  async selectHcaacFunction(code: 'A' | 'D' | 'I' | 'M' | 'P' | 'V' | 'C' | 'Z') {
+    await this.htmSetSelect(['funcCode'], code, 'Function');
+    console.log(`Selected HCAAC function: ${code}`);
+  }
+
+  async enterHcaacAccountId(accountId: string) {
+    await this.htmSetField(['acctId', 'accountId', 'acctNum'], accountId, 'A/c. ID');
+    console.log(`Entered HCAAC account ID: ${accountId}`);
+  }
+
+  async clickTransferCheckbox() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const checkbox = finwFrame.locator('input[type="checkbox"]').filter({ hasText: /transfer/i }).first();
+      if (await checkbox.count() > 0) {
+        await checkbox.check();
+        await this.page.waitForTimeout(1000);
+        console.log('Clicked Transfer checkbox');
+      } else {
+        const allCheckboxes = finwFrame.locator('input[type="checkbox"]');
+        const count = await allCheckboxes.count();
+        for (let i = 0; i < count; i++) {
+          const chk = allCheckboxes.nth(i);
+          const label = await chk.evaluate(el => {
+            const parent = el.closest('td')?.parentElement;
+            return parent?.innerText || '';
+          });
+          if (label.toLowerCase().includes('transfer')) {
+            await chk.check();
+            await this.page.waitForTimeout(1000);
+            console.log('Clicked Transfer checkbox (by label)');
+            return;
+          }
+        }
+        console.log('Transfer checkbox not found, skipping');
+      }
+    } catch (e) {
+      console.log(`Could not click Transfer checkbox, skipping: ${e}`);
+    }
+  }
+
+  async enterTransferAccountId(accountId: string) {
+    await this.htmSetField(['tranAcctId', 'transferAcctId', 'tranAccountId'], accountId, 'Transfer A/c. ID');
+    console.log(`Entered Transfer A/c. ID: ${accountId}`);
+  }
+
+  async selectApplyInterestTillDate(value: 'Y' | 'N' | 'Yes' | 'No') {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const normalizedValue = value.toUpperCase();
+      const radio = finwFrame.locator('input[type="radio"]').filter({ hasText: /interest/i }).first();
+      if (await radio.count() > 0) {
+        const radios = await radio.all();
+        for (const r of radios) {
+          const radioValue = await r.getAttribute('value');
+          if (radioValue?.toUpperCase() === normalizedValue || radioValue?.toUpperCase().startsWith(normalizedValue[0])) {
+            await r.check();
+            await this.page.waitForTimeout(1000);
+            console.log(`Selected Apply interest till date: ${value}`);
+            return;
+          }
+        }
+      }
+      await this.htmSetSelect(['applyIntFlg', 'intFlg'], normalizedValue[0], 'Apply interest till date');
+    } catch (e) {
+      console.log(`Could not select Apply interest till date, skipping: ${e}`);
+    }
+  }
+
+  async enterHtmParticulars(particulars: string) {
+    await this.htmSetField(['particulars', 'particular', 'narration'], particulars, 'Particulars');
+    console.log(`Entered particulars: ${particulars}`);
+  }
+
+  async selectTransactionParticularCode(code: string) {
+    await this.htmSetSelect(['tranPartCode', 'partCode', 'particularCode'], code, 'Transaction Particular Code');
+    console.log(`Selected Transaction Particular Code: ${code}`);
+  }
+
+  async clickValidate() {
+    await this.htmClickButton('Validate');
+  }
+
+  async clickHcaacVerify() {
+    await this.htmClickButton('Verify');
+  }
 }
 
 

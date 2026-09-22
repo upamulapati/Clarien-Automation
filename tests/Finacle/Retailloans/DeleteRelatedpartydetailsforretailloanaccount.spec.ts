@@ -11,7 +11,7 @@ const PASSWORD = CREDENTIALS.credentials.password;
 
 // Existing account number from which the related party record will be deleted
 // (same account used when the related party was added).
-const SHARED_ACCOUNT_ID = getSharedValue('loanAccountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.loanAccountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '3200000044';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Loan Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -45,7 +45,7 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
 
   // Step 4: A/c Id - Enter the account number from which to delete the party
   console.log('Entering account ID to modify...');
-  await retailLoanAccountPage.enterHacmAccountId(ACCOUNT_ID);
+  await retailLoanAccountPage.enterHacmAccountId(ACCOUNT_ID || '3200000044');
 
   // Click Go to load the account
   console.log('Clicking Go button...');

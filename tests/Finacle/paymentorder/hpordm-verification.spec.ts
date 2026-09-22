@@ -28,8 +28,8 @@ for (const scenario of SCENARIOS) {
   setupDialogHandlers(page, lastDialogMessages);
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
-  const accountPage = new AccountPage(page, lastDialogMessages);
-  const paymentOrderPage = new PaymentOrderPage(page, lastDialogMessages);
+  const accountPage = new AccountPage(page);
+  const paymentOrderPage = new PaymentOrderPage(page);
 
   // Step 1: Select "Core Server".
   console.log('Selecting Core Server...');

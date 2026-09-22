@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 const VERIFY_CONFIG = getVerificationConfig();
 
 // Existing account in which the related party was added.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -25,7 +25,7 @@ test.describe('Verify Related Party for Savings Account', () => {
     await login(page, VERIFY_CONFIG);
 
     homePage = new HomePage(page);
-    accountPage = new AccountPage(page, lastDialogMessages);
+    accountPage = new AccountPage(page);
   });
 
   // HACM - Verify/authorise the related party that was added to a savings account
@@ -47,7 +47,7 @@ test.describe('Verify Related Party for Savings Account', () => {
 
     // Step 4: A/c Id - Enter the account number in which related party is added
     console.log('Entering account ID to verify...');
-    await accountPage.enterHacmAccountId(ACCOUNT_ID);
+    await accountPage.enterHacmAccountId(ACCOUNT_ID || '7500001476');
 
     // Click Go to load the account into the verification screen
     console.log('Clicking Go button...');

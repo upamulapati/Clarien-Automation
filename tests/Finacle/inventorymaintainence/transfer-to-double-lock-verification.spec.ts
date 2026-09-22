@@ -13,7 +13,7 @@ test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 test('HIMC - verify transfer to double lock', async ({ page }) => {
   test.setTimeout(900000);
 
-  const transactionId = getSharedValue('inventoryDoubleLockId') ?? '';
+  const transactionId = getSharedValue((state) => state.inventoryDoubleLockId) ?? '';
   console.log(`[SharedState] Inventory Double-Lock Transaction ID: ${transactionId}`);
   expect(transactionId, 'Inventory Double-Lock Transaction ID must be available for verification').toMatch(/[A-Z0-9]{2,}/i);
 

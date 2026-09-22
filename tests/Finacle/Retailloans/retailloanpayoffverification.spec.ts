@@ -33,8 +33,10 @@ test('HPAYOFF - payoff verification for retail loan', async ({ page }) => {
 
     const servicePackPage = new ServicePackPage(page);
     await servicePackPage.servicePackRetailLoanPayoffVerificationValidation({
-      ...result,
       loanAccountNumber: LOAN_ACCOUNT_NUMBER,
+      transactionId: result.transactionId,
+      message: result.message,
+      screenshot: result.screenshot,
     });
   } finally {
     await homePage.logout().catch(() => {});

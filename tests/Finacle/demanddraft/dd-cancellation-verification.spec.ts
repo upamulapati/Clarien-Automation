@@ -12,7 +12,7 @@ test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 test('HDDC - demand draft cancellation verification', async ({ page }) => {
   test.setTimeout(900000);
 
-  const cancellationId = getSharedValue('demandDraftCancellationId') ?? '';
+  const cancellationId = getSharedValue((state) => state.demandDraftCancellationId) ?? '';
   console.log(`[SharedState] DD Cancellation Transaction ID: ${cancellationId}`);
   expect(cancellationId, 'DD cancellation transaction ID must be available for verification').toMatch(/[A-Z0-9]{2,}/i);
 
@@ -21,7 +21,7 @@ test('HDDC - demand draft cancellation verification', async ({ page }) => {
 
   const { homePage } = await loginToFinacle(page, CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
   const accountPage = new AccountPage(page);
-  const ddPage = new DemandDraftPage(page, lastDialogMessages);
+  const ddPage = new DemandDraftPage(page);
 
   await accountPage.selectCoreServer();
   await accountPage.searchTransactionManagement('HDDC');

@@ -785,11 +785,11 @@ export class ServicePackPage {
     currencyCode?: string;
     solId?: string;
     modeOfOperation?: string;
+    dispatchMode?: string;
     initialDepositAmt?: string;
     instalmentAmt?: string;
     depositPeriodMonths?: string;
     repaymentAcctId?: string;
-    dispatchMode?: string;
   }): Promise<{ flowEndDateModified: boolean; message: string; screenshot: Buffer }> {
     const topUpData = {
       ...COMMON_DATA.topUpDeposit,

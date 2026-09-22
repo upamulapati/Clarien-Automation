@@ -17,7 +17,7 @@ if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from 
 const AMOUNT = '1000';
 
 // Transaction ID: prefer shared state from the posting spec, fallback to hardcoded.
-const SHARED_TXN_ID = getSharedValue('transactionId');
+const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
 const TRANSACTION_ID = SHARED_TXN_ID ?? 'CB18';
 if (SHARED_TXN_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${SHARED_TXN_ID}`);
 
@@ -42,7 +42,7 @@ test.describe('Transfer Maintenance - Verification', () => {
     await login(page, CONFIG);
 
     homePage = new HomePage(page);
-    tmPage = new AccountPage(page, lastDialogMessages);
+    tmPage = new AccountPage(page);
   });
 
   // HTM (V - Verify) — Authorise/verify the transfer posted by the maker.
