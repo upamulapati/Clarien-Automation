@@ -127,27 +127,6 @@
       "expectedCurrencies": ["BMD", "EUR", "USD", "GBP", "CAD", "AUD", "CHF", "JPY", "SGD"],
       "expectedCurrenciesDemographic": ["AUD", "BMD", "CAD", "CHF", "EUR", "GBP", "JPY", "SGD", "USD"]
     },
-    "modification": {
-      "fallbackCifId": "4100058384",
-      "lastName": "SMITHMOD",
-      "address": {
-        "type": "Mailing",
-        "houseNo": "456",
-        "streetNo": "10",
-        "streetName": "Church Street",
-        "postalCode": "HM11",
-        "state": "CALIFORNIA",
-        "stateCode": "HM",
-        "city": "AFORE",
-        "country": "Bermuda",
-        "countryCode": "BM"
-      },
-      "phone": {
-        "type": "COMMUNICATION PHONE 1",
-        "phoneNo": "5555555555"
-      },
-      "processName": "CIF Retail Process"
-    },
     "suspend": {
       "cifIdToSuspend": "4100058396"
     },

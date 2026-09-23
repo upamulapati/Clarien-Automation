@@ -28,6 +28,17 @@ export class AccountPage {
     return finwFrame;
   }
 
+  protected async waitForFinwFrame(timeout = 10000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      if (this.page.frame({ name: 'FINW' })) {
+        return;
+      }
+      await this.page.waitForTimeout(200);
+    }
+    throw new Error(`FINW frame not found within ${timeout}ms`);
+  }
+
   // ============ Login Frame Locators ============
   private get appSelect() {
     return this.loginFrame.locator('#appSelect');
@@ -463,17 +474,23 @@ export class AccountPage {
         'span[id*="msg" i]',
         'div[id*="msg" i]',
       ];
-      // Scan every frame: the message may render outside the FINW frame.
+      // Scan every frame and collect all non-empty messages from the candidate selectors.
+      const messages: string[] = [];
+      const seen = new Set<string>();
       for (const frame of this.page.frames()) {
         for (const sel of candidates) {
-          const loc = frame.locator(sel);
-          if (await loc.count().catch(() => 0) > 0) {
-            const text = (await loc.first().textContent().catch(() => ''))?.replace(/\s+/g, ' ').trim();
-            if (text) {
-              return text;
+          const texts = await frame.locator(sel).allTextContents().catch(() => [] as string[]);
+          for (const raw of texts) {
+            const text = (raw || '').replace(/\s+/g, ' ').trim();
+            if (text && !seen.has(text.toLowerCase())) {
+              seen.add(text.toLowerCase());
+              messages.push(text);
             }
           }
         }
+      }
+      if (messages.length > 0) {
+        return messages.length === 1 ? messages[0] : messages.join(' | ');
       }
       return null;
     } catch (e) {
@@ -4207,9 +4224,9 @@ export class AccountPage {
   // Handles the Finacle "Warning and Exception Dialog" that opens as a separate
   // popup window (excp_popup_screen.jsp) after Submit. Clicks Accept to proceed
   // past non-blocking warnings/exceptions (e.g. "GL SUB HEAD CODE ... DIFFERENT
-  // FROM DEFAULT VALUE", "CUSTOMER AGE EXCEEDS PERMISSIBLE LIMIT"). Accepts every
-  // popup that appears in sequence. Returns true if any popup was accepted.
-  async acceptWarningPopup(): Promise<boolean> {
+  // FROM DEFAULT VALUE", "CUSTOMER AGE EXCEEDS PERMISSIBLE LIMIT"). Accepts up
+  // to maxAttempts popups that appear in sequence. Returns true if any popup was accepted.
+  async acceptWarningPopup(maxAttempts = 10): Promise<boolean> {
     const selector =
       '#Accept, #accept, input[value="Accept" i], ' +
       'input[type="submit"][value*="Accept" i], input[type="button"][value*="Accept" i], ' +
@@ -4218,7 +4235,7 @@ export class AccountPage {
 
     // Finacle may raise several warning/exception popups in sequence, so keep
     // accepting until none remain (cap the loop to avoid spinning forever).
-    for (let attempt = 0; attempt < 10; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await this.page.waitForTimeout(1500);
       let acceptedThisRound = false;
 
