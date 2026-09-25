@@ -4,7 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { DemandDraftPage } from '../../pages/CoreBanking/DemandDraftPage';
 import { CREDENTIALS } from '../../../data/credentials';
-import { DD_DATA, todayDDMMYYYY } from '../../helpers/common';
+import { DD_DATA, getApplicationDate } from '../../helpers/common';
 import { writeSharedState } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 
@@ -20,7 +20,7 @@ test('HDDMI - demand draft issuance', async ({ page }) => {
   const accountPage = new AccountPage(page);
   const ddPage = new DemandDraftPage(page);
 
-  const today = todayDDMMYYYY();
+  const today = await getApplicationDate(page);
 
   await accountPage.selectCoreServer();
   await accountPage.searchTransactionManagement('HDDMI');

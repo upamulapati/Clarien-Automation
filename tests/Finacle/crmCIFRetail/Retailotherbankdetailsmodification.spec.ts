@@ -1,4 +1,5 @@
 import { test, expect, Frame, Page } from "@playwright/test";
+import { DEFAULT_CUSTOMER } from "../../config/testData";
 import { CrmOtherBankDetailsPage } from "../../pages/CRM/crmOtherBankDetailsPage";
 import * as fs from "fs";
 
@@ -10,7 +11,7 @@ const MAKER_USER = "FINACLETEST13";
 
 const MAKER_PASS = "clarien@123";
 
-const CIF_ID = "4100058365";
+const CIF_ID = DEFAULT_CUSTOMER.cifCode;
 
 
 

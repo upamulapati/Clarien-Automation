@@ -4,7 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { InventoryMaintenancePage } from '../../pages/CoreBanking/InventoryMaintenancePage';
 import { CREDENTIALS } from '../../../data/credentials';
-import { todayDDMMYYYY } from '../../helpers/common';
+import { getApplicationDate } from '../../helpers/common';
 import { getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 
@@ -24,7 +24,7 @@ test('HIMC - verify transfer to double lock', async ({ page }) => {
   const accountPage = new AccountPage(page);
   const invPage = new InventoryMaintenancePage(page);
 
-  const today = todayDDMMYYYY();
+  const today = await getApplicationDate(page);
 
   // 1. Select "core server" from solution drop down.
   await accountPage.selectCoreServer();
