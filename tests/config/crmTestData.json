@@ -3,11 +3,11 @@
     "baseUrl": "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp",
     "credentials": {
       "primary": {
-        "username": "finacletest14",
+        "username": "finacletest1",
         "password": "clarien@1234"
       },
       "verification": {
-        "username": "finacle-test13",
+        "username": "finacletest5",
         "password": "clarien@1234"
       }
     },
@@ -139,7 +139,7 @@
       "searchCriteria": "Retail Search Criteria"
     },
     "modification": {
-      "fallbackCifId": "4100058362",
+      "fallbackCifId": "0005000599",
       "lastName": "JAMES",
       "address": {
         "type": "Mailing",
@@ -280,7 +280,7 @@
       "searchCriteria": "Corporate Search Criteria"
     },
     "modification": {
-      "fallbackCifId": "0001000516",
+      "fallbackCifId": "0005000599",
       "processName": "CIFCustomerKYCApproval",
       "lastName": "",
       "address": {
@@ -305,8 +305,8 @@
       ]
     },
     "otherBankDetails": {
-      "fallbackCifId": "0001000516",
-      "retailFallbackCifId": "4100058365",
+      "fallbackCifId": "0005000599",
+      "retailFallbackCifId": "0005000599",
       "bankName": "CLARIEN BANK LIMITED",
       "branchName": "CLARIEN BANK LIMITED",
       "productCategory": "CLARIEN TRUST MICROGEN",

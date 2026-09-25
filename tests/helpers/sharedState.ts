@@ -38,6 +38,7 @@ export interface SharedState {
   loanAccountNumber?: string;
   loanAccountId?: string;
   accountId?: string;
+  savingsAccounts?: Record<string, string>;
   transactionId?: string;
   demandDraftId?: string;
   demandDraftCancellationId?: string;

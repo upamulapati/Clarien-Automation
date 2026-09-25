@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
@@ -10,7 +11,7 @@ import { captureEvidence } from '../../helpers/evidence';
 const CONFIG = getPrimaryConfig();
 
 // Transfer header inputs.
-const SOL_ID = '100';
+const SOL_ID = DEFAULT_CUSTOMER.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.

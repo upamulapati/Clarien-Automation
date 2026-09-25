@@ -6,12 +6,13 @@ import { PaymentOrderPage } from '../../pages/CoreBanking/PaymentOrderPage';
 import { CREDENTIALS } from '../../../data/credentials';
 import { getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
-import { HPORDM_DATA, HPORDM_DATA_SWIFT } from '../../helpers/common';
+import COMMON_DATA from '../../../data/common-data.json';
 
-const SCENARIOS = [
-  { name: 'ACH', data: HPORDM_DATA as any, sharedKey: 'paymentOrderId' },
-  { name: 'SWIFT', data: HPORDM_DATA_SWIFT as any, sharedKey: 'paymentOrderIdSwift' },
-];
+const SCENARIOS = ((COMMON_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
+  name: scenario.name,
+  sharedKey: scenario.sharedKey,
+  data: scenario.data ?? {},
+}));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 

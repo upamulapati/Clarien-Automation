@@ -1,4 +1,5 @@
 import { Page } from '@playwright/test';
+import { getApplicationDate } from '../../helpers/common';
 import { AccountPage } from './AccountPage';
 
 export interface RetailLoanDisbursementData {
@@ -406,7 +407,7 @@ export class RetailLoanDisbursementPage extends AccountPage {
     const finwFrame = this.getFinwFrame();
     const pageText = await finwFrame.locator('body').innerText().catch(() => '') || '';
     const transactionId = this.extractTransactionId(message) || this.extractTransactionId(pageText);
-    const transactionDate = this.extractTransactionDate(message) || this.extractTransactionDate(pageText) || this.collateralToday();
+    const transactionDate = this.extractTransactionDate(message) || this.extractTransactionDate(pageText) || await getApplicationDate(this.page);
 
     console.log('Captured transaction ID:', transactionId ?? 'NOT CAPTURED');
     console.log('Captured transaction date:', transactionDate ?? 'NOT CAPTURED');

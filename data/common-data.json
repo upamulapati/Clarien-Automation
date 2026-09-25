@@ -1,6 +1,6 @@
 {
   "credentials": {
-    "username": "finacletest14",
+    "username": "finacletest1",
     "password": "clarien@1234"
   },
   "secondCredentials": {
@@ -12,113 +12,113 @@
     "password": "clarien@1234"
   },
   "verifierCredentials": {
-    "username": "finacle-test13",
+    "username": "finacletest5",
     "password": "clarien@1234"
   },
-  "paymentOrderData": {
-    "debitAccount": "7010003820",
-    "ccy": "BMD",
-    "amount": "1000",
-    "beneficiaryAddressType": "F",
-    "beneficiaryAccountId": "1468907",
-    "beneficiaryBic": "50601006",
-    "beneficiaryBankCode": "",
-    "beneficiaryBranchCode": "",
-    "beneficiaryCountry": "BM",
-    "institutionAddressType": "F",
-    "bic": "50601006",
-    "bankCode": "",
-    "branchCode": "",
-    "country": "BM",
-    "paymentMethod": "BCBBM",
-    "chargeOption": "OUR",
-    "paymentProduct": "customer transfer"
-  },
-  "paymentOrderDataSwift": {
-    "debitAccount": "7010003820",
-    "ccy": "BMD",
-    "amount": "1000",
-    "beneficiaryAddressType": "F",
-    "beneficiaryAccountId": "1468907",
-    "beneficiaryBic": "50601006",
-    "beneficiaryBankCode": "BPBKBM",
-    "beneficiaryBranchCode": "HMXXX",
-    "beneficiaryCountry": "BM",
-    "institutionAddressType": "F",
-    "bic": "50601006",
-    "bankCode": "BPBKBM",
-    "branchCode": "HMXXX",
-    "country": "BM",
-    "paymentMethod": "SWIFT",
-    "chargeOption": "OUR",
-    "paymentProduct": "customer transfer"
-  },
-  "paymentOrderDataAchFcc": {
-    "debitAccount": "7010003820",
-    "ccy": "USD",
-    "amount": "1000",
-    "beneficiaryAddressType": "A",
-    "beneficiaryAccountId": "010247526001",
-    "beneficiaryName": "Anna Evelyn Carr",
-    "beneficiaryAddress": "14140 Abbington Avenue",
-    "beneficiaryCountry": "BM",
-    "institutionAddressType": "F",
-    "bic": "50601002",
-    "bankCode": "BBDABM",
-    "branchCode": "HMXXX",
-    "country": "BM",
-    "paymentMethod": "HSBUS",
-    "chargeOption": "OUR",
-    "paymentProduct": "customer transfer",
-    "needsUsdPopup": true,
-    "rateCode": "TTB"
-  },
-  "paymentOrderDataSwiftFcc": {
-    "debitAccount": "7010003820",
-    "ccy": "USD",
-    "amount": "1000",
-    "beneficiaryAddressType": "A",
-    "beneficiaryAccountId": "010247526001",
-    "beneficiaryName": "Anna Evelyn Carr",
-    "beneficiaryAddress": "14140 Abbington Avenue",
-    "beneficiaryCountry": "BM",
-    "institutionAddressType": "F",
-    "bic": "50601002",
-    "bankCode": "BBDABM",
-    "branchCode": "HMXXX",
-    "country": "BM",
-    "paymentMethod": "SWIFT",
-    "chargeOption": "OUR",
-    "paymentProduct": "customer transfer",
-    "needsUsdPopup": true,
-    "rateCode": "TTB"
-  },
-  "baseAccountData": {
-    "functionOption": "O",
-    "solId": "100",
-    "cifCode": "0005000599"
-  },
-  "hardcodedRandomData": {
-    "functionOption": "O",
-    "ccy": "BMD",
-    "solId": "100",
-    "cifCode": "4100058368",
-    "schemeCode": "SVREG"
-  },
-  "svregTestData": {
-    "functionOption": "O",
-    "ccy": "BMD",
-    "solId": "100",
-    "cifCode": "0005000599",
-    "schemeCode": "SVREG"
-  },
-  "currentAccountData": {
+  "defaultCustomer": {
     "functionOption": "O",
     "ccy": "BMD",
     "solId": "100",
     "cifCode": "0005000599",
     "dispatchMode": "email"
   },
+  "paymentOrderTestData": [
+    {
+      "name": "Flow 1 - ACH FCC BMD to USD",
+      "sharedKey": "paymentOrderIdAchFcc",
+      "data": {
+        "debitAccount": "7010003820",
+        "ccy": "USD",
+        "amount": "1000",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "010247526001",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "F",
+        "bic": "50601002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "HSBUS",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - SWIFT FCC BMD to USD",
+      "sharedKey": "paymentOrderIdSwiftFcc",
+      "data": {
+        "debitAccount": "7010003820",
+        "ccy": "USD",
+        "amount": "1000",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "010247526001",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "F",
+        "bic": "50601002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "SWIFT",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - ACH BMD to BMD",
+      "sharedKey": "paymentOrderIdAch",
+      "data": {
+        "debitAccount": "7010003820",
+        "ccy": "BMD",
+        "amount": "1000",
+        "beneficiaryAddressType": "F",
+        "beneficiaryAccountId": "1468907",
+        "beneficiaryBic": "50601006",
+        "beneficiaryBankCode": "",
+        "beneficiaryBranchCode": "",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "F",
+        "bic": "50601006",
+        "bankCode": "",
+        "branchCode": "",
+        "country": "BM",
+        "paymentMethod": "BCBBM",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer"
+      }
+    },
+    {
+      "name": "Flow 1 - SWIFT FCC BMD to CAD",
+      "sharedKey": "paymentOrderIdSwiftFccCad",
+      "data": {
+        "debitAccount": "7010003820",
+        "ccy": "CAD",
+        "amount": "1000",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "CAD_BENEFICIARY_ACCOUNT",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
+        "beneficiaryCountry": "CA",
+        "institutionAddressType": "F",
+        "bic": "CIBCCATT",
+        "bankCode": "CIBC",
+        "branchCode": "CATT",
+        "country": "CA",
+        "paymentMethod": "SWIFT",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    }
+  ],
   "currentAccountSchemes": [
     "CACOB",
     "CACOC",
@@ -194,10 +194,6 @@
     }
   ],
   "servicePackNominationValidation": {
-    "functionOption": "O",
-    "ccy": "BMD",
-    "solId": "100",
-    "cifCode": "0005000599",
     "schemeCode": "SVREG",
     "dispatchMode": "email",
     "testLabel": "HOAACSB - create savings account with Nomination Flag YES and Successive nomination type"
@@ -223,10 +219,6 @@
     "testLabel": "HOAACMTD - add related party details to term deposit account"
   },
   "termDeposit": {
-    "functionOption": "O",
-    "ccy": "BMD",
-    "solId": "100",
-    "cifCode": "0005000599",
     "glSubHeadCode": "40300",
     "depositAmount": "1000",
     "depositPeriodMonths": "12",
@@ -269,10 +261,6 @@
     }
   },
   "topUpDeposit": {
-    "functionOption": "O",
-    "ccy": "BMD",
-    "solId": "100",
-    "cifCode": "4100058365",
     "schemeCode": "SVRPL",
     "schemeCodes": ["ACCCO", "ACCPL", "SVRCO", "SVRPL"],
     "schemeCodesBatch1": ["ACCCO", "ACCPL"],
@@ -301,6 +289,7 @@
     }
   },
   "savingsAccount": {
+    "schemeCode": "SVREG",
     "screens": {
       "create": "HOAACSB",
       "modify": "HOAACMSB",
@@ -309,6 +298,7 @@
     }
   },
   "currentAccount": {
+    "dispatchMode": "email",
     "screens": {
       "create": "HOAACCA",
       "verify": "HOAACVCA",

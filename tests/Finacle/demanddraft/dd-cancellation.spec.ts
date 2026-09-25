@@ -4,7 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { DemandDraftPage } from '../../pages/CoreBanking/DemandDraftPage';
 import { CREDENTIALS } from '../../../data/credentials';
-import { DD_DATA, todayDDMMYYYY } from '../../helpers/common';
+import { DD_DATA, getApplicationDate } from '../../helpers/common';
 import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 
@@ -23,7 +23,7 @@ test('HDDC - demand draft cancellation', async ({ page }) => {
   const accountPage = new AccountPage(page);
   const ddPage = new DemandDraftPage(page);
 
-  const issueDate = getSharedValue((state) => (state as any).demandDraftIssueDate) ?? todayDDMMYYYY();
+  const issueDate = getSharedValue((state) => (state as any).demandDraftIssueDate) ?? await getApplicationDate(page);
 
   await accountPage.selectCoreServer();
   await accountPage.searchTransactionManagement('HDDC');

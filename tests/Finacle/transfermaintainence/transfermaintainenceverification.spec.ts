@@ -4,6 +4,7 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
+import { getApplicationDate } from '../../helpers/common';
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
@@ -21,13 +22,6 @@ const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
 const TRANSACTION_ID = SHARED_TXN_ID ?? 'CB18';
 if (SHARED_TXN_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${SHARED_TXN_ID}`);
 
-// Today's date in Finacle's DD-MM-YYYY format (transaction date).
-function todayDDMMYYYY(): string {
-  const d = new Date();
-  const dd = String(d.getDate()).padStart(2, '0');
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}-${mm}-${d.getFullYear()}`;
-}
 
 test.describe('Transfer Maintenance - Verification', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -70,7 +64,7 @@ test.describe('Transfer Maintenance - Verification', () => {
 
     // Step 5: Transaction date - today's date (usually defaulted).
     console.log('Entering transaction date...');
-    await tmPage.enterHtmTransactionDate(todayDDMMYYYY());
+    await tmPage.enterHtmTransactionDate(await getApplicationDate(page));
 
     // Load the transaction into the verification screen.
     console.log('Clicking Go button...');

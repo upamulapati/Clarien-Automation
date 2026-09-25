@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -10,7 +11,7 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = '100';
+const SOL_ID = DEFAULT_CUSTOMER.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.

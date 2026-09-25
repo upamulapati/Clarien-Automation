@@ -3,6 +3,7 @@ import { LoginPage } from '../../pages/HomePages/LoginPage';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { CURRENT_ACCOUNT_DATA } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
@@ -49,9 +50,9 @@ for (const schemeCode of CURRENT_ACCOUNT_SCHEMES) {
     // submit to generate the account number.
     console.log(`Creating current account with scheme ${schemeCode}...`);
     await currentAccountPage.createCurrentAccount({
-      ...COMMON_DATA.currentAccountData,
+      ...CURRENT_ACCOUNT_DATA,
       schemeCode,
-      dispatchMode: COMMON_DATA.currentAccountData.dispatchMode as 'email' | 'post',
+      dispatchMode: CURRENT_ACCOUNT_DATA.dispatchMode as 'email' | 'post',
     });
 
     const result = await currentAccountPage.verifyAccountCreated();
