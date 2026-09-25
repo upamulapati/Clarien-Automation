@@ -29,6 +29,8 @@ test('HLADISB - disbursement verification for retail loan', async ({ page }) => 
 
     console.log('====================================');
     console.log('Disbursement verification message:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
 
     const servicePackPage = new ServicePackPage(page);
@@ -36,7 +38,9 @@ test('HLADISB - disbursement verification for retail loan', async ({ page }) => 
     console.log('HAFI MCTD service pack validation assertion passed');
 
     console.log('Captured Transaction ID:', result.transactionId ?? 'NOT CAPTURED');
+  expect(result.transactionId).toBeTruthy();
     console.log('Captured Transaction Date:', result.transactionDate ?? 'NOT CAPTURED');
+  expect(result.transactionDate).toBeTruthy();
 
     if (result.transactionId && result.transactionDate) {
       await servicePackPage.servicePackRetailLoanDisbursementHtmValidation(result.transactionId, result.transactionDate);

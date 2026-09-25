@@ -30,8 +30,14 @@ test('TC_SB_002 - save savings bank account with SVREG scheme', async ({ page })
   await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Verification Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
   await savingsAccountPage.saveSavingsAccount();
   await page.waitForTimeout(180000);
 });
@@ -41,8 +47,14 @@ test('TC_SB_005 - SB A/c Modification - Account opened through NEWGEN', async ({
   await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Verification Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
   const accountId = result.accountNumber;
   if (!accountId) {
@@ -64,8 +76,12 @@ test('TC_SB_005 - SB A/c Modification - Account opened through NEWGEN', async ({
 
   // Verify the modification message and account number
   const modResult = await savingsAccountPage.verifyAccountCreated();
+  expect(modResult.success, `Expected success but got: ${modResult.message}`).toBe(true);
   console.log('Modification Result:', modResult.message);
+  expect(modResult.message).toBeTruthy();
+  expect(modResult.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Modified Account Number:', modResult.accountNumber);
+  expect(modResult.accountNumber).toBeTruthy();
 
   // Finally logout
   console.log('Logging out...');
@@ -77,8 +93,14 @@ test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page })
   await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Verification Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
   const accountId = result.accountNumber;
   if (!accountId) {
@@ -100,8 +122,12 @@ test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page })
   await savingsAccountPage.modifySavingsAccount('post');
 
   const modResult = await savingsAccountPage.verifyAccountCreated();
+  expect(modResult.success, `Expected success but got: ${modResult.message}`).toBe(true);
   console.log('Modification Result:', modResult.message);
+  expect(modResult.message).toBeTruthy();
+  expect(modResult.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Modified Account Number:', modResult.accountNumber);
+  expect(modResult.accountNumber).toBeTruthy();
 
   // Capture all modification result fields
   console.log('Capturing all modification result fields...');

@@ -172,6 +172,9 @@ test('HSSIM - add standing instruction', async ({ page }) => {
   await siPage.logScreenMessages();
 
   const statusMessage = await siPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Status after Submit:', statusMessage);
 
   const siNumber = await siPage.getGeneratedSiNumber();
@@ -179,6 +182,8 @@ test('HSSIM - add standing instruction', async ({ page }) => {
   expect(siNumber, 'Expected a generated SI number (NU...)').toBeTruthy();
 
   console.log('SI addition status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Step 28: Click Accept to return to the main page.
   console.log('Clicking Accept button...');

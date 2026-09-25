@@ -86,8 +86,12 @@ test('HACM - add related party to current account', async ({ page }) => {
 
   // Verify modification result
   const modifyResult = await savingsAccountPage.verifyAccountCreated();
+  expect(modifyResult.success, `Expected success but got: ${modifyResult.message}`).toBe(true);
   console.log('Modification Result:', modifyResult.message);
+  expect(modifyResult.message).toBeTruthy();
+  expect(modifyResult.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', modifyResult.accountNumber);
+  expect(modifyResult.accountNumber).toBeTruthy();
 
   // Logout
   console.log('Logging out...');

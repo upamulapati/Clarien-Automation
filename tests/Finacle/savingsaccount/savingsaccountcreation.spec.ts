@@ -54,8 +54,14 @@ for (const scenario of SCENARIOS) {
       await savingsAccountPage.createSavingsAccount(scenario.data as any);
 
       const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
       console.log('Account created:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
       console.log('Captured Account ID:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
       // Persist the generated Account ID for downstream verification specs
       updateSharedState((state) => {

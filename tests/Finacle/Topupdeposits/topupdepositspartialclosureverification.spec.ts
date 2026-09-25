@@ -31,6 +31,8 @@ test('HCAACVTU - top-up deposit partial closure verification', async ({ page }) 
   const statusMessage = await tdPage.verifyClosure(COMMON_DATA.topUpDeposit.screens.partialClosureVerify, accountId);
   console.log('====================================');
   console.log('TU PARTIAL CLOSURE VERIFICATION STATUS:', statusMessage ?? 'Closure authorization completed');
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log(`Account: ${accountId}`);
   console.log('====================================');
   if (!page.isClosed()) {

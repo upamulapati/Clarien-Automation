@@ -77,8 +77,12 @@ test('HLARA - rescheduling for retail loan', async ({ page }) => {
     await loanPage.clickAccept();
 
     const message = await loanPage.getStatusMessage();
+  expect(message).toBeTruthy();
+  expect(message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
     console.log('Rescheduling message:', message);
+  expect(message).toBeTruthy();
+  expect(message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
   } finally {
     await homePage.logout().catch(() => {});

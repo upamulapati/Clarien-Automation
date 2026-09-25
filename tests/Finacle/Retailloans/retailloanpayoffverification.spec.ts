@@ -28,7 +28,10 @@ test('HPAYOFF - payoff verification for retail loan', async ({ page }) => {
 
     console.log('====================================');
     console.log('Payoff verification transaction ID:', result.transactionId);
+  expect(result.transactionId).toBeTruthy();
     console.log('Payoff verification message:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
 
     const servicePackPage = new ServicePackPage(page);

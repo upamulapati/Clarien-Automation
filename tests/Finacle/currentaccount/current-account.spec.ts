@@ -56,6 +56,9 @@ for (const schemeCode of CURRENT_ACCOUNT_SCHEMES) {
     });
 
     const result = await currentAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
     console.log(`Account created for scheme ${schemeCode}:`, result.message);
     const accountId = result.accountNumber;
     if (!accountId) {

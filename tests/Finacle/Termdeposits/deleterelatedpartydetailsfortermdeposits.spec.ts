@@ -20,6 +20,8 @@ test('HOAACMTD - delete related party details from term deposit account', async 
 
   console.log('====================================');
   console.log('DELETE RELATED PARTY STATUS:', status ?? 'Success screen appeared');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

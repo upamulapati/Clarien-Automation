@@ -1,14 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
+import COMMON_DATA from '../../../data/common-data.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
-const CONFIG = getVerificationConfig();
+const CONFIG = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.verifierCredentials.username,
+  password: COMMON_DATA.verifierCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
 
 // Expected part-transaction details (must match the posting spec).
 const DEBIT_ACCOUNT = '6000123165';

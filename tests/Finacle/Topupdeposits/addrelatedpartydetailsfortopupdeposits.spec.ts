@@ -15,6 +15,8 @@ test(COMMON_DATA.topUpDepositRelatedParty.testLabel, async ({ page }) => {
   const statusMessage = await tdPage.addRelatedPartyDetails(COMMON_DATA.topUpDeposit.screens.modify, data);
   console.log('====================================');
   console.log('RELATED PARTY STATUS:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
   if (!page.isClosed()) {
     console.log('Logging out...');

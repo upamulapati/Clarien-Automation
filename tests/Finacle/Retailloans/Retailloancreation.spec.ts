@@ -154,6 +154,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   // Capture the generated loan A/c ID from the confirmation screen.
   const loanAccountNumber = await loanPage.getGeneratedLoanAccountNumber();
   console.log('=== GENERATED LOAN ACCOUNT NUMBER:', loanAccountNumber, '===');
+  expect(loanAccountNumber, '===').toBeTruthy();
 
   if (!loanAccountNumber) {
     const statusMessage = await loanPage.getStatusMessage();

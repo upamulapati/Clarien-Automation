@@ -4,8 +4,14 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
+import COMMON_DATA from '../../../data/common-data.json';
 
-const VERIFY_CONFIG = getVerificationConfig();
+const VERIFY_CONFIG = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.verifierCredentials.username,
+  password: COMMON_DATA.verifierCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
 
 // Existing account in which the related party was added.
 const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
@@ -98,8 +104,14 @@ test.describe('Verify Related Party for Savings Account', () => {
     console.log('Verification status message:', statusMessage);
 
     const result = await accountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
     console.log('Verification Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
     // Logout
     console.log('Logging out...');

@@ -8,7 +8,8 @@ import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
 
-const CONFIG = getPrimaryConfig();
+const USERNAME = COMMON_DATA.credentials.username;
+const PASSWORD = COMMON_DATA.credentials.password;
 
 // Transfer header inputs.
 const SOL_ID = DEFAULT_CUSTOMER.solId;
@@ -27,17 +28,13 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
   
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-  let lastDialogMessages: string[] = [];
   let homePage: HomePage;
   let tmPage: AccountPage;
   let spPage: ServicePackPage;
 
   test.beforeEach(async ({ page }) => {
     test.setTimeout(900000);
-    setupDialogHandlers(page, lastDialogMessages);
-    await login(page, CONFIG);
-
-    homePage = new HomePage(page);
+    ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
     tmPage = new AccountPage(page);
     spPage = new ServicePackPage(page, CONFIG);
   });
@@ -51,7 +48,26 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await captureEvidence(page, 'Step 1: Core server selected', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
 
     // Step 2: Type menu option "HTM" in finacle.
-    console.log('Searching for HTM...');
+    // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
+  console.log('Pre-HTM HACLINQ: capturing DEBIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preDebitFrame = page.frame({ name: 'FINW' });
+  if (!preDebitFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ debit');
+  const preDebitBody = await preDebitFrame.locator('body').innerText();
+  expect(preDebitBody, `Pre-HTM HACLINQ debit account ${DEBIT_ACCOUNT} not loaded`).toContain(DEBIT_ACCOUNT);
+
+  console.log('Pre-HTM HACLINQ: capturing CREDIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preCreditFrame = page.frame({ name: 'FINW' });
+  if (!preCreditFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ credit');
+  const preCreditBody = await preCreditFrame.locator('body').innerText();
+  expect(preCreditBody, `Pre-HTM HACLINQ credit account ${CREDIT_ACCOUNT} not loaded`).toContain(CREDIT_ACCOUNT);
+
+  console.log('Searching for HTM...');
     await tmPage.searchTransactionManagement('HTM');
     await page.waitForTimeout(3000);
 
@@ -102,6 +118,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Surface any validation/exception message from the post.
     const hasError = await tmPage.checkHtmError();
+  expect(hasError).toBe(false);
     if (hasError) {
       await tmPage.logScreenMessages();
     }
@@ -129,6 +146,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
     const debitOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Debit', transactionId ?? undefined);
+  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
     console.log('Verifying CREDIT account in HACLINQ...');
@@ -136,6 +154,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
     const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
+  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
     await captureEvidence(page, 'Step: HACLINQ verification complete', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT, transactionId, debitOk, creditOk });
 

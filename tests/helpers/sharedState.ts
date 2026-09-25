@@ -18,6 +18,11 @@ export interface CifEntry {
 }
 
 export interface SharedState {
+  accountId?: string;
+  cifId?: string;
+  loanCifId?: string;
+  loanAccountId?: string;
+  transactionId?: string | null;
   cifs?: {
     retail?: CifEntry;
     corporate?: CifEntry;

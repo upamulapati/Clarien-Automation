@@ -85,6 +85,8 @@ test('HCLM - verify all lodged collaterals sequentially', async ({ page }) => {
       await collateralPage.logScreenMessages();
       statusMessage = await collateralPage.getStatusMessage();
       console.log('Verification status message:', statusMessage);
+  // statusMessage may be a "Visit <tab>" prompt; do not assert success here.
+  // Final success assertion is applied after the retry loop completes.
       successText = statusMessage ?? '';
 
       const visitPattern = /visit\s+([\w\s]+?)\s+(?:information|tab|details|section)/gi;

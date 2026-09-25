@@ -52,6 +52,7 @@ test('HAFSM - verify freeze on current account', async ({ page }) => {
   // Step 6: Verify whether the freeze details are correct
   const freezeDetails = await savingsAccountPage.getFreezeDetails(ACCOUNT_ID);
   console.log('Freeze details on verification screen:', freezeDetails);
+  expect(freezeDetails).toBeTruthy();
 
   // Step 7: Click Submit - the freeze gets authorised/verified
   console.log('Clicking Submit button...');
@@ -59,7 +60,12 @@ test('HAFSM - verify freeze on current account', async ({ page }) => {
 
   // Capture the actual Finacle status message after verification
   const statusMessage = await savingsAccountPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Verification status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Sign out of the application
   console.log('Logging out...');

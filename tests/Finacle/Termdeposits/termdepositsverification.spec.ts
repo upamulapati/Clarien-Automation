@@ -57,18 +57,36 @@ test(`${COMMON_DATA.termDeposit.screens.verify} - verify term deposit account cr
 
   console.log('Clicking Submit...');
   await tdPage.clickSubmit().catch(() => {});
-  await page.waitForTimeout(3000).catch(() => {});
+  await page.waitForTimeout(4000).catch(() => {});
 
+  // Accept any non-blocking warnings/exceptions before reading the final status.
   if (!page.isClosed()) {
     await tdPage.acceptWarningPopup().catch(() => {});
-    await page.waitForTimeout(2000).catch(() => {});
+    await page.waitForTimeout(3000).catch(() => {});
   }
 
-  await page.waitForTimeout(2000).catch(() => {});
-  const statusMessage = await tdPage.getStatusMessage();
+  // Capture the on-screen status text after the warnings are dismissed.
+  let statusMessage = await tdPage.getStatusMessage();
+  console.log('Post-accept status message:', statusMessage);
+
+  // getStatusMessage() may return the warning header (e.g. "Error Details"),
+  // so fall back to scanning every frame's body text for the success phrase.
+  if (!statusMessage || /error\s*details/i.test(statusMessage)) {
+    for (const frame of page.frames()) {
+      const body = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+      const match = body.match(/[^.!?\n]{0,120}(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)[^.!?\n]{0,120}[.!?\n]?/i);
+      if (match) {
+        statusMessage = match[0].trim();
+        console.log('Fallback status from body:', statusMessage);
+        break;
+      }
+    }
+  }
 
   console.log('====================================');
   console.log('TERM DEPOSIT VERIFICATION STATUS:', statusMessage ?? 'No status message captured');
+  expect(statusMessage, `Expected a successful verification message, but got: ${statusMessage}`).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

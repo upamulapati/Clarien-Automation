@@ -20,6 +20,8 @@ test('HOAACVTD - verify deleted related party details for term deposit account',
 
   console.log('====================================');
   console.log('DELETE VERIFICATION STATUS:', status);
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

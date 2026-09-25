@@ -10,6 +10,7 @@ const CIF_ID = "0001000516";
 async function getLoginFrame(page: Page): Promise<Frame> {
   const frames = page.frames();
   console.log("Number of frames:", frames.length);
+  expect(frames.length).toBeTruthy();
   for (let i = 0; i < frames.length; i++) {
     const frameInputs = await frames[i].locator("input").all();
     console.log(`Frame ${i} has ${frameInputs.length} input fields`);
@@ -178,6 +179,7 @@ async function login(page: Page, userId: string, password: string) {
   const loginDialogHandler = async (d: import("@playwright/test").Dialog) => {
     const m = d.message();
     console.log("Login dialog:", m);
+  expect(m).toBeTruthy();
     if (/reset.*session|re-?login|already logged/i.test(m)) {
       await d.accept().catch(() => {});
     } else {
@@ -218,6 +220,8 @@ async function login(page: Page, userId: string, password: string) {
       if (errText) {
         loginMessage = errText.trim();
         console.log("LOGIN MESSAGE:", loginMessage);
+  expect(loginMessage).toBeTruthy();
+  expect(loginMessage).toMatch(/error|fail|invalid|mandatory|not posted/i);
         break;
       }
     }
@@ -380,6 +384,7 @@ test.describe("CIF Corporate Modification Maker - Address (TC_008)", () => {
       console.log("Solution dropdown options:", JSON.stringify(sol.options));
       const currentVal = await sol.select.inputValue().catch(() => "");
       console.log("Current solution value:", currentVal);
+  expect(currentVal).toBeTruthy();
       await sol.select.focus().catch(() => {});
       await sol.select.selectOption("CRMServer").catch(async () => {
         await sol.select.selectOption({ label: "CRM" }).catch(() => {});
@@ -387,6 +392,7 @@ test.describe("CIF Corporate Modification Maker - Address (TC_008)", () => {
       await page.waitForTimeout(1500);
       const submitted = await clickSolutionSubmit(page);
       console.log("Solution-switch Submit clicked:", submitted);
+  expect(submitted).toBeTruthy();
       await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(8000);
       await page.screenshot({ path: "test-results/corp-after-crm-switch.png", fullPage: true });

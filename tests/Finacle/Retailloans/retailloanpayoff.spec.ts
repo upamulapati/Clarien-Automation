@@ -31,7 +31,10 @@ test('HPAYOFF - payoff creation for retail loan', async ({ page }) => {
 
     console.log('====================================');
     console.log('Payoff creation transaction ID:', result.transactionId);
+  expect(result.transactionId).toBeTruthy();
     console.log('Payoff creation message:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
   } finally {
     await homePage.logout().catch(() => {});

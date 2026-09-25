@@ -20,6 +20,8 @@ test('HOAACVTD - verify related party details for term deposit account', async (
 
   console.log('====================================');
   console.log('RELATED PARTY VERIFICATION STATUS:', status);
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

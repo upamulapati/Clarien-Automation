@@ -25,6 +25,8 @@ test('HOAAMTD - modify term deposit account', async ({ page }) => {
 
   console.log('====================================');
   console.log('MODIFICATION STATUS:', status ?? 'Success screen appeared');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   console.log('Logging out...');

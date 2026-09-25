@@ -62,8 +62,12 @@ test('HLARA - rescheduling verification for retail loan', async ({ page }) => {
     await loanPage.acceptWarningPopup();
 
     const message = await loanPage.getStatusMessage();
+  expect(message).toBeTruthy();
+  expect(message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
     console.log('Rescheduling verification message:', message);
+  expect(message).toBeTruthy();
+  expect(message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('====================================');
 
     // Step 10: Revert to HAITINQ, validate Next Interest Calculation Date (Dr.) and logout

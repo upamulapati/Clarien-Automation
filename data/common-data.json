@@ -292,6 +292,7 @@
     "schemeCode": "SVREG",
     "screens": {
       "create": "HOAACSB",
+      "verify": "HOAACVSB",
       "modify": "HOAACMSB",
       "modifyAndVerify": "HACM",
       "freeze": "HAFSM"

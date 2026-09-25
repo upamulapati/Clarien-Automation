@@ -8,6 +8,7 @@ test(COMMON_DATA.servicePackNominationValidation.testLabel, async ({ page }) => 
   const result = await spPage.servicePackNominationValidation();
   expect(result.accountNumber).toBeTruthy();
   console.log('Service Pack Nomination Validation - Account created:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 });
 
 // === STRICT ASSERTIONS INJECTION ===

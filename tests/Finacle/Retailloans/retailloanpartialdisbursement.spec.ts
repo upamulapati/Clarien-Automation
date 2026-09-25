@@ -2,20 +2,15 @@ import { test, expect } from '@playwright/test';
 import { RetailLoanDisbursementPage } from '../../pages/CoreBanking/RetailLoanDisbursementPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue } from '../../helpers/sharedState';
 
-// Maker user who performs the retail-loan disbursement.
+// Maker user who performs the partial retail-loan disbursement.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Use the loan account created by the upstream creation spec when available.
-const SHARED_LOAN_ACCOUNT = getSharedValue<string>('loanAccountId');
-const LOAN_ACCOUNT_NUMBER = SHARED_LOAN_ACCOUNT ?? '3200000079';
-if (SHARED_LOAN_ACCOUNT) console.log(`[SharedState] Using loan account from previous run: ${SHARED_LOAN_ACCOUNT}`);
+// Test data: loan account to be partially disbursed.
+const LOAN_ACCOUNT_NUMBER = '3200000043';
 
-const DISBURSEMENT_AMOUNT = '1000';
-
-test('HLADISB - disbursement for retail loan', async ({ page }) => {
+test('HLADISB - partial disbursement for retail loan', async ({ page }) => {
   test.setTimeout(300000);
   page.setDefaultTimeout(20000);
 
@@ -27,22 +22,32 @@ test('HLADISB - disbursement for retail loan', async ({ page }) => {
       loanAccountNumber: LOAN_ACCOUNT_NUMBER,
       transactionType: 'transfer',
       modeOfDisbursement: 'a/c transfer',
-      disbursementAmount: DISBURSEMENT_AMOUNT,
+      partial: true,
     });
 
     console.log('====================================');
-    console.log('Disbursement message:', result.message);
+    console.log('Partial disbursement message:', result.message);
   expect(result.message).toBeTruthy();
   expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
-    expect(result.message ?? '').not.toMatch(/could not get response from server/i);
     console.log('====================================');
+
+    // If the result is not successful, capture exact on-screen error text and stop.
+    if (!result.message || !/successful/i.test(result.message)) {
+      await disbursementPage.logScreenMessages();
+      const finwFrame = page.frame({ name: 'FINW' });
+      const bodyText = (await finwFrame?.locator('body').textContent().catch(() => '') ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 1200);
+      console.error('Disbursement failure details:', bodyText);
+    }
+
+    // Hard assertion: disbursement must report a successful message.
+    expect(
+      result.message,
+      `Expected successful disbursement message, but got: ${result.message ?? 'no message'}`,
+    ).toMatch(/successful/i);
   } finally {
     await homePage.logout().catch(() => {});
   }
-});
-
-// === STRICT ASSERTIONS INJECTION ===
-test.afterEach(async ({ page }) => {
-  const html = (await page.content()).toLowerCase();
-  expect(html).not.toMatch(/core dump|internal server error|could not get response from server/);
 });

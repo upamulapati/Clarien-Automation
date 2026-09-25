@@ -30,6 +30,8 @@ test(`${SCREEN_CODE} - term deposit premature closure`, async ({ page }) => {
   console.log('====================================');
   console.log('PREMATURE CLOSURE COMPLETED SUCCESSFULLY');
   console.log('Status:', status ?? 'completed');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

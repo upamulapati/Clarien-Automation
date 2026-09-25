@@ -530,4 +530,14 @@ export class TopUpDepositPage extends TermDepositPage {
 
     return { flowEndDateModified, message, screenshot };
   }
+
+  public async renewTopUpDeposit(screenCode: string, accountId: string, renewalDetails?: { renewalPeriodMonths: string; renewalPeriodDays: string; printRenewalConfirmation: string }): Promise<string | null> {
+    console.log(`\n===== Renewing top-up deposit: ${accountId} =====`);
+    return this.renewTermDeposit(screenCode, accountId, renewalDetails);
+  }
+
+  public async verifyTopUpRenewal(screenCode: string, accountId: string): Promise<string | null> {
+    console.log(`\n===== Verifying top-up deposit renewal: ${accountId} =====`);
+    return this.verifyTermDepositRenewal(screenCode, accountId);
+  }
 }

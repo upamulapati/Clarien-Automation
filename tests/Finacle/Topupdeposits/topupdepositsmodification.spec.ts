@@ -22,6 +22,8 @@ test(COMMON_DATA.topUpDepositModification.testLabel, async ({ page }) => {
 
   console.log('====================================');
   console.log('MODIFICATION STATUS:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

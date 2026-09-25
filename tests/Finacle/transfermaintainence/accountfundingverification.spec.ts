@@ -13,7 +13,7 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Transaction ID to verify. Set this directly to override; when left blank the
 // id is read from the shared store written by the posting spec.
-const TRANSACTION_ID = 'CB21';
+const TRANSACTION_ID = 'CB1';
 
 // Expected part-transaction details (must match the posting spec).
 const DEBIT_ACCOUNT = '6000123165';

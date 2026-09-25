@@ -66,8 +66,14 @@ test('HACM - delete related party from current account', async ({ page }) => {
 
   // Verify modification result
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Deletion Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
   // Logout
   console.log('Logging out...');

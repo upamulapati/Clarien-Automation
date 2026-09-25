@@ -83,7 +83,12 @@ test('HSCLM - verify collateral linkage', async ({ page }) => {
   await collateralPage.logScreenMessages();
 
   const statusMessage = await collateralPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Linkage verification status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Step 6: Assert the linkage was verified successfully. getStatusMessage() can
   // be null on this screen, so fall back to scanning every frame's body text

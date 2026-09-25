@@ -38,11 +38,14 @@ test(`${SCREEN_CODE} - term deposit partial closure`, async ({ page }, testInfo)
     console.log('Saved partially closed TD account ID to shared-state');
   } catch (e) {
     console.log('Could not save closed account ID:', e);
+  expect(e).toBeTruthy();
   }
 
   console.log('====================================');
   console.log('TD PARTIAL CLOSURE COMPLETED SUCCESSFULLY');
   console.log('Status:', status ?? 'completed');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log(`Account: ${ACCOUNT_ID}`);
   console.log(`Withdrawal Amt: ${PARTIAL_WITHDRAWAL_AMT}`);
   console.log('====================================');

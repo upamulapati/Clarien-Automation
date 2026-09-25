@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { RetailLoanChargeoffPage } from '../../pages/CoreBanking/RetailLoanChargeoffPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -24,7 +24,10 @@ test('HCOLA - retail loan chargeoff verification', async ({ page }) => {
 
     console.log('====================================');
     console.log('Chargeoff verification message:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('Chargeoff verification transaction ID:', result.transactionId ?? 'NOT CAPTURED');
+  expect(result.transactionId).toBeTruthy();
     console.log('====================================');
   } finally {
     await homePage.logout().catch(() => {});

@@ -10,6 +10,7 @@ test.describe('Service Pack - Government Guarantee Collateral', () => {
     expect(result.guarantorFilled).toBe(true);
     expect(result.collateralValueFilled).toBe(true);
     console.log('Generated guarantee collateral ID:', result.collateralId);
+  expect(result.collateralId).toBeTruthy();
   });
 
   test('HCLM - verify government guarantee and confirm address details', async ({ page }) => {
@@ -19,6 +20,7 @@ test.describe('Service Pack - Government Guarantee Collateral', () => {
     expect(result.statusMessage).toMatch(/verified successfully/i);
     expect(result.addressDetailsVisible).toBeTruthy();
     console.log('Guarantee address details visible:', result.addressDetailsVisible);
+  expect(result.addressDetailsVisible).toBeTruthy();
   });
 });
 

@@ -109,7 +109,12 @@ test('HSCLM - link collateral to account', async ({ page }) => {
   await collateralPage.logScreenMessages();
 
   const statusMessage = await collateralPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Linking status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Step 6: Assert the collateral was linked successfully. getStatusMessage()
   // can be null on this screen, so fall back to scanning every frame's body

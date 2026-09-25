@@ -30,11 +30,14 @@ test(`${SCREEN_CODE} - term deposit premature closure verification`, async ({ pa
 
   console.log('====================================');
   console.log('CLOSURE VERIFICATION STATUS:', status ?? 'Closure authorization completed');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   const spPage = new ServicePackPage(page);
   const { interestAmount } = await spPage.validateTermDepositInterestReport(ACCOUNT_ID);
   console.log('Interest Amount is synchronized:', interestAmount);
+  expect(interestAmount).toBeTruthy();
 
   if (!page.isClosed()) {
     console.log('Logging out...');

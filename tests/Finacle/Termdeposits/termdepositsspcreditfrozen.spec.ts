@@ -10,6 +10,8 @@ test(`${SCREEN_CODE} - term deposit credit frozen closure`, async ({ page }) => 
   const result = await spPage.servicePackCreditFrozenClosure(SCREEN_CODE, ACCOUNT_ID, FUNCTION_OPTION, '7710003367');
   expect(result.status).toBeTruthy();
   console.log('Credit frozen closure status:', result.status);
+  expect(result.status).toBeTruthy();
+  expect(result.status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 });
 
 // === STRICT ASSERTIONS INJECTION ===

@@ -184,7 +184,7 @@ export class CollateralLodgePage extends AccountPage {
         lodgedDate: today,
         reviewDate: today,
         receivedDate: today,
-        depositAccountId: '9200000603',
+        depositAccountId: '9200000614',
         fullBenefit: 'no',
       });
       return await this.submitAndCapture(type);

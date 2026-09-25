@@ -175,6 +175,7 @@ async function login(page: Page, userId: string, password: string) {
   const loginDialogHandler = async (d: import("@playwright/test").Dialog) => {
     const m = d.message();
     console.log("Login dialog:", m);
+  expect(m).toBeTruthy();
     if (/reset.*session|re-?login|already logged/i.test(m)) await d.accept().catch(() => {});
     else await d.dismiss().catch(() => {});
   };
@@ -203,6 +204,8 @@ async function login(page: Page, userId: string, password: string) {
       if (errText) {
         loginMessage = errText.trim();
         console.log("LOGIN MESSAGE:", loginMessage);
+  expect(loginMessage).toBeTruthy();
+  expect(loginMessage).toMatch(/error|fail|invalid|mandatory|not posted/i);
         break;
       }
     }

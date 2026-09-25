@@ -20,6 +20,8 @@ test(COMMON_DATA.termDepositRelatedParty.testLabel, async ({ page }) => {
 
   console.log('====================================');
   console.log('RELATED PARTY STATUS:', status ?? 'Success screen appeared');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

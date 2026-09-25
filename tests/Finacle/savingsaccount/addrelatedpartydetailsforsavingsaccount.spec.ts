@@ -4,8 +4,26 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
+import COMMON_DATA from '../../../data/common-data.json';
 
-const CONFIG = getPrimaryConfig();
+const CONFIG = {
+  baseUrl: 'https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp',
+  username: COMMON_DATA.credentials.username,
+  password: COMMON_DATA.credentials.password,
+  timeouts: {
+    veryShort: 1000,
+    short: 2000,
+    short3: 3000,
+    medium: 5000,
+    medium4: 4000,
+    long: 10000,
+    long15: 15000,
+    popupLoad: 30000,
+    formLoad: 60000,
+    crmLoad: 120000,
+    testTimeout: 900000
+  }
+};
 
 // Existing savings account number to which the related party will be added.
 const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
@@ -91,8 +109,12 @@ test.describe('Add Related Party to Savings Account', () => {
 
     // Verify modification result
     const modifyResult = await accountPage.verifyAccountCreated();
+  expect(modifyResult.success, `Expected success but got: ${modifyResult.message}`).toBe(true);
     console.log('Modification Result:', modifyResult.message);
+  expect(modifyResult.message).toBeTruthy();
+  expect(modifyResult.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('Account Number:', modifyResult.accountNumber);
+  expect(modifyResult.accountNumber).toBeTruthy();
 
     // Logout
     console.log('Logging out...');
