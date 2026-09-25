@@ -2,6 +2,12 @@ import { Page, Dialog } from '@playwright/test';
 import { AppConfig } from './crmTestData';
 import { LoginPage } from '../pages/HomePages/LoginPage';
 
+let logoutInProgress = false;
+
+export function setLogoutInProgress(value: boolean): void {
+  logoutInProgress = value;
+}
+
 // =====================================================================
 // Helper: Login to the application
 // =====================================================================
@@ -51,7 +57,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
     console.log(`Dialog message: ${msg.substring(0, 150)}`);
     // Dismiss logout/leave confirmations so the page is not closed mid-test.
     if (d.type() === 'beforeunload' || /log\s*out|logoff|are you sure/i.test(msg)) {
-      await d.dismiss().catch(() => {});
+      if (logoutInProgress) {
+        await d.accept().catch(() => {});
+      } else {
+        await d.dismiss().catch(() => {});
+      }
     } else {
       await d.accept().catch(() => {});
     }

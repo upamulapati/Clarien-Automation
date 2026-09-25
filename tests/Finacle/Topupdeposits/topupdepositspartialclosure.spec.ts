@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';

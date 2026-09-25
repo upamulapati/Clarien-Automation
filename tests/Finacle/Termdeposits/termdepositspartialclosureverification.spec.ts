@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -34,6 +34,8 @@ test(`${SCREEN_CODE} - term deposit partial closure verification`, async ({ page
 
   console.log('====================================');
   console.log('TD PARTIAL CLOSURE VERIFICATION STATUS:', status ?? 'Closure authorization completed');
+  expect(status).toBeTruthy();
+  expect(status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log(`Account: ${ACCOUNT_ID}`);
   console.log('====================================');
 

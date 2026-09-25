@@ -17,6 +17,11 @@ export interface CifEntry {
 }
 
 export interface SharedState {
+  accountId?: string;
+  cifId?: string;
+  loanCifId?: string;
+  loanAccountId?: string;
+  transactionId?: string | null;
   cifs?: {
     retail?: CifEntry;
     corporate?: CifEntry;
@@ -254,8 +259,16 @@ export function saveClosedAccountId(type: ClosedAccountType, accountId: string):
 // ----------------------------------------------------------------------
 // Generic helpers for ad-hoc shared values
 // ----------------------------------------------------------------------
-export function getSharedValue<T>(getter: (state: SharedState) => T | undefined): T | undefined {
-  return getter(readSharedState());
+export function getSharedValue<T>(getter: (state: SharedState) => T | undefined): T | undefined;
+export function getSharedValue<T extends keyof SharedState>(key: T): SharedState[T] | undefined;
+export function getSharedValue(
+  getterOrKey: ((state: SharedState) => unknown) | keyof SharedState
+): unknown {
+  const state = readSharedState();
+  if (typeof getterOrKey === 'function') {
+    return (getterOrKey as (state: SharedState) => unknown)(state);
+  }
+  return state[getterOrKey as keyof SharedState];
 }
 
 export function setSharedValue<T>(

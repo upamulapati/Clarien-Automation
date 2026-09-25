@@ -174,7 +174,7 @@ export class TermDepositPage extends AccountPage {
   protected async setRenewalPeriod(months: string, days: string): Promise<void> {
     const frame = this.getTdFrame();
     if (!frame) return;
-    const ok = await frame.evaluate(({ m, d }) => {
+    const ok: any = await frame.evaluate(({ m, d }) => {
       const isTextLike = (i: HTMLInputElement) => {
         if (i.disabled || i.readOnly) return false;
         const t = (i.type || '').toLowerCase();
@@ -257,7 +257,7 @@ export class TermDepositPage extends AccountPage {
   protected async selectPrintRenewalConfirmation(choice: string): Promise<void> {
     const frame = this.getTdFrame();
     if (!frame) return;
-    const result = await frame.evaluate((val) => {
+    const result: any = await frame.evaluate((val) => {
       const valLower = val.toLowerCase();
       const all = Array.from(document.querySelectorAll('td, label, th')) as HTMLElement[];
       const label = all.find((el) => (el.textContent || '').toLowerCase().includes('print renewal confirmation'));

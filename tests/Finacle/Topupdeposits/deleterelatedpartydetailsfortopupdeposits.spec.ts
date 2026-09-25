@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -22,6 +22,8 @@ test('HOAACMTU - delete related party details from top-up deposit account', asyn
 
   console.log('====================================');
   console.log('DELETE RELATED PARTY STATUS:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -27,7 +27,7 @@ const LOAN_SCHEME_CODE = 'LNCCS';
 const OPERATIVE_SB_ACCOUNT = '7710003367';
 
 // Loan parameters.
-const LOAN_AMOUNT = '10000';
+const LOAN_AMOUNT = '1000';
 const LOAN_PERIOD_MONTHS = '12';
 const NO_OF_INSTALMENTS = '12';
 
@@ -146,6 +146,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   // Capture the generated loan A/c ID from the confirmation screen.
   const loanAccountNumber = await loanPage.getGeneratedLoanAccountNumber();
   console.log('=== GENERATED LOAN ACCOUNT NUMBER:', loanAccountNumber, '===');
+  expect(loanAccountNumber, '===').toBeTruthy();
 
   // Persist the CIF ID and loan Account ID for downstream specs
   updateSharedState((state) => {

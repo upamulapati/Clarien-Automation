@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { LoginPage } from '../../pages/HomePages/LoginPage';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
@@ -41,7 +41,11 @@ test('save savings bank account - random scheme', async () => {
   await savingsAccountPage.createSavingsAccount({ ...HARDCODED_RANDOM_DATA });
 
   const isCreated = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', isCreated.message);
+  expect(isCreated.success, `Expected success but got: ${isCreated.message}`).toBe(true);
+  expect(isCreated.message).toBeTruthy();
   console.log('Account created:', isCreated);
+  expect(isCreated).toBeTruthy();
   await homePage.logout();
 });
 
@@ -51,7 +55,11 @@ test('save savings bank account with SVREG scheme', async () => {
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const isCreated = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', isCreated.message);
+  expect(isCreated.success, `Expected success but got: ${isCreated.message}`).toBe(true);
+  expect(isCreated.message).toBeTruthy();
   console.log('Account created:', isCreated);
+  expect(isCreated).toBeTruthy();
   await homePage.logout();
 });
 
@@ -73,6 +81,9 @@ for (const testCase of TEST_DATA as any[]) {
     });
 
     const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
     console.log(`Account created for ${testLabel}:`, result.message);
     const accountId = result.accountNumber;
     if (!accountId) {
@@ -140,7 +151,12 @@ test('SB verification', async ({ page }) => {
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Account created:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   const accountId = result.accountNumber;
   if (!accountId) {
     throw new Error('Failed to capture account ID after creating savings account');
@@ -207,7 +223,12 @@ test('HACI enquiry', async ({ page }) => {
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Account created:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   const accountId = result.accountNumber;
   if (!accountId) {
     throw new Error('Failed to capture account ID after creating savings account');
@@ -231,6 +252,7 @@ test('HACI enquiry', async ({ page }) => {
   // Step 6: Verify if error message is showing
   console.log('Checking for authorization error...');
   const hasAuthError = await savingsAccountPage.checkAuthorizationError();
+  expect(hasAuthError).toBe(false);
   if (hasAuthError) {
     throw new Error('Authorization error detected: Account creation is not yet authorized');
   }
@@ -252,7 +274,12 @@ test('HTM transaction management', async ({ page }) => {
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Account created:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   const accountId = result.accountNumber;
   if (!accountId) {
     throw new Error('Failed to capture account ID after creating savings account');
@@ -295,6 +322,7 @@ test('HTM transaction management', async ({ page }) => {
   // Step 9: Verify any error message
   console.log('Checking for HTM error messages...');
   const hasHtmError = await savingsAccountPage.checkHtmError();
+  expect(hasHtmError).toBe(false);
   if (hasHtmError) {
     throw new Error('HTM error message detected');
   }
@@ -316,7 +344,12 @@ test('HTM transaction management with HACLINQ', async ({ page }) => {
   await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
 
   const result = await savingsAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Account created:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   const accountId = result.accountNumber;
   if (!accountId) {
     throw new Error('Failed to capture account ID after creating savings account');
@@ -362,6 +395,7 @@ test('HTM transaction management with HACLINQ', async ({ page }) => {
   // Step 9: Verify any error message
   console.log('Checking for HTM error messages...');
   const hasHtmError = await savingsAccountPage.checkHtmError();
+  expect(hasHtmError).toBe(false);
   if (hasHtmError) {
     throw new Error('HTM error message detected');
   }

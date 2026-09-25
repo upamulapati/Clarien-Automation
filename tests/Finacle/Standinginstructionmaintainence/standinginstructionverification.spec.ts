@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -76,7 +76,12 @@ test('HSSIM - verify standing instruction', async ({ page }) => {
   await siPage.logScreenMessages();
 
   const statusMessage = await siPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('SI verification status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Step 8: Click Accept to return to the main page.
   console.log('Clicking Accept button...');

@@ -516,7 +516,7 @@ export class TopUpDepositPage extends TermDepositPage {
         return text.includes('INSTALLMENT INFLOW') || (text.includes('NI') && text.includes('INFLOW'));
       });
       if (!niRow) return '';
-      const dates = Array.from((niRow.innerText || '').matchAll(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/g)).map(m => m[1]);
+      const dates = Array.from(((niRow as HTMLElement).innerText || '').matchAll(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/g)).map(m => m[1]!);
       return dates.length > 0 ? dates[dates.length - 1] : '';
     });
     console.log(`NI / INSTALLMENT INFLOW End Date from Flow tab: ${niEndDate}`);
@@ -529,5 +529,15 @@ export class TopUpDepositPage extends TermDepositPage {
     const screenshot = await this.page.screenshot({ fullPage: true });
 
     return { flowEndDateModified, message, screenshot };
+  }
+
+  public async renewTopUpDeposit(screenCode: string, accountId: string, renewalDetails?: { renewalPeriodMonths: string; renewalPeriodDays: string; printRenewalConfirmation: string }): Promise<string | null> {
+    console.log(`\n===== Renewing top-up deposit: ${accountId} =====`);
+    return this.renewTermDeposit(screenCode, accountId, renewalDetails);
+  }
+
+  public async verifyTopUpRenewal(screenCode: string, accountId: string): Promise<string | null> {
+    console.log(`\n===== Verifying top-up deposit renewal: ${accountId} =====`);
+    return this.verifyTermDepositRenewal(screenCode, accountId);
   }
 }

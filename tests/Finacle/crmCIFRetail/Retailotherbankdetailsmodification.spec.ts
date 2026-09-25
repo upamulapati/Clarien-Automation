@@ -350,6 +350,7 @@ async function login(page: Page, userId: string, password: string) {
     const m = d.message();
 
     console.log("Login dialog:", m);
+  expect(m).toBeTruthy();
 
     if (/reset.*session|re-?login|already logged/i.test(m)) await d.accept().catch(() => {});
 
@@ -406,6 +407,8 @@ async function login(page: Page, userId: string, password: string) {
         loginMessage = errText.trim();
 
         console.log("LOGIN MESSAGE:", loginMessage);
+  expect(loginMessage).toBeTruthy();
+  expect(loginMessage).toMatch(/error|fail|invalid|mandatory|not posted/i);
 
         break;
 

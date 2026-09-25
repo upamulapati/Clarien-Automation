@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -114,6 +114,7 @@ test(TD.testLabel, async ({ page }) => {
       saveAccount(schemeCode, accountId);
     }
     console.log('CAPTURED TERM DEPOSIT ACCOUNT ID:', accountId ?? 'NOT CAPTURED');
+  expect(accountId).toBeTruthy();
     continue;
 
     // Step 2: Search HOAACTD
@@ -192,6 +193,7 @@ test(TD.testLabel, async ({ page }) => {
       return 'Dispatch Mode Post not found';
     });
     console.log('Dispatch Mode result:', dispatchResult);
+  expect(dispatchResult).toBeTruthy();
     await page.waitForTimeout(500);
 
     // Step 5: Interest & Tax tab
@@ -230,6 +232,7 @@ test(TD.testLabel, async ({ page }) => {
     }, depositAmount);
     if (depAmtFilled) {
       console.log('Deposit Amount:', depAmtFilled);
+  expect(depAmtFilled).toBeTruthy();
       await page.waitForTimeout(800);
     } else {
       await fillField('#depAmt', depositAmount).catch(() => {});
@@ -251,6 +254,7 @@ test(TD.testLabel, async ({ page }) => {
     }, TD.depositPeriodMonths);
     if (periodFilled) {
       console.log('Deposit Period Months:', periodFilled);
+  expect(periodFilled).toBeTruthy();
       await page.waitForTimeout(500);
     } else {
       await fillField('#depPerdMths', TD.depositPeriodMonths, 500).catch(() => {});
@@ -286,6 +290,7 @@ test(TD.testLabel, async ({ page }) => {
       return `fallback clicked: id=${noR.id} value=${noR.value}`;
     });
     console.log('Nomination result:', nomResult);
+  expect(nomResult).toBeTruthy();
     await page.waitForTimeout(300);
     await clickValidate();
 

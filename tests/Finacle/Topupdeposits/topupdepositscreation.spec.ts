@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TopUpDepositPage } from '../../pages/CoreBanking/TopUpDepositPage';
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -19,6 +19,7 @@ test('HOAACTU - create top-up deposit accounts for all scheme codes', async ({ p
   );
   console.log('====================================');
   console.log('Generated top-up deposit accounts:', generatedAccounts);
+  expect(generatedAccounts).toBeTruthy();
   console.log('====================================');
   if (!page.isClosed()) {
     console.log('Running HOAACTU service pack flow-end-date validation...');

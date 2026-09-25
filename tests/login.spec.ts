@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { loginToFinacle } from './helpers/finacleSetup';
 import { HomePage } from './pages/HomePages/HomePage';
 import { CREDENTIALS } from '../data/credentials';

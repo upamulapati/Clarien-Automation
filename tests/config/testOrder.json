@@ -22,5 +22,23 @@
     "tests/Finacle/savingsaccount/addrelatedpartyverificationforsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts"
+  ],
+  "flow7": [
+    "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
+    "tests/Finacle/savingsaccount/addrelatedpartydetailsforsavingsaccount.spec.ts",
+     "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+    "tests/Finacle/crmCIFRetail/Retailcifmodification.spec.ts",
+    "tests/Finacle/crmCIFRetail/Retailcifmodifyverification.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
+ "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+"tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts"
   ]
 }

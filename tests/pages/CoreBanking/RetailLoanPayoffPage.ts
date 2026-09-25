@@ -136,7 +136,7 @@ export class RetailLoanPayoffPage extends AccountPage {
     return { transactionId, message: submitStatus || status, screenshot };
   }
 
-  async verifyPayoff(data: PayoffVerificationData): Promise<{ transactionId: string | null; message: string | null; screenshot: Buffer }> {
+  async verifyPayoff(data: PayoffVerificationData): Promise<{ transactionId: string | null; message: string | null; screenshot: Buffer; loanAccountNumber: string }> {
     console.log(`Starting HPAYOFF payoff verification for loan: ${data.loanAccountNumber}`);
 
     await this.selectCoreServer();
@@ -179,6 +179,6 @@ export class RetailLoanPayoffPage extends AccountPage {
 
     const screenshot = await this.page.screenshot({ fullPage: true });
     console.log(`Payoff verification transaction ID: ${transactionId}`);
-    return { transactionId, message: submitStatus || status, screenshot };
+    return { transactionId, message: submitStatus || status, screenshot, loanAccountNumber: data.loanAccountNumber };
   }
 }

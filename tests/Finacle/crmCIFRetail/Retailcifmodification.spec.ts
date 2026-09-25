@@ -1,12 +1,18 @@
 import { test, expect } from "@playwright/test";
-import { getMakerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
+import { CRM_TEST_DATA } from "../../config/crmTestData";
 import { getCreatedCif } from "../../config/cifStore";
 import { CrmRetailModificationPage } from "../../pages/CRM/crmRetailModificationPage";
+import COMMON_DATA from "../../../data/common-data.json";
 
 // CIF Modification Maker workflow (Retail), converted to the Page Object Model.
 // The CIF ID is the one created by the retail end-to-end flow (crmCIFEndtoEnd);
 // if no E2E run has produced one, it falls back to the hardcoded CIF with a log.
-const MAKER = getMakerConfig();
+const MAKER = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.thirdCredentials.username,
+  password: COMMON_DATA.thirdCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
 const MOD = CRM_TEST_DATA.retail.modification;
 const CIF_ID = getCreatedCif("retail", MOD.fallbackCifId);
 

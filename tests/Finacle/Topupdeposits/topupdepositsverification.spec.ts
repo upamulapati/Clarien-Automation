@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -38,9 +38,14 @@ test('HOAACVTU - verify top-up deposit account creation', async ({ page }) => {
   await page.waitForTimeout(2000).catch(() => {});
 
   const statusMessage = await tdPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   console.log('====================================');
   console.log('VERIFICATION STATUS:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

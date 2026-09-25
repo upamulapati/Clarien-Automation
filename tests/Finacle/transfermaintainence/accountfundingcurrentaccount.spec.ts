@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -15,8 +15,8 @@ const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
 const DEBIT_ACCOUNT = '7010003820';   // account to be debited
-const CREDIT_ACCOUNT = '4600000119';  // SB/CA account to be credited
-const AMOUNT = '1000';
+const CREDIT_ACCOUNT = '4600000134';  // SB/CA account to be credited
+const AMOUNT = '100';
 
 let homePage: HomePage;
 let tmPage: SavingsBankAccountPage;
@@ -38,6 +38,25 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   await tmPage.selectCoreServer();
 
   // Step 2: Type menu option "HTM" in finacle.
+  // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
+  console.log('Pre-HTM HACLINQ: capturing DEBIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preDebitFrame = page.frame({ name: 'FINW' });
+  if (!preDebitFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ debit');
+  const preDebitBody = await preDebitFrame.locator('body').innerText();
+  expect(preDebitBody, `Pre-HTM HACLINQ debit account ${DEBIT_ACCOUNT} not loaded`).toContain(DEBIT_ACCOUNT);
+
+  console.log('Pre-HTM HACLINQ: capturing CREDIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preCreditFrame = page.frame({ name: 'FINW' });
+  if (!preCreditFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ credit');
+  const preCreditBody = await preCreditFrame.locator('body').innerText();
+  expect(preCreditBody, `Pre-HTM HACLINQ credit account ${CREDIT_ACCOUNT} not loaded`).toContain(CREDIT_ACCOUNT);
+
   console.log('Searching for HTM...');
   await tmPage.searchTransactionManagement('HTM');
   await page.waitForTimeout(3000);
@@ -84,6 +103,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
 
   // Surface any validation/exception message from the post.
   const hasError = await tmPage.checkHtmError();
+  expect(hasError).toBe(false);
   if (hasError) {
     await tmPage.logScreenMessages();
   }
@@ -91,6 +111,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   // Capture the generated transaction ID (e.g. "CB5") from the
   // "Posted successfully" confirmation screen for verification.
   const transactionId = await tmPage.getHtmTransactionId();
+  expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
   console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
 
   // Persist the transaction ID so the verification spec can authorise it.
@@ -110,6 +131,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
   await tmPage.clickHaclinqGo();
   const debitOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Debit', transactionId ?? undefined);
+  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
   console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
   console.log('Verifying CREDIT account in HACLINQ...');
@@ -117,6 +139,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
   await tmPage.clickHaclinqGo();
   const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
+  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
   console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
   // Logout.

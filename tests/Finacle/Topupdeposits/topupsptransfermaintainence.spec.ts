@@ -16,4 +16,5 @@ test('HTUTM - top-up transfer maintenance', async ({ page }, testInfo) => {
   await testInfo.attach('topup-sp-transfer', { body: result.screenshot, contentType: 'image/png' });
   expect(result.transactionId).toBeTruthy();
   console.log('Top-up transfer transaction ID:', result.transactionId);
+  expect(result.transactionId).toBeTruthy();
 });

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -12,12 +12,12 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Transaction ID to verify. Set this directly to override; when left blank the
 // id is read from the shared store written by the posting spec.
-const TRANSACTION_ID = 'CB21';
+const TRANSACTION_ID = 'CB1';
 
 // Expected part-transaction details (must match the posting spec).
 const DEBIT_ACCOUNT = '7010003820';
-const CREDIT_ACCOUNT = '9200000593';//'4600000119';
-const AMOUNT = '1000';
+const CREDIT_ACCOUNT = '7500001511';//'4600000119';
+const AMOUNT = '100';
 
 // Today's date in Finacle's DD-MM-YYYY format (transaction date).
 function todayDDMMYYYY(): string {

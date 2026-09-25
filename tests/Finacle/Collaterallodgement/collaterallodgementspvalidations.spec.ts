@@ -8,6 +8,7 @@ test.describe('Service Pack - Collateral Validations', () => {
     const result = await spPage.servicePackLodgeMutualFundCollateral();
     expect(result.collateralId).toBeTruthy();
     console.log('Generated mutual fund collateral ID:', result.collateralId);
+  expect(result.collateralId).toBeTruthy();
   });
 
   test('HCLM - lodge and modify life insurance collateral', async ({ page }) => {

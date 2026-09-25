@@ -21,7 +21,7 @@ export class CollateralLodgePage extends AccountPage {
   }
 
   private today() {
-    return '30-09-2026';
+    return '01-10-2026';
   }
 
   private async fillByAnyLabelSafe(labels: string[], value: string): Promise<boolean> {
@@ -185,7 +185,7 @@ export class CollateralLodgePage extends AccountPage {
         lodgedDate: today,
         reviewDate: today,
         receivedDate: today,
-        depositAccountId: '9200000603',
+        depositAccountId: '9200000614',
         fullBenefit: 'no',
       });
       return await this.submitAndCapture(type);

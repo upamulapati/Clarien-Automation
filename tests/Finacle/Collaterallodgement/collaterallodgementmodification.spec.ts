@@ -90,7 +90,12 @@ test('HCLM - modify lodged collateral', async ({ page }) => {
   await collateralPage.logScreenMessages();
 
   const statusMessage = await collateralPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Modification status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
   // Assert the collateral was modified successfully. getStatusMessage() can be
   // null on this screen, so fall back to scanning every frame's body text for

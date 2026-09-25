@@ -1,18 +1,33 @@
 import { test, expect } from '@playwright/test';
-import { getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
+import COMMON_DATA from '../../../data/common-data.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
-const CONFIG = getVerificationConfig();
+const CONFIG = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.verifierCredentials.username,
+  password: COMMON_DATA.verifierCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '7010003820';
-const CREDIT_ACCOUNT = '4600000119';
-const AMOUNT = '1000';
+const SHARED_ACCOUNT_ID = getSharedValue('accountId') as string | undefined;
+const DEBIT_ACCOUNT =
+  process.env.FLOW7_HTM_DEBIT === '__ACCOUNT__' && SHARED_ACCOUNT_ID
+    ? SHARED_ACCOUNT_ID
+    : (process.env.FLOW7_HTM_DEBIT ?? '7010003820');
+const CREDIT_ACCOUNT =
+  process.env.FLOW7_HTM_CREDIT === '__ACCOUNT__' && SHARED_ACCOUNT_ID
+    ? SHARED_ACCOUNT_ID
+    : (process.env.FLOW7_HTM_CREDIT ?? '7500001511');
+const AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? '100';
+
+console.log(`[HTM Verification] debit=${DEBIT_ACCOUNT}, credit=${CREDIT_ACCOUNT}, amount=${AMOUNT}`);
 
 // Transaction ID: prefer shared state from the posting spec, fallback to hardcoded.
 const SHARED_TXN_ID = getSharedValue('transactionId');

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -69,8 +69,14 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
 
   // Verify modification result
   const result = await retailLoanAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log('Deletion Result:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
   console.log('Account Number:', result.accountNumber);
+  expect(result.accountNumber).toBeTruthy();
 
   // Logout
   console.log('Logging out...');

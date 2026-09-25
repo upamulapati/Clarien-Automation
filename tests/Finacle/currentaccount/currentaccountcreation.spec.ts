@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -57,6 +57,15 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
   console.log('Creation status message:', statusMessage);
 
   const result = await currentAccountPage.verifyAccountCreated();
+  console.log('Exact result message:', result.message);
+
+  if (!result.success) {
+    console.error('Current account creation failed. Exact error message:', result.message);
+    console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
+  }
+
+  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+  expect(result.message).toBeTruthy();
   console.log(`Account created for scheme ${CURRENT_ACCOUNT_SCHEME}:`, result.message);
   const accountId = result.accountNumber;
   if (!accountId) {

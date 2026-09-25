@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -51,7 +51,12 @@ for (const acct of COMMON_DATA.accountUnfreeze) {
       await accountPage.clickOkButton();
 
       const statusMessage = await accountPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
       console.log('Unfreeze status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
       console.log('Logging out...');
       await homePage.logout();

@@ -4,7 +4,7 @@
     "password": "clarien@1234"
   },
   "secondCredentials": {
-    "username": "finacletest1",
+    "username": "finacletest14",
     "password": "clarien@1234"
   },
   "thirdCredentials": {
@@ -22,14 +22,14 @@
   },
   "hardcodedRandomData": {
     "functionOption": "O",
-    "ccy": "BMD",
+    "ccy": "USD",
     "solId": "100",
     "cifCode": "0005000599",
     "schemeCode": "SVREG"
   },
   "svregTestData": {
     "functionOption": "O",
-    "ccy": "BMD",
+    "ccy": "USD",
     "solId": "100",
     "cifCode": "0005000599",
     "schemeCode": "SVREG"
@@ -225,6 +225,7 @@
   "savingsAccount": {
     "screens": {
       "create": "HOAACSB",
+      "verify": "HOAACVSB",
       "modify": "HOAACMSB",
       "modifyAndVerify": "HACM",
       "freeze": "HAFSM"

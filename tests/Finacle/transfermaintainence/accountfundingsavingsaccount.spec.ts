@@ -1,38 +1,44 @@
-import { test } from '@playwright/test';
-import { getPrimaryConfig } from '../../config/crmTestData';
-import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { loginToFinacle } from '../../helpers/finacleSetup';
+import { updateSharedState, getSharedValue } from '../../helpers/sharedState';
+import COMMON_DATA from '../../../data/common-data.json';
 
-const CONFIG = getPrimaryConfig();
+const USERNAME = COMMON_DATA.credentials.username;
+const PASSWORD = COMMON_DATA.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = '100';
+const SOL_ID = process.env.FLOW7_HTM_SOL_ID ?? '100';
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
-// Part transaction details.
-const DEBIT_ACCOUNT = '7010003820';   // account to be debited
-// Credit the dynamically created savings account if available.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
-const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? '9200000593';
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
+// Resolve any placeholder to the account created earlier in the flow.
+const CREATED_SAVINGS_ACCOUNT = getSharedValue('accountId') as string | undefined;
 
-const AMOUNT = '1000';
+// Part transaction details. The runner sets FLOW7_HTM_* per step.
+const DEBIT_ACCOUNT =
+  process.env.FLOW7_HTM_DEBIT === '__ACCOUNT__' && CREATED_SAVINGS_ACCOUNT
+    ? CREATED_SAVINGS_ACCOUNT
+    : (process.env.FLOW7_HTM_DEBIT ?? '7010003820');
+const CREDIT_ACCOUNT =
+  process.env.FLOW7_HTM_CREDIT === '__ACCOUNT__' && CREATED_SAVINGS_ACCOUNT
+    ? CREATED_SAVINGS_ACCOUNT
+    : (process.env.FLOW7_HTM_CREDIT ?? '7500001511');
+
+const AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? '100';
+const CURRENCY = process.env.FLOW7_HTM_CCY ?? 'BMD';
+
+console.log(`HTM configured: debit=${DEBIT_ACCOUNT}, credit=${CREDIT_ACCOUNT}, amount=${AMOUNT}, ccy=${CURRENCY}, sol=${SOL_ID}`);
 
 test.describe('Transfer Maintenance - Fund Savings Account', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-  let lastDialogMessages: string[] = [];
   let homePage: HomePage;
   let tmPage: AccountPage;
 
   test.beforeEach(async ({ page }) => {
     test.setTimeout(900000);
-    setupDialogHandlers(page, lastDialogMessages);
-    await login(page, CONFIG);
-
-    homePage = new HomePage(page);
+    ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
     tmPage = new AccountPage(page);
   });
 
@@ -44,7 +50,26 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.selectCoreServer();
 
     // Step 2: Type menu option "HTM" in finacle.
-    console.log('Searching for HTM...');
+    // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
+  console.log('Pre-HTM HACLINQ: capturing DEBIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preDebitFrame = page.frame({ name: 'FINW' });
+  if (!preDebitFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ debit');
+  const preDebitBody = await preDebitFrame.locator('body').innerText();
+  expect(preDebitBody, `Pre-HTM HACLINQ debit account ${DEBIT_ACCOUNT} not loaded`).toContain(DEBIT_ACCOUNT);
+
+  console.log('Pre-HTM HACLINQ: capturing CREDIT account...');
+  await tmPage.searchAccountInquiry('HACLINQ');
+  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
+  await tmPage.clickHaclinqGo();
+  const preCreditFrame = page.frame({ name: 'FINW' });
+  if (!preCreditFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ credit');
+  const preCreditBody = await preCreditFrame.locator('body').innerText();
+  expect(preCreditBody, `Pre-HTM HACLINQ credit account ${CREDIT_ACCOUNT} not loaded`).toContain(CREDIT_ACCOUNT);
+
+  console.log('Searching for HTM...');
     await tmPage.searchTransactionManagement('HTM');
     await page.waitForTimeout(3000);
 
@@ -93,6 +118,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Surface any validation/exception message from the post.
     const hasError = await tmPage.checkHtmError();
+  expect(hasError).toBe(false);
     if (hasError) {
       await tmPage.logScreenMessages();
     }
@@ -100,11 +126,14 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     // Capture the generated transaction ID (e.g. "CB5") from the
     // "Posted successfully" confirmation screen for verification.
     const transactionId = await tmPage.getHtmTransactionId();
-    console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
+    expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
+  console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
 
     // Persist the transaction ID so the verification spec can authorise it.
     if (transactionId) {
-      writeSharedState({ transactionId });
+      updateSharedState((state) => {
+        state.transactionId = transactionId;
+      });
     }
 
     // Acknowledge the confirmation screen.
@@ -118,6 +147,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
     const debitOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Debit', transactionId ?? undefined);
+  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
     console.log('Verifying CREDIT account in HACLINQ...');
@@ -125,6 +155,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
     const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
+  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
     // Logout.

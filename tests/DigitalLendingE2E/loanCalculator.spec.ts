@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { LoanCalculatorPage } from '../pages/DigitalLending/loanCalculatorPage';
 import testData from '../config/testData.json';
 

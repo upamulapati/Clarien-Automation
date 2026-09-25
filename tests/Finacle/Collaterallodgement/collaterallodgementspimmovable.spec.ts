@@ -9,6 +9,7 @@ test.describe('Service Pack - Immovable Property Collateral', () => {
     expect(result.collateralId).toBeTruthy();
     expect(result.modificationStatus).toMatch(/modified successfully/i);
     console.log('Immovable property collateral ID:', result.collateralId);
+  expect(result.collateralId).toBeTruthy();
   });
 
   test('HCLM - verify immovable property collateral', async ({ page }) => {

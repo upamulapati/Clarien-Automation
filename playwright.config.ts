@@ -3,14 +3,14 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/basePage/**'],
-  // outputDir: './test-results-temp',
+  outputDir: './test-results-new',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
 
-  reporter: [['list', {outputFolder: '../reports/basicReport'}],
-            ['html', {outputFolder: '../reports/htmlReport'}],
+  reporter: [['list', {outputFolder: './reports/basicReport'}],
+            ['html', {outputFolder: './reports/htmlReport'}],
             ['allure-playwright', {resultsDir: './reports/allureReports'}]],
 
   use: {

@@ -489,6 +489,25 @@ export class AccountPage {
       if (messages.length > 0) {
         return messages.length === 1 ? messages[0] : messages.join(' | ');
       }
+
+      // Fallback: Finacle sometimes writes the status directly into the frame body
+      // (e.g. "Transaction Id : CB123 has been posted successfully").
+      const statusKeywords = /\b(success|successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected)\b/i;
+      const bodyText = await this.getFinwFrame().locator('body').innerText().catch(() => '');
+      const bodyLines = bodyText
+        .split(/\r?\n/)
+        .map(s => s.replace(/\s+/g, ' ').trim())
+        .filter(s => s.length > 10 && s.length < 300);
+      for (const line of bodyLines) {
+        if (statusKeywords.test(line) && !seen.has(line.toLowerCase())) {
+          seen.add(line.toLowerCase());
+          messages.push(line);
+        }
+      }
+
+      if (messages.length > 0) {
+        return messages.length === 1 ? messages[0] : messages.join(' | ');
+      }
       return null;
     } catch (e) {
       console.log(`Could not read status message: ${e}`);
@@ -2233,6 +2252,242 @@ export class AccountPage {
     }
   }
 
+  // ============ HCAAC / HCAAC Closure Helpers ============
+  async selectHcaacFunction(code: string) {
+    await this.htmSetSelect(['funcCode'], code, 'Function');
+  }
+
+  async enterHcaacAccountId(accountId: string) {
+    await this.enterHacmAccountId(accountId);
+  }
+
+  async clickTransferCheckbox() {
+    const finwFrame = this.getFinwFrame();
+    const done = await finwFrame.evaluate(() => {
+      const cells = Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[];
+      const label = cells.find(el => {
+        const t = (el.textContent || '').toLowerCase();
+        return t.includes('transfer') || t.includes('closure type');
+      });
+      const scope = label ? (label.closest('tr') || label.parentElement) : document.body;
+      const checkbox = (scope || document.body).querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+      if (checkbox && !checkbox.checked) {
+        checkbox.checked = true;
+        checkbox.click();
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      return false;
+    }).catch(() => false);
+    if (!done) {
+      const cb = finwFrame.locator('input[type="checkbox"]').first();
+      if (await cb.count() > 0) await cb.check().catch(() => {});
+    }
+    await this.page.waitForTimeout(500);
+  }
+
+  async enterTransferAccountId(accountId: string) {
+    await this.htmSetField(['transferAccountId', 'toForacid', 'toAcctId', 'transferAcctId'], accountId, 'Transfer A/c ID');
+  }
+
+  async selectApplyInterestTillDate(choice: string) {
+    const finwFrame = this.getFinwFrame();
+    const done = await finwFrame.evaluate((val) => {
+      const cells = Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[];
+      const label = cells.find(el => (el.textContent || '').toLowerCase().includes('apply interest till date'));
+      const scope = label ? (label.closest('tr') || label.parentElement) : document.body;
+      const radios = Array.from((scope || document.body).querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      const valLower = val.toLowerCase();
+      const target = radios.find(r => (r.value || '').toLowerCase() === valLower || (r.id || '').toLowerCase().includes(valLower));
+      if (target) {
+        target.checked = true;
+        target.click();
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }
+      const selects = Array.from((scope || document.body).querySelectorAll('select')) as HTMLSelectElement[];
+      for (const sel of selects) {
+        const opt = Array.from(sel.options).find(o => (o.text || '').toLowerCase().includes(valLower));
+        if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change', { bubbles: true })); return true; }
+      }
+      return false;
+    }, choice).catch(() => false);
+    if (!done) console.log(`Could not select Apply Interest Till Date: ${choice}`);
+    await this.page.waitForTimeout(500);
+  }
+
+  async clickHcaacVerify() {
+    await this.htmClickButton('Verify');
+  }
+
+  // ============ Additional HTM Helpers ============
+  async selectTransactionParticularCode(code: string) {
+    const finwFrame = this.getFinwFrame();
+
+    // Try known ids/names first using Playwright selectOption.
+    const ids = ['transactionParticularCode', 'tranParticularCode', 'particularCode'];
+    for (const id of ids) {
+      const select = finwFrame.locator(`#${id}, select[name="${id}"], select[id*="${id}" i]`).first();
+      try {
+        if (await select.count() > 0 && await select.isVisible().catch(() => false) && await select.isEnabled().catch(() => false)) {
+          const options = await select.locator('option').allTextContents();
+          const matchingLabel = options.find(o => o.includes(code));
+          if (matchingLabel) {
+            await select.selectOption({ label: matchingLabel });
+          } else {
+            await select.selectOption(code);
+          }
+          await this.page.waitForTimeout(800);
+          console.log(`Selected Transaction Particular Code = ${code} (via ${id})`);
+          return;
+        }
+      } catch {}
+    }
+
+    // Fallback: find any select (preferably near a "Transaction Particular Code" label)
+    // whose options contain the requested code and set it via JS.
+    const result = await finwFrame.evaluate((target: string) => {
+      const collect = (scope: HTMLElement | Document) => Array.from(scope.querySelectorAll('select')) as HTMLSelectElement[];
+      const cells = Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[];
+      const labelCell = cells.find(el => {
+        const t = (el.textContent?.trim().toLowerCase() || '').replace(/[^a-z0-9]/g, '');
+        return t.includes('particularcode');
+      });
+
+      const seen = new Set<HTMLSelectElement>();
+      if (labelCell) {
+        const row = labelCell.closest('tr') as HTMLElement | null;
+        if (row) collect(row).forEach(s => seen.add(s));
+      }
+      collect(document.body).forEach(s => seen.add(s));
+
+      for (const sel of seen) {
+        const option = Array.from(sel.options).find(o =>
+          o.value === target || o.text.trim() === target || o.text.trim().includes(target)
+        );
+        if (option) {
+          sel.value = option.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          return { ok: true, value: option.value, text: option.text };
+        }
+      }
+      return { ok: false };
+    }, code) as { ok: boolean; value?: string; text?: string };
+
+    if (result.ok) {
+      await this.page.waitForTimeout(800);
+      console.log(`Selected Transaction Particular Code = ${code} (via label/fallback)`);
+      return;
+    }
+
+    throw new Error(`Could not select Transaction Particular Code = ${code}. Ensure the option exists on the HTM screen.`);
+  }
+
+  async enterHtmParticulars(text: string) {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate(({ value }) => {
+      const isTrParticularsCode = (i: { id: string; name: string }) =>
+        i.id === 'tranParticularsCode' ||
+        i.name === 'tm.tranParticularsCode' ||
+        (i.id + ' ' + i.name).toLowerCase().includes('tranparticularscode');
+
+      const isVisible = (el: HTMLElement) => {
+        const input = el as HTMLInputElement | HTMLTextAreaElement;
+        return el.offsetParent !== null && !input.disabled;
+      };
+
+      const isTextLike = (i: HTMLInputElement | HTMLTextAreaElement) =>
+        i.tagName === 'TEXTAREA' || (i as HTMLInputElement).type === 'text' || (i as HTMLInputElement).type === '';
+
+      const allVisible = Array.from(document.querySelectorAll('input, textarea')).filter(e => isVisible(e as HTMLElement)) as (HTMLInputElement | HTMLTextAreaElement)[];
+
+      const codeInput = allVisible.find(i => isTrParticularsCode(i)) || null;
+
+      const findTarget = (): { target: HTMLInputElement | HTMLTextAreaElement | null; method: string } => {
+        if (codeInput) {
+          const tr = codeInput.closest('tr');
+          if (tr) {
+            const rowInputs = Array.from(tr.querySelectorAll('input, textarea')).filter(
+              e => e !== codeInput && isVisible(e as HTMLElement)
+            ) as (HTMLInputElement | HTMLTextAreaElement)[];
+            if (rowInputs.length > 0) {
+              const textLike = rowInputs.find(i => isTextLike(i)) || rowInputs[0];
+              return { target: textLike, method: 'same-row-as-code' };
+            }
+          }
+
+          const others = allVisible.filter(i => i !== codeInput);
+          if (others.length === 1) return { target: others[0], method: 'only-other-visible' };
+          const textLike = others.find(i => isTextLike(i));
+          if (textLike) return { target: textLike, method: 'other-visible-text' };
+        }
+
+        const fallback = allVisible.find(i => isTextLike(i) && !isTrParticularsCode(i));
+        if (fallback) return { target: fallback, method: 'fallback-text' };
+
+        return { target: null, method: 'none' };
+      };
+
+      const { target, method } = findTarget();
+
+      if (!target) {
+        return {
+          ok: false,
+          reason: 'could not find an editable input/textarea beside tm.tranParticularsCode',
+          visibleFields: allVisible.map(i => ({
+            id: i.id,
+            name: i.name,
+            tag: i.tagName,
+            type: (i as HTMLInputElement).type,
+            current: i.value
+          }))
+        };
+      }
+
+      const updateBackend = (input: HTMLInputElement | HTMLTextAreaElement) => {
+        if (input.id && input.id.endsWith('_ui')) {
+          const baseId = input.id.replace('_ui', '');
+          const hidden = document.querySelector(`input[id="${baseId}"], textarea[id="${baseId}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+          if (hidden) {
+            hidden.value = value;
+            hidden.dispatchEvent(new Event('input', { bubbles: true }));
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+        if (input.name && input.name.endsWith('_ui')) {
+          const baseName = input.name.replace('_ui', '');
+          const hidden = document.querySelector(`input[name="${baseName}"], input[name="${baseName}_hdn"], textarea[name="${baseName}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+          if (hidden) {
+            hidden.value = value;
+            hidden.dispatchEvent(new Event('input', { bubbles: true }));
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      };
+
+      target.focus();
+      target.value = value;
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+      updateBackend(target);
+      target.blur();
+      return { ok: true, id: target.id, name: target.name, tag: target.tagName, method };
+    }, { value: text });
+
+    console.log(`enterHtmParticulars: ${JSON.stringify(result)}`);
+
+    if (result.ok) {
+      await this.page.waitForTimeout(800);
+      return;
+    }
+
+    console.log(`Could not set Particulars; visible fields: ${JSON.stringify(result.visibleFields)}`);
+  }
+
+  async clickHtmValidate() {
+    await this.htmClickButton('Validate');
+  }
+
   // ============ Form Filling Methods ============
   // Finds the dispatch-mode <select> on the screen, preferring the known id,
   // then any select whose options reference dispatch/despatch.
@@ -2342,6 +2597,60 @@ export class AccountPage {
       console.log(`Selected A/c status: ${status}`);
     } catch (e) {
       console.log(`Could not set A/c status, skipping: ${e}`);
+    }
+  }
+
+  // Reads the currently selected dispatch mode label from the dropdown on the
+  // General Details tab. Returns null if the dropdown cannot be located.
+  async getDispatchMode(): Promise<string | null> {
+    try {
+      const dropdown = await this.findDispatchDropdown();
+      if (!dropdown) {
+        console.log('Dispatch mode dropdown not found, cannot get value');
+        return null;
+      }
+      const label = await dropdown.evaluate((sel: HTMLSelectElement) => {
+        return sel.options[sel.selectedIndex]?.text?.trim() ?? '';
+      });
+      return label || null;
+    } catch (e) {
+      console.log(`Could not get dispatch mode: ${e}`);
+      return null;
+    }
+  }
+
+  // Reads the label of the currently selected A/c Status radio (Active / Dormant /
+  // Inactive) on the Scheme Details tab. Returns null if no radio is checked.
+  async getAccountStatus(): Promise<string | null> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const radios = finwFrame.locator('input[type="radio"]');
+      const count = await radios.count();
+      for (let i = 0; i < count; i++) {
+        const isChecked = await radios.nth(i).isChecked().catch(() => false);
+        if (isChecked) {
+          const text = await radios.nth(i).evaluate((el: HTMLInputElement) => {
+            const id = el.id;
+            if (id) {
+              const lbl = document.querySelector(`label[for="${id}"]`);
+              if (lbl && lbl.textContent) return lbl.textContent.trim();
+            }
+            let txt = '';
+            let n: Node | null = el.nextSibling;
+            while (n && !txt.trim()) {
+              txt += n.textContent || '';
+              n = n.nextSibling;
+            }
+            if (txt.trim()) return txt.trim();
+            return (el.parentElement?.textContent || '').trim();
+          });
+          return text || null;
+        }
+      }
+      return null;
+    } catch (e) {
+      console.log(`Could not get A/c status: ${e}`);
+      return null;
     }
   }
 
@@ -2633,10 +2942,10 @@ export class AccountPage {
     await this.clickSubmit();
   }
 
-  // Returns the last calendar day of the current month as dd-mm-yyyy.
+  // Returns the last calendar day of the next month as dd-mm-yyyy.
   private monthEndDate(): string {
     const d = new Date();
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const last = new Date(d.getFullYear(), d.getMonth() + 2, 0);
     return `${String(last.getDate()).padStart(2, '0')}-${String(last.getMonth() + 1).padStart(2, '0')}-${last.getFullYear()}`;
   }
 
@@ -4080,18 +4389,51 @@ export class AccountPage {
   }
 
   // ============ Verification Methods ============
-  async verifyAccountCreated(): Promise<{ success: boolean; message?: string; accountNumber?: string; allFields?: Record<string, string> }> {
+
+  // Data-driven savings account opening verification (HOAACVSB).
+  async verifySavingsAccountCreation(data: { accountId: string; screenCode: string }) {
+    await this.selectCoreServer();
+    await this.page.waitForTimeout(3000);
+    await this.searchVerificationScreen(data.screenCode);
+    await this.page.waitForTimeout(3000);
+    await this.selectVerifyFunction();
+    await this.enterTemporaryAccountId(data.accountId);
+    await this.acceptButton.click();
+    await this.page.waitForTimeout(5000);
+    await this.navigateAllTabs();
+    await this.visitTabById('documentdetails');
+    await this.clickSubmit();
+    await this.acceptWarningPopup();
+    const result = await this.verifyAccountCreated();
+    return result;
+  }
+
+  async verifyAccountCreated(): Promise<{ success: boolean; message: string | null; accountNumber: string | null; allFields?: Record<string, string> }> {
+
     const finwFrame = this.getFinwFrame();
     const bodyText = await finwFrame.locator('body').innerText();
-    
-    const success = bodyText.includes('New A/c. ID')
-      || bodyText.includes('modified successfully')
-      || bodyText.includes('Account Number')
-      || bodyText.includes('successfully')
-      || bodyText.includes('generated');
-    
-    const accountNumber = await this.getAccountId() ?? undefined;
-    
+
+    // Capture the exact status/alert message shown by Finacle.
+    let message = await this.getStatusMessage();
+
+    const successKeywords = /(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i;
+    const accountIdRegex = /New A\/c\.?\s*ID|Account Number|Account No/i;
+
+    const accountNumber = await this.getAccountId() ?? null;
+
+    if (!message) {
+      // Fallback: locate the most relevant status line from the visible body text.
+      const lines = bodyText.split(/\n/).map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+      message = lines.find(l => successKeywords.test(l) || accountIdRegex.test(l)) || null;
+
+      // If the account number was captured but no status text was found, use it.
+      if (!message && accountNumber) {
+        message = `New A/c. ID: ${accountNumber}`;
+      }
+    }
+
+    const success = !!message && (successKeywords.test(message) || accountIdRegex.test(message));
+
     // Capture all visible input and label fields
     const allFields: Record<string, string> = {};
     try {
@@ -4110,10 +4452,10 @@ export class AccountPage {
     } catch (e) {
       console.log('Could not capture all fields:', e);
     }
-    
+
     return {
       success,
-      message: success ? 'Operation completed successfully' : 'Operation failed',
+      message,
       accountNumber,
       allFields
     };
@@ -4147,12 +4489,15 @@ export class AccountPage {
 
   // ============ HACM Related Party Methods ============
   // Sets the Next Print Date field on the General Details tab. Defaults to
-  // today's date; pass a DD-MM-YYYY string to use a specific (e.g. future) date.
+  // a date 7 days in the future to satisfy the "later than or same as BOD" rule;
+  // pass a DD-MM-YYYY string to override.
   async setNextPrintDate(date?: string) {
     try {
       const finwFrame = this.getFinwFrame();
-      const today = new Date();
-      const dateStr = date ?? `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+      const base = new Date();
+      const future = new Date(base);
+      future.setDate(base.getDate() + 7);
+      const dateStr = date ?? `${String(future.getDate()).padStart(2, '0')}-${String(future.getMonth() + 1).padStart(2, '0')}-${future.getFullYear()}`;
 
       const candidates = [
         '#nextPrntDate_ui',
@@ -4179,16 +4524,46 @@ export class AccountPage {
     }
   }
 
+  // Locates the related-party entry form. Finacle sometimes opens it in a
+  // separate pop-up window / frame, so search all pages/frames for it.
+  private async getRelatedPartyFrame(finwFrame: Frame | null): Promise<Frame> {
+    const pages = this.page.context().pages();
+    for (const p of pages) {
+      for (const f of p.frames()) {
+        const has = await f.evaluate(() => {
+          const cells = Array.from(document.querySelectorAll('td, label, th'));
+          return cells.some(c => /relation\s*type/i.test(c.textContent?.trim() ?? ''));
+        }).catch(() => false);
+        if (has) {
+          console.log(`Found related party form in page="${p.url()}" frame="${f.name()}"`);
+          return f;
+        }
+      }
+    }
+    console.log('Related party form not found in any frame -- defaulting to FINW');
+    if (finwFrame) return finwFrame;
+    const fallback = this.page.frames().find(f => f.name() === 'FINW');
+    if (!fallback) throw new Error('FINW frame not found');
+    return fallback;
+  }
+
   // Clicks the ADD button within the Related Party Details section to add a
   // new related party row.
   async clickRelatedPartyAdd() {
     try {
       const finwFrame = this.getFinwFrame();
-      const addBtn = finwFrame.locator('#relParty_AddNew');
-      await addBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await addBtn.scrollIntoViewIfNeeded();
-      await addBtn.click();
-      await this.page.waitForTimeout(2500);
+      const addBtn = finwFrame.locator('#relParty_AddNew, input[value="Add" i], input[value="ADD" i], button:has-text("Add"), a:has-text("Add")').first();
+      if (await addBtn.count() > 0 && await addBtn.isVisible().catch(() => false)) {
+        await addBtn.scrollIntoViewIfNeeded();
+        await addBtn.click();
+      } else {
+        await finwFrame.evaluate(() => {
+          const btns = Array.from(document.querySelectorAll('input[type="button"], button, a'));
+          const add = btns.find(b => /^add$/i.test((b as HTMLInputElement).value?.trim() || b.textContent?.trim() || ''));
+          if (add) (add as HTMLElement).click();
+        });
+      }
+      await this.page.waitForTimeout(3000);
       console.log('Clicked Related Party Add button');
     } catch (e) {
       console.log(`Could not click Related Party Add button, skipping: ${e}`);
@@ -4251,8 +4626,8 @@ export class AccountPage {
   // Selects the relation type (e.g. "Joint Holder") in the related party row.
   async selectRelationType(value: string) {
     try {
-      const finwFrame = this.getFinwFrame();
-      const dropdown = finwFrame.locator('#relnType');
+      const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+      const dropdown = rpFrame.locator('#relnType');
       await dropdown.waitFor({ state: 'visible', timeout: 15000 });
       const options = await dropdown.locator('option').allTextContents();
       const match = options.find(o => o.toLowerCase().includes(value.toLowerCase()));
@@ -4277,14 +4652,14 @@ export class AccountPage {
   // presses Tab so the description auto-populates.
   async selectRelationCode(value: string) {
     try {
-      const finwFrame = this.getFinwFrame();
-      const field = finwFrame.locator('#relnCode');
+      const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+      const field = rpFrame.locator('#relnCode');
       await field.waitFor({ state: 'visible', timeout: 15000 });
       await field.clear();
       await field.fill(value);
       await field.press('Tab');
       await this.page.waitForTimeout(2000);
-      const desc = await finwFrame.locator('#relnDesc').inputValue().catch(() => '');
+      const desc = await rpFrame.locator('#relnDesc').inputValue().catch(() => '');
       console.log(`Entered relation code: ${value} (description: ${desc})`);
     } catch (e) {
       console.log(`Could not enter relation code '${value}', skipping: ${e}`);
@@ -4295,13 +4670,13 @@ export class AccountPage {
   // customer details auto-populate.
   async enterRelatedPartyCif(cif: string) {
     try {
-      const finwFrame = this.getFinwFrame();
-      const field = finwFrame.locator('input[name="relatedpartydetails.cifId"], #cifId').last();
+      const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+      const field = rpFrame.locator('input[name="relatedpartydetails.cifId"], #cifId, input[name="cifId"], #customerId, #cifNo, #relCifId').last();
       await field.waitFor({ state: 'visible', timeout: 15000 });
       await field.fill(cif);
       await field.press('Tab');
       await this.page.waitForTimeout(3000);
-      const name = await finwFrame.locator('#custName').inputValue().catch(() => '');
+      const name = await rpFrame.locator('#custName').inputValue().catch(() => '');
       console.log(`Entered related party CIF: ${cif} (customer: ${name})`);
     } catch (e) {
       console.log(`Could not enter related party CIF, skipping: ${e}`);

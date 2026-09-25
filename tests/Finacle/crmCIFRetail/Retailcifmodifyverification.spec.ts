@@ -1,19 +1,29 @@
 import { test, expect } from "@playwright/test";
-import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from "../../config/crmTestData";
-import { getSharedValue } from "../../helpers/sharedState";
+import { CRM_TEST_DATA } from "../../config/crmTestData";
+import { getCreatedCif } from "../../config/cifStore";
 import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
+import COMMON_DATA from "../../../data/common-data.json";
 
 // CIF Modification Checker / verification (Page Object Model).
 // Approves the pending modification (submitted by the maker) as the checker
-// (FINACLETEST05), then re-logs in as the maker (FINACLETEST13) and views the
-// Audit Trail to confirm the approval history. Operates on the CIF created +
-// persisted by the retail E2E flow (falls back to the hardcoded CIF with a log).
-const CHECKER = getVerificationConfig();
-const MAKER = getPrimaryConfig();
+// (verifier), then re-logs in as the maker (FINACLETEST13) and views the
+// Audit Trail to confirm the approval history. Operates on the CIF used / saved
+// by the flow (falls back to the hardcoded CIF with a log).
+const CHECKER = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.verifierCredentials.username,
+  password: COMMON_DATA.verifierCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
+const MAKER = {
+  baseUrl: CRM_TEST_DATA.common.baseUrl,
+  username: COMMON_DATA.thirdCredentials.username,
+  password: COMMON_DATA.thirdCredentials.password,
+  timeouts: CRM_TEST_DATA.common.timeouts,
+};
 const MOD = CRM_TEST_DATA.retail.modification;
-const SHARED_CIF = getSharedValue('cifId');
-const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
-if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
+const CIF_ID = getCreatedCif('retail', MOD.fallbackCifId);
+console.log(`[CIF Modify Verification] Using CIF ID: ${CIF_ID}`);
 
 test.describe("CIF Modification Checker", () => {
   let checker: CrmRetailCheckerPage;

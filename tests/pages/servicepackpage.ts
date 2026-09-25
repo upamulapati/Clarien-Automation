@@ -1,4 +1,5 @@
 import { expect, Frame, Page, Dialog } from '@playwright/test';
+import * as fs from 'fs';
 import { HomePage } from './HomePages/HomePage';
 import { AccountPage } from './CoreBanking/AccountPage';
 import { TermDepositPage } from './CoreBanking/TermDepositPage';
@@ -6,7 +7,6 @@ import { TermDepositSpflowPage } from './CoreBanking/TermDepositSpflowPage';
 import { TopUpDepositPage } from './CoreBanking/TopUpDepositPage';
 import { loginToFinacle } from '../helpers/finacleSetup';
 import COMMON_DATA from '../../data/common-data.json';
-import { CREDENTIALS } from '../../data/credentials';
 import { readLatestCollateralId, recordCollateralId, resetCollateralIds } from '../helpers/sharedState';
 
 export class ServicePackPage {
@@ -30,7 +30,7 @@ export class ServicePackPage {
   }
 
   async servicePackNominationValidation(): Promise<{ accountNumber: string | null; message: string | null }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const acct = COMMON_DATA.servicePackNominationValidation;
       await this.accountPage.selectCoreServer();
@@ -70,7 +70,7 @@ export class ServicePackPage {
     accountNumber: string | null;
     message: string | null;
   }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
@@ -102,7 +102,7 @@ export class ServicePackPage {
     statusMessage: string | null;
     accountNumber: string | null;
   }> {
-    const homePage = await this.login(CREDENTIALS.secondCredentials.username, CREDENTIALS.secondCredentials.password);
+    const homePage = await this.login(COMMON_DATA.secondCredentials.username, COMMON_DATA.secondCredentials.password);
     try {
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
@@ -130,7 +130,7 @@ export class ServicePackPage {
     guarantorFilled: boolean;
     collateralValueFilled: boolean;
   }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const COLLATERAL_CODE = 'GOVG1BMD';
       const CEILING_LIMIT = '500';
@@ -184,7 +184,7 @@ export class ServicePackPage {
     statusMessage: string;
     addressDetailsVisible: boolean;
   }> {
-    const homePage = await this.login(CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
+    const homePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
     try {
       const collateralId = collateralIdOverride ?? readLatestCollateralId() ?? 'RBU3547';
       await this.accountPage.selectCoreServer();
@@ -232,7 +232,7 @@ export class ServicePackPage {
     collateralId: string;
     modificationStatus: string;
   }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const COLLATERAL_CODE = 'DBLD1BMD';
       const CEILING_LIMIT = '500';
@@ -335,7 +335,7 @@ export class ServicePackPage {
   }
 
   async servicePackVerifyImmovablePropertyCollateral(collateralIdOverride?: string): Promise<{ statusMessage: string }> {
-    const homePage = await this.login(CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
+    const homePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
     try {
       const collateralId = collateralIdOverride ?? readLatestCollateralId() ?? 'RBU3547';
       await this.accountPage.selectCoreServer();
@@ -374,7 +374,7 @@ export class ServicePackPage {
   }
 
   async servicePackLinkImmovablePropertyCollateral(collateralIdOverride?: string): Promise<{ statusMessage: string | null }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const TD_ACCOUNT_ID = '9200000627';
       const LOAN_TO_VALUE_PERCENT = '100';
@@ -427,7 +427,7 @@ export class ServicePackPage {
     collateralId: string | null;
     statusMessage: string | null;
   }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const COLLATERAL_CODE = 'MUFD1BMD';
       const CEILING_LIMIT = '500';
@@ -481,7 +481,7 @@ export class ServicePackPage {
     collateralId: string;
     modificationStatus: string;
   }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const COLLATERAL_CODE = 'LIPY1BMD';
       const CEILING_LIMIT = '500';
@@ -559,7 +559,7 @@ export class ServicePackPage {
   }
 
   async servicePackVerifyLifeInsuranceCollateral(collateralIdOverride?: string): Promise<{ statusMessage: string }> {
-    const homePage = await this.login(CREDENTIALS.verifierCredentials.username, CREDENTIALS.verifierCredentials.password);
+    const homePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
     try {
       const collateralId = collateralIdOverride ?? readLatestCollateralId() ?? 'RBU3547';
       await this.accountPage.selectCoreServer();
@@ -596,7 +596,7 @@ export class ServicePackPage {
   }
 
   async servicePackLinkLifeInsuranceCollateral(collateralIdOverride?: string): Promise<{ statusMessage: string | null }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const TD_ACCOUNT_ID = '9200000627';
       const LOAN_TO_VALUE_PERCENT = '100';
@@ -646,7 +646,7 @@ export class ServicePackPage {
   }
 
   async servicePackCreditFrozenClosure(screenCode: string, accountId: string, functionOption: string, repaymentAccountId: string): Promise<{ status: string | null }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const status = await this.termDepositPage.creditFrozenClosure(screenCode, accountId, functionOption, repaymentAccountId);
       return { status };
@@ -664,11 +664,11 @@ export class ServicePackPage {
   ): Promise<string> {
     let makerHomePage: HomePage;
     let verifierHomePage: HomePage;
-    makerHomePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    makerHomePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       await this.spflowPage.modifyInterestOutflow(accountId, startDate, screens.modify);
       await makerHomePage.logout();
-      verifierHomePage = await this.login(CREDENTIALS.secondCredentials.username, CREDENTIALS.secondCredentials.password);
+      verifierHomePage = await this.login(COMMON_DATA.secondCredentials.username, COMMON_DATA.secondCredentials.password);
       await this.spflowPage.verifySpFlow(accountId, screens.verify);
       const persistedDate = await this.spflowPage.inquirySpFlow(accountId, screens.inquiry);
       return persistedDate;
@@ -692,7 +692,7 @@ export class ServicePackPage {
     amount: string;
     installmentType: string;
   }): Promise<{ transactionId: string | null; statusMessage: string | null; screenshot: Buffer }> {
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu(data.screenCode);
@@ -741,7 +741,7 @@ export class ServicePackPage {
   }> {
     // Logout any existing session before logging in again.
     await new HomePage(this.page).logout().catch(() => {});
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu('HACLINQ');
@@ -785,6 +785,7 @@ export class ServicePackPage {
     currencyCode?: string;
     solId?: string;
     modeOfOperation?: string;
+    dispatchMode?: string;
     initialDepositAmt?: string;
     instalmentAmt?: string;
     depositPeriodMonths?: string;
@@ -803,7 +804,7 @@ export class ServicePackPage {
     };
     const schemeCode = data?.schemeCode ?? COMMON_DATA.topUpDeposit.schemeCode;
     await new HomePage(this.page).logout().catch(() => {});
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       const result = await this.topUpDepositPage.servicePackFlowEndDateValidation(schemeCode, topUpData);
       console.log(result.message);
@@ -837,6 +838,7 @@ export class ServicePackPage {
         await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
       }
       if (!popup.isClosed()) await popup.waitForTimeout(2000);
+      let selected = false;
       if (!popup.isClosed()) {
         const frames = [popup.mainFrame(), ...popup.frames().filter(f => f !== popup.mainFrame())];
         for (const frame of frames) {
@@ -849,7 +851,6 @@ export class ServicePackPage {
             break;
           }
         }
-        let selected = false;
         const codeRegex = new RegExp(code, 'i');
         for (const frame of frames) {
           const link = frame.locator('a').filter({ hasText: codeRegex }).first();
@@ -883,12 +884,31 @@ export class ServicePackPage {
         await popup.close().catch(() => {});
       }
       await this.page.waitForTimeout(2000);
-      return true;
+      return selected;
     } catch (e) {
       console.log(`selectByLookup failed for ${labelText}: ${e}`);
       if (!popup.isClosed()) await popup.close().catch(() => {});
       return this.fillByAnyLabel([labelText], code);
     }
+  }
+
+  private async selectHtmParticularCode(code: string): Promise<void> {
+    const labels = [
+      'Transaction Particulars Code / Tran. Particulars',
+      'Tran. Particulars Code / Tran. Particulars',
+      'Transaction Particular Code',
+      'Tran. Particular Code',
+      'Transaction Particulars',
+      'Tran. Particulars',
+    ];
+    for (const label of labels) {
+      const ok = await this.selectByLookup(label, code);
+      if (ok) {
+        console.log(`Selected HTM Transaction Particular Code = ${code} via ${label}`);
+        return;
+      }
+    }
+    throw new Error(`Could not select HTM Transaction Particular Code = ${code}. Ensure it is available in the Ref. Code lookup.`);
   }
 
   private async fillByAnyLabel(labels: string[], value: string): Promise<boolean> {
@@ -1961,6 +1981,674 @@ export class ServicePackPage {
     } finally {
       this.page.off('dialog', onDialog);
     }
+  }
+
+  async servicePackHACLISpValidation(): Promise<{
+    transactionId: string;
+    postStatus: string;
+    verificationMessage: string;
+    narrativeText: string;
+    transactionParticulars: string;
+  }> {
+    const DEBIT_ACCOUNT = '7710003367';
+    const CREDIT_ACCOUNT = '7500001466';
+    const AMOUNT = '10';
+    const PARTICULARS = '97641729028233336600649784541940358693703477299215';
+    const PARTICULAR_CODE = '001';
+
+    const assertNoHtmError = async (step: string) => {
+      const status = await this.accountPage.getStatusMessage();
+      if (status) {
+        console.log(`[${step}] HTM status: ${status}`);
+        if (/error|failed|invalid|mandatory|cannot|not\s+posted|unsuccessful/i.test(status)) {
+          throw new Error(`${step} failed: ${status}`);
+        }
+      }
+    };
+
+    let makerHomePage: HomePage;
+    let verifierHomePage: HomePage;
+    let transactionId = '';
+    let postStatus = '';
+
+    // Step 1-2: Maker login and invoke HTM
+    makerHomePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HTM');
+      await this.page.waitForTimeout(3000);
+
+      // Step 3-5: Add / Customer Induced / Go
+      await this.accountPage.selectHtmFunction('A');
+      await this.accountPage.selectHtmTranTypeSubType('T/CI');
+      await this.accountPage.clickHtmGo();
+      await this.page.waitForTimeout(5000);
+
+      // Step 6-10: Debit part transaction
+      await this.accountPage.selectHtmDebit();
+      await this.accountPage.enterHtmAccountId(DEBIT_ACCOUNT);
+      await this.accountPage.enterHtmAmount(AMOUNT, true);
+      await this.selectHtmParticularCode(PARTICULAR_CODE);
+      await this.accountPage.enterHtmParticulars(PARTICULARS);
+      await this.accountPage.clickHtmValidate();
+      await this.page.waitForTimeout(2000);
+      await assertNoHtmError('Debit Validate');
+      await this.accountPage.clickHtmAdd();
+      await this.page.waitForTimeout(3000);
+      await assertNoHtmError('Debit Add');
+
+      // Step 11-15: Credit part transaction and post
+      await this.accountPage.selectHtmCredit();
+      await this.accountPage.enterHtmAccountId(CREDIT_ACCOUNT);
+      await this.accountPage.enterHtmAmount(AMOUNT, true);
+      await this.selectHtmParticularCode(PARTICULAR_CODE);
+      await this.accountPage.enterHtmParticulars(PARTICULARS);
+      await this.accountPage.clickHtmValidate();
+      await this.page.waitForTimeout(2000);
+      await assertNoHtmError('Credit Validate');
+      await this.accountPage.clickHtmPost();
+      await this.page.waitForTimeout(5000);
+
+      // Capture transaction ID and post status
+      postStatus = (await this.accountPage.getStatusMessage()) ?? '';
+      transactionId = (await this.accountPage.getHtmTransactionId()) ?? this.extractTransactionId(postStatus) ?? '';
+      console.log(`=== POST STATUS: ${postStatus} ===`);
+      console.log(`=== TRANSACTION ID GENERATED: ${transactionId} ===`);
+
+      expect(transactionId, 'Transaction ID was not captured. The HTM transaction may not have posted.').not.toBe('');
+      expect(postStatus, 'Post status message was not captured after posting the HTM transaction.').not.toBe('');
+
+      if (/error|failed|invalid|mandatory|cannot|not\s+posted|unsuccessful/i.test(postStatus)) {
+        throw new Error(`Transaction post failed: ${postStatus}`);
+      }
+
+      await this.accountPage.clickHtmOk();
+      await this.page.waitForTimeout(2000);
+
+      await makerHomePage.logout();
+    } catch (e) {
+      await makerHomePage.logout().catch(() => {});
+      throw e;
+    }
+
+    // Step 15.5-18: Verifier login, verify both debit and credit records
+    let verificationMessage = '';
+    verifierHomePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HTM');
+      await this.page.waitForTimeout(3000);
+
+      await this.accountPage.selectHtmFunction('V');
+      await this.accountPage.enterHtmTransactionId(transactionId);
+      await this.accountPage.clickHtmGo();
+      await this.page.waitForTimeout(5000);
+
+      // Step 18: Submit first record (Debit) and capture the verification status before OK
+      let capturedVerificationStatus = '';
+
+      await this.accountPage.clickHtmSubmit();
+      await this.page.waitForTimeout(3000);
+
+      capturedVerificationStatus = await this.accountPage.getStatusMessage() ?? '';
+      if (!capturedVerificationStatus || !/verified|success|approved|authorised|authorized/i.test(capturedVerificationStatus)) {
+        for (const frame of this.page.frames()) {
+          const body = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+          const match = body.match(/(verified|approved|authorised|authorized)(\s+successfully)?/i);
+          if (match) {
+            capturedVerificationStatus = match[0];
+            break;
+          }
+        }
+      }
+      console.log(`[First Submit] verification status: ${capturedVerificationStatus || 'none'}`);
+
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(2000);
+
+      // Optional: navigate to the next record (Credit) and submit if a second record is present
+      await this.accountPage.clickHtmNextRecord();
+      await this.page.waitForTimeout(2000);
+
+      const finwFrame = this.getFinwFrame();
+      const submitBtn = finwFrame.locator(
+        '#Submit, #submit, input[value="Submit"], input[value="SUBMIT"], ' +
+        'input[type="submit"], button:has-text("Submit")'
+      ).first();
+      if (await submitBtn.count() > 0) {
+        await this.accountPage.clickHtmSubmit();
+        await this.page.waitForTimeout(3000);
+
+        let secondStatus = await this.accountPage.getStatusMessage() ?? '';
+        if (!secondStatus || !/verified|success|approved|authorised|authorized/i.test(secondStatus)) {
+          for (const frame of this.page.frames()) {
+            const body = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+            const match = body.match(/(verified|approved|authorised|authorized)(\s+successfully)?/i);
+            if (match) {
+              secondStatus = match[0];
+              break;
+            }
+          }
+        }
+        console.log(`[Second Submit] verification status: ${secondStatus || 'none'}`);
+        if (secondStatus) capturedVerificationStatus = secondStatus;
+
+        await this.accountPage.clickOkButton();
+        await this.page.waitForTimeout(2000);
+      }
+
+      verificationMessage = capturedVerificationStatus;
+      console.log(`=== VERIFICATION STATUS: ${verificationMessage} ===`);
+
+      expect(verificationMessage, `Transaction verification did not complete successfully. Message: ${verificationMessage}`).toMatch(/(verified|success|approved|authorised|authorized)/i);
+
+      await verifierHomePage.logout();
+    } catch (e) {
+      await verifierHomePage.logout().catch(() => {});
+      throw e;
+    }
+
+    // Step 19-23: HACLI inquiry to validate narrative
+    const inquiryHomePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HACLI');
+      await this.page.waitForTimeout(3000);
+
+      // Step 20-21: Enter account ID and click Go
+      const finwFrame = this.getFinwFrame();
+
+      // Fill the HACLI A/c. ID field using the visible A/c. ID label
+      const filled = await this.accountPage.fillByLabel('A/c. ID', CREDIT_ACCOUNT) ||
+                     await this.accountPage.fillByLabel('A/C ID', CREDIT_ACCOUNT) ||
+                     await this.accountPage.fillByLabel('A/c ID', CREDIT_ACCOUNT) ||
+                     await this.accountPage.fillByLabel('Account ID', CREDIT_ACCOUNT);
+      if (!filled) {
+        throw new Error(`Could not fill HACLI A/c. ID field for account ${CREDIT_ACCOUNT}`);
+      }
+      console.log(`HACLI A/c. ID filled: ${CREDIT_ACCOUNT}`);
+      await this.page.waitForTimeout(1500);
+
+      // Close any account-fetch popups that the onChange may have opened
+      for (const p of this.page.context().pages()) {
+        if (p !== this.page && !p.isClosed() && /fetch\.jsp|lookup/i.test(p.url())) {
+          await p.close().catch(() => {});
+        }
+      }
+      await this.page.waitForTimeout(1000);
+
+      // Set global JS variables and any hidden HACLI account fields
+      const hacliFieldUpdates = await finwFrame.evaluate((accountId) => {
+        (window as any).crvAcctId = accountId;
+        (window as any).foracid = accountId;
+        (window as any).acid = accountId;
+        const updated: Record<string, string> = {};
+        for (const key of ['crvAcctId', 'foracid', 'acid', 'accountNo', 'acctNum', 'accountNum']) {
+          const byId = document.getElementById(key) as HTMLInputElement | null;
+          if (byId) { byId.value = accountId; updated[`id:${key}`] = accountId; }
+          const byName = document.querySelector(`input[name="${key}"]`) as HTMLInputElement | null;
+          if (byName) { byName.value = accountId; updated[`name:${key}`] = accountId; }
+        }
+        const input = document.getElementById('account_No') as HTMLInputElement | null;
+        if (input) { input.value = accountId; updated['id:account_No'] = accountId; }
+        return updated;
+      }, CREDIT_ACCOUNT);
+      console.log('HACLI hidden/global account fields set:', hacliFieldUpdates);
+
+      // Click the HACLI Go button (#Submit) inside the FINW frame
+      const goBtn = finwFrame.locator('#Submit');
+      await expect(goBtn, `HACLI Go button (#Submit) must be attached for account ${CREDIT_ACCOUNT}`).toBeAttached({ timeout: 10000 });
+      await expect(goBtn, `HACLI Go button (#Submit) must be visible for account ${CREDIT_ACCOUNT}`).toBeVisible({ timeout: 10000 });
+      await expect(goBtn, `HACLI Go button (#Submit) must be enabled for account ${CREDIT_ACCOUNT}`).toBeEnabled({ timeout: 10000 });
+      await goBtn.click();
+      console.log('Clicked HACLI Go button via Playwright #Submit click');
+
+      // In some Finacle builds the Playwright pointer click does not dispatch the onclick handler.
+      // If the Transaction Inquiry screen does not load, invoke the handler directly on the button.
+      let narrativeVisible = await finwFrame.getByText(PARTICULARS).first().isVisible({ timeout: 8000 }).catch(() => false);
+      if (!narrativeVisible) {
+        console.log('Playwright #Submit click did not navigate; invoking inquirycriteria_ONCLICK8 directly');
+        const onClickResult = await finwFrame.evaluate(() => {
+          const submit = document.getElementById('Submit') as HTMLInputElement | null;
+          const fn = (window as any).inquirycriteria_ONCLICK8;
+          if (!submit || typeof fn !== 'function') return { ok: false };
+          const result = fn.call(submit, submit, submit);
+          return { ok: true, result: String(result) };
+        });
+        console.log('HACLI inquirycriteria_ONCLICK8 fallback result:', onClickResult);
+      }
+
+      // Wait for the Transaction Inquiry results to load and verify the expected narrative is displayed
+      const narrativeLocator = finwFrame.getByText(PARTICULARS).first();
+      await expect(
+        narrativeLocator,
+        `Transaction Inquiry screen did not display the expected narrative for account ${CREDIT_ACCOUNT}`
+      ).toBeVisible({ timeout: 30000 });
+
+      // Step 22: Capture HACLI narrative and assert exact match
+      const narrativeText = await this.captureHACLI_Narrative(PARTICULARS);
+      const normalizedNarrative = narrativeText.replace(/\s+/g, ' ').trim();
+      const normalizedParticulars = PARTICULARS.replace(/\s+/g, ' ').trim();
+      console.log(`=== NARRATIVE TEXT: ${narrativeText} ===`);
+
+      expect(normalizedNarrative, 'HACLI narrative does not fully match the Transaction Particulars entered in HTM.').toBe(normalizedParticulars);
+
+      // Step 23: Click OK and logout
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(2000);
+
+      await inquiryHomePage.logout();
+
+      return {
+        transactionId,
+        postStatus,
+        verificationMessage,
+        narrativeText,
+        transactionParticulars: PARTICULARS,
+      };
+    } catch (e) {
+      await inquiryHomePage.logout().catch(() => {});
+      throw e;
+    }
+  }
+
+  async servicePackSavingsAccountClosure(
+    accountId: string,
+    transferAccountId: string
+  ): Promise<{ closureStatus: string; verificationStatus: string }> {
+    const normalizeMessage = (message: string): string =>
+      message.replace(/\s+/g, ' ').trim();
+
+    const assertSuccess = (
+      label: string,
+      message: string,
+      successPattern: RegExp
+    ): void => {
+      if (/error|failed|invalid|cannot|not\s+closed|unsuccessful/i.test(message)) {
+        throw new Error(`${label} failed with message: ${message}`);
+      }
+      if (!successPattern.test(message)) {
+        throw new Error(`${label} was not reported as successful. Message: ${message}`);
+      }
+      if (!message.includes(accountId)) {
+        throw new Error(`${label} message does not reference account ${accountId}. Message: ${message}`);
+      }
+    };
+
+    const captureStatusMessage = async (): Promise<string> => {
+      let status: string | null = null;
+      for (let attempt = 0; attempt < 40; attempt++) {
+        status = await this.accountPage.getStatusMessage();
+        if (status) break;
+        await this.page.waitForTimeout(250);
+      }
+      if (!status) {
+        throw new Error('No status message was captured after submission.');
+      }
+      const normalized = normalizeMessage(status);
+      console.log('Captured status message:', normalized);
+      return normalized;
+    };
+
+    // Maker: close the savings account
+    const makerHomePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    let closureStatus = '';
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HCAAC');
+      await this.page.waitForTimeout(3000);
+
+      await this.accountPage.selectHcaacFunction('Z');
+      await this.accountPage.enterHcaacAccountId(accountId);
+      await this.accountPage.clickTransferCheckbox();
+      await this.accountPage.selectHtmTranTypeSubType('Transfer');
+      await this.accountPage.enterTransferAccountId(transferAccountId);
+
+      await this.accountPage.clickHtmGo();
+      await this.page.waitForTimeout(5000);
+
+      await this.accountPage.visitTab('Closure');
+      await this.accountPage.selectApplyInterestTillDate('Yes');
+
+      await this.accountPage.clickHtmSubmit();
+      await this.page.waitForTimeout(5000);
+
+      closureStatus = await captureStatusMessage();
+      assertSuccess('Closure', closureStatus, /closed\s*successfully/i);
+    } finally {
+      await makerHomePage.logout().catch(() => {});
+    }
+
+    // Verifier: authorise/verify the closure
+    const verifierHomePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
+    let verificationStatus = '';
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HCAAC');
+      await this.page.waitForTimeout(3000);
+
+      await this.accountPage.selectHcaacFunction('V');
+      await this.accountPage.enterHcaacAccountId(accountId);
+
+      await this.accountPage.clickHtmGo();
+      await this.page.waitForTimeout(5000);
+
+      await this.accountPage.visitTab('Closure');
+      await this.accountPage.selectApplyInterestTillDate('Yes');
+
+      // HCAAC verify may expose a Verify button followed by Submit
+      await this.accountPage.clickHcaacVerify();
+      await this.accountPage.clickHtmSubmit();
+      await this.page.waitForTimeout(5000);
+
+      verificationStatus = await captureStatusMessage();
+      assertSuccess('Verification', verificationStatus, /(?:closed|verified)\s*successfully/i);
+    } finally {
+      await verifierHomePage.logout().catch(() => {});
+    }
+
+    return { closureStatus, verificationStatus };
+  }
+
+  public async hacliInquiry(accountId: string, expectedParticulars: string): Promise<string> {
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HACLI');
+      await this.page.waitForTimeout(3000);
+
+      const finwFrame = this.getFinwFrame();
+
+      // Fill the HACLI A/c. ID field using the visible A/c. ID label
+      const filled = await this.accountPage.fillByLabel('A/c. ID', accountId) ||
+                     await this.accountPage.fillByLabel('A/C ID', accountId) ||
+                     await this.accountPage.fillByLabel('A/c ID', accountId) ||
+                     await this.accountPage.fillByLabel('Account ID', accountId);
+      if (!filled) {
+        throw new Error(`Could not fill HACLI A/c. ID field for account ${accountId}`);
+      }
+      console.log(`HACLI A/c. ID filled: ${accountId}`);
+      await this.page.waitForTimeout(1500);
+
+      // Close any account-fetch popups that the onChange may have opened
+      for (const p of this.page.context().pages()) {
+        if (p !== this.page && !p.isClosed() && /fetch\.jsp|lookup/i.test(p.url())) {
+          await p.close().catch(() => {});
+        }
+      }
+      await this.page.waitForTimeout(1000);
+
+      // Set global JS variables the HACLI onClick may read, without re-firing events
+      const hacliFieldUpdates = await finwFrame.evaluate((id) => {
+        (window as any).crvAcctId = id;
+        (window as any).foracid = id;
+        (window as any).acid = id;
+        const updated: Record<string, string> = {};
+        for (const key of ['crvAcctId', 'foracid', 'acid', 'accountNo', 'acctNum', 'accountNum']) {
+          const byId = document.getElementById(key) as HTMLInputElement | null;
+          if (byId) { byId.value = id; updated[`id:${key}`] = id; }
+          const byName = document.querySelector(`input[name="${key}"]`) as HTMLInputElement | null;
+          if (byName) { byName.value = id; updated[`name:${key}`] = id; }
+        }
+        const input = document.getElementById('account_No') as HTMLInputElement | null;
+        if (input) { input.value = id; updated['id:account_No'] = id; }
+        return updated;
+      }, accountId);
+      console.log('HACLI hidden/global account fields set:', hacliFieldUpdates);
+
+      // Diagnostic log before Go
+      const diagnostics = await finwFrame.evaluate(() => {
+        const submit = document.getElementById('Submit') as HTMLInputElement | null;
+        const accountNo = document.getElementById('account_No') as HTMLInputElement | null;
+        return {
+          submitFound: !!submit,
+          submitValue: submit?.value,
+          submitOnclick: submit?.getAttribute('onclick'),
+          inquirycriteria_ONCLICK8_defined: typeof (window as any).inquirycriteria_ONCLICK8,
+          accountNoValue: accountNo?.value,
+          crvAcctId: (window as any).crvAcctId || '',
+        };
+      });
+      console.log('HACLI diagnostics before Go:', diagnostics);
+
+      // Click the HACLI Go button (#Submit) inside the FINW frame
+      const goBtn = finwFrame.locator('#Submit');
+      await expect(goBtn, `HACLI Go button (#Submit) must be attached for account ${accountId}`).toBeAttached({ timeout: 10000 });
+      await expect(goBtn, `HACLI Go button (#Submit) must be visible for account ${accountId}`).toBeVisible({ timeout: 10000 });
+      await expect(goBtn, `HACLI Go button (#Submit) must be enabled for account ${accountId}`).toBeEnabled({ timeout: 10000 });
+      await goBtn.click();
+      console.log('Clicked HACLI Go button via Playwright #Submit click');
+
+      // In some Finacle builds the Playwright pointer click does not dispatch the onclick handler.
+      // If the Transaction Inquiry screen does not load, invoke the handler directly on the button.
+      let narrativeVisible = await finwFrame.getByText(expectedParticulars).first().isVisible({ timeout: 8000 }).catch(() => false);
+      if (!narrativeVisible) {
+        console.log('Playwright #Submit click did not navigate; invoking inquirycriteria_ONCLICK8 directly');
+        const onClickResult = await finwFrame.evaluate(() => {
+          const submit = document.getElementById('Submit') as HTMLInputElement | null;
+          const fn = (window as any).inquirycriteria_ONCLICK8;
+          if (!submit || typeof fn !== 'function') return { ok: false };
+          const result = fn.call(submit, submit, submit);
+          return { ok: true, result: String(result) };
+        });
+        console.log('HACLI inquirycriteria_ONCLICK8 fallback result:', onClickResult);
+      }
+
+      // Wait for the Transaction Inquiry results to load and verify the expected narrative is displayed
+      const narrativeLocator = finwFrame.getByText(expectedParticulars).first();
+      await expect(
+        narrativeLocator,
+        `Transaction Inquiry screen did not display the expected narrative for account ${accountId}`
+      ).toBeVisible({ timeout: 30000 });
+
+      // Capture HACLI narrative
+      const narrativeText = await this.captureHACLI_Narrative(expectedParticulars);
+      console.log(`=== HACLI NARRATIVE: ${narrativeText} ===`);
+
+      // Step 23: Click OK and logout
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(2000);
+
+      await homePage.logout();
+      return narrativeText;
+    } catch (e) {
+      await homePage.logout().catch(() => {});
+      throw e;
+    }
+  }
+
+  private async captureHACLI_Narrative(expectedParticulars: string): Promise<string> {
+    try {
+      const finwFrame = this.getFinwFrame();
+
+      // 1. Prefer the exact table cell/element that contains the posted narrative
+      const narrativeLocator = finwFrame.getByText(expectedParticulars).first();
+      if (await narrativeLocator.count() > 0) {
+        const text = await narrativeLocator.textContent() ?? '';
+        console.log('Captured HACLI Narrative value:', text);
+        return text;
+      }
+
+      // 2. Fallback: search the full page text for the expected particulars
+      const bodyText = (await finwFrame.locator('body').textContent()) ?? '';
+      if (bodyText.includes(expectedParticulars)) {
+        console.log('HACLI narrative found in page body');
+        return bodyText;
+      }
+
+      console.log('Could not isolate exact HACLI Narrative. Body text snippet:', bodyText.substring(0, 1000));
+      return bodyText;
+    } catch (e) {
+      console.log(`Error capturing HACLI narrative: ${e}`);
+      return '';
+    }
+  }
+
+  async servicePackHADVCValidation(): Promise<{
+    reportGenerated: boolean;
+    criteriaFlushed: boolean;
+    reportScreenshot: string | null;
+    resetScreenshot: string | null;
+    message: string | null;
+  }> {
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    let reportScreenshot: string | null = null;
+    let resetScreenshot: string | null = null;
+
+    try {
+      const FROM_ACCOUNT_ID = '7500001466';
+      const FROM_DATE = '01-07-2026';
+
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HADVC');
+      await this.page.waitForTimeout(3000);
+
+      const accountFilled = await this.accountPage.fillByLabel('From A/c. ID', FROM_ACCOUNT_ID);
+      if (!accountFilled) {
+        throw new Error(`Could not fill HADVC From A/c. ID field with ${FROM_ACCOUNT_ID}`);
+      }
+
+      const dateFilled = await this.accountPage.fillByLabel('From Date', FROM_DATE);
+      if (!dateFilled) {
+        throw new Error(`Could not fill HADVC From Date field with ${FROM_DATE}`);
+      }
+
+      await this.accountPage.clickButtonByText('Submit');
+      await this.page.waitForTimeout(3000);
+
+      const status = await this.accountPage.getStatusMessage();
+      const finwFrame = this.getFinwFrame();
+      const bodyText = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+      console.log('HADVC report queue page text snippet:', bodyText.substring(0, 1000));
+
+      const reportGenerated = /Print\s*Debit\/Credit\s*Advice\s*for\s*Customer/i.test(bodyText);
+      const statusMessage = status ?? (reportGenerated ? 'Report generated successfully' : null);
+      console.log('HADVC report queue status:', statusMessage);
+
+      reportScreenshot = `test-results/hadvc-report-queue-${Date.now()}.png`;
+      await this.page.screenshot({ path: reportScreenshot, fullPage: true }).catch(() => {});
+
+      expect(reportGenerated, `HADVC report page was not displayed. Status: ${status}; Page text: ${bodyText}`).toBe(true);
+
+      const okClicked = await this.clickFinwControlByText('OK');
+      if (!okClicked) {
+        throw new Error('HADVC OK button was not found on the report queue page');
+      }
+      await this.page.waitForTimeout(3000);
+
+      const fromAccountAfter = await finwFrame.locator('input#fromAcct, input[name="advc.fromAcct"]').first().inputValue().catch(() => '');
+      const fromDateAfter = await finwFrame.locator('input#fromDate_ui, input[name="advc.fromDate_ui"], input#fromDate, input[name="advc.fromDate"]').first().inputValue().catch(() => '');
+      console.log(`HADVC criteria after OK - From A/c. ID: '${fromAccountAfter}', From Date: '${fromDateAfter}'`);
+
+      const criteriaFlushed = fromAccountAfter.trim() === '';
+
+      resetScreenshot = `test-results/hadvc-criteria-reset-${Date.now()}.png`;
+      await this.page.screenshot({ path: resetScreenshot, fullPage: true }).catch(() => {});
+
+      expect(
+        criteriaFlushed,
+        `HADVC From A/c. ID was not flushed after clicking OK. Current value: '${fromAccountAfter}'. Reset screenshot: ${resetScreenshot}`
+      ).toBe(true);
+
+      console.log('From A/c. ID is flushed out in the criteria page successfully.');
+
+      return { reportGenerated, criteriaFlushed, reportScreenshot, resetScreenshot, message: statusMessage };
+    } finally {
+      await homePage.logout().catch(() => {});
+    }
+  }
+
+  async servicePackCAACLAClosureAndVerification(
+    accountId: string = '3200000052',
+  ): Promise<{
+    closeMessage: string | null;
+    verifyMessage: string | null;
+    closeGoScreenshotPath: string;
+    verifySubmitScreenshotPath: string;
+  }> {
+    let closeMessage: string | null = null;
+    let verifyMessage: string | null = null;
+    let closeGoScreenshotPath = '';
+    let verifySubmitScreenshotPath = '';
+
+    // Maker Close flow
+    let homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('CAACLA');
+      await this.page.waitForTimeout(3000);
+      await this.accountPage.selectFunction('Close');
+      await this.page.waitForTimeout(2000);
+      await this.accountPage.enterHacmAccountId(accountId);
+      await this.page.waitForTimeout(2000);
+      await this.accountPage.clickGo();
+      await this.page.waitForTimeout(3000);
+
+      const closeGoMessage = await this.accountPage.getStatusMessage();
+      fs.mkdirSync('test-results', { recursive: true });
+      closeGoScreenshotPath = `test-results/spcaacla-close-go-${Date.now()}.png`;
+      await this.page.screenshot({ path: closeGoScreenshotPath, fullPage: true }).catch(() => {});
+
+      const isCloseGoError = /E\d{4}|error|fail|invalid|exception|not allowed|cannot|unable/i.test(closeGoMessage ?? '');
+      expect(isCloseGoError, `CAACLA Close - Go failed. Screenshot: ${closeGoScreenshotPath} | Exact message: ${closeGoMessage}`).toBe(false);
+
+      await this.accountPage.submitForm();
+      await this.page.waitForTimeout(3000);
+
+      fs.mkdirSync('test-results', { recursive: true });
+      const closeSubmitScreenshotPath = `test-results/spcaacla-close-submit-${Date.now()}.png`;
+      await this.page.screenshot({ path: closeSubmitScreenshotPath, fullPage: true }).catch(() => {});
+
+      closeMessage = await this.accountPage.getStatusMessage();
+      if (closeMessage) {
+        closeMessage = closeMessage.replace(/^document\.write\(.*\)\s*/s, '') || closeMessage;
+      }
+      console.log('CAACLA Close - message after submit:', closeMessage);
+
+      const closeHasError = /E\d{4}|error|fail|invalid|exception|not allowed|cannot|unable/i.test(closeMessage ?? '');
+      expect(closeHasError, `CAACLA Close - Submit returned an error. Screenshot: ${closeSubmitScreenshotPath} | Exact message: ${closeMessage}`).toBe(false);
+
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(2000);
+    } finally {
+      await homePage.logout().catch(() => {});
+    }
+
+    // Verifier Verify flow
+    homePage = await this.login(COMMON_DATA.verifierCredentials.username, COMMON_DATA.verifierCredentials.password);
+    try {
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('CAACLA');
+      await this.page.waitForTimeout(3000);
+      await this.accountPage.selectFunction('Verify');
+      await this.page.waitForTimeout(2000);
+      await this.accountPage.enterHacmAccountId(accountId);
+      await this.page.waitForTimeout(2000);
+      await this.accountPage.clickGo();
+      await this.page.waitForTimeout(3000);
+
+      await this.accountPage.submitForm();
+      await this.page.waitForTimeout(3000);
+      verifyMessage = await this.accountPage.getStatusMessage();
+      if (verifyMessage) {
+        verifyMessage = verifyMessage.replace(/^document\.write\(.*\)\s*/s, '') || verifyMessage;
+      }
+      console.log('CAACLA Verify - message after submit:', verifyMessage);
+
+      fs.mkdirSync('test-results', { recursive: true });
+      verifySubmitScreenshotPath = `test-results/spcaacla-verify-submit-${Date.now()}.png`;
+      await this.page.screenshot({ path: verifySubmitScreenshotPath, fullPage: true }).catch(() => {});
+
+      const isVerifySuccess = /success|verified|authorised|authorized|completed/i.test(verifyMessage ?? '');
+      expect(isVerifySuccess, `CAACLA Verify - Submit did not succeed. Screenshot: ${verifySubmitScreenshotPath} | Exact message: ${verifyMessage}`).toBe(true);
+
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(2000);
+    } finally {
+      await homePage.logout().catch(() => {});
+    }
+
+    return { closeMessage, verifyMessage, closeGoScreenshotPath, verifySubmitScreenshotPath };
   }
 
   private extractTransactionId(text: string | null): string | null {

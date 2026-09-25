@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { RetailLoanChargeoffRecoveryPage } from '../../pages/CoreBanking/RetailLoanChargeoffRecoveryPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
@@ -24,7 +24,10 @@ test('HROCA - verify chargeoff recovery for retail loan', async ({ page }) => {
 
     console.log('====================================');
     console.log('Chargeoff recovery verification message:', result.message);
+  expect(result.message).toBeTruthy();
+  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('Chargeoff recovery verification transaction ID:', result.transactionId ?? 'NOT CAPTURED');
+  expect(result.transactionId).toBeTruthy();
     console.log('====================================');
   } finally {
     await homePage.logout().catch(() => {});

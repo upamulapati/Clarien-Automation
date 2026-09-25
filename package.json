@@ -16,6 +16,7 @@
     "test-crmCIFRetail": "node scripts/runOrdered.js crmCIFRetail && npm run allure:generate",
     "test-crmCIFCorporate": "node scripts/runOrdered.js crmCIFCorporate && npm run allure:generate",
     "test-customFlowOne": "node scripts/runOrdered.js customFlow1 && npm run allure:generate",
+    "test-flow7": "node scripts/runOrdered.js flow7 && npm run allure:generate",
     "test-spec": "node scripts/runSpec.js",
     "allure:generate": "npx allure generate ./reports/allureReports -o ./reports/allure-report",
     "allure:open": "npx allure open ./reports/allure-report",

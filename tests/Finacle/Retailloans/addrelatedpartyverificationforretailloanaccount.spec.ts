@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
@@ -102,7 +102,12 @@ test.describe('Verify Related Party for Retail Loan Account', () => {
 
     // Capture the verification success message
     const statusMessage = await accountPage.getStatusMessage();
+  console.log('Exact status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
     console.log('Verification status message:', statusMessage);
+  expect(statusMessage).toBeTruthy();
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 
     // Click OK on the verification success confirmation
     console.log('Clicking OK button...');
