@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 import { getCreatedCif } from '../../config/cifStore';
@@ -20,7 +21,7 @@ const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 const CURRENT_ACCOUNT_SCHEME = COMMON_DATA.currentAccountSchemes[0];
 
 // CIF ID (test data) the current account is opened under.
-const CIF_ID = getCreatedCif('retail', COMMON_DATA.currentAccountData.cifCode);
+const CIF_ID = getCreatedCif('retail', DEFAULT_CUSTOMER.cifCode);
 
 let homePage: HomePage;
 let currentAccountPage: AccountPage;
@@ -48,10 +49,10 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
   // submit to generate the account number.
   console.log(`Creating current account with scheme ${CURRENT_ACCOUNT_SCHEME}...`);
   await currentAccountPage.createCurrentAccount({
-    ...COMMON_DATA.currentAccountData,
+    ...CURRENT_ACCOUNT_DATA,
     cifCode: CIF_ID,
     schemeCode: CURRENT_ACCOUNT_SCHEME,
-    dispatchMode: COMMON_DATA.currentAccountData.dispatchMode as 'email' | 'post',
+    dispatchMode: CURRENT_ACCOUNT_DATA.dispatchMode as 'email' | 'post',
   });
 
   const statusMessage = await currentAccountPage.getStatusMessage();

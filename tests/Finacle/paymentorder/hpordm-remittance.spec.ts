@@ -7,15 +7,17 @@ import { CREDENTIALS } from '../../../data/credentials';
 import { writeSharedState, getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
-import { HPORDM_DATA, HPORDM_DATA_SWIFT, todayDDMMYYYY } from '../../helpers/common';
+import { getApplicationDate } from '../../helpers/common';
+import COMMON_DATA from '../../../data/common-data.json';
 
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
 
-const SCENARIOS = [
-  { name: 'ACH', data: { ...HPORDM_DATA as any, debitAccount: SHARED_ACCOUNT_ID ?? HPORDM_DATA.debitAccount }, sharedKey: 'paymentOrderId' },
-  { name: 'SWIFT', data: { ...HPORDM_DATA_SWIFT as any, debitAccount: SHARED_ACCOUNT_ID ?? HPORDM_DATA_SWIFT.debitAccount }, sharedKey: 'paymentOrderIdSwift' },
-];
+const SCENARIOS = ((COMMON_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
+  name: scenario.name,
+  sharedKey: scenario.sharedKey,
+  data: { ...scenario.data, debitAccount: SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount },
+}));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
@@ -42,7 +44,7 @@ for (const scenario of SCENARIOS) {
   // Step 3: Function - Add, Payment product - customer transfer, click GO.
   console.log('Selecting Add function...');
   await accountPage.selectFunction('Add');
-  const businessDate = (await paymentOrderPage.getBusinessDate()) || todayDDMMYYYY();
+  const businessDate = await getApplicationDate(page);
   console.log(`Business date: ${businessDate}`);
   await captureEvidence(page, `Step 3: Add function opened (${scenario.name})`, { function: 'Add', paymentProduct: scenario.data.paymentProduct, businessDate });
   console.log('Selecting Payment product...');
@@ -206,7 +208,7 @@ for (const scenario of SCENARIOS) {
       expect(pageText).toContain(scenario.data.ourCorrespondentBankCode);
     }
 
-    const businessDate = (await paymentOrderPage.getBusinessDate()) || todayDDMMYYYY();
+    const businessDate = await getApplicationDate(page);
     console.log('Visiting reimbursement details tab...');
     await paymentOrderPage.clickReimbursementDetailsTab();
     await page.waitForTimeout(2000);

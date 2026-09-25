@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -9,14 +10,14 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Header inputs.
-const SOL_ID = '100';
-const DEBIT_CIF_ID = '0005000599';        // CIF id (Debit)
+const SOL_ID = DEFAULT_CUSTOMER.solId;
+const DEBIT_CIF_ID = DEFAULT_CUSTOMER.cifCode;        // CIF id (Debit)
 const NEXT_EXECUTION_DATE = '03-08-2026';  // start date of the SI (from screenshot)
 const ACCEPTANCE_EVENT = 'SET_UP SI';      // Fee details - acceptance event
 //const HEADER_DEBIT_ACCOUNT = '7500001482'; // Debit a/c id on the header
 
 // Instruction (part transaction) inputs.
-const CURRENCY = 'BMD';
+const CURRENCY = DEFAULT_CUSTOMER.ccy;
 const DEBIT_ACCOUNT = '7500001482';   // debit leg account
 const CREDIT_ACCOUNT = '7500001474';  // credit leg account (different from debit)
 const AMOUNT = '500';

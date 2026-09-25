@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { SAVINGS_TEST_DATA } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
@@ -26,7 +27,7 @@ test.beforeEach(async ({ page }) => {
 
 test('TC_SB_002 - save savings bank account with SVREG scheme', async ({ page }) => {
   console.log('Creating savings account with SVREG scheme (hardcoded)...');
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
@@ -43,7 +44,7 @@ test('TC_SB_002 - save savings bank account with SVREG scheme', async ({ page })
 
 test('TC_SB_005 - SB A/c Modification - Account opened through NEWGEN', async ({ page }) => {
   console.log('Creating savings account first (as extension of TC_SB_002)...');
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
@@ -89,7 +90,7 @@ test('TC_SB_005 - SB A/c Modification - Account opened through NEWGEN', async ({
 
 test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page }) => {
   console.log('Creating savings account first...');
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);

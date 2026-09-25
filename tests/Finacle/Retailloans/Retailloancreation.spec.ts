@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 import { saveLoanAccount, updateSharedState } from '../../helpers/sharedState';
@@ -13,9 +14,9 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Loan header inputs.
-const CURRENCY = 'BMD';
-const SOL_ID = '100';
-const CIF_ID = getCreatedCif('retail', COMMON_DATA.baseAccountData.cifCode);
+const CURRENCY = DEFAULT_CUSTOMER.ccy;
+const SOL_ID = DEFAULT_CUSTOMER.solId;
+const CIF_ID = getCreatedCif('retail', DEFAULT_CUSTOMER.cifCode);
 if (CIF_ID) console.log(`[SharedState] Using CIF ID: ${CIF_ID}`);
 
 // NOTE: Set this to a valid retail-loan scheme code. If left blank, the scheme

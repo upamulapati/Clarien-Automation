@@ -4,7 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { InventoryMaintenancePage } from '../../pages/CoreBanking/InventoryMaintenancePage';
 import { CREDENTIALS } from '../../../data/credentials';
-import { todayDDMMYYYY } from '../../helpers/common';
+import { getApplicationDate } from '../../helpers/common';
 import { writeSharedState } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 
@@ -28,7 +28,7 @@ test('HIMC - transfer inventory to vault', async ({ page }) => {
   const accountPage = new AccountPage(page);
   const invPage = new InventoryMaintenancePage(page);
 
-  const today = todayDDMMYYYY();
+  const today = await getApplicationDate(page);
 
   // 1. Select "core server" from solution drop down.
   await accountPage.selectCoreServer();

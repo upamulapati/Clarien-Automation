@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TERM_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import { saveTermDepositAccount } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
-const TD = COMMON_DATA.termDeposit;
+const TD = TERM_DEPOSIT_DATA;
 
 const SCHEME_OVERRIDE = (process.env.TD_SCHEMES || '').trim();
 const SCHEME_CODES: string[] = SCHEME_OVERRIDE

@@ -2,12 +2,14 @@ import { Page, Locator, FrameLocator, Frame, Dialog } from '@playwright/test';
 import { captureEvidence } from '../../helpers/evidence';
 
 interface AccountData {
-  functionOption: string;
-  ccy: string;
-  solId: string;
-  cifCode: string;
-  schemeCode?: string;
-  dispatchMode?: 'email' | 'post';
+  functionOption?: string;
+  ccy?: string;
+  currency?: string;
+  solId?: string;
+  cifCode?: string;
+  cif?: string;
+  schemeCode?: string | null;
+  dispatchMode?: 'email' | 'post' | string;
 }
 
 export class AccountPage {
@@ -519,31 +521,6 @@ export class AccountPage {
   }
 
   // ============ Collateral (HCLM / HSCLM) Methods ============
-
-  // Returns today's date formatted as dd-mm-yyyy (Finacle date format).
-  collateralToday(): string {
-    const d = new Date();
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  }
-
-  // Returns a date offset by the given number of months from today, formatted
-  // as dd-mm-yyyy (Finacle date format). Used for modification tests where the
-  // review date must actually change from its current value.
-  collateralDateOffset(months: number): string {
-    const d = new Date();
-    const day = d.getDate();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + months);
-    const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(day, lastDay));
-    const newDay = String(d.getDate()).padStart(2, '0');
-    const newMonth = String(d.getMonth() + 1).padStart(2, '0');
-    const newYear = d.getFullYear();
-    return `${newDay}-${newMonth}-${newYear}`;
-  }
 
   // Selects a collateral function/type dropdown option by visible keyword
   // (e.g. "Lodge", "Verify", "Modify", "Deposits", "Link", "Unlink").
@@ -2852,15 +2829,20 @@ export class AccountPage {
   }
 
   async fillBasicAccountDetails(data: AccountData) {
-    await this.functionOption.selectOption(data.functionOption);
+    const ccy = data.ccy ?? data.currency ?? '';
+    const cifCode = data.cifCode ?? data.cif ?? '';
+    const solId = data.solId ?? '';
+    const functionOption = data.functionOption ?? 'O';
+
+    await this.functionOption.selectOption(functionOption);
     await this.page.waitForTimeout(1000);
-    
-    await this.currency.fill(data.ccy);
-    await this.solId.fill(data.solId);
+
+    await this.currency.fill(ccy);
+    await this.solId.fill(solId);
     await this.solId.press('Tab');
     await this.page.waitForTimeout(2000);
-    
-    await this.cifId.fill(data.cifCode);
+
+    await this.cifId.fill(cifCode);
     await this.cifId.press('Tab');
     await this.page.waitForTimeout(2000);
   }

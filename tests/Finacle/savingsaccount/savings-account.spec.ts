@@ -4,6 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import TEST_DATA from '../../../data/savings-account-test-data.json';
+import { DEFAULT_CUSTOMER, SAVINGS_TEST_DATA } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
@@ -11,7 +12,7 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 const SECOND_USERNAME = CREDENTIALS.secondCredentials.username;
 const SECOND_PASSWORD = CREDENTIALS.secondCredentials.password;
-const BASE_ACCOUNT_DATA = COMMON_DATA.baseAccountData;
+const BASE_ACCOUNT_DATA = (({ dispatchMode, ...rest }) => rest)(DEFAULT_CUSTOMER);
 
 let loginPage: LoginPage;
 let homePage: HomePage;
@@ -34,7 +35,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 // Test 1: Hardcoded - random scheme selection
-const HARDCODED_RANDOM_DATA = COMMON_DATA.hardcodedRandomData;
+const HARDCODED_RANDOM_DATA = SAVINGS_TEST_DATA;
 
 test('save savings bank account - random scheme', async () => {
   console.log('Creating savings account with random scheme (hardcoded)...');
@@ -52,7 +53,7 @@ test('save savings bank account - random scheme', async () => {
 // Test 2: Hardcoded - SVREG scheme
 test('save savings bank account with SVREG scheme', async () => {
   console.log('Creating savings account with SVREG scheme (hardcoded)...');
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const isCreated = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', isCreated.message);
@@ -148,7 +149,7 @@ test('SB verification', async ({ page }) => {
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
   await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
@@ -220,7 +221,7 @@ test('HACI enquiry', async ({ page }) => {
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
   await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
@@ -271,7 +272,7 @@ test('HTM transaction management', async ({ page }) => {
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
   await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
@@ -341,7 +342,7 @@ test('HTM transaction management with HACLINQ', async ({ page }) => {
   console.log('Creating savings account...');
   await savingsAccountPage.selectCoreServer();
   await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
-  await savingsAccountPage.createSavingsAccount(COMMON_DATA.svregTestData);
+  await savingsAccountPage.createSavingsAccount(SAVINGS_TEST_DATA);
 
   const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);

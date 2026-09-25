@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
@@ -11,7 +12,7 @@ const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = process.env.FLOW7_HTM_SOL_ID ?? '100';
+const SOL_ID = DEFAULT_CUSTOMER.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.

@@ -1,6 +1,8 @@
 import { Page } from '@playwright/test';
 import { AccountPage } from './AccountPage';
+import { DEFAULT_CUSTOMER } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
+import { getApplicationDate } from '../../helpers/common';
 
 export interface LodgeResult {
   type: string;
@@ -20,9 +22,6 @@ export class CollateralLodgePage extends AccountPage {
     super(page);
   }
 
-  private today() {
-    return '01-10-2026';
-  }
 
   private async fillByAnyLabelSafe(labels: string[], value: string): Promise<boolean> {
     for (const label of labels) {
@@ -180,7 +179,7 @@ export class CollateralLodgePage extends AccountPage {
       await this.setGeneralBase('CBLT1BMD', '500');
       await this.visitLoanTab('Particulars', 'particulars', 'Full Benefit');
       await this.logVisibleFields('Deposit Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({
         lodgedDate: today,
         reviewDate: today,
@@ -204,7 +203,7 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Immovable Property Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
       await this.selectByLabel('Nature of Charge', 'Immovable Property');
@@ -241,7 +240,7 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Vehicle Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       const vehicleValue = '1000'; // policy amount equals the collateral value
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.setNatureOfCharge('Motor Vehicles');
@@ -276,7 +275,7 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Others Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.fillByAnyLabelSafe(['Collateral Value', 'Collateral Amt', 'Collateral Amount', 'Value'], '1000');
       await this.validateHclm();
@@ -296,7 +295,7 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Life Insurance Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.fillByAnyLabelSafe(['Last Premium Date', 'Date of Last Premium'], today);
       await this.fillCollateralLifeInsuranceParticulars({
@@ -323,10 +322,10 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars', 'Guarantor Name');
       await this.logVisibleFields('Guarantee Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today });
       await this.setGuaranteeGuarantorTypePersonal();
-      await this.fillByLabel('Guarantor ID', '0005000599');
+      await this.fillByLabel('Guarantor ID', DEFAULT_CUSTOMER.cifCode);
       await this.selectGuaranteeType('G002');
       await this.fillByLabel('Collateral Value', '500');
       await this.fillByAnyLabelSafe(['Address Line 1', 'Address', 'Address1'], 'MAPLE AVENUE');
@@ -363,8 +362,8 @@ export class CollateralLodgePage extends AccountPage {
       await this.visitLoanTab('Particulars', 'particulars', 'A/c. ID');
       await this.logVisibleFields('Transactional Accounts Particulars tab');
 
-      // Step 6: Lodged and Review Date = 30-09-2026.
-      const today = this.today();
+      // Step 6: Lodged and Review Date.
+      const today = await getApplicationDate(this.page);
       await this.setTextByCandidates(['lodgedDate_ui', 'lodgedDate'], today, 'Lodged Date');
       await this.setTextByCandidates(['reviewDate_ui', 'reviewDate'], today, 'Review Date');
 
@@ -404,7 +403,7 @@ export class CollateralLodgePage extends AccountPage {
       // Step 6-8: Go to Particulars, enter dates, frequency, then Validate and Submit.
       await this.visitLoanTab('Particulars', 'particulars', 'Frequency for Statement');
       await this.logVisibleFields('Inventory Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
       await this.selectByLabel('Frequency for Statement', 'Monthly', 0);
@@ -429,7 +428,7 @@ export class CollateralLodgePage extends AccountPage {
 
       await this.visitLoanTab('Particulars', 'particulars', 'No. of Units');
       await this.logVisibleFields('Mutual Fund Particulars tab');
-      const today = this.today();
+      const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
       await this.addCollateralDistinctiveRow({

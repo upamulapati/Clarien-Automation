@@ -6,8 +6,10 @@ import { TermDepositPage } from './CoreBanking/TermDepositPage';
 import { TermDepositSpflowPage } from './CoreBanking/TermDepositSpflowPage';
 import { TopUpDepositPage } from './CoreBanking/TopUpDepositPage';
 import { loginToFinacle } from '../helpers/finacleSetup';
+import { DEFAULT_CUSTOMER, SERVICE_PACK_NOMINATION_DATA, TOP_UP_DEPOSIT_DATA } from '../config/testData';
 import COMMON_DATA from '../../data/common-data.json';
 import { readLatestCollateralId, recordCollateralId, resetCollateralIds } from '../helpers/sharedState';
+import { getApplicationDate } from '../helpers/common';
 
 export class ServicePackPage {
   private page: Page;
@@ -32,7 +34,7 @@ export class ServicePackPage {
   async servicePackNominationValidation(): Promise<{ accountNumber: string | null; message: string | null }> {
     const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
-      const acct = COMMON_DATA.servicePackNominationValidation;
+      const acct = SERVICE_PACK_NOMINATION_DATA;
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
       await this.accountPage.fillBasicAccountDetails(acct as any);
@@ -48,7 +50,7 @@ export class ServicePackPage {
       await this.accountPage.setNominationFlagAndType();
       await this.accountPage.visitNominationDetailsTab();
       await this.accountPage.fillNominationDetails({
-        cifId: '4100058365',
+        cifId: DEFAULT_CUSTOMER.cifCode,
         relationship: 'others',
         registrationNo: '101',
         sequenceNo: '01',
@@ -134,7 +136,7 @@ export class ServicePackPage {
     try {
       const COLLATERAL_CODE = 'GOVG1BMD';
       const CEILING_LIMIT = '500';
-      const GUARANTOR_ID = '0005000599';
+      const GUARANTOR_ID = DEFAULT_CUSTOMER.cifCode;
       const GUARANTEE_TYPE = 'G002';
       const COLLATERAL_VALUE = '500';
       await this.accountPage.selectCoreServer();
@@ -154,7 +156,7 @@ export class ServicePackPage {
       const guarantorFilled = await this.accountPage.fillByLabel('Guarantor ID', GUARANTOR_ID);
       await this.accountPage.selectGuaranteeType(GUARANTEE_TYPE);
       const collateralValueFilled = await this.accountPage.fillByLabel('Collateral Value', COLLATERAL_VALUE);
-      const today = this.accountPage.collateralToday();
+      const today = await getApplicationDate(this.page);
       await this.accountPage.fillCollateralParticulars({ lodgedDate: today, receivedDate: today });
       await this.accountPage.clickButtonByText('Validate');
       await this.accountPage.acceptWarningPopup();
@@ -261,7 +263,7 @@ export class ServicePackPage {
       await this.page.waitForTimeout(2000);
       await this.accountPage.visitLoanTab('Particulars', 'particulars', 'From Derive Value');
       await this.accountPage.logVisibleFields('Immovable Property Particulars tab');
-      const today = this.accountPage.collateralToday();
+      const today = await getApplicationDate(this.page);
       await this.accountPage.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.accountPage.setCollateralDueDate(today);
       await this.accountPage.fillCollateralImmovablePropertyParticulars({
@@ -449,7 +451,7 @@ export class ServicePackPage {
       await this.page.waitForTimeout(2000);
       await this.accountPage.visitLoanTab('Particulars', 'particulars', 'No. of Units');
       await this.accountPage.logVisibleFields('Collateral Particulars tab');
-      const today = this.accountPage.collateralToday();
+      const today = await getApplicationDate(this.page);
       await this.accountPage.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.accountPage.setCollateralDueDate(today);
       await this.accountPage.addCollateralDistinctiveRow({
@@ -504,7 +506,7 @@ export class ServicePackPage {
       await this.page.waitForTimeout(2000);
       await this.accountPage.visitLoanTab('Particulars', 'particulars');
       await this.accountPage.logVisibleFields('Life Insurance Collateral Particulars tab');
-      const today = this.accountPage.collateralToday();
+      const today = await getApplicationDate(this.page);
       await this.accountPage.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.accountPage.setCollateralDueDate(today);
       await this.accountPage.fillCollateralLifeInsuranceParticulars({
@@ -792,17 +794,17 @@ export class ServicePackPage {
     repaymentAcctId?: string;
   }): Promise<{ flowEndDateModified: boolean; message: string; screenshot: Buffer }> {
     const topUpData = {
-      ...COMMON_DATA.topUpDeposit,
+      ...TOP_UP_DEPOSIT_DATA,
       ...data,
       initialDepositAmt: data?.initialDepositAmt ?? '1000',
       instalmentAmt: data?.instalmentAmt ?? '500',
       depositPeriodMonths: data?.depositPeriodMonths ?? '24',
-      modeOfOperation: data?.modeOfOperation ?? COMMON_DATA.topUpDeposit.modeOfOperation,
-      dispatchMode: data?.dispatchMode ?? COMMON_DATA.topUpDeposit.dispatchMode,
-      cifCode: data?.cifId ?? COMMON_DATA.topUpDeposit.cifCode,
-      repaymentAcctId: data?.repaymentAcctId ?? COMMON_DATA.topUpDeposit.repaymentAcctId,
+      modeOfOperation: data?.modeOfOperation ?? TOP_UP_DEPOSIT_DATA.modeOfOperation,
+      dispatchMode: data?.dispatchMode ?? TOP_UP_DEPOSIT_DATA.dispatchMode,
+      cifCode: data?.cifId ?? TOP_UP_DEPOSIT_DATA.cifCode,
+      repaymentAcctId: data?.repaymentAcctId ?? TOP_UP_DEPOSIT_DATA.repaymentAcctId,
     };
-    const schemeCode = data?.schemeCode ?? COMMON_DATA.topUpDeposit.schemeCode;
+    const schemeCode = data?.schemeCode ?? TOP_UP_DEPOSIT_DATA.schemeCode;
     await new HomePage(this.page).logout().catch(() => {});
     const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {

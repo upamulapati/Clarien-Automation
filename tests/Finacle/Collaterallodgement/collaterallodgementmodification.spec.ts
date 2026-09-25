@@ -5,6 +5,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 import { readLatestCollateralId } from '../../helpers/sharedState';
+import { getApplicationDateOffset } from '../../helpers/common';
 
 // Collateral modification (HCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -71,7 +72,7 @@ test('HCLM - modify lodged collateral', async ({ page }) => {
   console.log('Visiting Particulars tab...');
   await collateralPage.visitLoanTab('Particulars', 'particulars');
 
-  const nextMonth = collateralPage.collateralDateOffset(1);
+  const nextMonth = await getApplicationDateOffset(page, 1);
   console.log(`Modifying review date to next month: ${nextMonth}...`);
   await collateralPage.setCollateralReviewDate(nextMonth);
 
