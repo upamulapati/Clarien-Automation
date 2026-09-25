@@ -1,11 +1,19 @@
 import { Page, Dialog } from '@playwright/test';
 import { AppConfig } from './crmTestData';
 import { LoginPage } from '../pages/HomePages/LoginPage';
+import { captureEvidence } from '../helpers/evidence';
 
+// =====================================================================
+// Global logout state flag
+// =====================================================================
 let logoutInProgress = false;
 
 export function setLogoutInProgress(value: boolean): void {
   logoutInProgress = value;
+}
+
+export function isLogoutInProgress(): boolean {
+  return logoutInProgress;
 }
 
 // =====================================================================
@@ -25,6 +33,7 @@ export async function login(page: Page, config: AppConfig) {
     const appSelectVisible = await lf.locator('#appSelect').isVisible({ timeout: 5000 }).catch(() => false);
     if (appSelectVisible) {
       console.log('✓ appSelect visible after login');
+      await captureEvidence(page, 'CRM login complete', { username: config.username, baseUrl: config.baseUrl });
       return;
     }
 
@@ -35,6 +44,7 @@ export async function login(page: Page, config: AppConfig) {
     const appSelectAfter = await lf.locator('#appSelect').isVisible({ timeout: 10000 }).catch(() => false);
     if (appSelectAfter) {
       console.log('✓ appSelect visible after session reset');
+      await captureEvidence(page, 'CRM login complete (session reset)', { username: config.username, baseUrl: config.baseUrl });
       return;
     }
 
@@ -55,13 +65,8 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
     const msg = d.message();
     lastDialogMessages?.push(msg);
     console.log(`Dialog message: ${msg.substring(0, 150)}`);
-    // Dismiss logout/leave confirmations so the page is not closed mid-test.
-    if (d.type() === 'beforeunload' || /log\s*out|logoff|are you sure/i.test(msg)) {
-      if (logoutInProgress) {
-        await d.accept().catch(() => {});
-      } else {
-        await d.dismiss().catch(() => {});
-      }
+    if (d.type() === 'prompt') {
+      await d.accept(d.defaultValue()).catch(() => {});
     } else {
       await d.accept().catch(() => {});
     }
@@ -73,6 +78,11 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
       if (popup.isClosed()) return;
       const url = popup.url();
       console.log(`Global popup handler: ${url.substring(url.lastIndexOf('/') + 1).substring(0, 80)}`);
+
+      if (url.includes('excp_popup_screen')) {
+        console.log(`excp_popup_screen detected: ${url.substring(url.lastIndexOf('/') + 1).substring(0, 80)}`);
+      }
+
       popup.on('dialog', async (dialog) => {
         const msg = dialog.message();
         console.log(`Popup dialog: "${msg}"`);

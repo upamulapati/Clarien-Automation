@@ -13,3 +13,9 @@ test(`${SCREEN_CODE} - term deposit credit frozen closure`, async ({ page }) => 
   expect(result.status).toBeTruthy();
   expect(result.status).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

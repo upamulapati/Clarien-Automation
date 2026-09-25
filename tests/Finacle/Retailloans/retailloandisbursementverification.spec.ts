@@ -3,13 +3,16 @@ import { RetailLoanDisbursementPage } from '../../pages/CoreBanking/RetailLoanDi
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
+import { getSharedValue } from '../../helpers/sharedState';
 
 // Verifier user who authorises the retail-loan disbursement.
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
-// Test data: update with the same loan account used in the disbursement creation spec.
-const LOAN_ACCOUNT_NUMBER = '3200000043';
+// Use the same loan account that was used in the disbursement creation spec.
+const SHARED_LOAN_ACCOUNT = getSharedValue<string>('loanAccountId');
+const LOAN_ACCOUNT_NUMBER = SHARED_LOAN_ACCOUNT ?? '3200000080';
+if (SHARED_LOAN_ACCOUNT) console.log(`[SharedState] Using loan account from previous run: ${SHARED_LOAN_ACCOUNT}`);
 
 test('HLADISB - disbursement verification for retail loan', async ({ page }) => {
   test.setTimeout(300000);
@@ -47,4 +50,10 @@ test('HLADISB - disbursement verification for retail loan', async ({ page }) => 
   } finally {
     await homePage.logout().catch(() => {});
   }
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

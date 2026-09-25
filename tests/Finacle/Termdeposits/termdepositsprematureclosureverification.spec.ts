@@ -44,3 +44,9 @@ test(`${SCREEN_CODE} - term deposit premature closure verification`, async ({ pa
     await homePage.logout().catch(() => {});
   }
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

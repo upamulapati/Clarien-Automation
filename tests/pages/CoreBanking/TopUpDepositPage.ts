@@ -516,7 +516,7 @@ export class TopUpDepositPage extends TermDepositPage {
         return text.includes('INSTALLMENT INFLOW') || (text.includes('NI') && text.includes('INFLOW'));
       });
       if (!niRow) return '';
-      const dates = Array.from(((niRow as HTMLElement).innerText || '').matchAll(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/g)).map(m => m[1]!);
+      const dates = Array.from(((niRow as HTMLElement).innerText || '').matchAll(/(\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4})/g)).map((m: RegExpMatchArray) => m[1]);
       return dates.length > 0 ? dates[dates.length - 1] : '';
     });
     console.log(`NI / INSTALLMENT INFLOW End Date from Flow tab: ${niEndDate}`);

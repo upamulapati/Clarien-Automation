@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { getPrimaryConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
@@ -25,7 +26,7 @@ const CONFIG = {
 };
 
 // Existing savings account number to which the related party will be added.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -70,7 +71,7 @@ test.describe('Add Related Party to Savings Account', () => {
 
     // Step 4: A/c Id - Enter the existing account number
     console.log('Entering account ID to modify...');
-    await accountPage.enterHacmAccountId(ACCOUNT_ID);
+    await accountPage.enterHacmAccountId(ACCOUNT_ID || '7500001476');
 
     // Click Go to load the account
     console.log('Clicking Go button...');
@@ -119,4 +120,10 @@ test.describe('Add Related Party to Savings Account', () => {
     console.log('Logging out...');
     await homePage.logout();
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

@@ -23,3 +23,9 @@ test.describe('Service Pack - Government Guarantee Collateral', () => {
   expect(result.addressDetailsVisible).toBeTruthy();
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

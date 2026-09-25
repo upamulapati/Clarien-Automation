@@ -6,7 +6,6 @@ const suiteName = process.argv[2];
 
 if (!suiteName) {
   console.error('Usage: node scripts/runOrdered.js <suiteName>');
-  console.error('Available suites are defined in tests/config/testOrder.json');
   process.exit(1);
 }
 
@@ -19,8 +18,7 @@ if (fs.existsSync(sharedStateFile)) {
 }
 
 if (!testOrder[suiteName]) {
-  console.error(`Suite "${suiteName}" not found in testOrder.json`);
-  console.error(`Available suites: ${Object.keys(testOrder).join(', ')}`);
+  console.error(`Suite "${suiteName}" not found.`);
   process.exit(1);
 }
 
@@ -29,7 +27,7 @@ const patchScript = path.resolve(__dirname, 'patch-fs.js').replace(/\\/g, '/');
 const cwd = path.resolve(__dirname, '..');
 const env = {
   ...process.env,
-  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim()
+  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim(),
 };
 
 function readSharedStateJson() {
@@ -78,48 +76,63 @@ function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastH
   return overrides;
 }
 
+function writeLastRunManifest() {
+  const resultsDir = path.resolve(cwd, 'reports', 'allureReports');
+  const files = fs.existsSync(resultsDir)
+    ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json')).sort()
+    : [];
+  const manifest = { suite: suiteName, timestamp: new Date().toISOString(), files };
+  fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
+}
+
+// Clear shared state
+const sharedStateFile = path.resolve(cwd, 'data', 'shared-state.json');
+if (fs.existsSync(sharedStateFile)) {
+  fs.writeFileSync(sharedStateFile, '{}', 'utf8');
+}
+
+// Clean reports
+const htmlReportDir = path.resolve(cwd, '../reports/htmlReport');
+const allureResultsDir = path.resolve(cwd, 'reports/allureReports');
+const allureReportDir = path.resolve(cwd, 'reports/allure-report');
+[
+  htmlReportDir,
+  allureResultsDir,
+  allureReportDir
+].forEach(dir => {
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+console.log('Previous reports cleaned.\n');
+
 const files = testOrder[suiteName];
-console.log(`Running suite "${suiteName}" – ${files.length} spec(s) in order:`);
-files.forEach((f, i) => console.log(`  ${i + 1}. ${f}`));
-console.log('');
-
-// Run each spec file as a separate Playwright invocation so that:
-//  1. Execution order is guaranteed (Playwright sorts files internally).
-//  2. Each file gets a fresh browser context (no login state leaks).
-let htmOccurrence = 0;
-let savingsModOccurrence = 0;
-let lastHtmOverrides = {};
-
+console.log(`Running suite: ${suiteName}\n`);
+let exitCode = 0;
+let failedFile = '';
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
-  const command = `npx playwright test --workers=1 ${file} ${headed}`.trim();
-  console.log(`\n[${i + 1}/${files.length}] ${file}`);
-  console.log(`> ${command}\n`);
-
-  let stepEnv = env;
-  if (suiteName === 'flow7') {
-    if (file.includes('accountfundingsavingsaccount.spec.ts')) htmOccurrence++;
-    if (file.includes('savingsaccountmodification.spec.ts')) savingsModOccurrence++;
-    const state = readSharedStateJson();
-    const overrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
-    if (overrides.FLOW7_HTM_DEBIT) {
-      lastHtmOverrides = { ...overrides };
-    }
-    stepEnv = { ...env, ...overrides };
-    if (Object.keys(overrides).length > 0) {
-      console.log(`[flow7] step env: ${JSON.stringify(overrides)}`);
-    }
-  }
-
+  console.log(`[${i + 1}/${files.length}] ${file}`);
+  const command=`npx playwright test --workers=1 ${file} ${headed}`;
   try {
-    execSync(command, { stdio: 'inherit', cwd, env: stepEnv });
-  } catch (_) {
-    const remaining = files.length - i - 1;
-    console.error(`\n✖ Suite "${suiteName}" aborted — spec [${i + 1}/${files.length}] failed: ${file}`);
-    if (remaining > 0) {
-      console.error(`  Skipping ${remaining} remaining spec(s):`);
-      files.slice(i + 1).forEach((f, j) => console.error(`    ${i + 2 + j}. ${f}`));
-    }
-    process.exit(1);
+    execSync(command, {
+      cwd,
+      stdio: 'inherit',
+      env
+    });
+  } catch (e) {
+    console.error(`\nExecution stopped.`);
+    console.error(`Failed Spec: ${file}`);
+    exitCode = 1;
+    failedFile = file;
+    break;
   }
 }
+
+writeLastRunManifest();
+
+if (exitCode !== 0) {
+  console.error(`\nFailed Spec: ${failedFile}`);
+  process.exit(exitCode);
+}
+console.log('\nAll ordered specs executed successfully.');

@@ -10,3 +10,9 @@ test(COMMON_DATA.servicePackNominationValidation.testLabel, async ({ page }) => 
   console.log('Service Pack Nomination Validation - Account created:', result.accountNumber);
   expect(result.accountNumber).toBeTruthy();
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

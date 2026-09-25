@@ -111,3 +111,9 @@ for (const schemeCode of CURRENT_ACCOUNT_SCHEMES) {
     await homePage.logout();
   });
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

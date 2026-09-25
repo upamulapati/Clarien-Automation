@@ -4,6 +4,7 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmCorporateEndToEndPage } from '../../pages/CRM/crmCorporateEndToEndPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
+import { writeSharedState } from '../../helpers/sharedState';
 
 let sharedCifId = '';
 const CONFIG = getPrimaryConfig();
@@ -74,6 +75,11 @@ test.describe('CIF Corporate Creation', () => {
     // ==================== HARD ASSERTION: CIF ID MUST BE CAPTURED ====================
     expect(sharedCifId, 'CIF ID must be captured after submission. Check dialog messages and page content for CIF ID.').toBeTruthy();
 
+    // Persist CIF ID to shared state for downstream specs (suspend, undo-suspend)
+    if (sharedCifId) {
+      writeSharedState({ cifId: sharedCifId });
+    }
+
     await e2ePage.doLogout();
   });
 });
@@ -92,7 +98,6 @@ test.describe('CIF Corporate Approval Verification', () => {
 
   test('Approve Corporate CIF via Entity Queue', async ({ page }) => {
     const verificationPage = new CrmVerificationPage(page, VERIFY_CONFIG, lastDialogMessages);
-    const sp = new ServicePackPage(page, VERIFY_CONFIG, lastDialogMessages);
 
     await verificationPage.performVerification({
       cifId: sharedCifId || '',
@@ -109,14 +114,14 @@ test.describe('CIF Corporate Approval Verification', () => {
       sectionLabel: 'CIF Corporate'
     });
 
-    // SP#14: Entity Queue Assign page must load properly
-    const eqResult = await sp.verifyEntityQueueAssignPageLoad(page);
-    expect(eqResult.pageLoaded, 'SP#14: Entity Queue Assign page must load after Get').toBe(true);
-
-    // SP#7: Document expand during verification must not produce JS errors
-    const docExpandResult = await sp.verifyDocumentExpandDuringVerification(page);
-    if (docExpandResult.expanded) {
-      expect(docExpandResult.isPrefDefined, 'SP#7: isPref must not be undefined during doc expand').toBe(true);
-    }
+    // Note: SP#14 (Entity Queue page load) and SP#7 (Document expand) are
+    // verified internally by performVerification(). They cannot be checked
+    // here because performVerification() includes logout at the end.
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

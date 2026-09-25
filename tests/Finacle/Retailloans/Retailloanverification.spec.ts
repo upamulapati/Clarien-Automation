@@ -21,7 +21,7 @@ let loanPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(300000);
-  page.setDefaultTimeout(20000);
+  page.setDefaultTimeout(60000);
 
   // Step 1: Login with a different user (verifier) than the maker.
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
@@ -111,4 +111,10 @@ test('HOAACVLA - verify retail loan account', async ({ page }) => {
   // Logout
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

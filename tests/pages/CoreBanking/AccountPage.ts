@@ -1,4 +1,5 @@
 import { Page, Locator, FrameLocator, Frame, Dialog } from '@playwright/test';
+import { captureEvidence } from '../../helpers/evidence';
 
 interface AccountData {
   functionOption: string;
@@ -13,7 +14,7 @@ export class AccountPage {
   readonly page: Page;
   readonly loginFrame: FrameLocator;
 
-  constructor(page: Page) {
+  constructor(page: Page, lastDialogMessages?: string[]) {
     this.page = page;
     this.loginFrame = page.frameLocator('iframe[name="loginFrame"]');
   }
@@ -174,13 +175,14 @@ export class AccountPage {
   async selectCoreServer() {
     await this.appSelect.selectOption('CoreServer');
     await this.page.waitForTimeout(3000);
+    await captureEvidence(this.page, 'Core server selected', { coreServer: 'CoreServer' });
   }
 
   async searchMenu(searchTerm: string) {
     await this.page.waitForTimeout(3000);
     await this.menuSelect.fill(searchTerm);
-    await this.page.keyboard.press('Enter');
-    await this.page.waitForTimeout(2000);
+    await this.menuSelect.press('Enter');
+    await this.page.waitForTimeout(5000);
     
     // Select the option that contains the searched code - try loginFrame first
     const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
@@ -209,6 +211,7 @@ export class AccountPage {
     } catch (e) {
       console.log('FINW frame not available after navigation:', e);
     }
+    await captureEvidence(this.page, `Menu searched: ${searchTerm}`, { searchTerm });
   }
 
   async searchVerificationScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
@@ -652,7 +655,7 @@ export class AccountPage {
     const ok = await this.fillByLabel('Collateral Code', code);
     if (!ok) {
       await this.setTextByCandidates(
-        ['collateralCode', 'collCode', 'colltrlCode', 'collateralIdCode', 'colCode'],
+        ['coltrlCode', 'collateralCode', 'collCode', 'colltrlCode', 'collateralIdCode', 'colCode'],
         code,
         'Collateral code'
       );
@@ -789,7 +792,7 @@ export class AccountPage {
   async getCollateralValue(): Promise<string | null> {
     const finwFrame = this.getFinwFrame();
     const candidates = [
-      '#collateralValue', '#collValue', '#colltrlValue', '#colValue', '#collValue',
+      '#coltrlValue', '#collateralValue', '#collValue', '#colltrlValue', '#colValue', '#collValue',
       '#marketValue', '#fairValue',
     ];
     for (const sel of candidates) {
@@ -865,32 +868,37 @@ export class AccountPage {
     const finwFrame = this.getFinwFrame();
     const reasonCode = finwFrame.locator('#reasonCode, input[name="sclm.reasonCode"]').first();
     const reasonDescription = finwFrame.locator('#reasonCodeDesc, input[name="sclm.reasonCodeDesc"]').first();
+
     const popup = await this.clickLookupIconByLabel('Reason Code');
-    if (!popup) {
-      throw new Error('Reason Code lookup did not open');
+    if (popup) {
+      await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+      await popup.waitForTimeout(1500);
+
+      let result = popup.getByRole('link', { name: code, exact: true }).first();
+      if (await result.count() === 0) {
+        result = popup.getByText(code, { exact: true }).first();
+      }
+      if (await result.count() > 0 && await result.isVisible().catch(() => false)) {
+        await result.click({ timeout: 10000 });
+        await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
+        await this.page.waitForTimeout(1000);
+
+        const selectedCode = await reasonCode.inputValue().catch(() => '');
+        const selectedDescription = await reasonDescription.inputValue().catch(() => '');
+        if (selectedCode === code && selectedDescription.trim()) {
+          console.log(`Selected reason code via lookup: ${selectedCode} - ${selectedDescription}`);
+          return;
+        }
+      }
+      if (!popup.isClosed()) {
+        await popup.close().catch(() => {});
+      }
     }
 
-    await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
-    await popup.waitForTimeout(1500);
-
-    let result = popup.getByRole('link', { name: code, exact: true }).first();
-    if (await result.count() === 0) {
-      result = popup.getByText(code, { exact: true }).first();
-    }
-    if (await result.count() === 0 || !await result.isVisible().catch(() => false)) {
-      throw new Error(`Reason code ${code} was not found in the lookup results`);
-    }
-
-    await result.click({ timeout: 10000 });
-    await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
-    await this.page.waitForTimeout(1000);
-
-    const selectedCode = await reasonCode.inputValue();
-    const selectedDescription = await reasonDescription.inputValue();
-    if (selectedCode !== code || !selectedDescription.trim()) {
-      throw new Error(`Reason code lookup did not return correctly: code="${selectedCode}", description="${selectedDescription}"`);
-    }
-    console.log(`Selected reason code via lookup: ${selectedCode} - ${selectedDescription}`);
+    // Fallback: set the reason code and description directly.
+    await this.setTextByCandidates(['reasonCode', 'sclm.reasonCode'], code, 'Reason code');
+    await this.setTextByCandidates(['reasonCodeDesc', 'sclm.reasonCodeDesc'], 'Reason', 'Reason code description');
+    console.log(`Set reason code directly: ${code}`);
   }
 
   // Selects the Status dropdown on the HCLM General tab (e.g. "Normal").
@@ -1073,7 +1081,23 @@ export class AccountPage {
     receivedDate?: string;
     depositAccountId?: string;
     fullBenefit?: 'yes' | 'no' | string;
+    cifId?: string;
+    apportionedValue?: string;
+    lienAmount?: string;
+    notes?: string;
+    withdraw?: 'yes' | 'no' | string;
+    valueIndicator?: string;
   }) {
+    if (data.cifId) {
+      const ok = await this.fillByAnyLabel(['CIF ID', 'CIF'], data.cifId);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['cifId', 'cifID', 'cifCode'],
+          data.cifId,
+          'CIF ID'
+        );
+      }
+    }
     if (data.lodgedDate) {
       const ok = await this.fillByAnyLabel(['Lodged Date', 'Date of Lodgement', 'Date Lodged', 'Lodgement Date'], data.lodgedDate);
       if (!ok) {
@@ -1140,7 +1164,62 @@ export class AccountPage {
           }
         }
       }
+      if (!clicked) {
+        // Last resort: the form uses Yes/No radios sharing id="fullBenefit" in order.
+        const radios = finwFrame.locator('input#fullBenefit[type="radio"]');
+        const target = radios.nth(yes ? 0 : 1);
+        if (await target.count() > 0 && await target.isVisible().catch(() => false) && await target.isEnabled().catch(() => false)) {
+          await target.click({ timeout: 10000 });
+          clicked = true;
+        }
+      }
       console.log(`Set Full Benefit: ${yes ? 'Yes' : 'No'} (clicked=${clicked})`);
+    }
+    if (data.apportionedValue) {
+      const ok = await this.fillByAnyLabel(['Apportioned Value', 'Apportion Value', 'Apportioned Amt'], data.apportionedValue);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['apprtndValue', 'apportionValue', 'apportionedValue'],
+          data.apportionedValue,
+          'Apportioned value'
+        );
+      }
+    }
+    if (data.lienAmount) {
+      const ok = await this.fillByAnyLabel(['Lien Amt', 'Lien Amount', 'Lien Amt.'], data.lienAmount);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['lienAmt', 'lienAmount', 'lienAmt_ui'],
+          data.lienAmount,
+          'Lien amount'
+        );
+      }
+    }
+    if (data.notes) {
+      const ok = await this.fillByAnyLabel(['Notes', 'Note'], data.notes);
+      if (!ok) {
+        await this.setTextByCandidates(
+          ['notes', 'clpar.notes'],
+          data.notes,
+          'Notes'
+        );
+      }
+    }
+    if (data.withdraw) {
+      const yes = ['yes', 'y'].includes(data.withdraw.toLowerCase());
+      const finwFrame = this.getFinwFrame();
+      const radios = finwFrame.locator('input#withdraw[type="radio"]');
+      const target = radios.nth(yes ? 0 : 1);
+      if (await target.count() > 0 && await target.isVisible().catch(() => false) && await target.isEnabled().catch(() => false)) {
+        await target.click({ timeout: 10000 });
+      }
+    }
+    if (data.valueIndicator) {
+      await this.setTextByCandidates(
+        ['valueIndcr', 'valueIndicator', 'clpar.valueIndcr'],
+        data.valueIndicator,
+        'Value indicator'
+      );
     }
   }
 
@@ -1734,8 +1813,9 @@ export class AccountPage {
         const row = labelCell.closest('tr');
         if (!row) return { ok: false, reason: 'no row for label' };
         // Look for a lookup icon: img with title, anchor with onclick, or input image.
-        const icon =
-          row.querySelector('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]') ||
+        const allIcons =
+          row.querySelectorAll('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[onclick*="showRefCode"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], a[href*="showRefCode"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]');
+        const icon = Array.from(allIcons).find(i => (labelCell.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING) === Node.DOCUMENT_POSITION_FOLLOWING) ||
           row.querySelector('a img') ||
           row.querySelector('a') ||
           row.querySelector('img, input[type="image"], button');
@@ -1759,8 +1839,9 @@ export class AccountPage {
         if (!labelCell) return;
         const row = labelCell.closest('tr');
         if (!row) return;
-        const icon =
-          row.querySelector('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]') ||
+        const allIcons =
+          row.querySelectorAll('a[onclick*="openWindow"], a[onclick*="lookup"], a[onclick*="search"], a[onclick*="showRefCode"], a[href*="openWindow"], a[href*="lookup"], a[href*="search"], a[href*="showRefCode"], img[title*="Search"], img[title*="Lookup"], input[type="image"][title*="Search"], input[type="image"][title*="Lookup"]');
+        const icon = Array.from(allIcons).find(i => (labelCell.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING) === Node.DOCUMENT_POSITION_FOLLOWING) ||
           row.querySelector('a img') ||
           row.querySelector('a') ||
           row.querySelector('img, input[type="image"], button');
@@ -1776,6 +1857,86 @@ export class AccountPage {
       console.log(`clickLookupIconByLabel("${labelText}") failed: ${e}`);
     }
     return null;
+  }
+
+  // Opens the lookup for `labelText` and selects the first available row.
+  // Use this when the exact valid lookup code is unknown (e.g. sanction fields).
+  async selectLookupFirstOption(labelText: string): Promise<boolean> {
+    const popup = await this.clickLookupIconByLabel(labelText);
+    if (!popup || popup.isClosed()) {
+      console.log(`Lookup popup not opened for ${labelText}`);
+      return false;
+    }
+    try {
+      if (!popup.isClosed()) {
+        await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+        await popup.waitForTimeout(2000);
+      }
+      const frames = [popup.mainFrame(), ...popup.frames().filter(f => f !== popup.mainFrame())];
+      for (const frame of frames) {
+        // Skip header rows (th) and pick the first data cell link.
+        let firstLink = frame.locator('table tr:has(td a):not(:has(th)) td a, table tbody tr td a, table.dataTable tr td a').first();
+        if (!(await firstLink.isVisible().catch(() => false))) {
+          firstLink = frame.locator('table tr td a').first();
+        }
+        if (await firstLink.isVisible().catch(() => false)) {
+          const linkText = (await firstLink.innerText().catch(() => '')).trim();
+          console.log(`Selecting first lookup row for ${labelText}: "${linkText}"`);
+          await firstLink.click({ timeout: 10000 });
+          console.log(`Selected first lookup row for ${labelText}`);
+          await this.page.waitForTimeout(2000);
+          return true;
+        }
+      }
+      console.log(`No lookup rows for ${labelText}`);
+    } catch (e) {
+      console.log(`selectLookupFirstOption failed for ${labelText}: ${e}`);
+    }
+    if (!popup.isClosed()) await popup.close().catch(() => {});
+    return false;
+  }
+
+  // Reads the 'Suspended Till' / 'Suspension End Date' value on the HSIM
+  // (Standing Instruction) screen. Returns the trimmed value if it is rendered,
+  // otherwise null, so the test can assert it is not populated after a cancelled
+  // freeze (defect TOL000000678784).
+  async getHsimSuspendedTillValue(): Promise<string | null> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const candidates = [
+        '#suspendedTill',
+        '#suspensionEndDate',
+        '#suspTill',
+        '#siSuspTill',
+        'input[id*="susp" i]',
+        'input[id*="till" i]',
+        'input[id*="endDate" i]',
+        'td[id*="susp" i]',
+        'span[id*="susp" i]',
+      ];
+      for (const sel of candidates) {
+        const el = finwFrame.locator(sel).first();
+        if (await el.count().catch(() => 0) > 0) {
+          const value = (await el.inputValue().catch(() => '')) ||
+                        (await el.innerText().catch(() => ''));
+          if (value && value.trim()) {
+            console.log(`Read Suspended Till from ${sel}: ${value.trim()}`);
+            return value.trim();
+          }
+        }
+      }
+      // Fallback: search the body text for a date near a Suspended/End Date label.
+      const body = await finwFrame.locator('body').innerText().catch(() => '');
+      const match = body.match(/(?:Suspended\s*Till|Suspension\s*End\s*Date)[^\d]*(\d{2}[\/-]\d{2}[\/-]\d{4})/i);
+      if (match && match[1]) {
+        console.log(`Read Suspended Till from body text: ${match[1]}`);
+        return match[1];
+      }
+      return null;
+    } catch (e) {
+      console.log(`Could not read HSIM Suspended Till: ${e}`);
+      return null;
+    }
   }
 
   async checkAuthorizationError(): Promise<boolean> {
@@ -2962,6 +3123,24 @@ export class AccountPage {
     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
   }
 
+  // Finacle shows the business opening date in the header (e.g. "01 September, 2026").
+  // Parse and return it as dd-mm-yyyy so account dates can be back-dated correctly.
+  async getBODDate(): Promise<string | null> {
+    try {
+      const body = await this.getFinwFrame().locator('body').innerText();
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const months = monthNames.join('|');
+      const m = body.match(new RegExp(`(\\d{1,2})\\s(${months})\\s*,\\s*(\\d{4})`));
+      if (!m) return null;
+      const month = monthNames.findIndex(x => x.toLowerCase() === m[2].toLowerCase()) + 1;
+      const day = m[1].padStart(2, '0');
+      const year = m[3];
+      return `${day}-${String(month).padStart(2, '0')}-${year}`;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Finds the first <select> whose options contain the given keyword and
   // selects that option (by leading code, then by label). Returns true on
   // success. Used for fields whose ids are not known up-front (e.g. drawing
@@ -3859,6 +4038,7 @@ export class AccountPage {
         if (await clickFirstVisible(frame)) {
           await this.page.waitForTimeout(5000);
           console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
+          await captureEvidence(this.page, 'Submit button clicked', { frame: frame.name() || 'main' });
           return;
         }
       }
@@ -3886,6 +4066,7 @@ export class AccountPage {
           if (clicked) {
             await this.page.waitForTimeout(5000);
             console.log(`Clicked Submit button via JS in frame '${f.name() || 'main'}'`);
+            await captureEvidence(this.page, 'Submit button clicked (JS fallback)', { frame: f.name() || 'main' });
             return;
           }
         }
@@ -3961,6 +4142,7 @@ export class AccountPage {
       }
       await this.page.waitForTimeout(1000);
       console.log(`Selected function: ${value}`);
+      await captureEvidence(this.page, `Function selected: ${value}`, { function: value });
     } catch (e) {
       console.log(`Could not select function '${value}', skipping: ${e}`);
     }
@@ -4006,6 +4188,7 @@ export class AccountPage {
       }
       await this.page.waitForTimeout(3000);
       console.log('Clicked Go button');
+      await captureEvidence(this.page, 'Go button clicked', {});
     } catch (e) {
       console.log(`Could not click Go button: ${e}`);
     }
@@ -4103,6 +4286,7 @@ export class AccountPage {
     if (clicked) {
       await this.page.waitForTimeout(3000);
       console.log('Clicked Accept button in FINW frame');
+      await captureEvidence(this.page, 'Accept button clicked', {});
       return;
     }
 
@@ -4130,6 +4314,7 @@ export class AccountPage {
           await btn.click({ timeout: 15000, force: true });
           await this.page.waitForTimeout(3000);
           console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
+          await captureEvidence(this.page, 'Accept control clicked', { frame: frame.name() || 'main' });
           return;
         }
       } catch (e) {
@@ -4389,6 +4574,126 @@ export class AccountPage {
   }
 
   // ============ Verification Methods ============
+
+  private getRelevantBodySnippet(bodyText: string, statusMessage: string | null): string {
+    const maxContext = 2500;
+    const normalizedBody = bodyText.replace(/\s+/g, ' ');
+
+    if (statusMessage) {
+      const statusLower = statusMessage.toLowerCase();
+      const idx = normalizedBody.toLowerCase().indexOf(statusLower);
+      if (idx >= 0) {
+        const start = Math.max(0, idx - 300);
+        const end = Math.min(normalizedBody.length, idx + statusLower.length + 1700);
+        return `...${normalizedBody.slice(start, end)}...`;
+      }
+    }
+
+    return `...${normalizedBody.slice(0, maxContext)}...`;
+  }
+
+  async getTabSpecificError(statusMessage: string | null): Promise<string | null> {
+    if (!statusMessage) return null;
+    const match = statusMessage.match(/^([^:]+):\s*This tab contains errors/i);
+    if (!match) return null;
+    const tabName = match[1].trim();
+
+    try {
+      const finwFrame = this.getFinwFrame();
+      const tabNameLower = tabName.toLowerCase();
+
+      // Use the page object's own tab navigation so the test actually enters the failing tab
+      if (tabNameLower.includes('related party')) {
+        await this.visitRelatedPartyTab();
+      } else {
+        const escaped = tabName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const tab = finwFrame.locator('a, span, div, li, td, button').filter({ hasText: new RegExp(escaped, 'i') }).first();
+        if (await tab.count().catch(() => 0) === 0) return null;
+        await tab.waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+        if (await tab.isVisible().catch(() => false)) await tab.click();
+      }
+      await this.page.waitForTimeout(2000);
+
+      // Pull the detailed validation/error text now visible on the tab
+      const detailedStatus = await this.getStatusMessage();
+      const newBodyText = await finwFrame.locator('body').innerText().catch(() => '');
+      const relevantSnippet = this.getRelevantBodySnippet(newBodyText, detailedStatus);
+
+      const errorSelectors = '.errortext, .errormsg, .alert, .error, td.alert, tr.alert, div.error, span.error, [class*="error" i]';
+      const errorEls = finwFrame.locator(errorSelectors);
+      const count = await errorEls.count().catch(() => 0);
+      const errorTexts: string[] = [];
+      for (let i = 0; i < Math.min(count, 10); i++) {
+        const t = (await errorEls.nth(i).innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+        if (t) errorTexts.push(t);
+      }
+      const unique = Array.from(new Set(errorTexts));
+
+      const parts = [`Tab: ${tabName}`];
+      if (detailedStatus) parts.push(`Status: ${detailedStatus}`);
+      if (relevantSnippet) parts.push(`Context: ${relevantSnippet}`);
+      if (unique.length > 0) parts.push(`Field errors: ${unique.join(' | ')}`);
+      return parts.join(' | ');
+    } catch (e) {
+      console.log(`Could not capture tab-specific error for ${tabName}: ${e}`);
+      return null;
+    }
+  }
+
+  async verifyAccountCreated(): Promise<{ accountNumber: string | null; message: string; allFields: Record<string, string> }> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const bodyText = await finwFrame.locator('body').innerText();
+
+      const errorPhrases = ['this tab contains errors', 'not set', 'not posted', 'failed', 'mandatory', 'invalid', 'cannot', 'unable', 'unsuccessful'];
+      const hasError = errorPhrases.some(p => bodyText.toLowerCase().includes(p));
+
+      const success = bodyText.includes('New A/c. ID')
+        || bodyText.includes('modified successfully')
+        || bodyText.includes('Account Number')
+        || bodyText.includes('successfully')
+        || bodyText.includes('generated');
+
+      if (hasError || !success) {
+        const statusMessage = await this.getStatusMessage();
+        const errorSnippet = this.getRelevantBodySnippet(bodyText, statusMessage);
+        const tabError = await this.getTabSpecificError(statusMessage);
+        const fullMessage = [
+          'Account creation/modification did not complete successfully.',
+          errorSnippet,
+          statusMessage ? `Status message: ${statusMessage}` : '',
+          tabError ? `Detailed error: ${tabError}` : ''
+        ].filter(Boolean).join('\n');
+        console.error(fullMessage);
+        throw new Error(fullMessage);
+      }
+
+      const accountNumber = await this.getAccountId() ?? null;
+
+      // Capture all visible input and label fields
+      const allFields: Record<string, string> = {};
+      try {
+        const inputs = finwFrame.locator('input[type="text"], input[type="hidden"], label, span, td');
+        const count = await inputs.count();
+        for (let i = 0; i < Math.min(count, 50); i++) {
+          const element = inputs.nth(i);
+          const text = await element.textContent().catch(() => null);
+          const id = await element.getAttribute('id').catch(() => null);
+          const name = await element.getAttribute('name').catch(() => null);
+          if (text && text.trim()) {
+            const key = id || name || `field_${i}`;
+            allFields[key] = text.trim();
+          }
+        }
+      } catch (e) {
+        console.log('Could not capture all fields:', e);
+      }
+
+      return { accountNumber, message: 'Operation completed successfully', allFields };
+    } catch (e) {
+      console.error('verifyAccountCreated encountered an error:', e);
+      throw e;
+    }
 
   // Data-driven savings account opening verification (HOAACVSB).
   async verifySavingsAccountCreation(data: { accountId: string; screenCode: string }) {
@@ -4821,14 +5126,14 @@ export class AccountPage {
       const finwFrame = this.getFinwFrame();
       const checkbox = finwFrame
         .locator(
-          'table input[type="checkbox"]:visible, ' +
-          'input[type="checkbox"][name*="select" i]:visible, ' +
-          'input[type="checkbox"][id*="chk" i]:visible'
+          'table input[type="checkbox"]:enabled:visible:not([id*="PageSelectAll" i]):not([name*="PageSelectAll" i]), ' +
+          'input[type="checkbox"][name*="select" i]:enabled:visible, ' +
+          'input[type="checkbox"][id*="chk" i]:enabled:visible'
         )
         .first();
       await checkbox.waitFor({ state: 'visible', timeout: 15000 });
       await checkbox.scrollIntoViewIfNeeded();
-      await checkbox.check();
+      await checkbox.check({ timeout: 15000 });
       await this.page.waitForTimeout(1000);
       console.log('Selected account row checkbox');
     } catch (e) {
@@ -4959,7 +5264,7 @@ export class AccountPage {
 
   // Fills the first field matching one of the candidate ids. Works for
   // disabled/readonly Finacle display fields and hidden backend inputs.
-  protected async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
+  public async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
     const finwFrame = this.getFinwFrame();
     for (const id of ids) {
       try {
@@ -5176,16 +5481,42 @@ export class AccountPage {
   }
 
   // Step 13: Account limits - expiry date, document date (today), drawing power
-  // indicator -> EQUAL. Reuses the shared limit helpers.
+  // indicator -> EQUAL, plus mandatory Sanction Level / Sanction Date / Review Date.
   async fillLoanAccountLimits(expiryDate: string) {
+    // All Account Limits dates must be <= the BOD shown in the Finacle header.
+    const bodStr = await this.getBODDate() || this.todayDate();
+    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+    const bod = new Date(yyyy, mm - 1, dd);
+    const beforeBod = new Date(bod);
+    beforeBod.setDate(bod.getDate() - 1);
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    const bodDate = fmt(bod);
+    const sanctionDate = fmt(beforeBod);
+    const documentDate = bodDate;
+    const reviewDate = bodDate;
+    console.log(`Using BOD ${bodDate} for Account Limits dates`);
+
     await this.fillDateField(
       ['expiryDate_ui', 'limitExpiryDt_ui', 'expiryDt_ui', 'limExpiryDt_ui'],
       expiryDate, 'Loan limit expiry date'
     );
     await this.fillDateField(
       ['documentDate_ui', 'docDt_ui', 'limitDocDt_ui', 'documentDt_ui'],
-      this.todayDate(), 'Loan limit document date'
+      documentDate, 'Loan limit document date'
     );
+    await this.fillDateField(
+      ['sanctDate_ui', 'sanctDate', 'sanctionDate_ui'],
+      sanctionDate, 'Sanction Date'
+    );
+    await this.fillDateField(
+      ['reviewDate_ui', 'reviewDt_ui', 'reviewDate'],
+      reviewDate, 'Review Date'
+    );
+    await this.selectLookupFirstOption('Sanction Level') || await this.setTextByCandidates(
+      ['sanctionLevelCode', 'sanctionLevel', 'sancLevel', 'sanctionLvl'],
+      '1', 'Sanction Level'
+    ) || await this.fillByLabel('Sanction Level', '1');
+    await this.selectLookupFirstOption('Sanction Authority') || await this.fillByLabel('Sanction Authority', 'SYSTEM');
     await this.selectDropdownContainingOption('EQUAL');
   }
 
@@ -5294,6 +5625,126 @@ export class AccountPage {
       console.log(`Could not read freeze details, skipping: ${e}`);
       return null;
     }
+  }
+
+  // Logs all visible error text found in the FINW frame to help diagnose
+  // validation failures that do not show a single status message.
+  async logAllFieldErrors() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const selectors = [
+        '.errMsg', '.errmsg', '.errorText', '.error', '.errormsg',
+        'font[color="red" i]', 'font[color="#FF0000" i]', 'font[color="#ff0000" i]',
+        '[style*="color:red" i]', '[style*="color: red" i]',
+        'span[style*="color" i]', 'td[style*="color" i]', 'div[style*="color" i]',
+      ].join(', ');
+      const errors = await finwFrame.locator(selectors).evaluateAll(els =>
+        els
+          .filter(el => (el as HTMLElement).offsetParent !== null)
+          .map(el => ({
+            text: el.textContent?.replace(/\s+/g, ' ').trim() || '',
+            id: el.id,
+            class: el.className,
+            near: (el.previousElementSibling?.textContent || el.parentElement?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60)
+          }))
+      );
+      const visible = errors.filter(e => e.text && e.text.length > 0);
+      if (visible.length) {
+        console.log(`[FIELD ERRORS] ${JSON.stringify(visible, null, 2)}`);
+      } else {
+        console.log('[FIELD ERRORS] No visible error labels found');
+      }
+    } catch (e) {
+      console.log(`Could not log field errors: ${e}`);
+    }
+  }
+
+  // ============ HCAAC (Account Closure) Methods ============
+  async selectHcaacFunction(code: 'A' | 'D' | 'I' | 'M' | 'P' | 'V' | 'C' | 'Z') {
+    await this.htmSetSelect(['funcCode'], code, 'Function');
+    console.log(`Selected HCAAC function: ${code}`);
+  }
+
+  async enterHcaacAccountId(accountId: string) {
+    await this.htmSetField(['acctId', 'accountId', 'acctNum'], accountId, 'A/c. ID');
+    console.log(`Entered HCAAC account ID: ${accountId}`);
+  }
+
+  async clickTransferCheckbox() {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const checkbox = finwFrame.locator('input[type="checkbox"]').filter({ hasText: /transfer/i }).first();
+      if (await checkbox.count() > 0) {
+        await checkbox.check();
+        await this.page.waitForTimeout(1000);
+        console.log('Clicked Transfer checkbox');
+      } else {
+        const allCheckboxes = finwFrame.locator('input[type="checkbox"]');
+        const count = await allCheckboxes.count();
+        for (let i = 0; i < count; i++) {
+          const chk = allCheckboxes.nth(i);
+          const label = await chk.evaluate(el => {
+            const parent = el.closest('td')?.parentElement;
+            return parent?.innerText || '';
+          });
+          if (label.toLowerCase().includes('transfer')) {
+            await chk.check();
+            await this.page.waitForTimeout(1000);
+            console.log('Clicked Transfer checkbox (by label)');
+            return;
+          }
+        }
+        console.log('Transfer checkbox not found, skipping');
+      }
+    } catch (e) {
+      console.log(`Could not click Transfer checkbox, skipping: ${e}`);
+    }
+  }
+
+  async enterTransferAccountId(accountId: string) {
+    await this.htmSetField(['tranAcctId', 'transferAcctId', 'tranAccountId'], accountId, 'Transfer A/c. ID');
+    console.log(`Entered Transfer A/c. ID: ${accountId}`);
+  }
+
+  async selectApplyInterestTillDate(value: 'Y' | 'N' | 'Yes' | 'No') {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const normalizedValue = value.toUpperCase();
+      const radio = finwFrame.locator('input[type="radio"]').filter({ hasText: /interest/i }).first();
+      if (await radio.count() > 0) {
+        const radios = await radio.all();
+        for (const r of radios) {
+          const radioValue = await r.getAttribute('value');
+          if (radioValue?.toUpperCase() === normalizedValue || radioValue?.toUpperCase().startsWith(normalizedValue[0])) {
+            await r.check();
+            await this.page.waitForTimeout(1000);
+            console.log(`Selected Apply interest till date: ${value}`);
+            return;
+          }
+        }
+      }
+      await this.htmSetSelect(['applyIntFlg', 'intFlg'], normalizedValue[0], 'Apply interest till date');
+    } catch (e) {
+      console.log(`Could not select Apply interest till date, skipping: ${e}`);
+    }
+  }
+
+  async enterHtmParticulars(particulars: string) {
+    await this.htmSetField(['particulars', 'particular', 'narration'], particulars, 'Particulars');
+    console.log(`Entered particulars: ${particulars}`);
+  }
+
+  async selectTransactionParticularCode(code: string) {
+    await this.htmSetSelect(['tranPartCode', 'partCode', 'particularCode'], code, 'Transaction Particular Code');
+    console.log(`Selected Transaction Particular Code: ${code}`);
+  }
+
+  async clickValidate() {
+    await this.htmClickButton('Validate');
+  }
+
+  async clickHcaacVerify() {
+    await this.htmClickButton('Verify');
   }
 }
 

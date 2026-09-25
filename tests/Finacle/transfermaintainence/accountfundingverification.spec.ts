@@ -15,9 +15,9 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 const TRANSACTION_ID = 'CB1';
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '7010003820';
-const CREDIT_ACCOUNT = '7500001511';//'4600000119';
-const AMOUNT = '100';
+const DEBIT_ACCOUNT = '6000123165';
+const CREDIT_ACCOUNT = '9200000593';//'4600000119';
+const AMOUNT = '1000';
 
 // Today's date in Finacle's DD-MM-YYYY format (transaction date).
 function todayDDMMYYYY(): string {
@@ -139,3 +139,9 @@ async function verifyTransaction(
 
   console.log(`=== VERIFIED TRANSACTION ID: ${transactionId} ===`);
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

@@ -26,3 +26,9 @@ test.describe('Service Pack - Immovable Property Collateral', () => {
     expect(result.statusMessage).toMatch(/linked successfully/i);
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

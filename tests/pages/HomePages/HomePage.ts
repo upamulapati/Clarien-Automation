@@ -1,5 +1,6 @@
 import { Page, Locator, FrameLocator } from '@playwright/test';
 import { setLogoutInProgress } from '../../config/crmSetup';
+import { captureEvidence } from '../../helpers/evidence';
 
 export class HomePage {
   readonly page: Page;
@@ -201,6 +202,8 @@ export class HomePage {
 
   // ============ Logout ============
   async logout() {
+    // Capture the current state before the session is logged out.
+    await captureEvidence(this.page, 'Pre-logout state', {});
     // Tell the global dialog handler to accept the logout confirmation.
     setLogoutInProgress(true);
     try {

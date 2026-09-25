@@ -1,13 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { getPrimaryConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import COMMON_DATA from '../../../data/common-data.json';
-import { getCif, updateSharedState, saveCif } from '../../helpers/sharedState';
+import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { getCreatedCif } from '../../config/cifStore';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
 // otherwise fall back to the hardcoded value in common-data.json.
-const SHARED_CIF = getCif('retail');
+const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 // Use credentials from common-data.json
@@ -56,33 +58,40 @@ test.describe('Savings Account Creation', () => {
   });
 
   test('create savings account - SVREG scheme', async () => {
-    const accountData = { ...COMMON_DATA.svregTestData, ccy: 'BMD', solId: '202' };
+    const accountData: any = { ...COMMON_DATA.svregTestData };
     if (SHARED_CIF) accountData.cifCode = SHARED_CIF;
-    console.log(`Creating savings account SVREG (CIF: ${accountData.cifCode}, CCY: ${accountData.ccy}, SOL: ${accountData.solId})...`);
-    await savingsAccountPage.createSavingsAccount(accountData);
+    try {
+      console.log(`Creating savings account SVREG (CIF: ${accountData.cifCode})...`);
+      await savingsAccountPage.createSavingsAccount(accountData);
 
-    const result = await savingsAccountPage.verifyAccountCreated();
+      const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
   expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
   expect(result.message).toBeTruthy();
-    console.log('Account created:', result.message);
+      console.log('Account created:', result.message);
   expect(result.message).toBeTruthy();
   expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
-    console.log('Captured Account ID:', result.accountNumber);
+      console.log('Captured Account ID:', result.accountNumber);
   expect(result.accountNumber).toBeTruthy();
 
-    // Persist the generated Account ID for downstream verification specs
-    if (result.accountNumber) {
-      updateSharedState((state) => {
-        state.accountId = result.accountNumber!;
-      });
-    }
+      // Persist the generated Account ID for downstream verification specs
+      const { updateSharedState } = require('../../helpers/sharedState');
+      updateSharedState((state: any) => { state.accountId = result.accountNumber; });
 
-    // Persist the CIF used so downstream CIF modification specs use the same customer
-    if (accountData.cifCode) {
-      saveCif('retail', accountData.cifCode);
+      await homePage.logout();
+    } catch (err: any) {
+      console.error('Savings account creation test failed:', err);
+      console.error(`CIF used: ${accountData.cifCode}`);
+      if (lastDialogMessages.length > 0) {
+        console.error(`Dialog messages: ${lastDialogMessages.join(' | ')}`);
+      }
+      throw err;
     }
-
-    await homePage.logout();
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

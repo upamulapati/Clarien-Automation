@@ -587,7 +587,7 @@ export class RetailLoanDisbursementPage extends AccountPage {
 
   private extractTransactionId(text: string | null): string | null {
     if (!text) return null;
-    const match = text.match(/(?:Transaction\s*(?:Id|No|#)?|Tran\s*Id|Transaction\s*Ref)\s*[:\s]*([A-Z0-9]{4,})/i)
+    const match = text.match(/(?:Transaction\s*(?:Id|No|#)?|Tran\s*Id|Transaction\s*Ref)\s*[:\s]*([A-Z0-9]*\d[A-Z0-9]{2,})/i)
       ?? text.match(/\b([A-Z]{2,}\d{2,})\b/);
     return match ? match[1] : null;
   }

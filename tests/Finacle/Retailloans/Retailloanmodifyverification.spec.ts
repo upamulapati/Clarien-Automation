@@ -139,3 +139,9 @@ async function verifyModifiedLoanAccount(
   console.log('Clicking Accept button...');
   await loanPage.clickAccept();
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

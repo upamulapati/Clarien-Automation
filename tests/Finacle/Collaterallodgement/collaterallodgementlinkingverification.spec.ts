@@ -5,17 +5,15 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 import { readLatestCollateralId } from '../../helpers/sharedState';
-import { readTermDepositAccounts } from '../../helpers/sharedState';
+import { readLatestLoanAccount } from '../../helpers/sharedState';
 
 // Collateral linking verification (HSCLM) MUST be performed by a DIFFERENT user
 // than the maker who linked the collateral in collaterallodgementlinking.spec.ts.
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
-// TD account number the collateral was linked to. Pinned to the known-authorized
-// account for this run; set to undefined to fall back to the persisted A/c ID.
-const PINNED_TD_ACCOUNT_ID: string | undefined = '9200000620';
-const TD_ACCOUNT_ID = PINNED_TD_ACCOUNT_ID ?? readTermDepositAccounts()[0]?.accountNumber ?? '9200000593';
+// Loan account the collateral was linked to. Use the latest from shared state.
+const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
 
 // Collateral ID to verify. Prefer the id persisted by the lodgement spec; fall
 // back to this constant when no persisted id is available.
@@ -115,4 +113,10 @@ test('HSCLM - verify collateral linkage', async ({ page }) => {
   // Logout.
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

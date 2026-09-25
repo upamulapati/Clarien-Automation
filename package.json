@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "allure": "^3.10.0",
     "playwright": "^1.59.1",
     "xlsx": "^0.18.5"
   },
@@ -12,13 +11,16 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
+    "pretest": "node -e \"const fs=require('fs'); ['reports/allureReports','reports/allure-report','reports/htmlReport','reports/.last-run.json'].forEach(p=>{if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});}});\"",
     "test": "npx playwright test && npm run allure:generate",
     "test-crmCIFRetail": "node scripts/runOrdered.js crmCIFRetail && npm run allure:generate",
     "test-crmCIFCorporate": "node scripts/runOrdered.js crmCIFCorporate && npm run allure:generate",
     "test-customFlowOne": "node scripts/runOrdered.js customFlow1 && npm run allure:generate",
-    "test-flow7": "node scripts/runOrdered.js flow7 && npm run allure:generate",
-    "test-spec": "node scripts/runSpec.js",
-    "allure:generate": "npx allure generate ./reports/allureReports -o ./reports/allure-report",
+    "test-paymentorder": "node scripts/runOrdered.js paymentorder && npm run allure:generate",
+    "test-endtoendcustom": "node scripts/runOrdered.js endtoendcustom && npm run allure:generate",
+    "test-endtoendwithExistingCIF": "node scripts/runOrdered.js endtoendwithExistingCIF && npm run allure:generate",
+    "allure:generate": "npx allure generate ./reports/allureReports --clean -o ./reports/allure-report && node scripts/generateAllurePdf.js",
+    "pdf:generate": "node scripts/generateAllurePdf.js",
     "allure:open": "npx allure open ./reports/allure-report",
     "allure:report": "npm run allure:generate && npm run allure:open"
   }

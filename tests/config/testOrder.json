@@ -5,9 +5,7 @@
     "tests/Finacle/crmCIFRetail/crmCIFUndoSuspend.spec.ts"
   ],
   "crmCIFCorporate": [
-    "tests/Finacle/crmCIFCorporate/crmCIFCorpEndtoEnd.spec.ts",
-    "tests/Finacle/crmCIFCorporate/crmCIFCorporateSuspend.spec.ts",
-    "tests/Finacle/crmCIFCorporate/crmCIFCorporateUndoSuspend.spec.ts"
+    "tests/Finacle/crmCIFCorporate/crmCIFCorpEndtoEnd.spec.ts"
   ],
   "customFlow1": [
     "tests/Finacle/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
@@ -23,22 +21,61 @@
     "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts"
   ],
-  "flow7": [
+  "paymentorder": [
+    "tests/Finacle/paymentorder/hpordm-remittance.spec.ts",
+    "tests/Finacle/paymentorder/hpordm-verification.spec.ts"
+  ],
+  "endtoendcustom1": [
+    "tests/Finacle/crmCIFRetail/crmCIFEndtoEnd.spec.ts",
     "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
     "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
-    "tests/Finacle/savingsaccount/addrelatedpartydetailsforsavingsaccount.spec.ts",
-     "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
     "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
-    "tests/Finacle/crmCIFRetail/Retailcifmodification.spec.ts",
-    "tests/Finacle/crmCIFRetail/Retailcifmodifyverification.spec.ts",
-    "tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",
-    "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
- "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/Termdeposits/termdepositscreation.spec.ts",
+    "tests/Finacle/Termdeposits/termdepositsverification.spec.ts",
+    "tests/Finacle/Retailloans/Retailloancreation.spec.ts",
+    "tests/Finacle/Retailloans/Retailloanverification.spec.ts",
+    "tests/Finacle/Retailloans/Retailloandisbursement.spec.ts",
+    "tests/Finacle/Retailloans/Retailloandisbursementverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgement.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinkingverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementunlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinkingverification.spec.ts"
+  ],
+  "endtoendwithExistingCIF": [
+    "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts"
+  ],
+  "endtoendcustom": [
+    "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
-"tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",
-    "tests/Finacle/savingsaccount/savingsaccountverification.spec.ts",
-"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
-    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts"
+    "tests/Finacle/Termdeposits/termdepositscreation.spec.ts",
+    "tests/Finacle/Termdeposits/termdepositsverification.spec.ts",
+    "tests/Finacle/Retailloans/Retailloancreation.spec.ts",
+    "tests/Finacle/Retailloans/Retailloanverification.spec.ts",
+    "tests/Finacle/Retailloans/Retailloandisbursement.spec.ts",
+    "tests/Finacle/Retailloans/Retailloandisbursementverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgement.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinkingverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementunlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementunlinkingverification.spec.ts"
+  ],
+  "collateralFlow": [
+    "tests/Finacle/Termdeposits/termdepositscreation.spec.ts",
+    "tests/Finacle/Termdeposits/termdepositsverification.spec.ts",
+    "tests/Finacle/Retailloans/Retailloancreation.spec.ts",
+    "tests/Finacle/Retailloans/Retailloanverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgement.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementlinkingverification.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementunlinking.spec.ts",
+    "tests/Finacle/Collaterallodgement/collaterallodgementunlinkingverification.spec.ts"
   ]
 }

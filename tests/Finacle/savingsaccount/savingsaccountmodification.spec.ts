@@ -1,18 +1,31 @@
 import { test, expect } from '@playwright/test';
+import { getPrimaryConfig } from '../../config/crmTestData';
+import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { getSharedValue } from '../../helpers/sharedState';
-import COMMON_DATA from '../../../data/common-data.json';
 
-const USERNAME = COMMON_DATA.credentials.username;
-const PASSWORD = COMMON_DATA.credentials.password;
+const CONFIG = getPrimaryConfig();
 
-let homePage: HomePage;
-let accountPage: AccountPage;
+// Use Account ID from shared state (written by savingsaccountcreation) for the
+// savings entry; fall back to the hardcoded value in common-data.json.
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
-test.describe('Savings Account Modification', () => {
-  test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
+// Parameterized test: iterates over both savings and current account modification data
+for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savings')) {
+  // For savings type, prefer the dynamically created account ID
+  const effectiveAccountId = acct.type === 'savings' && SHARED_ACCOUNT_ID
+    ? SHARED_ACCOUNT_ID
+    : acct.accountId;
+
+  test.describe(`Account Modification - ${acct.type}`, () => {
+    test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
+
+    let lastDialogMessages: string[] = [];
+    let homePage: HomePage;
+    let accountPage: AccountPage;
 
   test.beforeEach(async ({ page }) => {
     test.setTimeout(300000);
@@ -70,5 +83,11 @@ test.describe('Savings Account Modification', () => {
       console.log('Logging out...');
       await homePage.logout();
     });
-  }
+  });
+}
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

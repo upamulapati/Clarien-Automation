@@ -22,8 +22,9 @@ const MAKER = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 const MOD = CRM_TEST_DATA.retail.modification;
-const CIF_ID = getCreatedCif('retail', MOD.fallbackCifId);
-console.log(`[CIF Modify Verification] Using CIF ID: ${CIF_ID}`);
+const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
+const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 test.describe("CIF Modification Checker", () => {
   let checker: CrmRetailCheckerPage;
@@ -60,7 +61,7 @@ test.describe("CIF Modification Checker", () => {
     await checker.navigateToEntityQueue();
 
     // CHK_004-007: Locate the pending record and approve it (multi-step).
-    const result = await checker.approvePendingModification(CIF_ID);
+    const result = await checker.approvePendingModification(CIF_ID || MOD.fallbackCifId);
     if (result.pendingRecordExists) {
       expect(
         result.approveSelected && result.committed,
@@ -72,8 +73,14 @@ test.describe("CIF Modification Checker", () => {
     }
 
     // CHK_008-015: Log out checker, log in as maker, view Audit Trail history.
-    const auditShown = await checker.verifyAuditTrailAsMaker(CIF_ID, MAKER.username, MAKER.password);
+    const auditShown = await checker.verifyAuditTrailAsMaker(CIF_ID || MOD.fallbackCifId, MAKER.username, MAKER.password);
     expect(auditShown, "Audit Trail approval history must be displayed via View > Audit Trail").toBeTruthy();
     console.log(`✓ CIF Modification Checker flow completed for CIF ${CIF_ID}.`);
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

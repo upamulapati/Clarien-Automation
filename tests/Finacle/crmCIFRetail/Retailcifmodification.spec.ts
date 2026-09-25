@@ -114,3 +114,9 @@ test.describe("CIF Modification Maker Test Suite", () => {
     console.log(`✓ TC_014: Record (CIF ${CIF_ID}) displayed in the grid.`);
   });
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});
