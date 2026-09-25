@@ -3,7 +3,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { CollateralLodgePage } from '../../pages/CoreBanking/CollateralLodgePage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { recordCollateralId, resetCollateralIds } from '../../helpers/sharedState';
+import { readFirstTermDepositAccount, resetCollateralIds, recordCollateralId } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
@@ -70,4 +70,10 @@ test('HCLM - lodge all collateral types sequentially and capture all IDs', async
   ).toEqual([]);
 
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

@@ -3,8 +3,11 @@ import { getPrimaryConfig, getVerificationConfig, CRM_TEST_DATA } from '../../co
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmSuspendPage } from '../../pages/CRM/crmSuspendPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
+import { getSharedValue } from '../../helpers/sharedState';
 
-let sharedCifId = '';
+const SHARED_CIF = getSharedValue('cifId');
+let sharedCifId = SHARED_CIF || '';
+if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const CONFIG = getPrimaryConfig();
 const VERIFY_CONFIG = getVerificationConfig();
@@ -22,7 +25,7 @@ test.describe('CIF Corporate Suspend', () => {
 
   test('Suspend CIF via Operations', async ({ page }) => {
     const suspendPage = new CrmSuspendPage(page, CONFIG, lastDialogMessages);
-    const cifId = CRM_TEST_DATA.corporate.suspend.cifIdToSuspend || sharedCifId;
+    const cifId = sharedCifId || CRM_TEST_DATA.corporate.suspend.cifIdToSuspend;
     if (!cifId) throw new Error('No CIF ID — set cifIdToSuspend in crmTestData.json');
 
     // Step 1-2: Select CRM with Admin login and wait for CRM to load
@@ -174,4 +177,10 @@ test.describe('CIF Corporate Suspend Verification', () => {
       sectionLabel: 'CIF Corporate'
     });
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

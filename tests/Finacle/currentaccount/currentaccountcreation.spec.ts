@@ -1,9 +1,10 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
+import { getCreatedCif } from '../../config/cifStore';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
@@ -19,7 +20,7 @@ const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 const CURRENT_ACCOUNT_SCHEME = COMMON_DATA.currentAccountSchemes[0];
 
 // CIF ID (test data) the current account is opened under.
-const CIF_ID = '0001001423';
+const CIF_ID = getCreatedCif('retail', COMMON_DATA.currentAccountData.cifCode);
 
 let homePage: HomePage;
 let currentAccountPage: AccountPage;
@@ -67,4 +68,10 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
   // Logout the maker
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

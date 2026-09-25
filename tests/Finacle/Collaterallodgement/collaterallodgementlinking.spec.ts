@@ -4,15 +4,15 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId } from '../../helpers/sharedState';
+import { readLatestCollateralId, readLatestLoanAccount } from '../../helpers/sharedState';
 
 // Collateral linking (HSCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// TD account number the collateral is linked to. Use the Life Insurance flow
-// account id as specified in the manual steps.
-const TD_ACCOUNT_ID = '9200000627';
+// Loan account the collateral is linked to. Use the latest loan account from
+// shared state and fall back to the one created by the retail loan flow.
+const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
 
 // Collateral ID to link. Prefer the id persisted by the Life Insurance flow in
 // collaterallodgementspvalidations.spec.ts; fall back to this constant when no
@@ -136,3 +136,9 @@ test('HSCLM - link collateral to account', async ({ page }) => {
   await homePage.logout();
 });
 
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

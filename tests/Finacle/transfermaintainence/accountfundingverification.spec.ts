@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -15,7 +15,7 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 const TRANSACTION_ID = 'CB21';
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '7010003820';
+const DEBIT_ACCOUNT = '6000123165';
 const CREDIT_ACCOUNT = '9200000593';//'4600000119';
 const AMOUNT = '1000';
 
@@ -139,3 +139,9 @@ async function verifyTransaction(
 
   console.log(`=== VERIFIED TRANSACTION ID: ${transactionId} ===`);
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

@@ -10,12 +10,14 @@ import { getSharedValue } from '../../helpers/sharedState';
 const CONFIG = getVerificationConfig();
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '7010003820';
-const CREDIT_ACCOUNT = '4600000119';
+const DEBIT_ACCOUNT = '6000123165';
+const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
+const CREDIT_ACCOUNT = SHARED_CREDIT_ACCOUNT ?? '4600000119';
+if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
 const AMOUNT = '1000';
 
 // Transaction ID: prefer shared state from the posting spec, fallback to hardcoded.
-const SHARED_TXN_ID = getSharedValue('transactionId');
+const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
 const TRANSACTION_ID = SHARED_TXN_ID ?? 'CB18';
 if (SHARED_TXN_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${SHARED_TXN_ID}`);
 
@@ -106,4 +108,10 @@ test.describe('Transfer Maintenance - Verification', () => {
     console.log('Logging out...');
     await homePage.logout();
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

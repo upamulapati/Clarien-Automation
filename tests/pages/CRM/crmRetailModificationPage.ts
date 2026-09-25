@@ -124,6 +124,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   // ---------------------------------------------------------------
   async navigateToEditEntity(): Promise<Frame> {
     const page = this.page;
+    await this.takeScreenshot('Before Navigate to Edit Entity');
     const cfg = CRM_TEST_DATA[this.cifType];
     const screenId = cfg.screenId;
     const menuFrameName = cfg.menuFrameName;

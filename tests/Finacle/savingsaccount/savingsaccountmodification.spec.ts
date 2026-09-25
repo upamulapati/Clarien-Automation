@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
@@ -10,7 +10,7 @@ const CONFIG = getPrimaryConfig();
 
 // Use Account ID from shared state (written by savingsaccountcreation) for the
 // savings entry; fall back to the hardcoded value in common-data.json.
-const SHARED_ACCOUNT_ID = getSharedValue('accountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
 // Parameterized test: iterates over both savings and current account modification data
@@ -68,3 +68,9 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
     });
   });
 }
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -87,9 +87,7 @@ test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page })
 
   // Capture all other result fields
   console.log('Capturing all result fields...');
-  if (result.allFields) {
-    console.log('All captured fields:', JSON.stringify(result.allFields, null, 2));
-  }
+  console.log('Account creation result:', JSON.stringify(result, null, 2));
 
   console.log('Navigating to modification screen...');
   await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modify);
@@ -106,11 +104,15 @@ test('TC_SB_006 - SB A/c Modification with Full Field Capture', async ({ page })
 
   // Capture all modification result fields
   console.log('Capturing all modification result fields...');
-  if (modResult.allFields) {
-    console.log('All modification fields:', JSON.stringify(modResult.allFields, null, 2));
-  }
+  console.log('Modification result:', JSON.stringify(modResult, null, 2));
 
   console.log('Logging out...');
   await homePage.logout();
 });
 
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

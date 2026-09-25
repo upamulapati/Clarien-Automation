@@ -1,5 +1,6 @@
 import { Page, Dialog } from '@playwright/test';
 import { AppConfig } from '../../config/crmTestData';
+import { captureEvidence } from '../../helpers/evidence';
 import { CrmBasePage } from './crmBasePage';
 import { HomePage } from '../HomePages/HomePage';
 
@@ -22,6 +23,7 @@ export class CrmSuspendPage extends CrmBasePage {
 
   async navigateToSuspendForm(screenId: string, menuFrameName?: string): Promise<void> {
     console.log('=== Step 3: Navigate to Operations > Suspend/Undo Suspension ===');
+    await this.takeScreenshot('Before Navigate to Suspend Form');
     const fm = this.page.frame({ name: 'Functionmain' });
     if (fm) {
       await fm.evaluate((sid: string) => document.getElementById(sid)?.click(), screenId);
@@ -145,6 +147,7 @@ export class CrmSuspendPage extends CrmBasePage {
 
   async clickSubmit(): Promise<boolean> {
     let submitClicked = false;
+    await this.takeScreenshot('Before Submit');
     for (const f of this.page.frames()) {
       try {
         const clicked = await f.evaluate(() => { const btns = document.querySelectorAll('input[type="button"], input[type="submit"], button'); for (const b of btns) { if (((b as HTMLInputElement).value || b.textContent || '').trim() === 'Submit') { (b as HTMLElement).click(); return true; } } return false; }).catch(() => false);
@@ -153,6 +156,8 @@ export class CrmSuspendPage extends CrmBasePage {
     }
     if (!submitClicked) console.log('⚠ Submit button not found in any frame');
     await this.page.waitForTimeout(this.timeouts.long);
+    await this.takeScreenshot('After Submit');
+    await captureEvidence(this.page, 'CRM suspend submit', { submitClicked });
     return submitClicked;
   }
 

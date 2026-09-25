@@ -2,6 +2,7 @@ import { Page } from '@playwright/test';
 import { LoginPage } from '../pages/HomePages/LoginPage';
 import { HomePage } from '../pages/HomePages/HomePage';
 import { setupDialogHandlers } from '../config/crmSetup';
+import { captureEvidence } from './evidence';
 
 // Performs the common Finacle login flow used by every spec: auto-accepts
 // dialogs, navigates to the login page, signs in and clears the "already
@@ -30,6 +31,7 @@ export async function loginToFinacle(
     const appSelectVisible = await lf.locator('#appSelect').isVisible({ timeout: 5000 }).catch(() => false);
     if (appSelectVisible) {
       console.log('✓ appSelect visible after login');
+      await captureEvidence(page, 'Login complete', { username, source: 'login' });
       return { loginPage, homePage };
     }
 
@@ -40,6 +42,7 @@ export async function loginToFinacle(
     const appSelectAfter = await lf.locator('#appSelect').isVisible({ timeout: 10000 }).catch(() => false);
     if (appSelectAfter) {
       console.log('✓ appSelect visible after session reset');
+      await captureEvidence(page, 'Login complete (session reset)', { username, source: 'session-reset' });
       return { loginPage, homePage };
     }
 

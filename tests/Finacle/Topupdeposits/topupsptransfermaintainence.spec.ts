@@ -17,3 +17,9 @@ test('HTUTM - top-up transfer maintenance', async ({ page }, testInfo) => {
   expect(result.transactionId).toBeTruthy();
   console.log('Top-up transfer transaction ID:', result.transactionId);
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

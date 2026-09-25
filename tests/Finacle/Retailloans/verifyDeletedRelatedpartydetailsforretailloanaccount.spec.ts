@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 const VERIFY_CONFIG = getVerificationConfig();
 
 // Existing account in which the related party was deleted.
-const SHARED_ACCOUNT_ID = getSharedValue('loanAccountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.loanAccountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '3200000044';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Loan Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -47,7 +47,7 @@ test.describe('Verify Deleted Related Party for Retail Loan Account', () => {
 
     // Step 4: A/c Id - Enter the account number in which related party is deleted
     console.log('Entering account ID to verify...');
-    await accountPage.enterHacmAccountId(ACCOUNT_ID);
+    await accountPage.enterHacmAccountId(ACCOUNT_ID || '3200000044');
 
     // Click Go to load the account into the verification screen
     console.log('Clicking Go button...');
@@ -112,4 +112,10 @@ test.describe('Verify Deleted Related Party for Retail Loan Account', () => {
     console.log('Logging out...');
     await homePage.logout();
   });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

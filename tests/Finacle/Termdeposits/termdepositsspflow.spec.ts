@@ -14,3 +14,9 @@ test('HOAACMTD/HOAACVTD - modify, verify, and validate revised TD principal flow
   await testInfo.attach('term-deposit-revised-flow', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   await spPage.servicePackTermDepositClickOk();
 });
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
+});

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -11,7 +11,7 @@ const PASSWORD = CREDENTIALS.credentials.password;
 
 // Existing account number from which the related party record will be deleted
 // (same account used when the related party was added).
-const SHARED_ACCOUNT_ID = getSharedValue('loanAccountId');
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.loanAccountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '3200000044';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Loan Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
@@ -45,7 +45,7 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
 
   // Step 4: A/c Id - Enter the account number from which to delete the party
   console.log('Entering account ID to modify...');
-  await retailLoanAccountPage.enterHacmAccountId(ACCOUNT_ID);
+  await retailLoanAccountPage.enterHacmAccountId(ACCOUNT_ID || '3200000044');
 
   // Click Go to load the account
   console.log('Clicking Go button...');
@@ -75,4 +75,10 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
   // Logout
   console.log('Logging out...');
   await homePage.logout();
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });

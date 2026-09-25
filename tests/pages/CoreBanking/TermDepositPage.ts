@@ -99,7 +99,7 @@ export class TermDepositPage extends AccountPage {
     }, glCode).catch(() => {});
   }
 
-  private async clickValidate() {
+  public async clickValidate() {
     const selector = 'input[type="button"][value="Validate" i], input[type="submit"][value="Validate" i], button:has-text("Validate")';
     const frames = [this.getTdFrame(), ...this.page.frames()].filter((f): f is Frame => !!f);
     for (const frame of frames) {
@@ -234,10 +234,10 @@ export class TermDepositPage extends AccountPage {
         lefts: [monthInput.getBoundingClientRect().left, dayInput.getBoundingClientRect().left],
       };
     }, { m: months, d: days }).catch((e) => ({ ok: false, reason: String(e) }));
-    if (ok && ok.ok) {
+    if (ok && ok.ok && 'ids' in ok && 'names' in ok && 'lefts' in ok) {
       const fields = [
-        { id: ok.ids[0], name: ok.names[0], val: months },
-        { id: ok.ids[1], name: ok.names[1], val: days },
+        { id: ok.ids?.[0], name: ok.names?.[0], val: months },
+        { id: ok.ids?.[1], name: ok.names?.[1], val: days },
       ];
       for (const f of fields) {
         const attr = f.id || f.name;
@@ -299,7 +299,7 @@ export class TermDepositPage extends AccountPage {
       }
       return { ok: false };
     }, choice.toLowerCase()).catch((e) => ({ ok: false, error: String(e) }));
-    if (result && result.ok) {
+    if (result && result.ok && 'id' in result && 'value' in result && 'clicked' in result) {
       console.log(`Selected Print Renewal Confirmation: ${choice} (id=${result.id}, value=${result.value}, clicked=${result.clicked})`);
       return;
     }

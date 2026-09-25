@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { LoanCalculatorPage } from '../pages/DigitalLending/loanCalculatorPage';
 import testData from '../config/testData.json';
 
@@ -61,4 +61,10 @@ test.describe('Digital Lending - Vehicle Loan Calculator (POM)', () => {
             console.log(`Max Loan Length present: ${data.maxLoanLength}`);
         }
     });
+});
+
+// === STRICT ASSERTIONS INJECTION ===
+test.afterEach(async ({ page }) => {
+  const html = (await page.content()).toLowerCase();
+  expect(html).not.toMatch(/core dump|internal server error/);
 });
