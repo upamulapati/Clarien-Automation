@@ -2669,7 +2669,7 @@ export class ServicePackPage {
     const SCREEN = 'HTDITCI';
     console.log(`[SP #${SERIAL}] [Call ID: ${CALL_ID}] Starting ${SCREEN} TD interest table code searcher validation...`);
 
-    const homePage = await this.login(CREDENTIALS.credentials.username, CREDENTIALS.credentials.password);
+    const homePage = await this.login(COMMON_DATA.credentials.username, COMMON_DATA.credentials.password);
     try {
       await this.accountPage.selectCoreServer();
       await this.accountPage.searchMenu(SCREEN);

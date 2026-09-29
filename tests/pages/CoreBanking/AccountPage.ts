@@ -3044,11 +3044,11 @@ export class AccountPage {
   // ============ Account Creation Methods ============
   async createSavingsAccount(accountData: AccountData) {
     await this.fillBasicAccountDetails(accountData);
-    await this.selectSchemeCode(accountData.schemeCode);
+    await this.selectSchemeCode(accountData.schemeCode ?? undefined);
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
-    const dispatchMode = accountData.dispatchMode || 'post';
+    const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
     await this.fillAllTabs(dispatchMode, false);
     await this.clickSubmit();
   }
@@ -3061,13 +3061,13 @@ export class AccountPage {
   // -> Submit.
   async createCurrentAccount(accountData: AccountData) {
     await this.fillBasicAccountDetails(accountData);
-    await this.selectSchemeCode(accountData.schemeCode);
+    await this.selectSchemeCode(accountData.schemeCode ?? undefined);
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
     // General Details tab - dispatch mode is mandatory
     await this.visitGeneralDetailsTab();
-    await this.selectDispatchMode(accountData.dispatchMode || 'email');
+    await this.selectDispatchMode((accountData.dispatchMode || 'email') as 'email' | 'post' | 'no dispatch');
 
     // Interest Details tab
     await this.visitInterestDetailsTab();
@@ -4622,60 +4622,6 @@ export class AccountPage {
     }
   }
 
-  async verifyAccountCreated(): Promise<{ accountNumber: string | null; message: string; allFields: Record<string, string> }> {
-    try {
-      const finwFrame = this.getFinwFrame();
-      const bodyText = await finwFrame.locator('body').innerText();
-
-      const errorPhrases = ['this tab contains errors', 'not set', 'not posted', 'failed', 'mandatory', 'invalid', 'cannot', 'unable', 'unsuccessful'];
-      const hasError = errorPhrases.some(p => bodyText.toLowerCase().includes(p));
-
-      const success = bodyText.includes('New A/c. ID')
-        || bodyText.includes('modified successfully')
-        || bodyText.includes('Account Number')
-        || bodyText.includes('successfully')
-        || bodyText.includes('generated');
-
-      if (hasError || !success) {
-        const statusMessage = await this.getStatusMessage();
-        const errorSnippet = this.getRelevantBodySnippet(bodyText, statusMessage);
-        const tabError = await this.getTabSpecificError(statusMessage);
-        const fullMessage = [
-          'Account creation/modification did not complete successfully.',
-          errorSnippet,
-          statusMessage ? `Status message: ${statusMessage}` : '',
-          tabError ? `Detailed error: ${tabError}` : ''
-        ].filter(Boolean).join('\n');
-        console.error(fullMessage);
-        throw new Error(fullMessage);
-      }
-
-      const accountNumber = await this.getAccountId() ?? null;
-
-      // Capture all visible input and label fields
-      const allFields: Record<string, string> = {};
-      try {
-        const inputs = finwFrame.locator('input[type="text"], input[type="hidden"], label, span, td');
-        const count = await inputs.count();
-        for (let i = 0; i < Math.min(count, 50); i++) {
-          const element = inputs.nth(i);
-          const text = await element.textContent().catch(() => null);
-          const id = await element.getAttribute('id').catch(() => null);
-          const name = await element.getAttribute('name').catch(() => null);
-          if (text && text.trim()) {
-            const key = id || name || `field_${i}`;
-            allFields[key] = text.trim();
-          }
-        }
-      } catch (e) {
-        console.log('Could not capture all fields:', e);
-      }
-
-      return { accountNumber, message: 'Operation completed successfully', allFields };
-    } catch (e) {
-      console.error('verifyAccountCreated encountered an error:', e);
-      throw e;
-    }
 
   // Data-driven savings account opening verification (HOAACVSB).
   async verifySavingsAccountCreation(data: { accountId: string; screenCode: string }) {
@@ -5641,93 +5587,6 @@ export class AccountPage {
     }
   }
 
-  // ============ HCAAC (Account Closure) Methods ============
-  async selectHcaacFunction(code: 'A' | 'D' | 'I' | 'M' | 'P' | 'V' | 'C' | 'Z') {
-    await this.htmSetSelect(['funcCode'], code, 'Function');
-    console.log(`Selected HCAAC function: ${code}`);
-  }
-
-  async enterHcaacAccountId(accountId: string) {
-    await this.htmSetField(['acctId', 'accountId', 'acctNum'], accountId, 'A/c. ID');
-    console.log(`Entered HCAAC account ID: ${accountId}`);
-  }
-
-  async clickTransferCheckbox() {
-    try {
-      const finwFrame = this.getFinwFrame();
-      const checkbox = finwFrame.locator('input[type="checkbox"]').filter({ hasText: /transfer/i }).first();
-      if (await checkbox.count() > 0) {
-        await checkbox.check();
-        await this.page.waitForTimeout(1000);
-        console.log('Clicked Transfer checkbox');
-      } else {
-        const allCheckboxes = finwFrame.locator('input[type="checkbox"]');
-        const count = await allCheckboxes.count();
-        for (let i = 0; i < count; i++) {
-          const chk = allCheckboxes.nth(i);
-          const label = await chk.evaluate(el => {
-            const parent = el.closest('td')?.parentElement;
-            return parent?.innerText || '';
-          });
-          if (label.toLowerCase().includes('transfer')) {
-            await chk.check();
-            await this.page.waitForTimeout(1000);
-            console.log('Clicked Transfer checkbox (by label)');
-            return;
-          }
-        }
-        console.log('Transfer checkbox not found, skipping');
-      }
-    } catch (e) {
-      console.log(`Could not click Transfer checkbox, skipping: ${e}`);
-    }
-  }
-
-  async enterTransferAccountId(accountId: string) {
-    await this.htmSetField(['tranAcctId', 'transferAcctId', 'tranAccountId'], accountId, 'Transfer A/c. ID');
-    console.log(`Entered Transfer A/c. ID: ${accountId}`);
-  }
-
-  async selectApplyInterestTillDate(value: 'Y' | 'N' | 'Yes' | 'No') {
-    try {
-      const finwFrame = this.getFinwFrame();
-      const normalizedValue = value.toUpperCase();
-      const radio = finwFrame.locator('input[type="radio"]').filter({ hasText: /interest/i }).first();
-      if (await radio.count() > 0) {
-        const radios = await radio.all();
-        for (const r of radios) {
-          const radioValue = await r.getAttribute('value');
-          if (radioValue?.toUpperCase() === normalizedValue || radioValue?.toUpperCase().startsWith(normalizedValue[0])) {
-            await r.check();
-            await this.page.waitForTimeout(1000);
-            console.log(`Selected Apply interest till date: ${value}`);
-            return;
-          }
-        }
-      }
-      await this.htmSetSelect(['applyIntFlg', 'intFlg'], normalizedValue[0], 'Apply interest till date');
-    } catch (e) {
-      console.log(`Could not select Apply interest till date, skipping: ${e}`);
-    }
-  }
-
-  async enterHtmParticulars(particulars: string) {
-    await this.htmSetField(['particulars', 'particular', 'narration'], particulars, 'Particulars');
-    console.log(`Entered particulars: ${particulars}`);
-  }
-
-  async selectTransactionParticularCode(code: string) {
-    await this.htmSetSelect(['tranPartCode', 'partCode', 'particularCode'], code, 'Transaction Particular Code');
-    console.log(`Selected Transaction Particular Code: ${code}`);
-  }
-
-  async clickValidate() {
-    await this.htmClickButton('Validate');
-  }
-
-  async clickHcaacVerify() {
-    await this.htmClickButton('Verify');
-  }
 }
 
 

@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { DEFAULT_CUSTOMER } from '../../config/testData';
-import { getPrimaryConfig } from '../../config/crmTestData';
-import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
-import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
+import { loginToFinacle } from '../../helpers/finacleSetup';
+import { getSharedValue } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
+import COMMON_DATA from '../../../data/common-data.json';
 
 const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;
@@ -36,7 +36,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     test.setTimeout(900000);
     ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
     tmPage = new AccountPage(page);
-    spPage = new ServicePackPage(page, CONFIG);
+    spPage = new ServicePackPage(page);
   });
 
   // HTM - Post a transfer (debit one account, credit another) by part

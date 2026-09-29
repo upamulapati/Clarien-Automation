@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { CRM_TEST_DATA } from "../../config/crmTestData";
 import { getCreatedCif } from "../../config/cifStore";
 import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
+import { getSharedValue } from "../../helpers/sharedState";
 import COMMON_DATA from "../../../data/common-data.json";
 
 // CIF Modification Checker / verification (Page Object Model).
