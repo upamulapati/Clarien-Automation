@@ -1,0 +1,30 @@
+{
+  "cifId": "",
+  "address": {
+    "type": "Mailing",
+    "houseNo": "BLOCK NO 13",
+    "streetNo": "13",
+    "streetName": "HM STREET",
+    "postalCode": "531310",
+    "state": "CALIFORNIA",
+    "stateCode": "US005",
+    "city": "JAFFREY",
+    "country": "Bermuda",
+    "countryCode": "BM"
+  },
+  "phone": {
+    "type": "COMMUNICATION PHONE 1",
+    "phoneNo": "5555555555"
+  },
+  "otherBank": {
+    "bankName": "CLARIEN BANK LIMITED",
+    "branchName": "CLARIEN BANK LIMITED",
+    "productCategory": "CLARIEN TRUST MICROGEN",
+    "accountId": "666666666",
+    "channel": "EMAIL",
+    "addressLine1": "SYENT STREET 08",
+    "city": "AFORE",
+    "state": "CALIFORNIA",
+    "country": "Bermuda"
+  }
+}

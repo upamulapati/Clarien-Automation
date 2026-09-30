@@ -1,0 +1,27 @@
+{
+  "combinedcifmodification_flow": {
+    "address": true,
+    "phone": false,
+    "bank": false
+  },
+  "flow7": {
+    "address": true,
+    "phone": false,
+    "bank": true
+  },
+  "flow3": {
+    "address": false,
+    "phone": false,
+    "bank": true
+  },
+  "flow4": {
+    "address": true,
+    "phone": false,
+    "bank": true
+  },
+  "flow5": {
+    "address": false,
+    "phone": true,
+    "bank": true
+  }
+}

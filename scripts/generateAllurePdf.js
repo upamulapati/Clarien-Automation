@@ -72,10 +72,13 @@ function resolveSuiteName(results) {
 }
 
 function formatDuration(start, stop) {
-  const ms = stop - start;
+  const ms = (stop || 0) - (start || 0);
   if (Number.isNaN(ms) || ms < 0) return 'N/A';
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function formatLogContent(text) {
@@ -100,13 +103,15 @@ function readAttachment(source) {
   }
 }
 
-function collectAttachments(node, out = { images: [], logs: [] }) {
+function collectAttachments(node, out = { images: [], logs: [], data: [] }) {
   for (const att of (node.attachments || [])) {
     const type = att.type || '';
     if (type.startsWith('image/')) {
       out.images.push(att);
     } else if (type.startsWith('text/')) {
       out.logs.push(att);
+    } else if (type.includes('json')) {
+      out.data.push(att);
     }
   }
   for (const step of (node.steps || [])) {
@@ -115,18 +120,60 @@ function collectAttachments(node, out = { images: [], logs: [] }) {
   return out;
 }
 
-function getActionName(name) {
-  return String(name).replace(/\s*-\s*screenshot\s*$/i, '').trim();
+function getAttachmentStep(name) {
+  return String(name)
+    .replace(/\s*-\s*screenshot\s*$/i, '')
+    .replace(/\s*-\s*data\s*$/i, '')
+    .trim();
 }
 
-function renderImageAttachment(att) {
+function getAttachmentContent(att) {
+  if (att.body) {
+    return Buffer.from(att.body, 'base64').toString('utf8');
+  }
+  if (att.source) {
+    const file = readAttachment(att.source);
+    if (!file) return null;
+    return file.toString('utf8');
+  }
+  return null;
+}
+
+function parseDataAttachment(att) {
+  const content = getAttachmentContent(att);
+  if (!content) return null;
+  try {
+    return JSON.parse(content);
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderDataPanel(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
+  const entries = Object.entries(data).filter(([k]) => k !== 'screenshot' && k !== 'timestamp');
+  if (!entries.length) return '';
+  const rows = entries.map(([k, v]) => {
+    const value = v === undefined || v === null ? '' : String(v);
+    const valueClass = value ? 'value-ok' : 'value-missing';
+    return `<tr><td class="data-key">${escapeHtml(k)}</td><td class="data-value ${valueClass}">${escapeHtml(value)}</td></tr>`;
+  }).join('');
+  return `<div class="data-panel">
+    <div class="data-title">Input Data</div>
+    <table class="data-table">${rows}</table>
+  </div>`;
+}
+
+function renderImageAttachment(att, data, status) {
   const file = readAttachment(att.source);
   if (!file) return '';
   const b64 = file.toString('base64');
-  const action = escapeHtml(getActionName(att.name));
-  return `<div class="attachment screenshot">
+  const action = escapeHtml(getAttachmentStep(att.name));
+  const dataHtml = data ? renderDataPanel(data) : '';
+  return `<div class="attachment screenshot status-${status}">
     <img src="data:${att.type};base64,${b64}" alt="${action}" />
     <div class="screenshot-caption">Action: ${action}</div>
+    ${dataHtml}
   </div>`;
 }
 
@@ -135,12 +182,21 @@ function renderTest(result) {
   const suite = getLabel(result, 'suite') || 'Unknown suite';
   const duration = formatDuration(result.start, result.stop);
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
-  const { images } = collectAttachments(result);
+  const status = result.status || 'unknown';
+  const { images, data } = collectAttachments(result);
+
+  const dataByStep = new Map();
+  for (const d of data) {
+    const step = getAttachmentStep(d.name);
+    if (!dataByStep.has(step)) {
+      dataByStep.set(step, parseDataAttachment(d));
+    }
+  }
 
   const seen = new Set();
   const actions = [];
   for (const att of images) {
-    const action = getActionName(att.name);
+    const action = getAttachmentStep(att.name);
     if (!seen.has(action)) {
       seen.add(action);
       actions.push(action);
@@ -150,7 +206,7 @@ function renderTest(result) {
   const mainActionsHtml = actions.length
     ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
     : '';
-  const imgHtml = images.map(renderImageAttachment).join('');
+  const imgHtml = images.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
 
   return `
     <section class="test">
@@ -327,6 +383,18 @@ async function main() {
     .main-actions ol { margin: 0 0 12px 18px; padding: 0; }
     .main-actions li { margin-bottom: 4px; }
     .screenshot-caption { margin-top: 6px; font-weight: 600; color: #333; }
+    .data-panel { margin-top: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; background: #f9f9f9; }
+    .data-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
+    .data-table { border-collapse: collapse; width: 100%; font-size: 9px; }
+    .data-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .data-key { font-weight: 600; color: #333; width: 30%; }
+    .data-value { color: #222; }
+    .value-ok { background: #d4edda; color: #155724; }
+    .value-missing { background: #f8d7da; color: #721c24; }
+    .attachment.status-passed img { border: 3px solid #2da94f; }
+    .attachment.status-failed img { border: 3px solid #d00; }
+    .attachment.status-broken img { border: 3px solid #f39c12; }
+    .attachment.status-skipped img { border: 3px solid #aaa; }
     .log-block { background: #1e1e1e; color: #d4d4d4; padding: 8px; border-radius: 4px; font-family: Consolas, monospace; font-size: 9px; white-space: pre-wrap; }
     .line { padding: 1px 0; }
     .sp-line { background: #3c2a00; color: #ffdd57; font-weight: bold; }

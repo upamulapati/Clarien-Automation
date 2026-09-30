@@ -1,0 +1,30 @@
+{
+  "cifId": "0002037032",
+  "address": {
+    "type": "Mailing",
+    "houseNo": "202",
+    "streetNo": "202",
+    "streetName": "BMD STREET",
+    "postalCode": "HM08",
+    "state": "HAMILTON",
+    "stateCode": "BM001",
+    "city": "HAMILTON",
+    "country": "Bermuda",
+    "countryCode": "BM"
+  },
+  "phone": {
+    "type": "",
+    "phoneNo": ""
+  },
+  "otherBank": {
+    "bankName": "HSBC BANK LIMITED",
+    "branchName": "HSBC HAMILTON",
+    "productCategory": "HSBC CORPORATE",
+    "accountId": "777777777",
+    "channel": "EMAIL",
+    "addressLine1": "HSBC STREET 09",
+    "city": "AFORE",
+    "state": "CALIFORNIA",
+    "country": "Bermuda"
+  }
+}

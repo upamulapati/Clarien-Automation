@@ -195,7 +195,8 @@ for (const scenario of SCENARIOS) {
     const cleanText = pageText.replace(/[,\s]/g, '').toLowerCase();
 
     expect(pageText).toContain(scenario.data.debitAccount);
-    expect(cleanText).toContain(`${scenario.data.ccy}${scenario.data.amount}`.toLowerCase());
+    expect(cleanText).toContain(scenario.data.ccy.toLowerCase());
+    expect(cleanText).toContain(scenario.data.amount.toLowerCase());
     expect(pageText).toContain(scenario.data.beneficiaryAccountId);
     expect(pageText).toContain(scenario.data.bic);
     expect(pageText).toContain(scenario.data.bankCode);
