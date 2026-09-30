@@ -1131,9 +1131,9 @@ export class PaymentOrderPage {
 
         paysysInput.dispatchEvent(new Event('blur', { bubbles: true }));
 
-        if (typeof fnFrontEndEvents_ONCHANGE === 'function') {
+        if (typeof (window as any).fnFrontEndEvents_ONCHANGE === 'function') {
 
-          try { fnFrontEndEvents_ONCHANGE(paysysInput); } catch (e) {}
+          try { (window as any).fnFrontEndEvents_ONCHANGE(paysysInput); } catch (e) {}
 
         }
 

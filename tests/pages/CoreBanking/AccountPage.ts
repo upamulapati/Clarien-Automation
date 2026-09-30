@@ -4625,61 +4625,6 @@ export class AccountPage {
     }
   }
 
-  async verifyAccountCreated(): Promise<{ accountNumber: string | null; message: string; allFields: Record<string, string> }> {
-    try {
-      const finwFrame = this.getFinwFrame();
-      const bodyText = await finwFrame.locator('body').innerText();
-
-      const errorPhrases = ['this tab contains errors', 'not set', 'not posted', 'failed', 'mandatory', 'invalid', 'cannot', 'unable', 'unsuccessful'];
-      const hasError = errorPhrases.some(p => bodyText.toLowerCase().includes(p));
-
-      const success = bodyText.includes('New A/c. ID')
-        || bodyText.includes('modified successfully')
-        || bodyText.includes('Account Number')
-        || bodyText.includes('successfully')
-        || bodyText.includes('generated');
-
-      if (hasError || !success) {
-        const statusMessage = await this.getStatusMessage();
-        const errorSnippet = this.getRelevantBodySnippet(bodyText, statusMessage);
-        const tabError = await this.getTabSpecificError(statusMessage);
-        const fullMessage = [
-          'Account creation/modification did not complete successfully.',
-          errorSnippet,
-          statusMessage ? `Status message: ${statusMessage}` : '',
-          tabError ? `Detailed error: ${tabError}` : ''
-        ].filter(Boolean).join('\n');
-        console.error(fullMessage);
-        throw new Error(fullMessage);
-      }
-
-      const accountNumber = await this.getAccountId() ?? null;
-
-      // Capture all visible input and label fields
-      const allFields: Record<string, string> = {};
-      try {
-        const inputs = finwFrame.locator('input[type="text"], input[type="hidden"], label, span, td');
-        const count = await inputs.count();
-        for (let i = 0; i < Math.min(count, 50); i++) {
-          const element = inputs.nth(i);
-          const text = await element.textContent().catch(() => null);
-          const id = await element.getAttribute('id').catch(() => null);
-          const name = await element.getAttribute('name').catch(() => null);
-          if (text && text.trim()) {
-            const key = id || name || `field_${i}`;
-            allFields[key] = text.trim();
-          }
-        }
-      } catch (e) {
-        console.log('Could not capture all fields:', e);
-      }
-
-      return { accountNumber, message: 'Operation completed successfully', allFields };
-    } catch (e) {
-      console.error('verifyAccountCreated encountered an error:', e);
-      throw e;
-    }
-  }
 
   // Data-driven savings account opening verification (HOAACVSB).
   async verifySavingsAccountCreation(data: { accountId: string; screenCode: string }) {

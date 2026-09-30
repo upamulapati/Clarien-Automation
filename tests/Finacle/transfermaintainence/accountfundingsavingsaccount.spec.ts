@@ -6,7 +6,7 @@ import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { getSharedValue } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
-import { loginToFinacle } from '../../helpers/finacleSetup';
+import { getPrimaryConfig } from '../../config/crmTestData';
 import COMMON_DATA from '../../../data/common-data.json';
 
 const CONFIG = getPrimaryConfig();
@@ -121,10 +121,10 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Surface any validation/exception message from the post.
     const hasError = await tmPage.checkHtmError();
-  expect(hasError).toBe(false);
     if (hasError) {
       await tmPage.logScreenMessages();
     }
+    expect(hasError).toBe(false);
 
     // Capture the generated transaction ID (e.g. "CB5") from the
     // "Posted successfully" confirmation screen for verification.
