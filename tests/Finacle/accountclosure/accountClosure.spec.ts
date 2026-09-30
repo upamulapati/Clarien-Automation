@@ -62,7 +62,7 @@ test.describe('Account Closure - HCAAC', () => {
     await accountPage.selectTransactionParticularCode(CLOSURE_DATA.transactionParticularCode);
     
     console.log('Clicking Validate button...');
-    await accountPage.clickValidate();
+    await accountPage.clickHtmValidate();
     await page.waitForTimeout(2000);
 
     // Step 6: Click Add button

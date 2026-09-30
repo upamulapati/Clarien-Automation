@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getVerificationConfig } from '../../config/crmTestData';
+import { CRM_TEST_DATA, getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';

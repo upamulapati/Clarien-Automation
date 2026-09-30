@@ -1,12 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { getPrimaryConfig } from '../../config/crmTestData';
-import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { getSharedValue } from '../../helpers/sharedState';
-
-const CONFIG = getPrimaryConfig();
+import COMMON_DATA from '../../../data/common-data.json';
 
 // Use Account ID from shared state (written by savingsaccountcreation) for the
 // savings entry; fall back to the hardcoded value in common-data.json.
@@ -29,12 +26,9 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
 
   test.beforeEach(async ({ page }) => {
     test.setTimeout(300000);
-    ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
+    ({ homePage } = await loginToFinacle(page, COMMON_DATA.credentials.username, COMMON_DATA.credentials.password));
     accountPage = new AccountPage(page);
   });
-
-  for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savings')) {
-    const effectiveAccountId = getSharedValue('accountId') ?? acct.accountId;
 
     test(`HACM - modify savings account dispatch mode and A/c status - ${acct.accountId}`, async ({ page }) => {
       console.log('Selecting Core Server...');
