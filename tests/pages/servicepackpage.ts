@@ -2742,6 +2742,287 @@ export class ServicePackPage {
     }
   }
 
+  async servicePackChequeBookIssuedRegisterValidation(): Promise<{
+    solId: string | null;
+    serviceOutlet: string | null;
+    status: string | null;
+    error: string | null;
+    hchbirScreenshot: string | null;
+    hprScreenshot: string | null;
+    printScreenText: string | null;
+  }> {
+    const homePage = await this.login(
+      COMMON_DATA.credentials.username,
+      COMMON_DATA.credentials.password
+    );
+
+    const result = {
+      solId: null as string | null,
+      serviceOutlet: null as string | null,
+      status: null as string | null,
+      error: null as string | null,
+      hchbirScreenshot: null as string | null,
+      hprScreenshot: null as string | null,
+      printScreenText: null as string | null,
+    };
+
+    try {
+      const REPORT_TO = '101';
+      const FROM_ACCOUNT_ID = '9200000603';
+      const REPORT_NAME = 'Cheque Book Issued Reg';
+      const fromDate = await getApplicationDate(this.page);
+
+      // 1. Invoke HCHBIR
+      await this.accountPage.selectCoreServer();
+      await this.accountPage.searchMenu('HCHBIR');
+      await this.page.waitForTimeout(3000);
+
+      // 2. Enter report details
+      const reportToFilled = await this.accountPage.fillByLabel('Report To', REPORT_TO);
+      if (!reportToFilled) {
+        throw new Error(`Could not fill HCHBIR "Report To" with ${REPORT_TO}`);
+      }
+
+      const accountFilled = await this.accountPage.fillByLabel('From A/c. ID', FROM_ACCOUNT_ID);
+      if (!accountFilled) {
+        throw new Error(`Could not fill HCHBIR "From A/c. ID" with ${FROM_ACCOUNT_ID}`);
+      }
+
+      const dateFilled = await this.accountPage.fillByLabel('From Date', fromDate);
+      if (!dateFilled) {
+        throw new Error(`Could not fill HCHBIR "From Date" with ${fromDate}`);
+      }
+
+      // 3. Capture SOL ID before clicking Submit
+      let solId = await this.getValueByLabel('SOL ID');
+      if (!solId) {
+        const bodyText = (await this.getFinwFrame().locator('body').innerText().catch(() => '')) || '';
+        // Finacle header line shows the application date and the current SOL ID, e.g.:
+        // "01 October, 2026               100              01"
+        const headerMatch = bodyText.match(/\d{1,2}\s+[A-Za-z]{3,},\s*\d{4}\s+(\d{1,})\s+\d{1,2}\b/);
+        if (headerMatch) {
+          solId = headerMatch[1].trim();
+          console.log(`SOL ID captured from header: ${solId}`);
+        }
+      }
+      result.solId = solId;
+
+      result.hchbirScreenshot = `test-results/hchbir-criteria-${Date.now()}.png`;
+      await this.page.screenshot({ path: result.hchbirScreenshot, fullPage: true }).catch(() => {});
+
+      if (!solId) {
+        throw new Error('SOL ID was not captured before clicking Submit on HCHBIR');
+      }
+
+      // 4. Click Submit, then OK on the resulting screen
+      await this.accountPage.clickSubmit();
+      await this.page.waitForTimeout(3000);
+      result.status = await this.accountPage.getStatusMessage();
+
+      const submitBody = (await this.getFinwFrame().locator('body').innerText().catch(() => '')) || '';
+      if (/fatal|core error|internal server error/i.test(submitBody)) {
+        throw new Error(
+          `HCHBIR submit returned an error page. Status: ${result.status}. Body: ${submitBody.slice(0, 1000)}`
+        );
+      }
+
+      await this.accountPage.clickOkButton();
+      await this.page.waitForTimeout(3000);
+
+      // 5. Revert to HPR and click Go
+      await this.accountPage.searchMenu('HPR');
+      await this.page.waitForTimeout(3000);
+      await this.accountPage.clickGo();
+      await this.page.waitForTimeout(3000);
+
+      // 6. Select the latest row with "Cheque Book Issued Reg"
+      const finwFrame = this.getFinwFrame();
+
+      const selected = await finwFrame.evaluate(
+        ({ reportName }) => {
+          // Use the innermost (leaf) tables so we don't get the wrapper table
+          const leafTables = Array.from(document.querySelectorAll<HTMLTableElement>('table')).filter(
+            (t) => !t.querySelector('table')
+          );
+          const allRows: string[] = [];
+
+          const parseDate = (s: string) => {
+            const m = s.match(/(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/);
+            if (!m) return null;
+            return new Date(
+              Number(m[3]),
+              Number(m[2]) - 1,
+              Number(m[1]),
+              Number(m[4]),
+              Number(m[5]),
+              Number(m[6])
+            );
+          };
+
+          for (const table of leafTables) {
+            const headerRow = table.querySelector('tr');
+            const headers = Array.from(
+              headerRow ? headerRow.querySelectorAll<HTMLTableCellElement>('th, td') : []
+            ).map((th) => (th.textContent || '').replace(/\s+/g, ' ').trim());
+            const reportNameIdx = headers.findIndex((h) => /Report\s*Name/i.test(h));
+            const dateIdx = headers.findIndex((h) => /^Date$/i.test(h));
+            if (reportNameIdx === -1) continue;
+
+            const rows = Array.from(table.querySelectorAll<HTMLTableRowElement>('tr'));
+            for (const row of rows) {
+              const text = (row.innerText || '').replace(/\s+/g, ' ').trim();
+              if (text) allRows.push(text);
+            }
+
+            let matchedRow: HTMLTableRowElement | null = null;
+            let matchedDate: Date | null = null;
+            let matchedRowText: string | null = null;
+
+            for (let i = 0; i < rows.length; i++) {
+              const tds = Array.from(rows[i].querySelectorAll<HTMLTableCellElement>('td'));
+              if (tds.length === 0) continue;
+              const cellText = (tds[reportNameIdx]?.textContent || '').replace(/\s+/g, ' ').trim();
+              if (cellText.includes(reportName)) {
+                const dateText =
+                  dateIdx >= 0 ? (tds[dateIdx]?.textContent || '').replace(/\s+/g, ' ').trim() : '';
+                const d = parseDate(dateText);
+                if (!matchedDate || (d && d > matchedDate)) {
+                  matchedRow = rows[i];
+                  matchedDate = d;
+                  matchedRowText = rows[i].innerText.replace(/\s+/g, ' ').trim();
+                }
+              }
+            }
+
+            if (matchedRow) {
+              table
+                .querySelectorAll<HTMLInputElement>('input[type="checkbox"], input[type="radio"]')
+                .forEach((el) => (el.checked = false));
+
+              const input =
+                matchedRow.querySelector<HTMLInputElement>(
+                  'td:first-of-type input[type="checkbox"], td:first-of-type input[type="radio"]'
+                ) ||
+                matchedRow.querySelector<HTMLInputElement>(
+                  'input[type="checkbox"], input[type="radio"]'
+                );
+              if (input) {
+                try {
+                  input.scrollIntoView({ block: 'center', inline: 'center' });
+                  input.click();
+                } catch (e) {
+                  // ignore
+                }
+                input.checked = true;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                return { ok: true, rowText: matchedRowText, allRows };
+              }
+              return { ok: false, reason: 'no checkbox/radio in matched row', rowText: matchedRowText, allRows };
+            }
+            return { ok: false, reason: `no row contains report name "${reportName}"`, rowText: table.innerText.slice(0, 500), allRows };
+          }
+          return { ok: false, reason: 'no leaf table with "Report Name" header found', allRows };
+        },
+        { reportName: REPORT_NAME }
+      );
+
+      console.log('HPR queue rows:', selected.allRows);
+      console.log('HPR row selection result:', { ok: selected.ok, rowText: selected.rowText });
+      if (!selected.ok) {
+        throw new Error(
+          `Could not select HPR row for "${REPORT_NAME}": ${selected.reason}. Rows: ${(selected.allRows || []).join(' | ')}`
+        );
+      }
+      await this.page.waitForTimeout(1000);
+
+      // 7. Click Print Screen and capture the resulting text
+      const pagePromise = this.page
+        .context()
+        .waitForEvent('page', { timeout: 30000 })
+        .catch(() => null);
+
+      await this.accountPage.clickButtonByText('Print Screen');
+      await this.page.waitForTimeout(5000);
+
+      let previewPage = await pagePromise;
+      if (!previewPage) {
+        previewPage =
+          this.page
+            .context()
+            .pages()
+            .find((p) => p !== this.page && p.url() && !p.url().includes('about:blank')) || null;
+      }
+
+      let printScreenText = '';
+      if (previewPage && !previewPage.isClosed()) {
+        await previewPage.waitForTimeout(3000);
+        printScreenText = (await previewPage.locator('body').innerText().catch(() => '')) || '';
+      } else {
+        for (const frame of this.page.frames()) {
+          const text = (await frame.locator('body').innerText().catch(() => '')) || '';
+          if (/Service\s*Outlet/i.test(text)) {
+            printScreenText = text;
+            break;
+          }
+        }
+        if (!printScreenText) {
+          printScreenText = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+        }
+      }
+      result.printScreenText = printScreenText;
+
+      result.hprScreenshot = `test-results/hpr-print-queue-${Date.now()}.png`;
+      await this.page.screenshot({ path: result.hprScreenshot, fullPage: true }).catch(() => {});
+
+      // 8. Capture Service Outlet and assert it matches SOL ID
+      const serviceMatch = printScreenText.match(/Service\s*Outlet[\s:]*([0-9]+)/i);
+      result.serviceOutlet = serviceMatch ? serviceMatch[1].trim() : null;
+
+      if (!result.serviceOutlet) {
+        throw new Error(
+          `Service Outlet not found in print screen. Text: ${printScreenText.slice(0, 1000)}`
+        );
+      }
+
+      if (result.solId !== result.serviceOutlet) {
+        throw new Error(
+          `SOL ID (${result.solId}) does not match Service Outlet (${result.serviceOutlet})`
+        );
+      }
+
+      console.log('SOL ID is present in Print Queue Inquiry report');
+
+      // 10. Click Cancel and logout
+      if (previewPage && !previewPage.isClosed()) {
+        await previewPage
+          .locator(
+            'input[value="Cancel" i], button:has-text("Cancel"), input[value="Close" i], button:has-text("Close")'
+          )
+          .first()
+          .click()
+          .catch(() => {});
+      }
+      await this.accountPage.clickButtonByText('Cancel').catch(() => {});
+      await this.page.waitForTimeout(2000);
+
+      return result;
+    } catch (e: any) {
+      const status = await this.accountPage.getStatusMessage().catch(() => null);
+      const bodyText = (await this.getFinwFrame().locator('body').innerText().catch(() => '')) || '';
+      const errorMessage = `HCHBIR/HPR validation failed: ${e.message || e}. Status: ${status}. Body: ${bodyText.slice(0, 2000)}`;
+      result.error = errorMessage;
+      console.error(errorMessage);
+      await this.page
+        .screenshot({ path: `test-results/spchequebookissuedregister-error-${Date.now()}.png`, fullPage: true })
+        .catch(() => {});
+      throw new Error(errorMessage);
+    } finally {
+      if (!this.page.isClosed()) {
+        await homePage.logout().catch(() => {});
+      }
+    }
+  }
+
   private extractTransactionId(text: string | null): string | null {
     if (!text) return null;
     const match = text.match(/(?:Transaction\s*(?:Id|No|#)?|Tran\s*Id|Transaction\s*Ref)\s*[:\s]*([A-Z0-9]{6,})/i)
