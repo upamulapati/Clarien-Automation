@@ -50,8 +50,7 @@ function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastH
   if (file.includes('accountfundingsavingsaccount.spec.ts')) {
     const created = accountId ?? '__ACCOUNT__';
     if (htmOccurrence === 1) {
-      overrides.FLOW7_HTM_DEBIT = '7710003367';
-      overrides.FLOW7_HTM_CREDIT = created;
+      // Keep the spec defaults (6000123165 debit, created credit); just set amount.
     } else if (htmOccurrence === 2) {
       overrides.FLOW7_HTM_DEBIT = created;
       overrides.FLOW7_HTM_CREDIT = '7500001512';
@@ -86,7 +85,6 @@ function writeLastRunManifest() {
 }
 
 // Clear shared state
-const sharedStateFile = path.resolve(cwd, 'data', 'shared-state.json');
 if (fs.existsSync(sharedStateFile)) {
   fs.writeFileSync(sharedStateFile, '{}', 'utf8');
 }
@@ -110,15 +108,24 @@ const files = testOrder[suiteName];
 console.log(`Running suite: ${suiteName}\n`);
 let exitCode = 0;
 let failedFile = '';
+let htmOccurrence = 1;
+let savingsModOccurrence = 1;
+let lastHtmOverrides = null;
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
   console.log(`[${i + 1}/${files.length}] ${file}`);
   const command=`npx playwright test --workers=1 ${file} ${headed}`;
+  env.CIF_MOD_FLOW = suiteName;
+
+  const state = readSharedStateJson();
+  const stepOverrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
+  const childEnv = { ...env, ...stepOverrides };
+
   try {
     execSync(command, {
       cwd,
       stdio: 'inherit',
-      env
+      env: childEnv
     });
   } catch (e) {
     console.error(`\nExecution stopped.`);
@@ -126,6 +133,14 @@ for (let i = 0; i < files.length; i++) {
     exitCode = 1;
     failedFile = file;
     break;
+  }
+
+  if (file.includes('accountfundingsavingsaccount.spec.ts')) {
+    htmOccurrence++;
+    lastHtmOverrides = stepOverrides;
+  }
+  if (file.includes('savingsaccountmodification.spec.ts')) {
+    savingsModOccurrence++;
   }
 }
 

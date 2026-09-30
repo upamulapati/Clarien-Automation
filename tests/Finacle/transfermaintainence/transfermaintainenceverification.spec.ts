@@ -17,11 +17,11 @@ const CONFIG = {
 };
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '6000123165';
+const DEBIT_ACCOUNT = process.env.FLOW7_HTM_DEBIT ?? '6000123165';
 const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = SHARED_CREDIT_ACCOUNT ?? '4600000119';
+const CREDIT_ACCOUNT = process.env.FLOW7_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? '4600000119');
 if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
-const AMOUNT = '1000';
+const AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? '1000';
 
 // Transaction ID: prefer shared state from the posting spec, fallback to hardcoded.
 const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);

@@ -2378,7 +2378,10 @@ export class AccountPage {
     try {
       const finwFrame = this.getFinwFrame();
       const body = await finwFrame.locator('body').innerText();
-      const hasAmount = body.includes(amount);
+      const rawAmount = (amount ?? '').toString().replace(/,/g, '');
+      const formattedAmount = Number(rawAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const normalisedBody = body.replace(/,/g, '').toLowerCase();
+      const hasAmount = normalisedBody.includes(rawAmount.toLowerCase()) || body.includes(formattedAmount);
       const hasType = body.toLowerCase().includes(type.toLowerCase());
       const hasTxn = transactionId ? body.includes(transactionId) : true;
       const pass = hasAmount && (hasType || hasTxn);
