@@ -725,13 +725,93 @@ export class PaymentOrderPage {
 
     if (!rateCode) return;
 
-    for (const label of ['FX Rate', 'Rate Code', 'Exchange Rate', 'Rate']) {
+    const finw = this.getFinwFrame();
 
-      await this.selectByLabel(label, rateCode);
+    const lookupIcon = finw.locator('a[href*="showDrExchRateCode"], a[onclick*="showDrExchRateCode"], img[onclick*="showDrExchRateCode"], a[href*="showExchRateCode"], a[onclick*="showExchRateCode"], img[onclick*="showExchRateCode"]').first();
 
-      await this.fillByLabel(label, rateCode);
+    if (await lookupIcon.count().catch(() => 0) === 0) {
+
+      console.log('No FX Rate lookup icon found; falling back to direct fill');
+
+      await this.fillByLabel('FX Rate', rateCode);
+
+      return;
 
     }
+
+    console.log(`Opening FX Rate lookup for ${rateCode}...`);
+
+    const [popup] = await Promise.all([
+
+      this.page.context().waitForEvent('page', { timeout: 10000 }).catch(() => null),
+
+      lookupIcon.click(),
+
+    ]);
+
+    if (!popup) {
+
+      console.log('No popup window detected; falling back to direct fill');
+
+      await this.fillByLabel('FX Rate', rateCode);
+
+      return;
+
+    }
+
+    console.log('Rate code popup opened:', popup.url());
+
+    try {
+
+      await popup.waitForLoadState('networkidle', { timeout: 15000 });
+
+      const link = popup.locator(`a[href*="${rateCode}|"]`).first();
+
+      if (await link.count() === 0) {
+
+        console.log(`Rate code ${rateCode} not found in popup`);
+
+        await popup.close().catch(() => {});
+
+        return;
+
+      }
+
+      const href = (await link.getAttribute('href')) || '';
+
+      console.log('Rate code link href:', href);
+
+      const match = href.match(/showMain\(([^)]+)\)/);
+
+      const raw = match ? match[1] : `"${rateCode}||"`;
+
+      const d = raw.replace(/&quot;/g, '"').replace(/^["']|["']$/g, '');
+
+      console.log('Calling opener.CommonCallBack with:', d);
+
+      await popup.evaluate((val) => {
+
+        const w = window as any;
+
+        const cb = w.opener?.CommonCallBack || w.opener?.parent?.CommonCallBack || w.opener?.top?.CommonCallBack;
+
+        if (cb) cb(val);
+
+        w.close();
+
+      }, d).catch(() => {});
+
+      await popup.waitForEvent('close', { timeout: 10000 }).catch(() => {});
+
+    } catch (e) {
+
+      console.log('Error selecting rate code from popup:', e);
+
+      await popup.close().catch(() => {});
+
+    }
+
+    await this.page.waitForTimeout(3000);
 
   }
 
@@ -981,7 +1061,7 @@ export class PaymentOrderPage {
 
   async syncRemittanceValues(data: any, businessDate: string) {
 
-    const after = await this.getFinwFrame().evaluate((args) => {
+    const after = await this.getFinwFrame().evaluate(async (args) => {
 
       const { data, businessDate } = args as { data: any; businessDate: string };
 
@@ -1043,6 +1123,24 @@ export class PaymentOrderPage {
 
       set('pordm.routedPaysysId', data.paymentMethod);
 
+      const paysysInput = f.querySelector('input[name="pordm.routedPaysysId"], select[name="pordm.routedPaysysId"]') as any;
+
+      if (paysysInput) {
+
+        paysysInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        paysysInput.dispatchEvent(new Event('blur', { bubbles: true }));
+
+        if (typeof fnFrontEndEvents_ONCHANGE === 'function') {
+
+          try { fnFrontEndEvents_ONCHANGE(paysysInput); } catch (e) {}
+
+        }
+
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
       if (data.settlementMode) {
 
         set('pordm.settlementMode', data.settlementMode);
@@ -1051,9 +1149,55 @@ export class PaymentOrderPage {
 
       set('pordm.chargeOption', data.chargeOption);
 
-      set('pordm.benefPartyBankCode', data.beneficiaryBankCode || '');
+      if (data.rateCode) {
 
-      set('pordm.benefPartyBranchCode', data.beneficiaryBranchCode || '');
+        set('pordm.drexchRateCode', data.rateCode);
+
+        set('pordm.exchRateCode', data.rateCode);
+
+        const rateValue = (f.querySelector('input[name="pordm.exchRate"]') as any)?.value || data.exchRate || '';
+
+        const finalRate = (rateValue && rateValue !== '0.0000' && rateValue !== '0') ? rateValue : '1.0000';
+
+        set('pordm.drexchRate', finalRate);
+
+        set('pordm.exchRate', finalRate);
+
+        const drexchRateCodeEl = f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any;
+
+        if (drexchRateCodeEl) {
+
+          drexchRateCodeEl.value = data.rateCode;
+
+          drexchRateCodeEl.disabled = false;
+
+          if (drexchRateCodeEl.onchange) drexchRateCodeEl.onchange();
+
+          if (drexchRateCodeEl.onblur) drexchRateCodeEl.onblur();
+
+        }
+
+        const exchRateCodeEl = f.querySelector('input[name="pordm.exchRateCode"], #exchRateCode') as any;
+
+        if (exchRateCodeEl) {
+
+          exchRateCodeEl.value = data.rateCode;
+
+          exchRateCodeEl.disabled = false;
+
+          if (exchRateCodeEl.onchange) exchRateCodeEl.onchange();
+
+          if (exchRateCodeEl.onblur) exchRateCodeEl.onblur();
+
+        }
+
+        if (data.drexchRate) set('pordm.drexchRate', data.drexchRate);
+
+      }
+
+      if (data.beneficiaryBankCode) set('pordm.benefPartyBankCode', data.beneficiaryBankCode);
+
+      if (data.beneficiaryBranchCode) set('pordm.benefPartyBranchCode', data.beneficiaryBranchCode);
 
       set('pordm.benefPartyBic', data.beneficiaryBic || '');
 
@@ -1073,9 +1217,9 @@ export class PaymentOrderPage {
 
       set('pordm.awiBic', data.bic || '');
 
-      set('pordm.awiBankCode', data.institutionAddressType === 'F' ? data.bankCode : '');
+      if (data.institutionAddressType === 'F' && data.bankCode) set('pordm.awiBankCode', data.bankCode);
 
-      set('pordm.awiBranchCode', data.institutionAddressType === 'F' ? data.branchCode : '');
+      if (data.institutionAddressType === 'F' && data.branchCode) set('pordm.awiBranchCode', data.branchCode);
 
       set('pordm.awiCntryCode', data.country);
 
@@ -1135,6 +1279,20 @@ export class PaymentOrderPage {
 
         chargeOption: getVal('pordm.chargeOption'),
 
+        exchRateCode: getVal('pordm.exchRateCode'),
+
+        drexchRateCode: getVal('pordm.drexchRateCode'),
+
+        exchRate: getVal('pordm.exchRate'),
+
+        drexchRate: getVal('pordm.drexchRate'),
+
+        customData: (f.querySelector('input[name="customData"]') as any)?.value || null,
+
+        drexchRateCodeId: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.id || null,
+
+        drexchRateCodeName: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.name || null,
+
         benefPartyAddrInd: getVal('pordm.benefPartyAddrInd'),
 
         benefPartyBic: getVal('pordm.benefPartyBic'),
@@ -1164,6 +1322,8 @@ export class PaymentOrderPage {
     }, { data, businessDate });
 
     console.log('After sync:', JSON.stringify(after));
+
+    await this.page.waitForTimeout(5000);
 
   }
 
@@ -1444,7 +1604,15 @@ export class PaymentOrderPage {
 
       const finwFrame = this.getFinwFrame();
 
-      return await finwFrame.locator('body').innerText().catch(() => '');
+      const bodyText = await finwFrame.locator('body').innerText().catch(() => '');
+
+      const fieldValues = await finwFrame.locator('input, select, textarea').evaluateAll((els: any[]) =>
+
+        els.map((el: any) => (el as any).value || '').filter(v => v).join(' ')
+
+      ).catch(() => '');
+
+      return `${bodyText} ${fieldValues}`;
 
     } catch (e) {
 

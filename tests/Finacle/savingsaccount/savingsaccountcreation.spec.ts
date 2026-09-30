@@ -4,7 +4,8 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
-import SAVINGS_DATA from '../../../data/savings-account-test-data.json';
+import DEFAULT_SAVINGS_DATA from '../../../data/savings-account-test-data.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 import COMMON_DATA from '../../../data/common-data.json';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
@@ -14,6 +15,8 @@ if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHA
 
 const CONFIG = getPrimaryConfig();
 const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
+
+const SAVINGS_DATA = (process.env.CIF_MOD_FLOW === 'flow7' ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';
@@ -67,6 +70,7 @@ for (const scenario of SCENARIOS) {
       updateSharedState((state) => {
         if (!state.savingsAccounts) state.savingsAccounts = {};
         state.savingsAccounts[scenario.name] = result.accountNumber ?? '';
+        state.accountId = result.accountNumber ?? '';
       });
 
       await homePage.logout();

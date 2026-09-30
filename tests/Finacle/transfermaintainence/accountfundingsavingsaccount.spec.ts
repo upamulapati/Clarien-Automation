@@ -7,22 +7,26 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { getSharedValue, writeSharedState } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
+import { loginToFinacle } from '../../helpers/finacleSetup';
+import COMMON_DATA from '../../../data/common-data.json';
+
+const CONFIG = getPrimaryConfig();
 
 const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = DEFAULT_CUSTOMER.solId;
+const SOL_ID = process.env.FLOW7_HTM_SOL_ID ?? DEFAULT_CUSTOMER.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
-const DEBIT_ACCOUNT = '6000123165';   // account to be debited
+const DEBIT_ACCOUNT = process.env.FLOW7_HTM_DEBIT ?? '6000123165';   // account to be debited
 // Credit the dynamically created savings account if available.
 const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
-const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? '4600000119';
+const CREDIT_ACCOUNT = process.env.FLOW7_HTM_CREDIT ?? (SHARED_ACCOUNT_ID ?? '4600000119');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
-const AMOUNT = '2000';
+const AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? '2000';
 
 test.describe('Transfer Maintenance - Fund Savings Account', () => {
   

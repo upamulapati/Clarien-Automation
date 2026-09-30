@@ -3,12 +3,15 @@ import { getVerificationConfig } from '../../config/crmTestData';
 import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue } from '../../helpers/sharedState';
-import SAVINGS_DATA from '../../../data/savings-account-test-data.json';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import DEFAULT_SAVINGS_DATA from '../../../data/savings-account-test-data.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 import COMMON_DATA from '../../../data/common-data.json';
 
 const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
 const VERIFY_CONFIG = getVerificationConfig();
+
+const SAVINGS_DATA = (process.env.CIF_MOD_FLOW === 'flow7' ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';
@@ -77,6 +80,17 @@ test.describe('Savings Account Verification', () => {
       // Capture the actual Finacle status message after verification
       const statusMessage = await savingsAccountPage.getStatusMessage();
       console.log('Verification status message:', statusMessage);
+
+      // After verification the permanent account number is shown; persist it.
+      const verifiedAccountId = await savingsAccountPage.getAccountId();
+      console.log('Verified Account ID:', verifiedAccountId);
+      if (verifiedAccountId) {
+        updateSharedState((state) => {
+          state.savingsAccounts ??= {};
+          state.savingsAccounts[scenario.name] = verifiedAccountId;
+          state.accountId = verifiedAccountId;
+        });
+      }
 
       // Logout
       console.log('Logging out...');

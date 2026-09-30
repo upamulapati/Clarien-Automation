@@ -1,5 +1,5 @@
 [
-  { "schemeCode": null, "currency": "BMD", "description": "random scheme" },
+  { "schemeCode": "SVREG", "currency": "BMD", "description": "SVREG" },
   { "schemeCode": "SVREG", "currency": "BMD", "description": "SVREG" },
   { "schemeCode": "SVREG", "currency": "EUR", "description": "SVREG NEWGEN customer" },
   { "schemeCode": "OPBUS", "currency": "BMD" },
