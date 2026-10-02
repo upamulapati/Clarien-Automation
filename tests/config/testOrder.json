@@ -92,5 +92,24 @@
     "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
     "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts", 
     "tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
+  ],
+
+"flow6": [
+    "tests/Finacle/currentaccount/currentaccountcreation.spec.ts",
+    "tests/Finacle/currentaccount/currentaccountcreationverify.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingcurrentaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+    "tests/Finacle/currentaccount/currentaccountmodification.spec.ts",
+    "tests/Finacle/currentaccount/currentaccountmodifyverification.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingcurrentaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+    "tests/Finacle/currentaccount/currentaccountmodification.spec.ts",
+    "tests/Finacle/currentaccount/currentaccountmodifyverification.spec.ts",
+    "tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
   ]
+
+
+
+
+
 }
