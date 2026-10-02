@@ -38,32 +38,14 @@
     "state": "CALIFORNIA",
     "country": "Bermuda"
   },
-  "paymentOrderTestData": [ 
-        
-{
-      "name": "Flow 1 - ACH FCC BMD to USD",
-      "sharedKey": "paymentOrderIdAchFcc",
-      "data": {
-        "debitAccount": "7010003820",
-        "ccy": "USD",
-        "amount": "100",
-        "beneficiaryAddressType": "A",
-        "beneficiaryAccountId": "010247526001",
-        "beneficiaryName": "Anna Evelyn Carr",
-        "beneficiaryAddress": "14140 Abbington Avenue",
-        "beneficiaryCountry": "BM",
-        "institutionAddressType": "B",
-        "bic": "50601002",
-        "bankCode": "BBDABM",
-        "branchCode": "HMXXX",
-        "country": "BM",
-        "paymentMethod": "HSBUS",
-        "chargeOption": "OUR",
-        "paymentProduct": "customer transfer",
-        "needsUsdPopup": true,
-        "rateCode": "TTB"
-      }
-    }
-  ]
-}
+  "initialFundingAmount": "1000",
+  "secondaryFundingAmount": "100",
+  "paymentOrderAmounts": {
+    "paymentOrderIdAch": "100"
+  },
+  "htmDownstreamAmounts": {
+    "htm1": "100",
+    "htmToUsd": "100"
+  }
   
+}

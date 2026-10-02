@@ -3,6 +3,7 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
