@@ -96,3 +96,56 @@ if (fs.promises) {
     return isTestsDir(dir) ? strip(result) : result;
   };
 }
+
+// -------------------------------------------------------------------
+// Temporary credential override for a flow6 run.
+// When CLARIEN_MAKER / CLARIEN_CHECKER are set in the environment, the
+// common-data.json and crmTestData.json credential fields are swapped at
+// read time so the test specs use the requested users without edits.
+// -------------------------------------------------------------------
+const CLARIEN_MAKER = process.env.CLARIEN_MAKER;
+const CLARIEN_CHECKER = process.env.CLARIEN_CHECKER;
+
+if (CLARIEN_MAKER && CLARIEN_CHECKER) {
+  function applyCredentialOverride(p, raw) {
+    const str = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw);
+    const obj = JSON.parse(str);
+    const norm = normPath(p);
+
+    if (norm.endsWith(normPath(path.resolve(__dirname, '../data/common-data.json')))) {
+      obj.credentials = obj.credentials || {};
+      obj.credentials.username = CLARIEN_MAKER;
+      obj.secondCredentials = obj.secondCredentials || {};
+      obj.secondCredentials.username = CLARIEN_CHECKER;
+      obj.verifierCredentials = obj.verifierCredentials || {};
+      obj.verifierCredentials.username = CLARIEN_CHECKER;
+    }
+
+    if (norm.endsWith(normPath(path.resolve(__dirname, '../tests/config/crmTestData.json')))) {
+      obj.common = obj.common || {};
+      obj.common.credentials = obj.common.credentials || {};
+      obj.common.credentials.primary = obj.common.credentials.primary || {};
+      obj.common.credentials.primary.username = CLARIEN_MAKER;
+      obj.common.credentials.verification = obj.common.credentials.verification || {};
+      obj.common.credentials.verification.username = CLARIEN_CHECKER;
+    }
+
+    return JSON.stringify(obj);
+  }
+
+  const origReadFileSync = fs.readFileSync;
+  fs.readFileSync = function (p, options) {
+    const file = String(p);
+    const result = origReadFileSync.apply(fs, arguments);
+    const norm = normPath(file);
+    if (norm.endsWith(normPath(path.resolve(__dirname, '../data/common-data.json'))) ||
+        norm.endsWith(normPath(path.resolve(__dirname, '../tests/config/crmTestData.json')))) {
+      const overridden = applyCredentialOverride(file, result);
+      if (options === 'utf8' || (options && options.encoding === 'utf8')) {
+        return overridden;
+      }
+      return Buffer.from(overridden, 'utf8');
+    }
+    return result;
+  };
+}

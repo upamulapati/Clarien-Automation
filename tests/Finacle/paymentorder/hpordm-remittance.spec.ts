@@ -9,6 +9,7 @@ import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
@@ -16,7 +17,11 @@ if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account f
 const SCENARIOS = ((COMMON_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
   name: scenario.name,
   sharedKey: scenario.sharedKey,
-  data: { ...scenario.data, debitAccount: SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount },
+  data: {
+    ...scenario.data,
+    amount: FLOW7_DATA.paymentOrderAmounts?.[scenario.sharedKey] ?? scenario.data.amount,
+    debitAccount: SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount,
+  },
 }));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });

@@ -2,15 +2,17 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { getSharedValue } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Existing account number from which the related party record will be deleted
-// (same account used when the related party was added).
-const ACCOUNT_ID = '7600000160';
+// Use the account ID created by the upstream savings account creation spec.
+const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
+const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7600000160';
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
 let homePage: HomePage;
 let savingsAccountPage: AccountPage;
@@ -48,7 +50,13 @@ test('HACM - delete related party from account', async ({ page }) => {
   console.log('Clicking Go button...');
   await savingsAccountPage.clickGo();
 
-  // Step 5: Visit Related Party Details
+  // Step 5: Set next print date on General Details to satisfy the "later than or same as BOD" rule
+  console.log('Visiting General Details tab...');
+  await savingsAccountPage.visitTabById('acmogd');
+  console.log('Setting next print date...');
+  await savingsAccountPage.setNextPrintDate();
+
+  // Step 6: Visit Related Party Details
   console.log('Visiting Related Party Details tab...');
   await savingsAccountPage.visitTabById('relatedpartydetails');
 

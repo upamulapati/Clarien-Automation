@@ -1151,43 +1151,92 @@ export class PaymentOrderPage {
 
       if (data.rateCode) {
 
-        set('pordm.drexchRateCode', data.rateCode);
-
-        set('pordm.exchRateCode', data.rateCode);
-
         const rateValue = (f.querySelector('input[name="pordm.exchRate"]') as any)?.value || data.exchRate || '';
 
         const finalRate = (rateValue && rateValue !== '0.0000' && rateValue !== '0') ? rateValue : '1.0000';
 
-        set('pordm.drexchRate', finalRate);
+        const updateRateField = (n: string, v: string) => {
 
-        set('pordm.exchRate', finalRate);
+          set(n, v);
 
-        const drexchRateCodeEl = f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any;
+          const el = f.querySelector(`[name="${n}"]`) as any;
 
-        if (drexchRateCodeEl) {
+          if (el) {
 
-          drexchRateCodeEl.value = data.rateCode;
+            el.value = v;
 
-          drexchRateCodeEl.disabled = false;
+            el.disabled = false;
 
-          if (drexchRateCodeEl.onchange) drexchRateCodeEl.onchange();
+            el.readOnly = false;
 
-          if (drexchRateCodeEl.onblur) drexchRateCodeEl.onblur();
+
+          }
+
+        };
+
+        updateRateField('pordm.drexchRateCode', data.rateCode);
+
+        updateRateField('pordm.exchRateCode', data.rateCode);
+
+        updateRateField('pordm.drexchRate', finalRate);
+
+        updateRateField('pordm.exchRate', finalRate);
+
+        const customDataInput = f.querySelector('input[name="customData"]') as any;
+
+        if (customDataInput) {
+
+          const original = customDataInput.value;
+
+          const prefixMatch = original.match(/^~[^~|]+\|/);
+
+          const prefix = prefixMatch ? prefixMatch[0] : '~pordmpod|';
+
+          const pairs = original.slice(prefix.length).split('|').filter((s: string) => s);
+
+          const map = new Map<string, string>();
+
+          for (let i = 0; i < pairs.length; i += 2) {
+
+            map.set(pairs[i], pairs[i + 1] || '');
+
+          }
+
+          map.set('pordm.drexchRateCode', data.rateCode);
+
+          map.set('pordm.drexchRate', finalRate);
+
+          map.set('pordm.exchRateCode', data.rateCode);
+
+          map.set('pordm.exchRate', finalRate);
+
+          const parts: string[] = [];
+
+          for (const [k, v] of map) { parts.push(k, v); }
+
+          customDataInput.value = prefix + parts.join('|') + '|';
 
         }
 
-        const exchRateCodeEl = f.querySelector('input[name="pordm.exchRateCode"], #exchRateCode') as any;
+        const drexchRateCodeEl = f.querySelector('[name="pordm.drexchRateCode"]') as any;
 
-        if (exchRateCodeEl) {
+        if (drexchRateCodeEl && typeof drexchRateCodeEl.onchange === 'function') {
 
-          exchRateCodeEl.value = data.rateCode;
+          try {
 
-          exchRateCodeEl.disabled = false;
+            console.log('Triggering drexchRateCode onchange');
 
-          if (exchRateCodeEl.onchange) exchRateCodeEl.onchange();
+            drexchRateCodeEl.onchange();
 
-          if (exchRateCodeEl.onblur) exchRateCodeEl.onblur();
+            console.log('drexchRateCode onchange returned');
+
+          } catch (e: any) {
+
+            console.log('drexchRateCode onchange error:', e?.message || e);
+
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 3000));
 
         }
 
@@ -1292,6 +1341,10 @@ export class PaymentOrderPage {
         drexchRateCodeId: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.id || null,
 
         drexchRateCodeName: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.name || null,
+
+        drexchRateCodeInputs: Array.from(f.querySelectorAll('input[name="pordm.drexchRateCode"], #drexchRateCode')).map((el: any) => ({ id: el.id, name: el.name, value: el.value, outer: el.outerHTML })),
+
+        drexchRateInputs: Array.from(f.querySelectorAll('input[name="pordm.drexchRate"], #drexchRate')).map((el: any) => ({ id: el.id, name: el.name, value: el.value, outer: el.outerHTML })),
 
         benefPartyAddrInd: getVal('pordm.benefPartyAddrInd'),
 

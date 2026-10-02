@@ -30,6 +30,11 @@ const env = {
   NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim(),
 };
 
+if (suiteName === 'flow6') {
+  env.CLARIEN_MAKER = 'clariantest13';
+  env.CLARIEN_CHECKER = 'clariantest14';
+}
+
 function readSharedStateJson() {
   try {
     return JSON.parse(fs.readFileSync(sharedStateFile, 'utf-8'));
@@ -50,16 +55,17 @@ function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastH
   if (file.includes('accountfundingsavingsaccount.spec.ts')) {
     const created = accountId ?? '__ACCOUNT__';
     if (htmOccurrence === 1) {
-      // Keep the spec defaults (6000123165 debit, created credit); just set amount.
+      // Keep the spec defaults (6000123165 debit, created credit); initial funding uses flow7.json.
     } else if (htmOccurrence === 2) {
       overrides.FLOW7_HTM_DEBIT = created;
       overrides.FLOW7_HTM_CREDIT = '7500001512';
+      overrides.FLOW7_HTM_AMOUNT = '100';
     } else if (htmOccurrence === 3) {
       // Assumption: third HTM moves back from 7500001512 to the created savings account.
       overrides.FLOW7_HTM_DEBIT = '7500001512';
       overrides.FLOW7_HTM_CREDIT = created;
+      overrides.FLOW7_HTM_AMOUNT = '100';
     }
-    overrides.FLOW7_HTM_AMOUNT = '100';
     overrides.FLOW7_HTM_CCY = 'BMD';
     overrides.FLOW7_HTM_SOL_ID = '100';
   }

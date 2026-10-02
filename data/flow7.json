@@ -37,5 +37,14 @@
     "city": "AFORE",
     "state": "CALIFORNIA",
     "country": "Bermuda"
+  },
+  "initialFundingAmount": "1000",
+  "secondaryFundingAmount": "100",
+  "paymentOrderAmounts": {
+    "paymentOrderIdAch": "100"
+  },
+  "htmDownstreamAmounts": {
+    "htm1": "100",
+    "htmToUsd": "100"
   }
 }

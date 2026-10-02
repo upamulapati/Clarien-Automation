@@ -4703,12 +4703,31 @@ export class AccountPage {
     if (await accountLabel.count() > 0) {
       const accountId = await accountLabel.innerText();
       console.log(`Extracted Account ID from #AcctNum: ${accountId}`);
-      return accountId;
+      return accountId.trim() || null;
     }
-    const accountInput = finwFrame.locator('#acctId, #accountId, #accountNumber, input[name*="acct"], input[name*="account"]').first();
+    const accountInput = finwFrame.locator('#acctId, #accountId, #accountNumber, #tempForacid, #acctNo, #foracid, input[name*="acct"], input[name*="account"]').first();
     if (await accountInput.count() > 0) {
-      return await accountInput.inputValue();
+      const value = (await accountInput.inputValue()).trim();
+      if (value) return value;
     }
+
+    // Fallback: parse the success/status message visible on the page.
+    const bodyText = await finwFrame.locator('body').innerText().catch(() => '');
+    const patterns = [
+      /A\/c\.?\s*ID\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+      /Account\s*(?:Number|No)\.?\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+      /New\s+A\/c\.?\s*ID\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+      /A\/c\.?\s*(?:Number|Num)\.?\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+    ];
+    for (const pattern of patterns) {
+      const match = bodyText.match(pattern);
+      if (match) {
+        const accountId = match[1].replace(/\s+/g, '');
+        console.log(`Extracted Account ID from body text: ${accountId}`);
+        return accountId;
+      }
+    }
+
     return null;
   }
 
