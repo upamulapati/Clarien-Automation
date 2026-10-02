@@ -5,6 +5,7 @@ import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import { recordTransactionId, resetTransactionIds } from '../../helpers/sharedState';
+import FLOW6_DATA from '../../../data/flow6.json';
 
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
@@ -15,9 +16,9 @@ const SOL_ID = DEFAULT_CUSTOMER.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
 // Part transaction details.
-const DEBIT_ACCOUNT = '7010003820';   // account to be debited
-const CREDIT_ACCOUNT = '4600000134';  // SB/CA account to be credited
-const AMOUNT = '100';
+const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? FLOW6_DATA.htmAccounts.debit;
+const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? FLOW6_DATA.htmAccounts.credit;
+const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? FLOW6_DATA.initialFundingAmount;
 
 let homePage: HomePage;
 let tmPage: SavingsBankAccountPage;

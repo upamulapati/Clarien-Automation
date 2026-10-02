@@ -5,7 +5,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getCreatedCif } from '../../config/cifStore';
+import { writeSharedState } from '../../helpers/sharedState';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
@@ -21,7 +21,7 @@ const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 const CURRENT_ACCOUNT_SCHEME = COMMON_DATA.currentAccountSchemes[0];
 
 // CIF ID (test data) the current account is opened under.
-const CIF_ID = getCreatedCif('retail', DEFAULT_CUSTOMER.cifCode);
+const CIF_ID = DEFAULT_CUSTOMER.cifCode;
 
 let homePage: HomePage;
 let currentAccountPage: AccountPage;
@@ -74,6 +74,7 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
     throw new Error(`Failed to capture account ID for scheme ${CURRENT_ACCOUNT_SCHEME}`);
   }
   console.log(`Captured Account ID (scheme ${CURRENT_ACCOUNT_SCHEME}): ${accountId}`);
+  writeSharedState({ accountId });
 
   // Logout the maker
   console.log('Logging out...');

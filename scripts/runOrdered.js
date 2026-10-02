@@ -10,6 +10,7 @@ if (!suiteName) {
 }
 
 const testOrder = require(path.resolve(__dirname, '../tests/config/testOrder.json'));
+const FLOW6_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/flow6.json'), 'utf8'));
 
 const sharedStateFile = path.resolve(__dirname, '../data/shared-state.json');
 if (fs.existsSync(sharedStateFile)) {
@@ -31,8 +32,9 @@ const env = {
 };
 
 if (suiteName === 'flow6') {
-  env.CLARIEN_MAKER = 'clariantest13';
-  env.CLARIEN_CHECKER = 'clariantest14';
+  env.CLARIEN_MAKER = 'finacletest14';
+  env.CLARIEN_CHECKER = 'finacle-test13';
+  env.APPLICATION_DATE = '01-10-2026';
 }
 
 function readSharedStateJson() {
@@ -41,6 +43,41 @@ function readSharedStateJson() {
   } catch {
     return {};
   }
+}
+
+function getFlow6StepEnv(file, state, htmOccurrence, modOccurrence) {
+  const accountId = state?.accountId;
+  const overrides = {};
+
+  if (file.includes('accountfundingcurrentaccount.spec.ts')) {
+    const created = accountId ?? '__ACCOUNT__';
+    if (htmOccurrence === 1) {
+      overrides.FLOW6_HTM_DEBIT = FLOW6_DATA.htmAccounts.debit;
+      overrides.FLOW6_HTM_CREDIT = created;
+      overrides.FLOW6_HTM_AMOUNT = FLOW6_DATA.initialFundingAmount;
+    } else if (htmOccurrence === 2) {
+      overrides.FLOW6_HTM_DEBIT = created;
+      overrides.FLOW6_HTM_CREDIT = FLOW6_DATA.htmAccounts.credit;
+      overrides.FLOW6_HTM_AMOUNT = FLOW6_DATA.secondaryFundingAmount;
+    }
+    overrides.FLOW6_HTM_SOL_ID = FLOW6_DATA.currentAccounts[0].solId;
+  }
+
+  if (file.includes('transfermaintainenceverification.spec.ts') && lastFlow6HtmOverrides) {
+    Object.assign(overrides, lastFlow6HtmOverrides);
+  }
+
+  if (file.includes('currentaccountmodification.spec.ts')) {
+    overrides.FLOW6_DISPATCH_MODE = modOccurrence === 1 ? 'no dispatch' : 'email';
+    overrides.FLOW6_ACCOUNT_STATUS = 'inactive';
+  }
+
+  if (file.includes('currentaccountmodifyverification.spec.ts')) {
+    overrides.FLOW6_DISPATCH_MODE = modOccurrence === 1 ? 'no dispatch' : 'email';
+    overrides.FLOW6_ACCOUNT_STATUS = 'inactive';
+  }
+
+  return overrides;
 }
 
 function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides) {
@@ -121,15 +158,20 @@ let failedFile = '';
 let htmOccurrence = 1;
 let savingsModOccurrence = 1;
 let lastHtmOverrides = null;
+let flow6HtmOccurrence = 1;
+let flow6ModOccurrence = 1;
+let lastFlow6HtmOverrides = null;
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
   console.log(`[${i + 1}/${files.length}] ${file}`);
-  //const command=`npx playwright test --workers=1 ${file} ${headed}`;
-  const command=`npx playwright test --workers=1 ${file}`;
+  const command=`npx playwright test --workers=1 ${file} ${headed}`;
+  //const command=`npx playwright test --workers=1 ${file}`;
   env.CIF_MOD_FLOW = suiteName;
 
   const state = readSharedStateJson();
-  const stepOverrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
+  const flow7Overrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
+  const flow6Overrides = getFlow6StepEnv(file, state, flow6HtmOccurrence, flow6ModOccurrence);
+  const stepOverrides = { ...flow7Overrides, ...flow6Overrides };
   const childEnv = { ...env, ...stepOverrides };
 
   try {
@@ -152,6 +194,13 @@ for (let i = 0; i < files.length; i++) {
   }
   if (file.includes('savingsaccountmodification.spec.ts')) {
     savingsModOccurrence++;
+  }
+  if (file.includes('accountfundingcurrentaccount.spec.ts')) {
+    flow6HtmOccurrence++;
+    lastFlow6HtmOverrides = flow6Overrides;
+  }
+  if (file.includes('currentaccountmodification.spec.ts')) {
+    flow6ModOccurrence++;
   }
 }
 

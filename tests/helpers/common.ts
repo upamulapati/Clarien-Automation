@@ -43,6 +43,10 @@ function parseApplicationDate(text: string): string | null {
  * Falls back to the test machine's current date if the UI date cannot be read.
  */
 export async function getApplicationDate(page: Page): Promise<string> {
+  if (process.env.APPLICATION_DATE) {
+    console.log(`Using APPLICATION_DATE env: ${process.env.APPLICATION_DATE}`);
+    return process.env.APPLICATION_DATE;
+  }
   try {
     for (const frame of page.frames()) {
       const text = await frame.locator('body').innerText().catch(() => '');
