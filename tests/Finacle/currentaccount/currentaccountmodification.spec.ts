@@ -4,13 +4,15 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW6_DATA from '../../../data/flow6.json';
+import { getSharedValue } from '../../helpers/sharedState';
 
 // Current account modification is done by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// A/c Id to be modified.
-const ACCOUNT_ID = '4600000134';
+// A/c Id to be modified - use the account created earlier in the flow.
+const ACCOUNT_ID = process.env.FLOW6_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId') ?? '';
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
@@ -44,11 +46,11 @@ test('HACM - modify current account dispatch mode and A/c status', async ({ page
 
   console.log('Visiting General Details tab to modify Dispatch Mode...');
   await accountPage.visitGeneralDetailsTab();
-  await accountPage.selectDispatchMode('no dispatch');
+  await accountPage.selectDispatchMode(FLOW6_DATA.modification.dispatchMode);
 
   console.log('Visiting Scheme tab to modify A/c Status...');
   await accountPage.visitTab('Scheme');
-  await accountPage.selectAccountStatus('inactive');
+  await accountPage.selectAccountStatus(FLOW6_DATA.modification.accountStatus);
 
   console.log('Clicking Submit button...');
   await accountPage.submitForm();

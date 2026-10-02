@@ -10,6 +10,7 @@ if (!suiteName) {
 }
 
 const testOrder = require(path.resolve(__dirname, '../tests/config/testOrder.json'));
+const flow6Data = require(path.resolve(__dirname, '../data/flow6.json'));
 
 const sharedStateFile = path.resolve(__dirname, '../data/shared-state.json');
 if (fs.existsSync(sharedStateFile)) {
@@ -36,6 +37,40 @@ function readSharedStateJson() {
   } catch {
     return {};
   }
+}
+
+function getFlow6StepEnv(file, state, htmOccurrence) {
+  const overrides = {};
+  if (suiteName !== 'flow6') return overrides;
+  const currentAccountId = state?.accountId;
+  if (!currentAccountId) return overrides;
+
+  const accounts = flow6Data.htmAccounts || { debit: '6000123165', credit: '4600000119' };
+  const amounts = flow6Data.htmDownstreamAmounts || { initialFunding: '1000', debit: '100' };
+
+  const usesCurrentAccount =
+    file.includes('currentaccountcreationverify.spec.ts') ||
+    file.includes('currentaccountmodification.spec.ts') ||
+    file.includes('currentaccountmodifyverification.spec.ts') ||
+    file.includes('accountfundingcurrentaccount.spec.ts') ||
+    file.includes('transfermaintainenceverification.spec.ts') ||
+    file.includes('hpordm-remittance.spec.ts');
+
+  if (usesCurrentAccount) {
+    overrides.FLOW6_CURRENT_ACCOUNT_ID = currentAccountId;
+  }
+
+  if (file.includes('accountfundingcurrentaccount.spec.ts') || file.includes('transfermaintainenceverification.spec.ts')) {
+    const direction = htmOccurrence === 1 ? 'credit' : 'debit';
+    const external = direction === 'credit' ? accounts.debit : accounts.credit;
+    const amount = direction === 'credit' ? amounts.initialFunding : amounts.debit;
+    overrides.FLOW6_HTM_SOL_ID = flow6Data.currentAccounts?.[0]?.solId ?? '100';
+    overrides.FLOW6_HTM_AMOUNT = amount;
+    overrides.FLOW6_HTM_DEBIT = direction === 'credit' ? external : currentAccountId;
+    overrides.FLOW6_HTM_CREDIT = direction === 'credit' ? currentAccountId : external;
+  }
+
+  return overrides;
 }
 
 function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides) {
@@ -114,16 +149,20 @@ let exitCode = 0;
 let failedFile = '';
 let htmOccurrence = 1;
 let savingsModOccurrence = 1;
+let flow6HtmOccurrence = 1;
 let lastHtmOverrides = null;
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
   console.log(`[${i + 1}/${files.length}] ${file}`);
-  //const command=`npx playwright test --workers=1 ${file} ${headed}`;
-  const command=`npx playwright test --workers=1 ${file}`;
+  const command=`npx playwright test --workers=1 ${file} ${headed}`;
+  //const command=`npx playwright test --workers=1 ${file}`;
   env.CIF_MOD_FLOW = suiteName;
 
   const state = readSharedStateJson();
-  const stepOverrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
+  const stepOverrides = {
+    ...getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides),
+    ...getFlow6StepEnv(file, state, flow6HtmOccurrence),
+  };
   const childEnv = { ...env, ...stepOverrides };
 
   try {
@@ -146,6 +185,9 @@ for (let i = 0; i < files.length; i++) {
   }
   if (file.includes('savingsaccountmodification.spec.ts')) {
     savingsModOccurrence++;
+  }
+  if (suiteName === 'flow6' && file.includes('transfermaintainenceverification.spec.ts')) {
+    flow6HtmOccurrence++;
   }
 }
 

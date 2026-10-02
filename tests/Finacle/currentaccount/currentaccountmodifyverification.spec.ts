@@ -4,13 +4,15 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW6_DATA from '../../../data/flow6.json';
+import { getSharedValue } from '../../helpers/sharedState';
 
 // Current account modification verification must be performed by a different user.
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
 
-// A/c Id that was modified.
-const ACCOUNT_ID = '4600000134';
+// A/c Id that was modified - use the account captured by the flow.
+const ACCOUNT_ID = process.env.FLOW6_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId') ?? '';
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
@@ -52,8 +54,8 @@ test('HACM - verify current account modification', async ({ page }) => {
   console.log('Captured dispatch mode:', dispatchMode);
   if (!dispatchMode) {
     console.warn('Dispatch mode was not captured on General tab');
-  } else if (!/no dispatch|no despatch/i.test(dispatchMode)) {
-    console.warn(`Expected dispatch mode to reflect 'no dispatch', got: ${dispatchMode}`);
+  } else if (!new RegExp(`${FLOW6_DATA.modification.dispatchMode}|no despatch`, 'i').test(dispatchMode)) {
+    console.warn(`Expected dispatch mode to reflect '${FLOW6_DATA.modification.dispatchMode}', got: ${dispatchMode}`);
   }
 
   console.log('Visiting Interest & Tax tab...');
@@ -71,8 +73,8 @@ test('HACM - verify current account modification', async ({ page }) => {
   console.log('Captured A/c status:', accountStatus);
   if (!accountStatus) {
     console.warn('A/c Status was not captured on Scheme tab');
-  } else if (!/inactive/i.test(accountStatus)) {
-    console.warn(`Expected A/c Status to be 'Inactive', got: ${accountStatus}`);
+  } else if (!new RegExp(FLOW6_DATA.modification.accountStatus, 'i').test(accountStatus)) {
+    console.warn(`Expected A/c Status to be '${FLOW6_DATA.modification.accountStatus}', got: ${accountStatus}`);
   }
 
   console.log('Visiting Addl. Info. tab...');

@@ -9,12 +9,20 @@ import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW6_DATA from '../../../data/flow6.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 
-const SCENARIOS = ((COMMON_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
-  name: scenario.name,
-  sharedKey: scenario.sharedKey,
-  data: scenario.data ?? {},
-}));
+const IS_FLOW6 = process.env.CIF_MOD_FLOW === 'flow6';
+const IS_FLOW7 = process.env.CIF_MOD_FLOW === 'flow7';
+const FLOW6_CURRENT_ACCOUNT_ID = IS_FLOW6 ? (process.env.FLOW6_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId')) : undefined;
+const RAW_SCENARIOS = IS_FLOW6 ? (FLOW6_DATA.paymentOrderTestData ?? []) : IS_FLOW7 ? (FLOW7_DATA.paymentOrderTestData ?? []) : ((COMMON_DATA as any).paymentOrderTestData ?? []);
+const SCENARIOS = RAW_SCENARIOS.map((scenario: any) => {
+  const data = { ...(scenario.data ?? {}) };
+  if (IS_FLOW6 && FLOW6_CURRENT_ACCOUNT_ID) {
+    data.debitAccount = FLOW6_CURRENT_ACCOUNT_ID;
+  }
+  return { name: scenario.name, sharedKey: scenario.sharedKey, data };
+});
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 

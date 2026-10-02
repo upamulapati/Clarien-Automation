@@ -1,26 +1,33 @@
 import { test, expect } from '@playwright/test';
-import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { HomePage } from '../../pages/HomePages/HomePage';
-import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { recordTransactionId, resetTransactionIds } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import FLOW6_DATA from '../../../data/flow6.json';
 
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = DEFAULT_CUSTOMER.solId;
+const SOL_ID = process.env.FLOW6_HTM_SOL_ID ?? FLOW6_DATA.currentAccounts[0]?.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
-// Part transaction details.
-const DEBIT_ACCOUNT = '7010003820';   // account to be debited
-const CREDIT_ACCOUNT = '4600000134';  // SB/CA account to be credited
-const AMOUNT = '100';
+// Part transaction details. The runner (runOrdered.js) injects the correct
+// debit/credit accounts and amount for the current HTM occurrence, mirroring
+// the flow7 pattern. If these are not set, fall back to the flow6 data file.
+const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
+const HTM_ACCOUNTS = FLOW6_DATA.htmAccounts;
+const DEFAULT_CREDIT = SHARED_ACCOUNT_ID ?? HTM_ACCOUNTS.credit;
+const DEFAULT_AMOUNT = FLOW6_DATA.htmDownstreamAmounts?.initialFunding;
+const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? HTM_ACCOUNTS.debit;
+const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? DEFAULT_CREDIT;
+const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? DEFAULT_AMOUNT;
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
 let homePage: HomePage;
-let tmPage: SavingsBankAccountPage;
+let tmPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(180000);
@@ -28,7 +35,7 @@ test.beforeEach(async ({ page }) => {
 
   // Step 1: Login to finacle (maker user).
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  tmPage = new SavingsBankAccountPage(page);
+  tmPage = new AccountPage(page);
 });
 
 // HTM - Post a transfer (debit one account, credit another) by part
@@ -117,8 +124,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
 
   // Persist the transaction ID so the verification spec can authorise it.
   if (transactionId) {
-    resetTransactionIds();
-    recordTransactionId(transactionId);
+    updateSharedState((state) => { state.transactionId = transactionId; });
   }
 
   // Acknowledge the confirmation screen.

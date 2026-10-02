@@ -1,11 +1,11 @@
 {
-  "cifId": "0002000038",
+  "cifId": "0002000305",
   "currentAccounts": [
     {
       "schemeCode": "CASTF",
       "currency": "USD",
       "solId": "102",
-      "cifCode": "0002000038",
+      "cifCode": "0002000305",
       "functionOption": "O",
       "dispatchMode": "email"
     }
@@ -44,7 +44,7 @@
   "initialFundingAmount": "1000",
   "secondaryFundingAmount": "100",
   "htmAccounts": {
-    "debit": "6000123165",
+    "debit": "7600000172",
     "credit": "4600000119"
   },
   "htmDownstreamAmounts": {
@@ -61,23 +61,23 @@
       "sharedKey": "paymentOrderIdSwiftBmd",
       "data": {
         "debitAccount": "4600000119",
-        "ccy": "USD",
+        "ccy": "BMD",
         "amount": "100",
-        "beneficiaryAddressType": "F",
-        "beneficiaryAccountId": "1468907",
-        "beneficiaryBic": "50601006",
-        "beneficiaryName": "FLOW6 BENEFICIARY",
-        "beneficiaryBankCode": "",
-        "beneficiaryBranchCode": "",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "010247526001",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
         "beneficiaryCountry": "BM",
         "institutionAddressType": "F",
-        "bic": "50601006",
+        "bic": "50601002",
         "bankCode": "",
         "branchCode": "",
         "country": "BM",
         "paymentMethod": "SWIFT",
         "chargeOption": "OUR",
-        "paymentProduct": "customer transfer"
+        "paymentProduct": "customer transfer",
+         "needsUsdPopup": true,
+        "rateCode": "TTB"
       }
     },
     {
@@ -87,11 +87,11 @@
         "debitAccount": "4600000119",
         "ccy": "USD",
         "amount": "100",
-        "beneficiaryAddressType": "F",
-        "beneficiaryAccountId": "999999999",
-        "beneficiaryBic": "50601006",
-        "beneficiaryName": "FLOW6 USD BENEFICIARY",
-        "beneficiaryBankCode": "",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "010247526001",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
+         "beneficiaryBankCode": "",
         "beneficiaryBranchCode": "",
         "beneficiaryCountry": "US",
         "institutionAddressType": "F",
@@ -102,7 +102,12 @@
         "paymentMethod": "SWIFT",
         "chargeOption": "OUR",
         "paymentProduct": "customer transfer"
+        
       }
     }
-  ]
+  ],
+  "modification": {
+    "dispatchMode": "no dispatch",
+    "accountStatus": "inactive"
+  }
 }

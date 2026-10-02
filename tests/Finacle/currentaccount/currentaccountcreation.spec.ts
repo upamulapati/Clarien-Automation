@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/testData';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW6_DATA from '../../../data/flow6.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getCreatedCif } from '../../config/cifStore';
+import { updateSharedState } from '../../helpers/sharedState';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
@@ -16,12 +16,11 @@ const PASSWORD = CREDENTIALS.credentials.password;
 // Current account opening (HOAACCA) menu option.
 const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
-// Current account scheme code under test. A single account is created so the
-// run stops once an A/c ID is generated (no looping over every scheme).
-const CURRENT_ACCOUNT_SCHEME = COMMON_DATA.currentAccountSchemes[0];
+// Current account scheme code under test - always from flow6.json for this spec.
+const CURRENT_ACCOUNT_SCHEME = FLOW6_DATA.currentAccounts[0].schemeCode;
 
 // CIF ID (test data) the current account is opened under.
-const CIF_ID = getCreatedCif('retail', DEFAULT_CUSTOMER.cifCode);
+const CIF_ID = FLOW6_DATA.cifId;
 
 let homePage: HomePage;
 let currentAccountPage: AccountPage;
@@ -48,12 +47,15 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
   // visit General/Interest/Scheme/Related Party/MIS/Account Limits tabs;
   // submit to generate the account number.
   console.log(`Creating current account with scheme ${CURRENT_ACCOUNT_SCHEME}...`);
-  await currentAccountPage.createCurrentAccount({
-    ...CURRENT_ACCOUNT_DATA,
+  const accountData = {
+    ...FLOW6_DATA.currentAccounts[0],
+    ccy: FLOW6_DATA.currentAccounts[0].currency,
     cifCode: CIF_ID,
     schemeCode: CURRENT_ACCOUNT_SCHEME,
-    dispatchMode: CURRENT_ACCOUNT_DATA.dispatchMode as 'email' | 'post',
-  });
+    dispatchMode: FLOW6_DATA.currentAccounts[0].dispatchMode as 'email' | 'post',
+  };
+
+  await currentAccountPage.createCurrentAccount(accountData);
 
   const statusMessage = await currentAccountPage.getStatusMessage();
   console.log('Creation status message:', statusMessage);
@@ -74,6 +76,11 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
     throw new Error(`Failed to capture account ID for scheme ${CURRENT_ACCOUNT_SCHEME}`);
   }
   console.log(`Captured Account ID (scheme ${CURRENT_ACCOUNT_SCHEME}): ${accountId}`);
+
+  // Persist the generated current account number so downstream specs can use it.
+  updateSharedState((state) => {
+    state.accountId = accountId;
+  });
 
   // Logout the maker
   console.log('Logging out...');
