@@ -27,6 +27,8 @@ export class PaymentOrderPage {
 
   private lastDialogMessages: string[];
 
+  private currentData: any = null;
+
 
 
   constructor(page: Page, lastDialogMessages?: string[]) {
@@ -813,6 +815,14 @@ export class PaymentOrderPage {
 
     await this.page.waitForTimeout(3000);
 
+    await this.getFinwFrame().evaluate((rate: string) => {
+      const form = (window as any).objForm || document.forms[0] as any;
+      if (form.exchRate) { form.exchRate.value = '1.0000'; form.exchRate.disabled = false; }
+      if (form.drexchRate) { form.drexchRate.value = '1.0000'; form.drexchRate.disabled = false; }
+      if (form.exchRateCode) { form.exchRateCode.value = rate; form.exchRateCode.disabled = false; }
+      if (form.drexchRateCode) { form.drexchRateCode.value = rate; form.drexchRateCode.disabled = false; }
+    }, rateCode).catch(() => {});
+
   }
 
 
@@ -997,9 +1007,22 @@ export class PaymentOrderPage {
 
   async clickChargeSubmit() {
 
-    // First visible Submit on the page is usually inside the charge/credit details section
+    // Click the Submit button on the Charge Details popup to confirm charges and close it.
+    // Only click when the popup's Cancel button is present so this never clicks the main Submit.
+    const hasCancel = await this.getFinwFrame().locator('input[value="Cancel"]').count().catch(() => 0);
 
-    await this.clickButtonByValue('Submit');
+    if (hasCancel > 0) {
+
+      await this.getFinwFrame().locator('input[value="Submit"]:near(input[value="Cancel"], 100)').first().click({ timeout: 5000 }).catch((e: any) => {
+        console.log('Could not click charge Submit:', e.message || e);
+      });
+
+    } else {
+
+      console.log('No charge popup Cancel found; skipping charge Submit click');
+
+    }
+
     await this.page.waitForTimeout(3000);
     await captureEvidence(this.page, 'Payment order charge submit', {});
 
@@ -1012,6 +1035,8 @@ export class PaymentOrderPage {
     await this.getFinwFrame().evaluate(() => {
 
       const objForm: any = (window as any).objForm;
+
+      // chrgEventId is populated by the charge-calculation flow (View Charges) earlier.
 
       (window as any).isPageVisited = 'Y';
 
@@ -1060,6 +1085,8 @@ export class PaymentOrderPage {
 
 
   async syncRemittanceValues(data: any, businessDate: string) {
+
+    this.currentData = data;
 
     const after = await this.getFinwFrame().evaluate(async (args) => {
 
@@ -1151,6 +1178,10 @@ export class PaymentOrderPage {
 
       if (data.rateCode) {
 
+        set('pordm.drexchRateCode', data.rateCode);
+
+        set('pordm.exchRateCode', data.rateCode);
+
         const rateValue = (f.querySelector('input[name="pordm.exchRate"]') as any)?.value || data.exchRate || '';
 
         const finalRate = (rateValue && rateValue !== '0.0000' && rateValue !== '0') ? rateValue : '1.0000';
@@ -1159,64 +1190,48 @@ export class PaymentOrderPage {
 
           set(n, v);
 
-          const el = f.querySelector(`[name="${n}"]`) as any;
+        const drexchRateEl = f.querySelector('#drexchRate, input[name="pordm.drexchRate"]') as any;
+        if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
 
-          if (el) {
+        const exchRateEl = f.querySelector('#exchRate, input[name="pordm.exchRate"]') as any;
+        if (exchRateEl) { exchRateEl.value = finalRate; exchRateEl.disabled = false; }
 
-            el.value = v;
+        (window as any).drexchRateCode = data.rateCode;
+        (window as any).drexchRate = finalRate;
+        (window as any).exchRateCode = data.rateCode;
+        (window as any).exchRate = finalRate;
 
-            el.disabled = false;
+        const drexchRateCodeEl = f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any;
 
-            el.readOnly = false;
+        if (drexchRateCodeEl) {
 
+          drexchRateCodeEl.value = data.rateCode;
 
-          }
+          drexchRateCodeEl.disabled = false;
 
-        };
+          if (drexchRateCodeEl.onchange) drexchRateCodeEl.onchange();
 
-        updateRateField('pordm.drexchRateCode', data.rateCode);
-
-        updateRateField('pordm.exchRateCode', data.rateCode);
-
-        updateRateField('pordm.drexchRate', finalRate);
-
-        updateRateField('pordm.exchRate', finalRate);
-
-        const customDataInput = f.querySelector('input[name="customData"]') as any;
-
-        if (customDataInput) {
-
-          const original = customDataInput.value;
-
-          const prefixMatch = original.match(/^~[^~|]+\|/);
-
-          const prefix = prefixMatch ? prefixMatch[0] : '~pordmpod|';
-
-          const pairs = original.slice(prefix.length).split('|').filter((s: string) => s);
-
-          const map = new Map<string, string>();
-
-          for (let i = 0; i < pairs.length; i += 2) {
-
-            map.set(pairs[i], pairs[i + 1] || '');
-
-          }
-
-          map.set('pordm.drexchRateCode', data.rateCode);
-
-          map.set('pordm.drexchRate', finalRate);
-
-          map.set('pordm.exchRateCode', data.rateCode);
-
-          map.set('pordm.exchRate', finalRate);
-
-          const parts: string[] = [];
-
-          for (const [k, v] of map) { parts.push(k, v); }
-
-          customDataInput.value = prefix + parts.join('|') + '|';
+          if (drexchRateCodeEl.onblur) drexchRateCodeEl.onblur();
 
         }
+
+        if (drexchRateEl) {
+
+          if (drexchRateEl.onchange) drexchRateEl.onchange();
+
+          if (drexchRateEl.onblur) drexchRateEl.onblur();
+
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        (window as any).drexchRateCode = data.rateCode;
+
+        (window as any).drexchRate = finalRate;
+
+        if (drexchRateCodeEl) { drexchRateCodeEl.value = data.rateCode; drexchRateCodeEl.disabled = false; }
+
+        if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
 
         const drexchRateCodeEl = f.querySelector('[name="pordm.drexchRateCode"]') as any;
 
@@ -1378,29 +1393,102 @@ export class PaymentOrderPage {
 
     await this.page.waitForTimeout(5000);
 
+    // Re-fetch payment-system charges and re-select the charge option after the tab
+    // switch, so the charge event/code is re-locked before the final submit.
+    console.log('Re-fetching charges and re-selecting charge option after tab switch');
+    await this.clickFetchCharges();
+    await this.page.waitForTimeout(2000);
+
+    if (data.chargeOption) {
+      await this.selectChargeOption(data.chargeOption);
+      await this.page.waitForTimeout(1000);
+    }
+
+  }
+
+
+
+  private async ensurePreSubmitValues() {
+
+    await this.getFinwFrame().evaluate((args) => {
+
+      const { currentData } = args as { currentData: any };
+
+      const objForm: any = (window as any).objForm || document.forms[0] as any;
+
+      if (!objForm) return;
+
+      const getEl = (n: string) => objForm[n] || (window as any)[n] || null;
+
+      const fallbackRateCode = currentData?.rateCode;
+      const rateCode = getEl('exchRateCode')?.value || getEl('drexchRateCode')?.value || fallbackRateCode || 'TTB';
+
+      const fallbackRate = currentData?.exchRate || currentData?.drexchRate;
+      const rate = getEl('exchRate')?.value || getEl('drexchRate')?.value || fallbackRate || '1.0000';
+
+      const setVal = (n: string, v: string) => {
+        const el = objForm[n] || (window as any)[n];
+        if (el && typeof el === 'object' && 'value' in el) {
+          el.value = v;
+          el.disabled = false;
+          el.readOnly = false;
+          (window as any)[n] = v;
+        }
+      };
+
+      setVal('exchRateCode', rateCode);
+      setVal('drexchRateCode', rateCode);
+      setVal('exchRate', rate);
+      setVal('drexchRate', rate);
+
+      if (currentData?.paymentMethod && !getEl('routedPaysysId')?.value) {
+        setVal('routedPaysysId', currentData.paymentMethod);
+      }
+
+      // Prevent the submit handler from disabling these fields before the form is sent.
+      (window as any).fnEnableDisableRateFlds = () => {};
+      (window as any).fnEnableRateFlds = () => {};
+      (window as any).fnDisableRateFlds = () => {};
+
+      console.log('Pre-submit check:', { rateCode, rate, chrgEventId: getEl('chrgEventId')?.value, routedPaysysId: getEl('routedPaysysId')?.value });
+
+    }, { currentData: this.currentData }).catch(() => {});
+
   }
 
 
 
   async clickMainSubmit() {
 
+    // Re-run View Charges before the final submit so the charge/FCC state is
+    // re-locked and the 'prev' variables reflect the current form.  Without this
+    // the main Submit handler treats the charge state as stale and recalculates,
+    // which resets the FX rate code and triggers E4221.
+    console.log('Re-running View Charges to re-lock rates and charge event before final submit');
+
+    await this.clickViewCharges();
+
+    // Close the charge-details popup if it opened.
+    await this.clickChargeSubmit();
+
+    // Refresh prev variables and re-apply mandatory values right before the real Submit.
     await this.prepareForSubmit();
 
-    const smDebug = await this.getFinwFrame().evaluate(() => {
+    await this.ensurePreSubmitValues();
 
-      const sm = (window as any).objForm?.settlementMode;
+    const submitReq = await this.getFinwFrame().evaluate(() => {
+      const btn = document.getElementById('Submit') as any;
+      if (btn && btn.click) {
+        (btn as HTMLElement).click();
+        return 'clicked';
+      }
+      return 'not found';
+    }).catch((e: any) => `error: ${e.message || e}`);
 
-      if (!sm) return { missing: true };
+    console.log(`Main Submit click: ${submitReq}`);
 
-      return { value: sm.value, options: Array.from(sm.options).map((o: any) => ({ value: o.value, text: o.text })) };
-
-    }).catch(() => ({}));
-
-    console.log(`Settlement Mode: ${JSON.stringify(smDebug)}`);
-
-    await this.clickButtonById('Submit');
     await this.page.waitForTimeout(3000);
-    await captureEvidence(this.page, 'Payment order main submit', { settlementMode: smDebug });
+    await captureEvidence(this.page, 'Payment order main submit', {});
 
   }
 

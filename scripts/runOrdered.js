@@ -96,7 +96,7 @@ if (fs.existsSync(sharedStateFile)) {
 }
 
 // Clean reports
-const htmlReportDir = path.resolve(cwd, '../reports/htmlReport');
+const htmlReportDir = path.resolve(cwd, 'reports/htmlReport');
 const allureResultsDir = path.resolve(cwd, 'reports/allureReports');
 const allureReportDir = path.resolve(cwd, 'reports/allure-report');
 [
@@ -105,7 +105,11 @@ const allureReportDir = path.resolve(cwd, 'reports/allure-report');
   allureReportDir
 ].forEach(dir => {
   if (fs.existsSync(dir)) {
-    fs.rmSync(dir, { recursive: true, force: true });
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch (err) {
+      console.warn(`[runOrdered] Warning: could not clean ${dir} - ${err.code}: ${err.message}`);
+    }
   }
 });
 console.log('Previous reports cleaned.\n');
@@ -120,7 +124,8 @@ let lastHtmOverrides = null;
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
   console.log(`[${i + 1}/${files.length}] ${file}`);
-  const command=`npx playwright test --workers=1 ${file} ${headed}`;
+  //const command=`npx playwright test --workers=1 ${file} ${headed}`;
+  const command=`npx playwright test --workers=1 ${file}`;
   env.CIF_MOD_FLOW = suiteName;
 
   const state = readSharedStateJson();
