@@ -1182,11 +1182,13 @@ export class PaymentOrderPage {
 
         set('pordm.exchRateCode', data.rateCode);
 
-        const finalRate = data.exchRate || data.drexchRate || '1.0000';
+        const rateValue = (f.querySelector('input[name="pordm.exchRate"]') as any)?.value || data.exchRate || '';
 
-        set('pordm.drexchRate', finalRate);
+        const finalRate = (rateValue && rateValue !== '0.0000' && rateValue !== '0') ? rateValue : '1.0000';
 
-        set('pordm.exchRate', finalRate);
+        const updateRateField = (n: string, v: string) => {
+
+          set(n, v);
 
         const drexchRateEl = f.querySelector('#drexchRate, input[name="pordm.drexchRate"]') as any;
         if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
@@ -1231,17 +1233,25 @@ export class PaymentOrderPage {
 
         if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
 
-        const exchRateCodeEl = f.querySelector('input[name="pordm.exchRateCode"], #exchRateCode') as any;
+        const drexchRateCodeEl = f.querySelector('[name="pordm.drexchRateCode"]') as any;
 
-        if (exchRateCodeEl) {
+        if (drexchRateCodeEl && typeof drexchRateCodeEl.onchange === 'function') {
 
-          exchRateCodeEl.value = data.rateCode;
+          try {
 
-          exchRateCodeEl.disabled = false;
+            console.log('Triggering drexchRateCode onchange');
 
-          if (exchRateCodeEl.onchange) exchRateCodeEl.onchange();
+            drexchRateCodeEl.onchange();
 
-          if (exchRateCodeEl.onblur) exchRateCodeEl.onblur();
+            console.log('drexchRateCode onchange returned');
+
+          } catch (e: any) {
+
+            console.log('drexchRateCode onchange error:', e?.message || e);
+
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 3000));
 
         }
 
@@ -1346,6 +1356,10 @@ export class PaymentOrderPage {
         drexchRateCodeId: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.id || null,
 
         drexchRateCodeName: (f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any)?.name || null,
+
+        drexchRateCodeInputs: Array.from(f.querySelectorAll('input[name="pordm.drexchRateCode"], #drexchRateCode')).map((el: any) => ({ id: el.id, name: el.name, value: el.value, outer: el.outerHTML })),
+
+        drexchRateInputs: Array.from(f.querySelectorAll('input[name="pordm.drexchRate"], #drexchRate')).map((el: any) => ({ id: el.id, name: el.name, value: el.value, outer: el.outerHTML })),
 
         benefPartyAddrInd: getVal('pordm.benefPartyAddrInd'),
 

@@ -8,6 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW7_DATA from '../../../data/flow7.json';
 
 const CONFIG = getPrimaryConfig();
 
@@ -25,7 +26,8 @@ const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const CREDIT_ACCOUNT = process.env.FLOW7_HTM_CREDIT ?? (SHARED_ACCOUNT_ID ?? '4600000119');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
-const AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? '2000';
+const INITIAL_FUNDING_AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? FLOW7_DATA.initialFundingAmount;
+const SECONDARY_AMOUNT = FLOW7_DATA.secondaryFundingAmount ?? '100';
 
 test.describe('Transfer Maintenance - Fund Savings Account', () => {
   
@@ -48,7 +50,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     // Step 1: Select "core server" from the solution drop down.
     console.log('Selecting Core Server...');
     await tmPage.selectCoreServer();
-    await captureEvidence(page, 'Step 1: Core server selected', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
+    await captureEvidence(page, 'Step 1: Core server selected', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
 
     // Step 2: Type menu option "HTM" in finacle.
     // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
@@ -98,7 +100,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     console.log('Adding DEBIT part transaction...');
     await tmPage.selectHtmDebit();
     await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(INITIAL_FUNDING_AMOUNT, true);
     await tmPage.clickHtmAdd();
 
     // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
@@ -108,11 +110,11 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     console.log('Entering CREDIT part transaction...');
     await tmPage.selectHtmCredit();
     await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(INITIAL_FUNDING_AMOUNT, true);
 
     // Diagnostic: verify field values before posting
     await tmPage.logVisibleFields('HTM after credit entry');
-    await captureEvidence(page, 'Step 4-10: Part transactions entered', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
+    await captureEvidence(page, 'Step 4-10: Part transactions entered', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
 
     // With the debit added (record 1) and the credit entered, scroll down and
     // click Post to post both part transactions.
@@ -130,7 +132,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     // "Posted successfully" confirmation screen for verification.
     const transactionId = await tmPage.getHtmTransactionId();
     console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
-    await captureEvidence(page, 'Step: Transaction posted', { transactionId, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT });
+    await captureEvidence(page, 'Step: Transaction posted', { transactionId, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
 
     // Persist the transaction ID so the verification spec can authorise it.
     if (transactionId) {
@@ -148,18 +150,18 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await tmPage.searchAccountInquiry('HACLINQ');
     await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
-    const debitOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Debit', transactionId ?? undefined);
-  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
+    const debitOk = await tmPage.verifyHaclinqDebitCredit(INITIAL_FUNDING_AMOUNT, 'Debit', transactionId ?? undefined);
+  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${INITIAL_FUNDING_AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
 
     console.log('Verifying CREDIT account in HACLINQ...');
     await tmPage.searchAccountInquiry('HACLINQ');
     await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
     await tmPage.clickHaclinqGo();
-    const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
-  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
+    const creditOk = await tmPage.verifyHaclinqDebitCredit(INITIAL_FUNDING_AMOUNT, 'Credit', transactionId ?? undefined);
+  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${INITIAL_FUNDING_AMOUNT} with transaction ${transactionId}`).toBe(true);
     console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
-    await captureEvidence(page, 'Step: HACLINQ verification complete', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: AMOUNT, transactionId, debitOk, creditOk });
+    await captureEvidence(page, 'Step: HACLINQ verification complete', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT, transactionId, debitOk, creditOk });
 
     // Logout.
     console.log('Logging out...');
@@ -199,7 +201,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     console.log('Adding DEBIT part transaction...');
     await tmPage.selectHtmDebit();
     await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
     await tmPage.clickHtmAdd();
 
     // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
@@ -207,7 +209,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     console.log('Entering CREDIT part transaction...');
     await tmPage.selectHtmCredit();
     await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
 
     // Click the Post by Part Transaction button to open its screen.
     // The current credit part is the active record and is included in the list.
@@ -267,7 +269,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     console.log('Adding DEBIT part transaction...');
     await tmPage.selectHtmDebit();
     await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
     await tmPage.clickHtmAdd();
 
     // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
@@ -277,7 +279,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
     await page.waitForTimeout(1000);
     await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
     await page.waitForTimeout(1000);
-    await tmPage.enterHtmAmount(AMOUNT, true);
+    await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
 
     // Post the transaction to get a transaction ID
     console.log('Clicking Post button...');
