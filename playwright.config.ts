@@ -11,7 +11,7 @@ export default defineConfig({
 
   reporter: [
   ['list'],
-  ['html', {outputFolder: '../reports/htmlReport'}],
+  ['html', {outputFolder: './reports/htmlReport'}],
   ['allure-playwright', {resultsDir: './reports/allureReports'}]
 ],
 
@@ -19,9 +19,6 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on',
-  },
-  env: {
-    SHOW_DEBIT_TRN_FIRST_FOR_TM: 'true',
   },
 
   projects: [

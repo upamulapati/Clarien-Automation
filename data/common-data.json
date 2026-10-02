@@ -23,19 +23,20 @@
     "dispatchMode": "email"
   },
   "paymentOrderTestData": [
-    {
+        
+{
       "name": "Flow 1 - ACH FCC BMD to USD",
       "sharedKey": "paymentOrderIdAchFcc",
       "data": {
         "debitAccount": "7010003820",
         "ccy": "USD",
-        "amount": "1000",
+        "amount": "100",
         "beneficiaryAddressType": "A",
         "beneficiaryAccountId": "010247526001",
         "beneficiaryName": "Anna Evelyn Carr",
         "beneficiaryAddress": "14140 Abbington Avenue",
         "beneficiaryCountry": "BM",
-        "institutionAddressType": "F",
+        "institutionAddressType": "B",
         "bic": "50601002",
         "bankCode": "BBDABM",
         "branchCode": "HMXXX",
@@ -48,6 +49,79 @@
       }
     },
     {
+"name": "Flow 1 - ACH BMD to BMD",
+"sharedKey": "paymentOrderIdAch",
+"data": {
+"debitAccount": "7010003820",
+"ccy": "BMD",
+"amount": "100",
+"beneficiaryAddressType": "F",
+"beneficiaryAccountId": "1468907",
+"beneficiaryBic": "50601006",
+"beneficiaryBankCode": "",
+"beneficiaryBranchCode": "",
+"beneficiaryCountry": "BM",
+"institutionAddressType": "F",
+"bic": "50601006",
+"bankCode": "",
+"branchCode": "",
+"country": "BM",
+"paymentMethod": "BCBBM",
+"chargeOption": "OUR",
+"paymentProduct": "customer transfer"
+}
+},
+{
+"name": "Flow 1 - ACH FCC BMD to USD",
+"sharedKey": "paymentOrderIdAchFcc",
+"data": {
+"debitAccount": "7010003820",
+"ccy": "USD",
+"amount": "100",
+"beneficiaryAddressType": "A",
+"beneficiaryAccountId": "010247526001",
+"beneficiaryName": "Anna Evelyn Carr",
+"beneficiaryAddress": "14140 Abbington Avenue",
+"beneficiaryCountry": "BM",
+"institutionAddressType": "B",
+"bic": "50601002",
+"bankCode": "BBDABM",
+"branchCode": "HMXXX",
+"country": "BM",
+"paymentMethod": "HSBUS",
+"chargeOption": "OUR",
+"paymentProduct": "customer transfer",
+"needsUsdPopup": true,
+"rateCode": "TTB"
+}
+},
+
+{
+"name": "Flow 1 - SWIFT FCC BMD to USD",
+"sharedKey": "paymentOrderIdSwiftFcc",
+"data": {
+"debitAccount": "7010003820",
+"ccy": "USD",
+"amount": "1000",
+"beneficiaryAddressType": "A",
+"beneficiaryAccountId": "010247526001",
+"beneficiaryName": "Anna Evelyn Carr",
+"beneficiaryAddress": "14140 Abbington Avenue",
+"beneficiaryCountry": "BM",
+"institutionAddressType": "F",
+"bic": "50601002",
+"bankCode": "BBDABM",
+"branchCode": "HMXXX",
+"country": "BM",
+"paymentMethod": "SWIFT",
+"chargeOption": "OUR",
+"paymentProduct": "customer transfer",
+"needsUsdPopup": true,
+"rateCode": "TTB"
+}
+},
+
+{
       "name": "Flow 1 - SWIFT FCC BMD to USD",
       "sharedKey": "paymentOrderIdSwiftFcc",
       "data": {
@@ -71,30 +145,8 @@
         "rateCode": "TTB"
       }
     },
-    {
-      "name": "Flow 1 - ACH BMD to BMD",
-      "sharedKey": "paymentOrderIdAch",
-      "data": {
-        "debitAccount": "7010003820",
-        "ccy": "BMD",
-        "amount": "1000",
-        "beneficiaryAddressType": "F",
-        "beneficiaryAccountId": "1468907",
-        "beneficiaryBic": "50601006",
-        "beneficiaryBankCode": "",
-        "beneficiaryBranchCode": "",
-        "beneficiaryCountry": "BM",
-        "institutionAddressType": "F",
-        "bic": "50601006",
-        "bankCode": "",
-        "branchCode": "",
-        "country": "BM",
-        "paymentMethod": "BCBBM",
-        "chargeOption": "OUR",
-        "paymentProduct": "customer transfer"
-      }
-    },
-    {
+
+{
       "name": "Flow 1 - SWIFT FCC BMD to CAD",
       "sharedKey": "paymentOrderIdSwiftFccCad",
       "data": {
@@ -118,6 +170,7 @@
         "rateCode": "TTB"
       }
     }
+    
   ],
   "currentAccountSchemes": [
     "CACOB",
