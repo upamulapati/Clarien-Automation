@@ -74,6 +74,10 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
 
       console.log('Savings account modification passed. Result:', result.message);
 
+      // Persist the account that was modified so the verification spec can be data-driven from this run.
+      //updateSharedState((state) => { state.modifiedSavingsAccountId = effectiveAccountId; });
+      console.log(`[SharedState] Saved modified savings account id: ${effectiveAccountId}`);
+
       console.log('Logging out...');
       await homePage.logout();
     });
