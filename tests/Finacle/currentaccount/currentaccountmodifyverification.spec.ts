@@ -4,16 +4,20 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
+import { getSharedValue } from '../../helpers/sharedState';
 
 // Current account modification verification must be performed by a different user.
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
 
 // A/c Id that was modified.
-const ACCOUNT_ID = '4600000134';
+const ACCOUNT_ID = getSharedValue<string>('accountId') ?? '4600000134';
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
+
+const EXPECTED_DISPATCH_MODE = process.env.FLOW6_DISPATCH_MODE ?? 'no dispatch';
+const EXPECTED_ACCOUNT_STATUS = process.env.FLOW6_ACCOUNT_STATUS ?? 'inactive';
 
 let homePage: HomePage;
 let accountPage: AccountPage;
@@ -52,8 +56,8 @@ test('HACM - verify current account modification', async ({ page }) => {
   console.log('Captured dispatch mode:', dispatchMode);
   if (!dispatchMode) {
     console.warn('Dispatch mode was not captured on General tab');
-  } else if (!/no dispatch|no despatch/i.test(dispatchMode)) {
-    console.warn(`Expected dispatch mode to reflect 'no dispatch', got: ${dispatchMode}`);
+  } else if (!new RegExp(EXPECTED_DISPATCH_MODE.replace(/[-\s]/g, '[-\\s]?'), 'i').test(dispatchMode)) {
+    console.warn(`Expected dispatch mode to reflect '${EXPECTED_DISPATCH_MODE}', got: ${dispatchMode}`);
   }
 
   console.log('Visiting Interest & Tax tab...');
@@ -71,8 +75,8 @@ test('HACM - verify current account modification', async ({ page }) => {
   console.log('Captured A/c status:', accountStatus);
   if (!accountStatus) {
     console.warn('A/c Status was not captured on Scheme tab');
-  } else if (!/inactive/i.test(accountStatus)) {
-    console.warn(`Expected A/c Status to be 'Inactive', got: ${accountStatus}`);
+  } else if (!new RegExp(EXPECTED_ACCOUNT_STATUS, 'i').test(accountStatus)) {
+    console.warn(`Expected A/c Status to be '${EXPECTED_ACCOUNT_STATUS}', got: ${accountStatus}`);
   }
 
   console.log('Visiting Addl. Info. tab...');

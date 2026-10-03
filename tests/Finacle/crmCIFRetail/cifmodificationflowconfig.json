@@ -23,5 +23,10 @@
     "address": false,
     "phone": true,
     "bank": true
+  },
+  "flow6": {
+    "address": false,
+    "phone": true,
+    "bank": false
   }
 }
