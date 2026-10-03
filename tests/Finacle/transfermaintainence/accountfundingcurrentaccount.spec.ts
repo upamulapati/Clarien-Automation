@@ -3,7 +3,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { recordTransactionId, resetTransactionIds } from '../../helpers/sharedState';
 import FLOW6_DATA from '../../../data/flow6.json';
 
 // Transfer maintenance (HTM) is performed by the maker user.

@@ -3095,9 +3095,12 @@ export class AccountPage {
     return `${String(last.getDate()).padStart(2, '0')}-${String(last.getMonth() + 1).padStart(2, '0')}-${last.getFullYear()}`;
   }
 
-  // Returns today's date as dd-mm-yyyy.
+  // Returns the application/BOD date as dd-mm-yyyy, preferring APPLICATION_DATE env.
   private todayDate(): string {
-    const d = new Date();
+    const env = process.env.APPLICATION_DATE;
+    const d = env
+      ? new Date(Number(env.split('-')[2]), Number(env.split('-')[1]) - 1, Number(env.split('-')[0]))
+      : new Date();
     return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
   }
 

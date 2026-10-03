@@ -3,7 +3,7 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
-import FLOW7_DATA from '../../../data/flow7.json';
+import FLOW6_DATA from '../../../data/flow6.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
@@ -18,11 +18,11 @@ const CONFIG = {
 };
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? process.env.FLOW7_HTM_DEBIT ?? '';
+const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? FLOW6_DATA.htmAccounts.debit;
 const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? process.env.FLOW7_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? '');
+const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? FLOW6_DATA.htmAccounts.credit);
 if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
-const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? process.env.FLOW7_HTM_AMOUNT ?? '';
+const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? FLOW6_DATA.initialFundingAmount;
 
 // Transaction ID: prefer shared state from the posting spec; must be present.
 const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);

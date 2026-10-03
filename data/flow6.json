@@ -1,11 +1,11 @@
 {
-  "cifId": "0002000305",
+  "cifId": "0002000206",
   "currentAccounts": [
     {
       "schemeCode": "CASTF",
       "currency": "USD",
       "solId": "102",
-      "cifCode": "0002000305",
+      "cifCode": "0002000206",
       "functionOption": "O",
       "dispatchMode": "email"
     }
@@ -45,7 +45,7 @@
   "secondaryFundingAmount": "100",
   "htmAccounts": {
     "debit": "7600000172",
-    "credit": "4600000119"
+    "credit": "6000087527"
   },
   "htmDownstreamAmounts": {
     "initialFunding": "1000",
@@ -70,14 +70,15 @@
         "beneficiaryCountry": "BM",
         "institutionAddressType": "F",
         "bic": "50601002",
-        "bankCode": "",
-        "branchCode": "",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
         "country": "BM",
         "paymentMethod": "SWIFT",
         "chargeOption": "OUR",
         "paymentProduct": "customer transfer",
-         "needsUsdPopup": true,
+        "needsUsdPopup": true,
         "rateCode": "TTB"
+
       }
     },
     {
@@ -96,8 +97,8 @@
         "beneficiaryCountry": "US",
         "institutionAddressType": "F",
         "bic": "50601006",
-        "bankCode": "",
-        "branchCode": "",
+        "bankCode": "BPBKBM",
+        "branchCode": "HMXXX",
         "country": "US",
         "paymentMethod": "SWIFT",
         "chargeOption": "OUR",

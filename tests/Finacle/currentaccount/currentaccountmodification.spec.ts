@@ -4,18 +4,20 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
-import FLOW6_DATA from '../../../data/flow6.json';
 import { getSharedValue } from '../../helpers/sharedState';
 
 // Current account modification is done by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// A/c Id to be modified - use the account created earlier in the flow.
-const ACCOUNT_ID = process.env.FLOW6_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId') ?? '';
+// A/c Id to be modified.
+const ACCOUNT_ID = getSharedValue<string>('accountId') ?? '4600000134';
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
+
+const DISPATCH_MODE = process.env.FLOW6_DISPATCH_MODE ?? 'no dispatch';
+const ACCOUNT_STATUS = process.env.FLOW6_ACCOUNT_STATUS ?? 'inactive';
 
 let homePage: HomePage;
 let accountPage: AccountPage;
@@ -44,13 +46,13 @@ test('HACM - modify current account dispatch mode and A/c status', async ({ page
   console.log('Clicking Go button...');
   await accountPage.clickGo();
 
-  console.log('Visiting General Details tab to modify Dispatch Mode...');
+  console.log(`Visiting General Details tab to modify Dispatch Mode to ${DISPATCH_MODE}...`);
   await accountPage.visitGeneralDetailsTab();
-  await accountPage.selectDispatchMode(FLOW6_DATA.modification.dispatchMode);
+  await accountPage.selectDispatchMode(DISPATCH_MODE);
 
-  console.log('Visiting Scheme tab to modify A/c Status...');
+  console.log(`Visiting Scheme tab to modify A/c Status to ${ACCOUNT_STATUS}...`);
   await accountPage.visitTab('Scheme');
-  await accountPage.selectAccountStatus(FLOW6_DATA.modification.accountStatus);
+  await accountPage.selectAccountStatus(ACCOUNT_STATUS);
 
   console.log('Clicking Submit button...');
   await accountPage.submitForm();

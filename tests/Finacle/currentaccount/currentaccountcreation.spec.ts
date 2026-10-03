@@ -5,7 +5,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import FLOW6_DATA from '../../../data/flow6.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { updateSharedState } from '../../helpers/sharedState';
+import { writeSharedState } from '../../helpers/sharedState';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
@@ -76,6 +76,7 @@ test(`create current account - scheme ${CURRENT_ACCOUNT_SCHEME}`, async () => {
     throw new Error(`Failed to capture account ID for scheme ${CURRENT_ACCOUNT_SCHEME}`);
   }
   console.log(`Captured Account ID (scheme ${CURRENT_ACCOUNT_SCHEME}): ${accountId}`);
+  writeSharedState({ accountId });
 
   // Persist the generated current account number so downstream specs can use it.
   updateSharedState((state) => {

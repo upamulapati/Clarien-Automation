@@ -1084,6 +1084,18 @@ export class PaymentOrderPage {
 
 
 
+  private async markPageVisited() {
+
+    await this.getFinwFrame().evaluate(() => {
+
+      (window as any).isPageVisited = 'Y';
+
+    }).catch(() => {});
+
+  }
+
+
+
   async syncRemittanceValues(data: any, businessDate: string) {
 
     this.currentData = data;
@@ -1186,74 +1198,8 @@ export class PaymentOrderPage {
 
         const finalRate = (rateValue && rateValue !== '0.0000' && rateValue !== '0') ? rateValue : '1.0000';
 
-        const updateRateField = (n: string, v: string) => {
-
-          set(n, v);
-
-        const drexchRateEl = f.querySelector('#drexchRate, input[name="pordm.drexchRate"]') as any;
-        if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
-
-        const exchRateEl = f.querySelector('#exchRate, input[name="pordm.exchRate"]') as any;
-        if (exchRateEl) { exchRateEl.value = finalRate; exchRateEl.disabled = false; }
-
-        (window as any).drexchRateCode = data.rateCode;
-        (window as any).drexchRate = finalRate;
-        (window as any).exchRateCode = data.rateCode;
-        (window as any).exchRate = finalRate;
-
-        const drexchRateCodeEl = f.querySelector('input[name="pordm.drexchRateCode"], #drexchRateCode') as any;
-
-        if (drexchRateCodeEl) {
-
-          drexchRateCodeEl.value = data.rateCode;
-
-          drexchRateCodeEl.disabled = false;
-
-          if (drexchRateCodeEl.onchange) drexchRateCodeEl.onchange();
-
-          if (drexchRateCodeEl.onblur) drexchRateCodeEl.onblur();
-
-        }
-
-        if (drexchRateEl) {
-
-          if (drexchRateEl.onchange) drexchRateEl.onchange();
-
-          if (drexchRateEl.onblur) drexchRateEl.onblur();
-
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        (window as any).drexchRateCode = data.rateCode;
-
-        (window as any).drexchRate = finalRate;
-
-        if (drexchRateCodeEl) { drexchRateCodeEl.value = data.rateCode; drexchRateCodeEl.disabled = false; }
-
-        if (drexchRateEl) { drexchRateEl.value = finalRate; drexchRateEl.disabled = false; }
-
-        const drexchRateCodeEl = f.querySelector('[name="pordm.drexchRateCode"]') as any;
-
-        if (drexchRateCodeEl && typeof drexchRateCodeEl.onchange === 'function') {
-
-          try {
-
-            console.log('Triggering drexchRateCode onchange');
-
-            drexchRateCodeEl.onchange();
-
-            console.log('drexchRateCode onchange returned');
-
-          } catch (e: any) {
-
-            console.log('drexchRateCode onchange error:', e?.message || e);
-
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        }
+        set('pordm.drexchRate', data.drexchRate || finalRate);
+        set('pordm.exchRate', finalRate);
 
         if (data.drexchRate) set('pordm.drexchRate', data.drexchRate);
 
@@ -1458,7 +1404,9 @@ export class PaymentOrderPage {
 
 
 
-  async clickMainSubmit() {
+  async prepareMainSubmit(data: any) {
+
+    this.currentData = data;
 
     // Re-run View Charges before the final submit so the charge/FCC state is
     // re-locked and the 'prev' variables reflect the current form.  Without this
@@ -1476,6 +1424,63 @@ export class PaymentOrderPage {
 
     await this.ensurePreSubmitValues();
 
+  }
+
+
+
+  private async acceptExcpPopupIfPresent(popup: Page) {
+
+    try {
+
+      const url = popup.url();
+
+      if (url.includes('excp_popup_screen')) {
+
+        console.log('Accepting excp_popup_screen warning:', url);
+
+        await popup.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+
+        const acceptBtn = popup.locator(
+          'button:has-text("Accept"), input[type="button"][value="Accept" i], ' +
+          'input[type="submit"][value="Accept" i], input[value="OK" i], input[value="Ok" i], #Accept'
+        ).first();
+
+        if (await acceptBtn.count() > 0) {
+
+          await acceptBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+
+          await acceptBtn.click();
+
+          console.log('Clicked Accept on warning popup');
+
+          await this.page.waitForTimeout(2000);
+
+        } else {
+
+          console.log('No Accept button found on warning popup');
+
+        }
+
+        await popup.close().catch(() => {});
+
+      }
+
+    } catch (e) {
+
+      console.log('Could not accept warning popup:', e);
+
+    }
+
+  }
+
+
+
+  async clickMainSubmit() {
+
+    await this.markPageVisited();
+
+    const popupPromise = this.page.context().waitForEvent('page', { timeout: 5000 }).catch(() => null);
+
     const submitReq = await this.getFinwFrame().evaluate(() => {
       const btn = document.getElementById('Submit') as any;
       if (btn && btn.click) {
@@ -1486,6 +1491,14 @@ export class PaymentOrderPage {
     }).catch((e: any) => `error: ${e.message || e}`);
 
     console.log(`Main Submit click: ${submitReq}`);
+
+    const popup = await popupPromise;
+
+    if (popup) {
+
+      await this.acceptExcpPopupIfPresent(popup);
+
+    }
 
     await this.page.waitForTimeout(3000);
     await captureEvidence(this.page, 'Payment order main submit', {});
@@ -1518,7 +1531,7 @@ export class PaymentOrderPage {
 
     try {
 
-      await this.prepareForSubmit();
+      await this.markPageVisited();
 
       const tabInfo = await this.getFinwFrame().evaluate(() => {
 
@@ -1562,7 +1575,7 @@ export class PaymentOrderPage {
 
     try {
 
-      await this.prepareForSubmit();
+      await this.markPageVisited();
 
       const paymentTab = await this.getFinwFrame().evaluate(() => {
 

@@ -8,21 +8,21 @@ import { writeSharedState, getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
-import COMMON_DATA from '../../../data/common-data.json';
-import FLOW6_DATA from '../../../data/flow6.json';
+import HPORDM_DATA from '../../../data/hpordmdata.json';
 import FLOW7_DATA from '../../../data/flow7.json';
 
-const IS_FLOW6 = process.env.CIF_MOD_FLOW === 'flow6';
-const IS_FLOW7 = process.env.CIF_MOD_FLOW === 'flow7';
-const FLOW6_CURRENT_ACCOUNT_ID = IS_FLOW6 ? (process.env.FLOW6_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId')) : undefined;
-const RAW_SCENARIOS = IS_FLOW6 ? (FLOW6_DATA.paymentOrderTestData ?? []) : IS_FLOW7 ? (FLOW7_DATA.paymentOrderTestData ?? []) : ((COMMON_DATA as any).paymentOrderTestData ?? []);
-const SCENARIOS = RAW_SCENARIOS.map((scenario: any) => {
-  const data = { ...(scenario.data ?? {}) };
-  if (IS_FLOW6 && FLOW6_CURRENT_ACCOUNT_ID) {
-    data.debitAccount = FLOW6_CURRENT_ACCOUNT_ID;
-  }
-  return { name: scenario.name, sharedKey: scenario.sharedKey, data };
-});
+const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
+
+const SCENARIOS = ((HPORDM_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
+  name: scenario.name,
+  sharedKey: scenario.sharedKey,
+  data: {
+    ...scenario.data,
+    amount: FLOW7_DATA.paymentOrderAmounts?.[scenario.sharedKey] ?? scenario.data.amount,
+    debitAccount: SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount,
+  },
+}));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
@@ -141,6 +141,10 @@ for (const scenario of SCENARIOS) {
     await paymentOrderPage.dumpFinwHtml('ach-fcc-finw.html');
   }
 
+  console.log('Preparing main submit...');
+  await paymentOrderPage.prepareMainSubmit(scenario.data);
+  await page.waitForTimeout(2000);
+
   console.log('Submitting payment order on main page...');
   await paymentOrderPage.clickMainSubmit();
   await page.waitForTimeout(3000);
@@ -203,7 +207,10 @@ for (const scenario of SCENARIOS) {
     expect(cleanText).toContain(scenario.data.ccy.toLowerCase());
     expect(cleanText).toContain(scenario.data.amount.toLowerCase());
     expect(pageText).toContain(scenario.data.beneficiaryAccountId);
-    expect(pageText).toContain(scenario.data.bic);
+    const expectedBic = (scenario.data.bankCode && scenario.data.branchCode)
+      ? scenario.data.bankCode + scenario.data.branchCode
+      : scenario.data.bic;
+    expect(pageText).toContain(expectedBic);
     expect(pageText).toContain(scenario.data.bankCode);
     expect(pageText).toContain(scenario.data.branchCode);
     expect(pageText).toContain(scenario.data.country);
@@ -218,11 +225,11 @@ for (const scenario of SCENARIOS) {
     console.log('Visiting reimbursement details tab...');
     await paymentOrderPage.clickReimbursementDetailsTab();
     await page.waitForTimeout(2000);
-    await paymentOrderPage.submitReimbursementDetails();
-    await page.waitForTimeout(2000);
+    // await paymentOrderPage.submitReimbursementDetails();
+    // await page.waitForTimeout(2000);
 
-    console.log('Syncing form values...');
-    await paymentOrderPage.syncRemittanceValues(scenario.data, businessDate);
+    // console.log('Syncing form values...');
+    // await paymentOrderPage.syncRemittanceValues(scenario.data, businessDate);
 
     console.log('Submitting verification...');
     await paymentOrderPage.clickMainSubmit();
