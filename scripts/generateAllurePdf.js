@@ -26,26 +26,33 @@ function getLabel(result, name) {
 }
 
 function getPackageFile(result) {
-  const label = getLabel(result, 'package') || getLabel(result, 'suite') || '';
-  if (!label) return '';
-  if (label.includes('\\')) {
-    return 'tests/' + label.split('\\').join('/');
+  const suiteLabel = getLabel(result, 'suite') || '';
+  if (suiteLabel && suiteLabel.includes('\\')) {
+    return 'tests/' + suiteLabel.split('\\').join('/');
   }
-  const parts = label.split('.');
-  if (parts.length >= 2) {
-    const fileName = parts.slice(-2).join('.');
-    return 'tests/' + parts.slice(0, -2).join('/') + '/' + fileName;
+  const packageLabel = getLabel(result, 'package') || '';
+  if (packageLabel && packageLabel.includes('\\')) {
+    return 'tests/' + packageLabel.split('\\').join('/');
   }
-  return 'tests/' + label;
+  if (packageLabel) {
+    const parts = packageLabel.split('.');
+    if (parts.length >= 3) {
+      const fileName = parts.slice(-3, -2)[0] + '.spec.ts';
+      const dir = parts.slice(0, -3).join('/');
+      return 'tests/' + (dir ? dir + '/' : '') + fileName;
+    }
+  }
+  return '';
 }
 
-function resolveSuiteName(results) {
+function resolveSuiteName(results, preferredSuite) {
   let testOrder;
   try {
     testOrder = require(TEST_ORDER_FILE);
   } catch (e) {
-    return 'Allure';
+    return preferredSuite || 'Allure';
   }
+  if (preferredSuite && testOrder[preferredSuite]) return preferredSuite;
   const resultFiles = new Set(results.map(getPackageFile).filter(Boolean));
   if (!resultFiles.size) return 'Allure';
   let best = 'Allure';
@@ -314,16 +321,29 @@ async function main() {
     };
   });
 
+  let testOrder = {};
+  try { testOrder = require(TEST_ORDER_FILE); } catch (e) { testOrder = {}; }
+  let manifest = null;
   let selectedFiles;
   if (fs.existsSync(LAST_RUN_FILE)) {
-    const manifest = JSON.parse(fs.readFileSync(LAST_RUN_FILE, 'utf8'));
-    const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
-    const manifestMtime = fs.statSync(LAST_RUN_FILE).mtime.getTime();
-    const newestResultMtime = Math.max(...parsed.map(p => p.mtime));
-    const allManifestFilesExist = manifestFiles.every(f => allFiles.includes(f));
-    if (manifestFiles.length > 0 && allManifestFilesExist && manifestMtime >= newestResultMtime) {
-      selectedFiles = manifestFiles;
-      console.log(`Using run manifest: ${selectedFiles.length} result(s)`);
+    manifest = JSON.parse(fs.readFileSync(LAST_RUN_FILE, 'utf8'));
+    if (manifest && manifest.suite && Array.isArray(testOrder[manifest.suite])) {
+      const suiteFiles = new Set(testOrder[manifest.suite]);
+      const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
+      const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
+      selectedFiles = detectLatestRun(relevant);
+      console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
+    } else if (Array.isArray(manifest.files) && manifest.files.length) {
+      const manifestMtime = fs.statSync(LAST_RUN_FILE).mtime.getTime();
+      const newestResultMtime = Math.max(...parsed.map(p => p.mtime));
+      const allManifestFilesExist = manifest.files.every(f => allFiles.includes(f));
+      if (allManifestFilesExist && manifestMtime >= newestResultMtime) {
+        selectedFiles = manifest.files;
+        console.log(`Using run manifest: ${selectedFiles.length} result(s)`);
+      } else {
+        selectedFiles = detectLatestRun(parsed);
+        console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
+      }
     } else {
       selectedFiles = detectLatestRun(parsed);
       console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
@@ -340,7 +360,7 @@ async function main() {
   const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
   const testsHtml = results.map(renderTest).join('');
   const dashboardHtml = renderDashboard(results);
-  const suiteName = resolveSuiteName(results);
+  const suiteName = resolveSuiteName(results, manifest ? manifest.suite : undefined);
   const pageTitle = `${suiteName} Test Report (PDF)`;
   const htmlTitle = `${suiteName} Test Report - PDF`;
 

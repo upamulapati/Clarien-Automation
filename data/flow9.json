@@ -1,0 +1,144 @@
+{
+  "cifId": "0002000206",
+  "lastName": "FLOW9",
+  "currentAccounts": [
+    {
+      "schemeCode": "CAREG",
+      "currency": "USD",
+      "solId": "202",
+      "cifCode": "0002000206",
+      "functionOption": "O",
+      "dispatchMode": "email"
+    }
+  ],
+  "address": {
+    "type": "Mailing",
+    "houseNo": "6",
+    "streetNo": "6",
+    "streetName": "FLOW9 STREET",
+    "postalCode": "HM08",
+    "state": "HAMILTON",
+    "stateCode": "BM001",
+    "city": "HAMILTON",
+    "country": "Bermuda",
+    "countryCode": "BM"
+  },
+  "phone": {
+    "type": "COMMUNICATION PHONE 1",
+    "phoneNo": "5555559999"
+  },
+  "email": {
+    "type": "Email",
+    "emailId": "flow9.test@example.com"
+  },
+  "otherBank": {
+    "bankName": "HSBC BANK LIMITED",
+    "branchName": "HSBC HAMILTON",
+    "productCategory": "HSBC CORPORATE",
+    "accountId": "777777777",
+    "channel": "EMAIL",
+    "addressLine1": "HSBC STREET 09",
+    "city": "AFORE",
+    "state": "CALIFORNIA",
+    "country": "Bermuda"
+  },
+  "jointHolders": [
+    "0002012248",
+    "0002012249"
+  ],
+  "initialFundingAmount": "1000",
+  "secondaryFundingAmount": "100",
+  "htmAccounts": {
+    "debit": "6000087527",
+    "credit": "6000087527"
+  },
+  "htmDownstreamAmounts": {
+    "initialFunding": "1000",
+    "debit": "100"
+  },
+  "paymentOrderAmounts": {
+    "paymentOrderIdSwiftFccGbp": "100",
+    "paymentOrderIdSwiftUsd": "100",
+    "paymentOrderIdSwiftFccCad": "100"
+  },
+  "relationCode": "999",
+  "relationType": "Joint Holder",
+  "paymentOrderTestData": [
+    {
+      "name": "Flow 9 - SWIFT FCC USD to GBP",
+      "sharedKey": "paymentOrderIdSwiftFccGbp",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "GBP",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "1213131331",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "IN RERW",
+        "beneficiaryCountry": "GB",
+        "institutionAddressType": "B",
+        "bic": "LOYDGB21004",
+        "bankCode": "LOYDGB",
+        "branchCode": "21004",
+        "country": "GB",
+        "paymentMethod": "SWIFT",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 9 - SWIFT USD to USD",
+      "sharedKey": "paymentOrderIdSwiftUsd",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "USD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "010247526001",
+        "beneficiaryName": "Anna Evelyn Carr",
+        "beneficiaryAddress": "14140 Abbington Avenue",
+        "beneficiaryBankCode": "",
+        "beneficiaryBranchCode": "",
+        "beneficiaryCountry": "US",
+        "institutionAddressType": "F",
+        "bic": "50601006",
+        "bankCode": "BPBKBM",
+        "branchCode": "HMXXX",
+        "country": "US",
+        "paymentMethod": "SWIFT",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer"
+      }
+    },
+    {
+      "name": "Flow 9 - SWIFT USD to CAD",
+      "sharedKey": "paymentOrderIdSwiftFccCad",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "CAD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": " ",
+        "beneficiaryName": "TESTING",
+        "beneficiaryAddress": "TEST HELOT",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "B",
+        "bic": "GSCICA91XXX",
+        "bankCode": "GSCICA",
+        "branchCode": "91XXX",
+        "country": "CA",
+        "paymentMethod": "SWIFT",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    }
+  ],
+  "modification": {
+    "dispatchMode": "no dispatch",
+    "accountStatus": "inactive"
+  }
+}

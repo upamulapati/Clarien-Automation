@@ -11,6 +11,8 @@ if (!suiteName) {
 
 const testOrder = require(path.resolve(__dirname, '../tests/config/testOrder.json'));
 const FLOW6_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/flow6.json'), 'utf8'));
+const FLOW9_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/flow9.json'), 'utf8'));
+const FLOW10_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/flow10.json'), 'utf8'));
 
 const sharedStateFile = path.resolve(__dirname, '../data/shared-state.json');
 if (fs.existsSync(sharedStateFile)) {
@@ -31,7 +33,7 @@ const env = {
   NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim(),
 };
 
-if (suiteName === 'flow6') {
+if (suiteName === 'flow6' || suiteName === 'flow9') {
   env.CLARIEN_MAKER = 'finacletest14';
   env.CLARIEN_CHECKER = 'finacle-test13';
   env.APPLICATION_DATE = '01-10-2026';
@@ -45,9 +47,11 @@ function readSharedStateJson() {
   }
 }
 
-function getFlow6StepEnv(file, state, htmOccurrence, modOccurrence) {
+function getFlow6StepEnv(file, state, htmOccurrence, modOccurrence, lastHtmOverrides) {
   const accountId = state?.accountId;
   const overrides = {};
+
+  if (suiteName !== 'flow6') return overrides;
 
   if (file.includes('accountfundingcurrentaccount.spec.ts')) {
     const created = accountId ?? '__ACCOUNT__';
@@ -63,8 +67,8 @@ function getFlow6StepEnv(file, state, htmOccurrence, modOccurrence) {
     overrides.FLOW6_HTM_SOL_ID = FLOW6_DATA.currentAccounts[0].solId;
   }
 
-  if (file.includes('transfermaintainenceverification.spec.ts') && lastFlow6HtmOverrides) {
-    Object.assign(overrides, lastFlow6HtmOverrides);
+  if (file.includes('transfermaintainenceverification.spec.ts') && lastHtmOverrides) {
+    Object.assign(overrides, lastHtmOverrides);
   }
 
   if (file.includes('currentaccountmodification.spec.ts')) {
@@ -80,39 +84,6 @@ function getFlow6StepEnv(file, state, htmOccurrence, modOccurrence) {
   return overrides;
 }
 
-function getFlow6StepEnv(file, state, htmOccurrence) {
-  const overrides = {};
-  if (suiteName !== 'flow6') return overrides;
-  const currentAccountId = state?.accountId;
-  if (!currentAccountId) return overrides;
-
-  const accounts = flow6Data.htmAccounts || { debit: '6000123165', credit: '4600000119' };
-  const amounts = flow6Data.htmDownstreamAmounts || { initialFunding: '1000', debit: '100' };
-
-  const usesCurrentAccount =
-    file.includes('currentaccountcreationverify.spec.ts') ||
-    file.includes('currentaccountmodification.spec.ts') ||
-    file.includes('currentaccountmodifyverification.spec.ts') ||
-    file.includes('accountfundingcurrentaccount.spec.ts') ||
-    file.includes('transfermaintainenceverification.spec.ts') ||
-    file.includes('hpordm-remittance.spec.ts');
-
-  if (usesCurrentAccount) {
-    overrides.FLOW6_CURRENT_ACCOUNT_ID = currentAccountId;
-  }
-
-  if (file.includes('accountfundingcurrentaccount.spec.ts') || file.includes('transfermaintainenceverification.spec.ts')) {
-    const direction = htmOccurrence === 1 ? 'credit' : 'debit';
-    const external = direction === 'credit' ? accounts.debit : accounts.credit;
-    const amount = direction === 'credit' ? amounts.initialFunding : amounts.debit;
-    overrides.FLOW6_HTM_SOL_ID = flow6Data.currentAccounts?.[0]?.solId ?? '100';
-    overrides.FLOW6_HTM_AMOUNT = amount;
-    overrides.FLOW6_HTM_DEBIT = direction === 'credit' ? external : currentAccountId;
-    overrides.FLOW6_HTM_CREDIT = direction === 'credit' ? currentAccountId : external;
-  }
-
-  return overrides;
-}
 
 function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides) {
   const accountId = state?.accountId;
@@ -152,18 +123,98 @@ function getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastH
   return overrides;
 }
 
+function getFlow10StepEnv(file) {
+  if (suiteName !== 'flow10') return {};
+  const overrides = {
+    CIF_MOD_FLOW: 'flow10',
+    CIF_ID: FLOW10_DATA.cifId,
+    FLOW9_CIF_ID: FLOW10_DATA.cifId,
+    FLOW9_LAST_NAME: FLOW10_DATA.lastName,
+    FLOW9_PHONE_NO: FLOW10_DATA.phone.phoneNo,
+    FLOW7_SAVINGS_DISPATCH: FLOW10_DATA.savingsDispatchMode,
+    FLOW10_JOINT_HOLDERS: JSON.stringify(FLOW10_DATA.jointHolders),
+  };
+  if (file.includes('hpordm-remittance.spec.ts')) {
+    // Let the spec read FLOW10_DATA directly via the CIF_MOD_FLOW env
+    overrides.FLOW10_PAYMENT_ORDER_AMOUNTS = JSON.stringify(FLOW10_DATA.paymentOrderAmounts || {});
+  }
+  return overrides;
+}
+
+function getFlow9StepEnv(file, state, htmOccurrence, modOccurrence, lastHtmOverrides) {
+  const accountId = state?.accountId;
+  const overrides = {};
+
+  if (suiteName !== 'flow9') return overrides;
+
+  if (file.includes('currentaccountcreationverify.spec.ts')) {
+    overrides.FLOW9_CURRENT_ACCOUNT_ID = accountId ?? '__ACCOUNT__';
+  }
+
+  if (file.includes('accountfundingcurrentaccount.spec.ts')) {
+    const created = accountId ?? '__ACCOUNT__';
+    if (htmOccurrence === 1) {
+      overrides.FLOW9_HTM_DEBIT = FLOW9_DATA.htmAccounts.debit;
+      overrides.FLOW9_HTM_CREDIT = created;
+      overrides.FLOW9_HTM_AMOUNT = FLOW9_DATA.initialFundingAmount;
+    } else if (htmOccurrence === 2) {
+      overrides.FLOW9_HTM_DEBIT = created;
+      overrides.FLOW9_HTM_CREDIT = FLOW9_DATA.htmAccounts.credit;
+      overrides.FLOW9_HTM_AMOUNT = FLOW9_DATA.secondaryFundingAmount;
+    }
+    overrides.FLOW9_HTM_SOL_ID = FLOW9_DATA.currentAccounts[0].solId;
+  }
+
+  if (file.includes('transfermaintainenceverification.spec.ts') && lastHtmOverrides) {
+    Object.assign(overrides, lastHtmOverrides);
+  }
+
+  if (file.includes('currentaccountmodification.spec.ts')) {
+    overrides.FLOW9_DISPATCH_MODE = modOccurrence === 1 ? FLOW9_DATA.modification.dispatchMode : 'email';
+    overrides.FLOW9_ACCOUNT_STATUS = FLOW9_DATA.modification.accountStatus || 'inactive';
+  }
+
+  if (file.includes('currentaccountmodifyverification.spec.ts')) {
+    overrides.FLOW9_DISPATCH_MODE = modOccurrence === 1 ? FLOW9_DATA.modification.dispatchMode : 'email';
+    overrides.FLOW9_ACCOUNT_STATUS = FLOW9_DATA.modification.accountStatus || 'inactive';
+  }
+
+  if (file.includes('Retailcifmodification.spec.ts')) {
+    overrides.FLOW9_PHONE_NO = FLOW9_DATA.phone.phoneNo;
+    overrides.FLOW9_STREET_NAME = FLOW9_DATA.address.streetName;
+    overrides.FLOW9_POSTAL_CODE = FLOW9_DATA.address.postalCode;
+    overrides.FLOW9_LAST_NAME = FLOW9_DATA.lastName;
+    overrides.FLOW9_CIF_ID = FLOW9_DATA.cifId;
+  }
+
+  if (file.includes('hpordm-remittance.spec.ts')) {
+    overrides.FLOW9_CURRENT_ACCOUNT_ID = accountId ?? FLOW9_DATA.htmAccounts.credit;
+  }
+
+  return overrides;
+}
+
 function writeLastRunManifest() {
   const resultsDir = path.resolve(cwd, 'reports', 'allureReports');
   const files = fs.existsSync(resultsDir)
     ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json')).sort()
     : [];
-  const manifest = { suite: suiteName, timestamp: new Date().toISOString(), files };
+  const manifest = { suite: suiteName, startTime, timestamp: new Date().toISOString(), files };
   fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }
 
 // Clear shared state
 if (fs.existsSync(sharedStateFile)) {
   fs.writeFileSync(sharedStateFile, '{}', 'utf8');
+}
+
+// Seed shared state for the data-driven flow10 suite
+if (suiteName === 'flow10') {
+  fs.writeFileSync(sharedStateFile, JSON.stringify({
+    cifId: FLOW10_DATA.cifId,
+    accountId: FLOW10_DATA.savingsAccountId,
+  }, null, 2), 'utf8');
+  console.log(`[runOrdered] Seeded flow10 shared state: cifId=${FLOW10_DATA.cifId}, accountId=${FLOW10_DATA.savingsAccountId}`);
 }
 
 // Clean reports
@@ -185,6 +236,7 @@ const allureReportDir = path.resolve(cwd, 'reports/allure-report');
 });
 console.log('Previous reports cleaned.\n');
 
+const startTime = Date.now();
 const files = testOrder[suiteName];
 console.log(`Running suite: ${suiteName}\n`);
 let exitCode = 0;
@@ -193,9 +245,11 @@ let htmOccurrence = 1;
 let savingsModOccurrence = 1;
 let flow6HtmOccurrence = 1;
 let lastHtmOverrides = null;
-let flow6HtmOccurrence = 1;
 let flow6ModOccurrence = 1;
 let lastFlow6HtmOverrides = null;
+let flow9HtmOccurrence = 1;
+let flow9ModOccurrence = 1;
+let lastFlow9HtmOverrides = null;
 for (let i = 0; i < files.length; i++) {
   const file = files[i];
   console.log(`[${i + 1}/${files.length}] ${file}`);
@@ -205,8 +259,10 @@ for (let i = 0; i < files.length; i++) {
 
   const state = readSharedStateJson();
   const flow7Overrides = getFlow7StepEnv(file, state, htmOccurrence, savingsModOccurrence, lastHtmOverrides);
-  const flow6Overrides = getFlow6StepEnv(file, state, flow6HtmOccurrence, flow6ModOccurrence);
-  const stepOverrides = { ...flow7Overrides, ...flow6Overrides };
+  const flow6Overrides = getFlow6StepEnv(file, state, flow6HtmOccurrence, flow6ModOccurrence, lastFlow6HtmOverrides);
+  const flow9Overrides = getFlow9StepEnv(file, state, flow9HtmOccurrence, flow9ModOccurrence, lastFlow9HtmOverrides);
+  const flow10Overrides = getFlow10StepEnv(file);
+  const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides };
   const childEnv = { ...env, ...stepOverrides };
 
   try {
@@ -236,6 +292,13 @@ for (let i = 0; i < files.length; i++) {
   }
   if (file.includes('currentaccountmodification.spec.ts')) {
     flow6ModOccurrence++;
+  }
+  if (file.includes('accountfundingcurrentaccount.spec.ts')) {
+    flow9HtmOccurrence++;
+    lastFlow9HtmOverrides = flow9Overrides;
+  }
+  if (file.includes('currentaccountmodification.spec.ts')) {
+    flow9ModOccurrence++;
   }
 }
 

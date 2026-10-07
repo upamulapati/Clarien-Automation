@@ -14,7 +14,10 @@ const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
 // CIF of the customer(s) to add as related parties (joint holders).
-const JOINT_HOLDERS = (FLOW7_DATA.jointHolders ?? ['0002012248']) as string[];
+const FLOW10_JOINT_HOLDERS = process.env.FLOW10_JOINT_HOLDERS;
+const JOINT_HOLDERS = (FLOW10_JOINT_HOLDERS
+  ? JSON.parse(FLOW10_JOINT_HOLDERS)
+  : FLOW7_DATA.jointHolders ?? ['0002012248']) as string[];
 
 test.describe('Add Related Party to Savings Account (HACM)', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });

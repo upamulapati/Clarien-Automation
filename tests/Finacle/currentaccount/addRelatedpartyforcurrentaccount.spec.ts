@@ -3,19 +3,28 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
+import FLOW9_DATA from '../../../data/flow9.json';
+import { getSharedValue } from '../../helpers/sharedState';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
 
 // Existing current account number to which the related party will be added.
-const ACCOUNT_ID = '7600000160';
+const SHARED_ACCOUNT_ID = process.env.FLOW9_CURRENT_ACCOUNT_ID ?? getSharedValue<string>('accountId');
+if (IS_FLOW9 && !SHARED_ACCOUNT_ID) throw new Error('Flow 9 requires the current account ID from the previous step.');
+const ACCOUNT_ID = (IS_FLOW9 ? SHARED_ACCOUNT_ID! : (SHARED_ACCOUNT_ID ?? '7600000160')) as string;
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
 
-// CIF of the customer to add as a related party (joint holder).
-const RELATED_PARTY_CIF = '0002012248';
+// CIFs of the customers to add as related parties (joint holders).
+const JOINT_HOLDERS = (IS_FLOW9 ? ((FLOW9_DATA as any).jointHolders as string[]) : ['0002012248']);
+if (IS_FLOW9 && !JOINT_HOLDERS?.length) throw new Error('Flow 9 requires jointHolders in flow9.json.');
 
-// Relationship code 999 maps to description "OTHERS".
-const RELATION_CODE = '999';
+// Relationship type and code from flow9.json when running Flow 9.
+const RELATION_TYPE = (IS_FLOW9 ? (FLOW9_DATA as any).relationType : 'Joint Holder') as string;
+const RELATION_CODE = (IS_FLOW9 ? (FLOW9_DATA as any).relationCode : '999') as string;
+if (IS_FLOW9 && !RELATION_CODE) throw new Error('Flow 9 requires relationCode in flow9.json.');
 
 let homePage: HomePage;
 let savingsAccountPage: AccountPage;
@@ -29,7 +38,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 // HACM - Add related party (joint holder) details to an existing current account
-test('HACM - add related party to current account', async ({ page }) => {
+for (const RELATED_PARTY_CIF of JOINT_HOLDERS) {
+  test(`HACM - add related party to current account (${RELATED_PARTY_CIF})`, async ({ page }) => {
   const accountId = ACCOUNT_ID;
   console.log(`Using existing Account ID: ${accountId}`);
 
@@ -69,8 +79,8 @@ test('HACM - add related party to current account', async ({ page }) => {
   await savingsAccountPage.clickRelatedPartyAdd();
 
   // Step 7: Relation type - Joint Holder
-  console.log('Selecting relation type: Joint Holder...');
-  await savingsAccountPage.selectRelationType('Joint Holder');
+  console.log(`Selecting relation type: ${RELATION_TYPE}...`);
+  await savingsAccountPage.selectRelationType(RELATION_TYPE);
 
   // Step 8: Relation code - Others (code 999)
   console.log('Selecting relation code: Others (999)...');
@@ -96,7 +106,8 @@ test('HACM - add related party to current account', async ({ page }) => {
   // Logout
   console.log('Logging out...');
   await homePage.logout();
-});
+  });
+}
 
 // === STRICT ASSERTIONS INJECTION ===
 test.afterEach(async ({ page }) => {

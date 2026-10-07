@@ -1084,6 +1084,39 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
     }
     console.log(`${phoneType} record select clicked = ${phoneRowClicked}`);
 
+    // Fallback: select the first available phone row when the requested type isn't found.
+    if (!phoneRowClicked) {
+      for (const f of editPage.frames()) {
+        const res = await f
+          .evaluate(() => {
+            const rows = Array.from(document.querySelectorAll('tr')).filter((r) => !r.querySelector('tr'));
+            for (const r of rows) {
+              const tds = Array.from(r.querySelectorAll('td'));
+              if (tds.length === 0) continue;
+              const txt = (r.textContent || '').replace(/\s+/g, ' ').trim();
+              const controls = Array.from(r.querySelectorAll('input[type="button"], a, img')) as HTMLElement[];
+              const isPhoneEdit = (e: Element) =>
+                /editPhone|PhoneEmail|PhoneDetails|editTelephone|editContact/i.test(e.getAttribute('onclick') || '');
+              const editBtn = controls.find(isPhoneEdit);
+              const dotsBtn = controls.find((c) => ((c as HTMLInputElement).value || '').trim() === '...');
+              if (editBtn || dotsBtn) {
+                const firstCell = r.querySelector('td');
+                if (firstCell) (firstCell as HTMLElement).click();
+                (editBtn || dotsBtn!).click();
+                return { clicked: true, text: txt };
+              }
+            }
+            return { clicked: false };
+          })
+          .catch(() => null);
+        if (res && res.clicked) {
+          phoneRowClicked = true;
+          console.log(`Selected first available phone row in ${f.url().slice(-45)}: ${res.text}`);
+          break;
+        }
+      }
+    }
+
     let phonePopup = await phonePopupPromise;
     if (!phonePopup || phonePopup.isClosed()) {
       await editPage.waitForTimeout(900).catch(() => {});
@@ -1105,21 +1138,39 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
 
     const phoneFrame =
       (await this.findFrameByText(phonePage, /Phone and Email Details|Phone No/i, 8000)) || phonePage.mainFrame();
-    const allInputs = await phoneFrame.locator('input[type="text"], input:not([type])').all().catch(() => []);
+    const allInputs = await phoneFrame.locator('input[type="text"]:visible, input:not([type]):visible').all().catch(() => []);
 
-    // Find the input holding the existing phone number (all-digit, len >= 5).
+    // Find a visible, editable phone number input. Prefer one with an existing numeric value,
+    // otherwise choose a text-style input that is not a button/readonly.
     let inp: Locator | null = null;
     for (const cand of allInputs) {
-      const v = (await cand.inputValue({ timeout: 2000 }).catch(() => '')) || '';
       const vis = await cand.isVisible().catch(() => false);
-      if (vis && /^\d{5,}$/.test(v.trim())) {
+      const typ = (await cand.getAttribute('type').catch(() => 'text')) || 'text';
+      const v = (await cand.inputValue({ timeout: 2000 }).catch(() => '')) || '';
+      if (!vis) continue;
+      if (typ === 'button' || typ === 'submit' || typ === 'image' || typ === 'hidden') continue;
+      const ro = await cand.isEditable().catch(() => false);
+      if (!ro) continue;
+      if (/^\d{5,}$/.test(v.trim())) {
         inp = cand;
         break;
       }
+      if (!inp) {
+        inp = cand;
+      }
     }
     if (!inp) {
-      const xp = "xpath=//td[not(descendant::td) and contains(normalize-space(.),'Phone No')]/following::input[3]";
-      inp = phoneFrame.locator(xp).first();
+      // Final fallback: first visible editable text input in the phone frame.
+      const textInputs = await phoneFrame.locator('input[type="text"]:visible, input:not([type]):visible').all().catch(() => []);
+      for (const cand of textInputs) {
+        if (await cand.isEditable().catch(() => false)) {
+          inp = cand;
+          break;
+        }
+      }
+    }
+    if (!inp) {
+      throw new Error(`No editable phone number input found in Phone and E-Mail popup for ${phoneType}`);
     }
     await inp.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
     let v = '';
@@ -1151,19 +1202,298 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
   }
 
   // ---------------------------------------------------------------
+  // Ensure any existing Identification Document has a future expiry date.
+  // Finacle validates ID doc expiry >= "Today's Date" on submit, so open each
+  // row in the Identification Document Details tab and update the expiry.
+  // ---------------------------------------------------------------
+  async ensureIdDocumentExpiryIsFuture(expiryDate = '31/12/2099'): Promise<boolean> {
+    const editPage = this.editPage;
+    const context = editPage.context();
+    console.log(`TC_011: Ensuring ID document expiry is >= ${expiryDate}...`);
+
+    // 1. Open the Identification Document Details tab.
+    const tabClicked = await this.clickTabByText(editPage, 'Identification Document Details').catch(() => false);
+    if (!tabClicked) {
+      await editPage.evaluate(() => {
+        if (typeof (window as any).showTabFortabDemoForm === 'function') (window as any).showTabFortabDemoForm('tpageCont5');
+      }).catch(() => {});
+    }
+    await editPage.waitForTimeout(1200).catch(() => {});
+
+    // 2. Locate the frame containing the ID document listing.
+    let idDocFrame: Frame | null = null;
+    for (const f of editPage.frames()) {
+      const hasGrid = await f.evaluate(() => {
+        const b = document.querySelector('input[name="AddIdentificationDetails"]') as HTMLInputElement;
+        return b ? b.getBoundingClientRect().width > 0 : false;
+      }).catch(() => false);
+      if (hasGrid) { idDocFrame = f; break; }
+    }
+    if (!idDocFrame) {
+      console.log('\u26a0 Identification Document Details tab/listing not found, skipping expiry update');
+      return false;
+    }
+
+    // 3. Count document rows (skip header rows that contain no actionable cells).
+    const rowIndexes = await idDocFrame.evaluate(() => {
+      const rows = Array.from(document.querySelectorAll('tr')).filter((r) => !r.querySelector('tr'));
+      return rows
+        .map((r, i) => ({ i, hasCell: !!r.querySelector('td') }))
+        .filter((x) => x.hasCell)
+        .map((x) => x.i);
+    }).catch(() => [] as number[]);
+    if (!rowIndexes.length) {
+      console.log('\u26a0 No ID document rows found');
+      return false;
+    }
+    console.log(`Found ${rowIndexes.length} ID document row(s)`);
+
+    let updatedAny = false;
+    for (const rowIndex of rowIndexes) {
+      // Try to open the row via its edit/select button, otherwise double-click the first cell.
+      const opened = await idDocFrame.evaluate((idx) => {
+        const rows = Array.from(document.querySelectorAll('tr')).filter((r) => !r.querySelector('tr'));
+        const r = rows[idx];
+        if (!r) return false;
+        const controls = Array.from(r.querySelectorAll('input[type="button"], input[type="image"], a, img')) as HTMLElement[];
+        const btn = controls.find((c) =>
+          /edit|select|callme|identify|details|modify/i.test(
+            ((c as HTMLInputElement).value || '') + ' ' + (c.getAttribute('onclick') || '')
+          )
+        );
+        if (btn) { btn.click(); return true; }
+        const cell = r.querySelector('td');
+        if (cell) {
+          (cell as HTMLElement).click();
+          cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, view: window }));
+          return true;
+        }
+        return false;
+      }, rowIndex).catch(() => false);
+      if (!opened) continue;
+
+      // Wait for the ID document details popup.
+      const popup = await context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+      if (!popup) continue;
+      await popup.waitForLoadState('domcontentloaded').catch(() => {});
+      await popup.waitForTimeout(800).catch(() => {});
+
+      // Set the expiry date in any visible frame of the popup.
+      for (const f of popup.frames()) {
+        const ok = await f.evaluate((val) => {
+          const names = ['3_EntityDocumentBO.DocExpiryDate', 'EntityDocumentBO.DocExpiryDate', 'DocExpiryDate'];
+          for (const n of names) {
+            const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
+            if (el) {
+              el.removeAttribute('readonly');
+              el.value = val;
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+              return true;
+            }
+          }
+          return false;
+        }, expiryDate).catch(() => false);
+        if (ok) {
+          console.log(`\u2713 Set ID document expiry to ${expiryDate}`);
+          updatedAny = true;
+          break;
+        }
+      }
+
+      // Save and close the popup.
+      for (const f of popup.frames()) {
+        const saveBtn = f
+          .locator('input[type="button"][value="Save"], input[type="submit"][value="Save"], input[value="Save"], button:has-text("Save")')
+          .first();
+        if (await saveBtn.isVisible().catch(() => false)) {
+          await saveBtn.click({ timeout: 5000 }).catch(() => {});
+          break;
+        }
+      }
+      await popup.waitForTimeout(800).catch(() => {});
+      if (!popup.isClosed()) await popup.close().catch(() => {});
+      await editPage.waitForTimeout(800).catch(() => {});
+    }
+
+    return updatedAny;
+  }
+
+  // ---------------------------------------------------------------
+  // Open the Identification Document Details listing and update each row's
+  // Expiry Date to a future value, so the maker submit passes the "Expiry Date
+  // has to be greater than or equal to Today's Date" validation.
+  // ---------------------------------------------------------------
+  async updateExistingIdDocumentExpiry(expiryDate = '31/12/2099'): Promise<boolean> {
+    const editPage = this.editPage;
+    const context = editPage.context();
+    console.log(`TC_011: Ensuring existing ID document expiry is >= ${expiryDate}...`);
+
+    const tabClicked = await this.clickTabByText(editPage, 'Identification Document Details').catch(() => false);
+    if (!tabClicked) {
+      await editPage.evaluate(() => {
+        if (typeof (window as any).showTabFortabDemoForm === 'function') (window as any).showTabFortabDemoForm('tpageCont5');
+      }).catch(() => {});
+    }
+    await editPage.waitForTimeout(1200).catch(() => {});
+
+    let idDocFrame: Frame | null = null;
+    for (const f of editPage.frames()) {
+      const has = await f.evaluate(() => {
+        const b = document.querySelector('input[name="AddIdentificationDetails"]') as HTMLInputElement;
+        return b ? b.getBoundingClientRect().width > 0 : false;
+      }).catch(() => false);
+      if (has) { idDocFrame = f; break; }
+    }
+    if (!idDocFrame) {
+      console.log('\u26a0 ID Document Details tab not found');
+      return false;
+    }
+
+    // Find the ID document table and count only real data rows.
+    const tableData = await idDocFrame.evaluate(() => {
+      const tables = Array.from(document.querySelectorAll('table'));
+      for (const t of tables) {
+        const text = (t.textContent || '').toUpperCase();
+        if (/\b(DOCUMENT\s*TYPE|DOCUMENT\s*CODE|ISSUE\s*DATE|EXPIRY\s*DATE|REFERENCE\s*NUMBER)\b/.test(text)) {
+          const rows = Array.from(t.querySelectorAll('tr')).filter((r) => {
+            if (r.querySelector('tr')) return false;
+            const tds = Array.from(r.querySelectorAll('td'));
+            return tds.length > 0 && tds.some((td) => (td.textContent || '').trim().length > 0);
+          });
+          if (rows.length > 0) {
+            return { tableIndex: tables.indexOf(t), rowCount: rows.length };
+          }
+        }
+      }
+      return { tableIndex: -1, rowCount: 0 };
+    }).catch(() => ({ tableIndex: -1, rowCount: 0 }));
+    if (tableData.rowCount === 0) {
+      console.log('\u26a0 No ID document data rows found');
+      return false;
+    }
+    console.log(`Found ${tableData.rowCount} ID document row(s) in table #${tableData.tableIndex}`);
+
+    const maxRows = Math.min(tableData.rowCount, 3);
+    let updatedAny = false;
+    for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
+      const rowAction = await idDocFrame
+        .evaluate(
+          (args: { tableIdx: number; rowIdx: number }) => {
+            const t = document.querySelectorAll('table')[args.tableIdx] as HTMLTableElement;
+            if (!t) return { opened: false, reason: 'no-table' };
+            const rows = Array.from(t.querySelectorAll('tr')).filter(
+              (r) => r.querySelector('td') && !r.querySelector('tr')
+            );
+            const r = rows[args.rowIdx];
+            if (!r) return { opened: false, reason: 'no-row' };
+            const controls = Array.from(r.querySelectorAll('input[type="button"], input[type="image"], a, img')) as HTMLElement[];
+            const btn = controls.find((c) =>
+              /edit|modify|select|details/i.test(
+                ((c as HTMLInputElement).value || '') + ' ' + (c.getAttribute('onclick') || '')
+              )
+            );
+            if (btn) {
+              btn.click();
+              return { opened: true, control: 'btn' };
+            }
+            const radio = r.querySelector('input[type="radio"], input[type="checkbox"]') as HTMLInputElement;
+            if (radio) {
+              radio.checked = true;
+              radio.click();
+              return { opened: true, control: 'radio' };
+            }
+            const cell = r.querySelector('td');
+            if (cell) {
+              cell.click();
+              return { opened: true, control: 'cell' };
+            }
+            return { opened: false, reason: 'no-control' };
+          },
+          { tableIdx: tableData.tableIndex, rowIdx: rowIndex }
+        )
+        .catch(() => ({ opened: false, reason: 'error' }));
+
+      const ra = rowAction as { opened: boolean; control?: string; reason?: string };
+      if (!ra.opened) {
+        console.log(`  Row ${rowIndex} could not be selected: ${ra.reason}`);
+        continue;
+      }
+      console.log(`  Selected row ${rowIndex} via ${ra.control}`);
+
+      if (ra.control === 'radio' || ra.control === 'cell') {
+        const editBtn = idDocFrame
+          .locator(
+            'input[type="button"][value*="Edit" i], input[type="button"][value="Modify"], input[onclick*="edit" i], a:has-text("Edit"), button:has-text("Edit")'
+          )
+          .first();
+        const visible = await editBtn.isVisible().catch(() => false);
+        if (visible) await editBtn.click({ timeout: 5000 }).catch(() => {});
+      }
+
+      const popup = await context.waitForEvent('page', { timeout: 8000 }).catch(() => null);
+      if (!popup) {
+        console.log(`  No edit popup for row ${rowIndex}`);
+        continue;
+      }
+      await popup.waitForLoadState('domcontentloaded').catch(() => {});
+      await popup.waitForTimeout(800).catch(() => {});
+
+      for (const f of popup.frames()) {
+        const ok = await f.evaluate((val) => {
+          const names = ['3_EntityDocumentBO.DocExpiryDate', 'EntityDocumentBO.DocExpiryDate', 'DocExpiryDate'];
+          for (const n of names) {
+            const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
+            if (el) {
+              el.removeAttribute('readonly');
+              el.value = val;
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+              return true;
+            }
+          }
+          return false;
+        }, expiryDate).catch(() => false);
+        if (ok) {
+          console.log(`\u2713 Set ID document expiry to ${expiryDate}`);
+          updatedAny = true;
+          break;
+        }
+      }
+
+      for (const f of popup.frames()) {
+        const saveBtn = f
+          .locator('input[type="button"][value="Save"], input[type="submit"][value="Save"], input[value="Save"], button:has-text("Save")')
+          .first();
+        if (await saveBtn.isVisible().catch(() => false)) {
+          await saveBtn.click({ timeout: 5000 }).catch(() => {});
+          break;
+        }
+      }
+      await popup.waitForTimeout(800).catch(() => {});
+      if (!popup.isClosed()) await popup.close().catch(() => {});
+      await editPage.waitForTimeout(800).catch(() => {});
+    }
+
+    return updatedAny;
+  }
+
+  // ---------------------------------------------------------------
   // TC_012: Submit General Details + Process Selection
   // ---------------------------------------------------------------
   async submitGeneralDetails(cifId: string, processName = this.mod.processName): Promise<boolean> {
     const editPage = this.editPage;
     const context = this.page.context();
     let submitDialog = '';
+    let lastSuccessDialog = '';
     let submitSuccessSeen = false;
     const successRe = /submitted successfully|successfully submitted|is submitted|Process was saved successfully/i;
 
     const attachDialog = (p: Page) => {
       p.on('dialog', async (d) => {
         submitDialog = d.message();
-        if (successRe.test(d.message())) submitSuccessSeen = true;
+        if (successRe.test(d.message())) {
+          submitSuccessSeen = true;
+          lastSuccessDialog = d.message();
+        }
         console.log(`[submit dialog] ${d.message()}`);
         if (/log\s*out|log\s*off|sign\s*out/i.test(d.message())) {
           await d.dismiss().catch(() => {});
@@ -1252,6 +1582,7 @@ export class CrmRetailModificationPage extends CrmModificationBasePage {
           4000
         ).catch(() => null);
     const submitSucceeded = submitSuccessSeen || successRe.test(submitDialog) || !!successFrame;
+    this.lastDialogMessage = lastSuccessDialog || submitDialog;
     console.log(`Submit dialog = "${submitDialog}", successSeen=${submitSuccessSeen}, successFrame=${!!successFrame}`);
 
     // Best-effort acknowledge of any lingering in-page OK.
