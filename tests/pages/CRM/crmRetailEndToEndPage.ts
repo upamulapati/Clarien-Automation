@@ -617,6 +617,38 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
       setSel('AccountModBO.IsEbankingEnabled', 'N');
     }).catch(() => {});
 
+    // Basel Profiling and Foreign A/c. Tax Reporting (mandatory in newer builds)
+    for (const f of page.frames()) {
+      const fixes = await f.evaluate(() => {
+        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+        const findLabel = (el: HTMLElement): string => {
+          let node = el.parentElement;
+          for (let i = 0; i < 5 && node; i++) { const text = (node.textContent || '').trim(); if (text.length > 0) return text; node = node.parentElement; }
+          return '';
+        };
+        const setNo = (sel: HTMLSelectElement): boolean => {
+          for (const o of Array.from(sel.options)) { if (o.value === 'N' || o.text.trim().toUpperCase() === 'NO' || o.text.trim().toUpperCase().startsWith('NO')) { sel.value = o.value; fire(sel); return true; } }
+          return false;
+        };
+        const results: string[] = [];
+        for (const sel of Array.from(document.querySelectorAll('select'))) {
+          const r = sel.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          const name = sel.name || '';
+          const label = findLabel(sel).toLowerCase();
+          const combined = (name + ' ' + label).toLowerCase();
+          if ((combined.includes('basel') && combined.includes('profil')) || name.toLowerCase().includes('basel')) {
+            if (setNo(sel)) results.push('BaselProfiling');
+          }
+          if ((label.includes('foreign') && (label.includes('tax') || label.includes('a/c'))) || name.toLowerCase().includes('foreign') || name.toLowerCase().includes('taxreporting') || name.toLowerCase().includes('fatca')) {
+            if (setNo(sel)) results.push('ForeignAcTaxReporting');
+          }
+        }
+        return results;
+      }).catch(() => [] as string[]);
+      if (fixes && fixes.length) console.log(`\u2713 Mandatory selects: ${fixes.join(', ')}`);
+    }
+
     await this.accountFrame.evaluate((rmId: string) => {
       const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
       const inp = document.querySelector('input[name="Acc_manager"]') as HTMLInputElement;
@@ -1143,6 +1175,17 @@ export class CrmRetailEndToEndPage extends CrmEndToEndPage {
     if (await isVerified.isVisible({ timeout: 2000 }).catch(() => false)) {
       if (!(await isVerified.isDisabled().catch(() => true))) { await isVerified.selectOption({ label: 'Y' }).catch(() => {}); }
     }
+
+    // Received On
+    await target.evaluate((val: string) => {
+      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+      const candidates = ['3_EntityDocumentBO.ReceivedDate', '3_EntityDocumentBO.DocReceivedDate', 'EntityDocumentBO.ReceivedDate', 'EntityDocumentBO.DocReceivedDate'];
+      for (const n of candidates) {
+        const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
+        if (el) { el.removeAttribute('readonly'); el.value = val; fire(el); }
+      }
+    }, TD.validDocData.receivedOn).catch(() => {});
+    console.log(`\u2713 Received On: ${TD.validDocData.receivedOn}`);
 
     // Save
     const dlgs: string[] = [];

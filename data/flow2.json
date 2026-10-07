@@ -1,4 +1,5 @@
 {
+  "cifId": "0002000733",
   "paymentOrderTestData": [
     {
       "name": "Flow 1 - ACH BMD to USD to HSBC Bank",

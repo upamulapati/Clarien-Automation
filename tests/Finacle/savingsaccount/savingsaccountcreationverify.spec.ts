@@ -11,7 +11,7 @@ import COMMON_DATA from '../../../data/common-data.json';
 const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
 const VERIFY_CONFIG = getVerificationConfig();
 
-const SAVINGS_DATA = (process.env.CIF_MOD_FLOW === 'flow7' ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
+const SAVINGS_DATA = (process.env.CIF_MOD_FLOW ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';

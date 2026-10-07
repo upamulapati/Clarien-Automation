@@ -137,5 +137,58 @@
 "flow2": [
 
     "tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
-  ]
+  ],
+
+  "flow1": [ 
+"tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts", 
+"tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts", 
+"tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",    "tests/Finacle/savingsaccount/savingsaccountmodifyverification.spec.ts", 
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts", 
+"tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts",    "tests/Finacle/savingsaccount/savingsaccountmodifyverification.spec.ts", 
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts", 
+"tests/Finacle/paymentorder/hpordm-remittance.spec.ts" 
+
+] ,
+"flow3": [  
+
+"tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts",
+    "tests/Finacle/savingsaccount/addrelatedpartydetailsforsavingsaccount.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountmodifyverification.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+    "tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+    "tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+    "tests/Finacle/savingsaccount/DeleteRelatedpartydetailsforsavingsaccount.spec.ts",
+    "tests/Finacle/savingsaccount/savingsaccountmodifyverification.spec.ts",
+    "tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
+
+],
+  "flow4": [ 
+
+ "tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+"tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts", 
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts", 
+"tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+"tests/Finacle/savingsaccount/savingsaccountmodification.spec.ts", 
+"tests/Finacle/savingsAccount/savingsaccountmodifyverification.spec.ts", 
+"tests/Finacle/transfermaintainence/accountfundingsavingsaccount.spec.ts",
+"tests/Finacle/transfermaintainence/transfermaintainenceverification.spec.ts",
+"tests/Finacle/paymentorder/hpordm-remittance.spec.ts" 
+
+
+] ,
+ "flow5": [ 
+
+  
+
+"tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
+
+] 
+
+
+  
+
+ 
 }
