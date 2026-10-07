@@ -3919,17 +3919,28 @@ export class AccountPage {
   }
 
   private async fillAccountLimits() {
-    // Expiry date - any future date
+    // All Account Limits dates must be <= the BOD shown in the Finacle header.
+    const bodStr = await this.getBODDate() || this.todayDate();
+    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+    const bod = new Date(yyyy, mm - 1, dd);
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    const bodDate = fmt(bod);
+    const futureBod = new Date(bod);
+    futureBod.setFullYear(bod.getFullYear() + 1);
+    const expiryDate = fmt(futureBod);
+    console.log(`Using BOD ${bodDate} for Account Limits dates`);
+
+    // Expiry date - one year from BOD
     await this.fillDateField(
       ['expiryDate_ui', 'limitExpiryDt_ui', 'expiryDt_ui', 'limExpiryDt_ui'],
-      this.futureDate(),
+      expiryDate,
       'Account limit expiry date'
     );
 
-    // Document date - date of account opening (today)
+    // Document date - BOD
     await this.fillDateField(
       ['documentDate_ui', 'docDt_ui', 'limitDocDt_ui', 'documentDt_ui'],
-      this.todayDate(),
+      bodDate,
       'Account limit document date'
     );
 

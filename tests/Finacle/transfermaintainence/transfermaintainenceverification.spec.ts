@@ -4,9 +4,13 @@ import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
 import FLOW6_DATA from '../../../data/flow6.json';
+import FLOW9_DATA from '../../../data/flow9.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
+
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
+const FLOW_DATA = IS_FLOW9 ? (FLOW9_DATA as any) : FLOW6_DATA;
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
@@ -18,15 +22,15 @@ const CONFIG = {
 };
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? FLOW6_DATA.htmAccounts.debit;
+const DEBIT_ACCOUNT = process.env.FLOW9_HTM_DEBIT ?? process.env.FLOW6_HTM_DEBIT ?? FLOW_DATA.htmAccounts.debit;
 const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? FLOW6_DATA.htmAccounts.credit);
+const CREDIT_ACCOUNT = process.env.FLOW9_HTM_CREDIT ?? process.env.FLOW6_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? FLOW_DATA.htmAccounts.credit);
 if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
-const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? FLOW6_DATA.initialFundingAmount;
+const AMOUNT = process.env.FLOW9_HTM_AMOUNT ?? process.env.FLOW6_HTM_AMOUNT ?? FLOW_DATA.initialFundingAmount;
 
-// Transaction ID: prefer shared state from the posting spec, fallback to hardcoded.
+// Transaction ID: prefer shared state from the posting spec; must be present.
 const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
-const TRANSACTION_ID = SHARED_TXN_ID ?? 'CB18';
+const TRANSACTION_ID = SHARED_TXN_ID ?? '';
 if (SHARED_TXN_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${SHARED_TXN_ID}`);
 
 

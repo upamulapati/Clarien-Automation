@@ -1,20 +1,19 @@
 {
-  "cifId": "0002000033",
   "paymentOrderTestData": [
     {
-      "name": "Flow 1 - ACH FCC BMD to USD",
-      "sharedKey": "paymentOrderIdAchFcc",
+      "name": "Flow 1 - ACH BMD to USD to HSBC Bank",
+      "sharedKey": "paymentOrderIdAchFcc1",
       "data": {
-        "debitAccount": "7010003820",
+        "debitAccount": "6000087527",
         "ccy": "USD",
         "amount": "100",
         "beneficiaryAddressType": "A",
-        "beneficiaryAccountId": "010247526001",
-        "beneficiaryName": "Anna Evelyn Carr",
-        "beneficiaryAddress": "14140 Abbington Avenue",
+        "beneficiaryAccountId": "2432422424",
+        "beneficiaryName": "TESTING",
+        "beneficiaryAddress": "BERMUDA SOUTH PENRITH",
         "beneficiaryCountry": "BM",
         "institutionAddressType": "B",
-        "bic": "50601002",
+        "bic": "58401002",
         "bankCode": "BBDABM",
         "branchCode": "HMXXX",
         "country": "BM",
@@ -26,31 +25,32 @@
       }
     },
     {
-      "name": "Flow 1 - ACH BMD to BMD",
-      "sharedKey": "paymentOrderIdAch",
+      "name": "Flow 1 - ACH BMD TO BMD to HSBC bank",
+      "sharedKey": "paymentOrderIdAchFcc2",
       "data": {
-        "debitAccount": "7010003820",
+        "debitAccount": "6000270768",
         "ccy": "BMD",
         "amount": "100",
-        "beneficiaryAddressType": "F",
-        "beneficiaryAccountId": "1468907",
-        "beneficiaryBic": "50601006",
-        "beneficiaryBankCode": "",
-        "beneficiaryBranchCode": "",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "232244242",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "BMENR BERUMUDA",
         "beneficiaryCountry": "BM",
-        "institutionAddressType": "F",
-        "bic": "50601006",
-        "bankCode": "",
-        "branchCode": "",
+        "institutionAddressType": "B",
+        "bic": "50601002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
         "country": "BM",
-        "paymentMethod": "BCBBM",
+        "paymentMethod": "HSBBM",
         "chargeOption": "OUR",
-        "paymentProduct": "customer transfer"
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
       }
     },
     {
-      "name": "Flow 1 - BMD TO USD to Butterfield bank",
-      "sharedKey": "paymentOrderIdAchFcc",
+      "name": "Flow 1 - ACH BMD TO USD to Butterfield bank",
+      "sharedKey": "paymentOrderIdAchFcc3",
       "data": {
         "debitAccount": "6000270768",
         "ccy": "USD",
@@ -61,11 +61,11 @@
         "beneficiaryAddress": "BMENR BERUMUDA",
         "beneficiaryCountry": "US",
         "institutionAddressType": "B",
-        "bic": "50601001",
+        "bic": "58401001",
         "bankCode": "BNTBBM",
         "branchCode": "HMXXX",
         "country": "US",
-        "paymentMethod": "NTBBM",
+        "paymentMethod": "NTBUS",
         "chargeOption": "OUR",
         "paymentProduct": "customer transfer",
         "needsUsdPopup": true,
@@ -73,8 +73,8 @@
       }
     },
     {
-      "name": "Flow 1 - BMD TO BMD to Butterfield bank",
-      "sharedKey": "paymentOrderIdAch",
+      "name": "Flow 1 - ACH BMD TO BMD to Butterfield bank",
+      "sharedKey": "paymentOrderIdAchFcc4",
       "data": {
         "debitAccount": "6000270768",
         "ccy": "BMD",
@@ -91,7 +91,105 @@
         "country": "BM",
         "paymentMethod": "NTBBM",
         "chargeOption": "OUR",
-        "paymentProduct": "customer transfer"
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - ACH USD TO USD to HSBC bank",
+      "sharedKey": "paymentOrderIdAchFcc5",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "USD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "232244242",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "BMENR BERUMUDA",
+        "beneficiaryCountry": "US",
+        "institutionAddressType": "B",
+        "bic": "58401002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "HSBUS",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "sharedKey": "paymentOrderIdAchFcc6",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "BMD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "1468907",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "TEST",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "B",
+        "bic": "50601002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "HSBBM",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - ACH USD TO USD to Butterfield bank",
+      "sharedKey": "paymentOrderIdAchFcc7",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "USD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "232244242",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "BMENR BERUMUDA",
+        "beneficiaryCountry": "US",
+        "institutionAddressType": "B",
+        "bic": "58401001",
+        "bankCode": "BNTBBM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "NTBUS",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
+      }
+    },
+    {
+      "name": "Flow 1 - ACH USD TO BMD to Butterfield bank",
+      "sharedKey": "paymentOrderIdAchFcc8",
+      "data": {
+        "debitAccount": "6000087527",
+        "ccy": "BMD",
+        "amount": "100",
+        "beneficiaryAddressType": "A",
+        "beneficiaryAccountId": "1468907",
+        "beneficiaryName": "TEST",
+        "beneficiaryAddress": "TEST",
+        "beneficiaryCountry": "BM",
+        "institutionAddressType": "B",
+        "bic": "50601002",
+        "bankCode": "BBDABM",
+        "branchCode": "HMXXX",
+        "country": "BM",
+        "paymentMethod": "HSBBM",
+        "chargeOption": "OUR",
+        "paymentProduct": "customer transfer",
+        "needsUsdPopup": true,
+        "rateCode": "TTB"
       }
     }
   ]

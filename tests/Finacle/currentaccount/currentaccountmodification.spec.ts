@@ -5,19 +5,23 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
 import { getSharedValue } from '../../helpers/sharedState';
+import FLOW9_DATA from '../../../data/flow9.json';
 
 // Current account modification is done by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
 
 // A/c Id to be modified.
-const ACCOUNT_ID = getSharedValue<string>('accountId') ?? '4600000134';
+const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId') ?? process.env.FLOW9_CURRENT_ACCOUNT_ID;
+if (IS_FLOW9 && !SHARED_ACCOUNT_ID) throw new Error('Flow 9 requires the current account ID to modify.');
+const ACCOUNT_ID = (IS_FLOW9 ? SHARED_ACCOUNT_ID! : (SHARED_ACCOUNT_ID ?? '4600000134')) as string;
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
 
-const DISPATCH_MODE = process.env.FLOW6_DISPATCH_MODE ?? 'no dispatch';
-const ACCOUNT_STATUS = process.env.FLOW6_ACCOUNT_STATUS ?? 'inactive';
+const DISPATCH_MODE = (process.env.FLOW9_DISPATCH_MODE ?? process.env.FLOW6_DISPATCH_MODE ?? (IS_FLOW9 ? (FLOW9_DATA as any).modification.dispatchMode : 'no dispatch')) as 'email' | 'post' | 'no dispatch';
+const ACCOUNT_STATUS = (process.env.FLOW9_ACCOUNT_STATUS ?? process.env.FLOW6_ACCOUNT_STATUS ?? (IS_FLOW9 ? (FLOW9_DATA as any).modification.accountStatus : 'inactive')) as 'active' | 'dormant' | 'inactive';
 
 let homePage: HomePage;
 let accountPage: AccountPage;

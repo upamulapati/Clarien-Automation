@@ -584,15 +584,23 @@ export class CrmRetailCheckerPage extends CrmModificationBasePage {
   // Returns true when the Audit Trail history submit succeeded.
   // ---------------------------------------------------------------
   async verifyAuditTrailAsMaker(cifId: string, makerUser: string, makerPass: string): Promise<boolean> {
-    const page = this.page;
-    const ctx = page.context();
+    const checkerPage = this.page;
+    const checkerCtx = checkerPage.context();
+    const browser = checkerCtx.browser();
+    if (!browser) throw new Error('Browser not available for new maker context');
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+
+    if (makerUser.toLowerCase() === this.config.username.toLowerCase()) {
+      await ctx.close().catch(() => {});
+      throw new Error(`Maker user ${makerUser} must differ from checker ${this.config.username}`);
+    }
 
     // CHK_008: log out the checker.
     console.log('CHK_008: Logging out the checker...');
     this.allowLogout = true;
-    let sessionPage: Page = page;
+    let sessionPage: Page = checkerPage;
     if (sessionPage.isClosed()) {
-      sessionPage = await ctx.newPage();
+      sessionPage = await checkerCtx.newPage();
       this.attachDialogHandler(sessionPage);
     }
     await this.logout(sessionPage).catch(() => {});
@@ -604,13 +612,14 @@ export class CrmRetailCheckerPage extends CrmModificationBasePage {
     let makerPage: Page | null = null;
     let makerCrmMenu: Frame | null = null;
     for (let attempt = 1; attempt <= 4 && !makerCrmMenu; attempt++) {
+      if (makerPage && !makerPage.isClosed()) await makerPage.close().catch(() => {});
       makerPage = await ctx.newPage();
-      this.attachDialogHandler(makerPage);
       try {
         await this.login(makerUser, makerPass, makerPage);
         const ok = await this.waitForDashboard(makerPage);
         if (ok && !makerPage.isClosed()) {
           await makerPage.waitForTimeout(3000);
+          this.attachDialogHandler(makerPage);
           makerCrmMenu = await this.switchToCrm(false, makerPage);
         }
       } catch (e) {
@@ -618,7 +627,10 @@ export class CrmRetailCheckerPage extends CrmModificationBasePage {
       }
       if (!makerCrmMenu) await new Promise((r) => setTimeout(r, 2000));
     }
-    if (!makerCrmMenu) throw new Error(`${makerUser} login + CRM switch must succeed`);
+    if (!makerCrmMenu) {
+      await ctx.close().catch(() => {});
+      throw new Error(`${makerUser} login + CRM switch must succeed`);
+    }
     const mp = makerPage!;
     console.log(`✓ CHK_009/010: maker ${makerUser} logged in and CRM dashboard loaded`);
 
@@ -824,6 +836,7 @@ export class CrmRetailCheckerPage extends CrmModificationBasePage {
     await this.logout(logoutPage).catch(() => {});
     await new Promise((r) => setTimeout(r, 2000));
     console.log(`✓ CHK_015: ${makerUser} logout attempted.`);
+    await ctx.close().catch(() => {});
     return auditSubmitted;
   }
 }

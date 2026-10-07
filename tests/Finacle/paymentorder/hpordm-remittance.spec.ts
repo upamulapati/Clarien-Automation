@@ -11,47 +11,49 @@ import { getApplicationDate } from '../../helpers/common';
 import HPORDM_BASE_DATA from '../../../data/hpordmdata.json';
 import FLOW1_DATA from '../../../data/flow1.json';
 import FLOW7_DATA from '../../../data/flow7.json';
-import * as fs from 'fs';
-import * as path from 'path';
+import FLOW5_DATA from '../../../data/flow5.json';
+import FLOW8_DATA from '../../../data/flow8.json';
+import FLOW2_DATA from '../../../data/flow2.json';
+import FLOW9_DATA from '../../../data/flow9.json';
+import FLOW10_DATA from '../../../data/flow10.json';
 
-const FLOW5_PATH = path.resolve(process.cwd(), 'data', 'flow5.json');
-let FLOW5_DATA: any = {};
-if (fs.existsSync(FLOW5_PATH)) {
-  try {
-    FLOW5_DATA = JSON.parse(fs.readFileSync(FLOW5_PATH, 'utf8'));
-  } catch (e) {
-    console.warn('[HPORDM] data/flow5.json exists but could not be parsed, using fallback.');
-  }
-}
-
-const FLOW5_SOURCE = (Array.isArray(FLOW5_DATA) ? { paymentOrderTestData: FLOW5_DATA } : FLOW5_DATA) as any;
-
+const IS_FLOW5 = process.env.CIF_MOD_FLOW === 'flow5';
+const IS_FLOW7 = process.env.CIF_MOD_FLOW === 'flow7';
+const IS_FLOW8 = process.env.CIF_MOD_FLOW === 'flow8';
+const IS_FLOW2 = process.env.CIF_MOD_FLOW === 'flow2';
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
+const IS_FLOW10 = process.env.CIF_MOD_FLOW === 'flow10';
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
 
-const FLOW_DATA = (process.env.CIF_MOD_FLOW === 'flow1' ? FLOW1_DATA : process.env.CIF_MOD_FLOW === 'flow5' ? FLOW5_SOURCE : FLOW7_DATA) as any;
-const HPORDM_DATA = (process.env.CIF_MOD_FLOW === 'flow1' ? FLOW1_DATA : process.env.CIF_MOD_FLOW === 'flow5' ? FLOW5_SOURCE : HPORDM_BASE_DATA) as any;
+const RAW_SCENARIOS = IS_FLOW10
+  ? ((FLOW10_DATA as any).paymentOrderTestData ?? [])
+  : IS_FLOW9
+  ? ((FLOW9_DATA as any).paymentOrderTestData ?? [])
+  : IS_FLOW8
+  ? ((FLOW8_DATA as any).paymentOrderTestData ?? [])
+  : IS_FLOW2
+  ? ((FLOW2_DATA as any).paymentOrderTestData ?? [])
+  : IS_FLOW5
+  ? ((FLOW5_DATA as any).paymentOrderTestData ?? [])
+  : ((HPORDM_DATA as any).paymentOrderTestData ?? []);
+const FLOW_AMOUNTS = IS_FLOW10
+  ? (FLOW10_DATA as any).paymentOrderAmounts
+  : IS_FLOW9
+  ? (FLOW9_DATA as any).paymentOrderAmounts
+  : IS_FLOW7
+  ? (FLOW7_DATA as any).paymentOrderAmounts
+  : undefined;
 
-const SAVINGS_CURRENCY = FLOW_DATA.savingsAccounts?.[0]?.currency;
-const useSharedFor = (ccy: string) => SHARED_ACCOUNT_ID && SAVINGS_CURRENCY && ccy === SAVINGS_CURRENCY;
-
-const SCENARIOS = (HPORDM_DATA.paymentOrderTestData ?? []).map((scenario: any) => {
-  const ccy = scenario.data.ccy;
-  const useShared = useSharedFor(ccy);
-  const useDataDebit = !!scenario.data?.debitAccount;
-  const debitAccount = useShared && !useDataDebit ? SHARED_ACCOUNT_ID : (scenario.data?.debitAccount ?? SHARED_ACCOUNT_ID);
-  if (useShared && !useDataDebit) console.log(`[HPORDM] ${scenario.name}: using created account ${SHARED_ACCOUNT_ID} (${SAVINGS_CURRENCY})`);
-  else console.log(`[HPORDM] ${scenario.name}: using data debit account ${debitAccount} (${ccy})`);
-  return {
-    name: scenario.name,
-    sharedKey: scenario.sharedKey,
-    data: {
-      ...scenario.data,
-      amount: FLOW_DATA.paymentOrderAmounts?.[scenario.sharedKey as string] ?? scenario.data.amount,
-      debitAccount,
-    },
-  };
-});
+const SCENARIOS = RAW_SCENARIOS.map((scenario: any) => ({
+  name: scenario.name,
+  sharedKey: scenario.sharedKey,
+  data: {
+    ...scenario.data,
+    amount: FLOW_AMOUNTS?.[scenario.sharedKey] ?? scenario.data.amount,
+    debitAccount: (IS_FLOW9 || IS_FLOW10) ? scenario.data?.debitAccount : (SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount),
+  },
+}));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
@@ -183,7 +185,8 @@ for (const scenario of SCENARIOS) {
 
   // Assertion: payment order should be added successfully without fatal/core/multibyte errors
   expect(postSubmitText.toLowerCase()).toContain('added successfully');
-  expect(postSubmitText.toLowerCase()).not.toMatch(/fatal|core dump|internal server error|invalid field value/);
+  expect(postSubmitText.toLowerCase()).not.toMatch(/fatal|core dump|internal server error|invalid field value|failed|rejected/);
+  expect(postSubmitText.toLowerCase()).not.toMatch(/not\s+added|not\s+saved|error\s+while|transaction\s+failed/);
 
   const paymentOrderId = await paymentOrderPage.getPaymentOrderId(lastDialogMessages);
   console.log(`=== [${scenario.name}] PAYMENT ORDER ID: ${paymentOrderId} ===`);
@@ -236,11 +239,12 @@ for (const scenario of SCENARIOS) {
     expect(cleanText).toContain(scenario.data.ccy.toLowerCase());
     expect(cleanText).toContain(scenario.data.amount.toLowerCase());
     expect(pageText).toContain(scenario.data.beneficiaryAccountId);
-    if (scenario.data.bankCode) expect(pageText).toContain(scenario.data.bankCode);
-    if (scenario.data.branchCode) expect(pageText).toContain(scenario.data.branchCode);
-    if (!scenario.data.bankCode || !scenario.data.branchCode) {
-      expect(pageText).toContain(scenario.data.bic);
-    }
+    const expectedBic = (scenario.data.bankCode && scenario.data.branchCode)
+      ? (scenario.data.bankCode + scenario.data.branchCode).toLowerCase()
+      : scenario.data.bic.toLowerCase();
+    expect(cleanText).toContain(expectedBic);
+    expect(pageText).toContain(scenario.data.bankCode);
+    expect(pageText).toContain(scenario.data.branchCode);
     expect(pageText).toContain(scenario.data.country);
 
     if (scenario.data.ourCorrespondentBic) {
@@ -266,7 +270,8 @@ for (const scenario of SCENARIOS) {
     const status = await paymentOrderPage.getPageText();
     await captureEvidence(page, `Step: Payment order verified (${scenario.name})`, { paymentOrderId, statusPreview: status.substring(0, 500) });
     expect(status.toLowerCase()).toContain('verified');
-    expect(status.toLowerCase()).not.toMatch(/fatal|core dump|internal server error|invalid field value|failed/);
+    expect(status.toLowerCase()).not.toMatch(/fatal|core dump|internal server error|invalid field value|failed|rejected/);
+    expect(status.toLowerCase()).not.toMatch(/not\s+verified|verification\s+failed|transaction\s+failed/);
     console.log('Status after submit:', status.substring(0, 200));
 
     console.log('Logging out...');

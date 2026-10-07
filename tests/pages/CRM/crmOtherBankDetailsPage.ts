@@ -25,9 +25,9 @@ export class CrmOtherBankDetailsPage extends CrmModificationBasePage {
     return this.waitForDashboard(this.page);
   }
 
-  async addOtherBankDetails(type: 'retail' | 'corporate'): Promise<boolean> {
+  async addOtherBankDetails(type: 'retail' | 'corporate', explicitCifId?: string): Promise<boolean> {
     const fallback = type === 'retail' ? OBD.retailFallbackCifId : OBD.fallbackCifId;
-    const cifId = getCreatedCif(type, fallback);
+    const cifId = explicitCifId || getCreatedCif(type, fallback);
     await this.selectCrmDashboard();
     await this.navigateToEditEntity(type);
     await this.searchCif(cifId, type);
@@ -526,16 +526,21 @@ export class CrmOtherBankDetailsPage extends CrmModificationBasePage {
 
     // Submit whole-entity form
     let submitSuccessSeen = false;
+    let lastSuccessDialog = '';
     const successRe = /submitted successfully|successfully submitted|is submitted|Process was saved successfully/i;
     const attachDialog = (p: Page) => {
       p.on('dialog', async (d) => {
         this.lastDialogMessage = d.message();
-        if (successRe.test(d.message())) submitSuccessSeen = true;
+        if (successRe.test(d.message())) {
+          submitSuccessSeen = true;
+          lastSuccessDialog = d.message();
+        }
         await d.accept().catch(() => {});
       });
     };
     attachDialog(editPage);
     context.on('page', attachDialog);
+    const procPopupPromise = context.waitForEvent('page', { timeout: 12000 }).catch(() => null);
     let submitClicked = false;
     for (const f of editPage.frames()) {
       const btn = f.locator('input[type="submit"][value="Submit"], input[type="button"][value="Submit"], input[value="Submit"], button:has-text("Submit"), a:has-text("Submit")').first();
@@ -546,6 +551,61 @@ export class CrmOtherBankDetailsPage extends CrmModificationBasePage {
         break;
       }
     }
+    await editPage.waitForTimeout(900).catch(() => {});
+
+    // Process Selection window: choose the KYC-approval process, then save.
+    const procPopup = await procPopupPromise;
+    const procPage: Page = procPopup && !procPopup.isClosed() ? procPopup : editPage;
+    await procPage.waitForLoadState('domcontentloaded').catch(() => {});
+    await procPage.waitForTimeout(900).catch(() => {});
+    const procFrame = await this.findFrameByText(
+      procPage,
+      /Process Selection|Selected Process Name|Suggested Process Name/i,
+      8000
+    );
+    if (procFrame) {
+      const processName = (data as any).processName || 'CIFCustomerKYCApproval';
+      const kycRe = new RegExp(processName.replace(/([.*+?^${}()|[\]\\])/g, '\\$1'), 'i');
+      const kycAltRe = /CIF\s*Customer\s*KYC\s*Approval|CIFCustomerKYCApproval/i;
+      let chosen = false;
+      const selDeadline = Date.now() + 15000;
+      while (!chosen && Date.now() < selDeadline) {
+        for (const f of procPage.frames()) {
+          if (chosen) break;
+          for (const sel of await f.locator('select').all().catch(() => [] as any[])) {
+            for (const opt of await sel.locator('option').all().catch(() => [] as any[])) {
+              const label = ((await opt.textContent().catch(() => '')) || '').trim();
+              const value = (await opt.getAttribute('value').catch(() => '')) || '';
+              if (kycRe.test(label) || kycRe.test(value) || kycAltRe.test(label) || kycAltRe.test(value)) {
+                await sel.selectOption(value ? { value } : { label }, { timeout: 5000 }).catch(() => {});
+                chosen = true;
+                console.log(`Selected Process Name = "${label}"`);
+                break;
+              }
+            }
+            if (chosen) break;
+          }
+        }
+        if (!chosen) await procPage.waitForTimeout(700).catch(() => {});
+      }
+      await procPage.waitForTimeout(500).catch(() => {});
+      let saved = false;
+      for (const f of procPage.frames()) {
+        const btn = f
+          .locator('input[value="Save Process Selection"], input[type="submit"][value*="Save Process"], input[type="button"][value*="Save Process"], button:has-text("Save Process Selection")')
+          .first();
+        if (await btn.isVisible().catch(() => false)) {
+          await btn.click({ timeout: 6000 }).catch(() => {});
+          saved = true;
+          break;
+        }
+      }
+      console.log(`Save Process Selection clicked = ${saved}`);
+      await procPage.waitForTimeout(1500).catch(() => {});
+    } else {
+      console.log('No Process Selection window appeared for Other Bank Details (submit may have completed directly).');
+    }
+
     await editPage.waitForTimeout(4000).catch(() => {});
 
     // Verify record in grid after submission
@@ -564,6 +624,7 @@ export class CrmOtherBankDetailsPage extends CrmModificationBasePage {
         break;
       }
     }
+    this.lastDialogMessage = lastSuccessDialog || this.lastDialogMessage;
     return submitClicked && (submitSuccessShown(submitSuccessSeen) || shown);
   }
 }
