@@ -47,6 +47,11 @@ export async function getApplicationDate(page: Page): Promise<string> {
     console.log(`Using APPLICATION_DATE env: ${process.env.APPLICATION_DATE}`);
     return process.env.APPLICATION_DATE;
   }
+  const dataApplicationDate = (COMMON_DATA as any).applicationDate;
+  if (dataApplicationDate) {
+    console.log(`Using applicationDate from data: ${dataApplicationDate}`);
+    return dataApplicationDate;
+  }
   try {
     for (const frame of page.frames()) {
       const text = await frame.locator('body').innerText().catch(() => '');

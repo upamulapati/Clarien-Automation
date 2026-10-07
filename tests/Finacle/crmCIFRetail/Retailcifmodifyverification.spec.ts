@@ -23,9 +23,11 @@ const MAKER = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 const MOD = CRM_TEST_DATA.retail.modification;
+const FLOW_CIF = (COMMON_DATA as any).cifId;
 const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
-const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
-if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
+const CIF_ID = FLOW_CIF ?? SHARED_CIF ?? MOD.fallbackCifId;
+if (FLOW_CIF) console.log(`[Flow Data] Strictly using CIF ID from flow data: ${FLOW_CIF}`);
+else if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 test.describe("CIF Modification Checker", () => {
   let checker: CrmRetailCheckerPage;

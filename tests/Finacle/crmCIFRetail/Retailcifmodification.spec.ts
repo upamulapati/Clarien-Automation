@@ -14,7 +14,9 @@ const MAKER = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 const MOD = CRM_TEST_DATA.retail.modification;
-const CIF_ID = getCreatedCif("retail", MOD.fallbackCifId);
+const FLOW_CIF = (COMMON_DATA as any).cifId;
+const CIF_ID = FLOW_CIF ?? getCreatedCif("retail", MOD.fallbackCifId);
+if (FLOW_CIF) console.log(`[Flow Data] Strictly using CIF ID from flow data: ${FLOW_CIF}`);
 
 test.describe("CIF Modification Maker Test Suite", () => {
   let retailMod: CrmRetailModificationPage;

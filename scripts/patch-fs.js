@@ -127,6 +127,12 @@ function applyDataOverride(p, raw) {
   const str = Buffer.isBuffer(raw) ? raw.toString('utf8') : String(raw);
   const norm = normPath(p);
 
+  // Runtime/persisted state files must not be merged with flow data.
+  if (norm.endsWith(normPath(path.resolve(DATA_DIR, 'shared-state.json'))) ||
+      norm.endsWith(normPath(path.resolve(DATA_DIR, 'cif-pool.json')))) {
+    return str;
+  }
+
   // Active flow data is merged into every data/*.json read.
   if (FLOW_X_DATA && norm.startsWith(DATA_DIR_NORM) && norm.endsWith('.json') && !norm.endsWith(normPath(FLOW_X_PATH))) {
     const original = JSON.parse(str);
@@ -160,6 +166,8 @@ function applyDataOverride(p, raw) {
         merged.secondCredentials.username = CLARIEN_CHECKER;
         merged.verifierCredentials = merged.verifierCredentials || {};
         merged.verifierCredentials.username = CLARIEN_CHECKER;
+        merged.thirdCredentials = merged.thirdCredentials || {};
+        merged.thirdCredentials.username = CLARIEN_MAKER;
       }
     }
 

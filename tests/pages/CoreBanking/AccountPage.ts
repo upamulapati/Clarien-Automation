@@ -177,7 +177,6 @@ export class AccountPage {
   async selectCoreServer() {
     await this.appSelect.selectOption('CoreServer');
     await this.page.waitForTimeout(3000);
-    await captureEvidence(this.page, 'Core server selected', { coreServer: 'CoreServer' });
   }
 
   async searchMenu(searchTerm: string) {
@@ -341,6 +340,7 @@ export class AccountPage {
         console.log(`Tab '${textMatch}' not found (it may already be active), skipping`);
       } else {
         await this.page.waitForTimeout(2000);
+        await captureEvidence(this.page, `Tab switched: ${textMatch}`);
       }
     } catch (e) {
       console.log(`Could not navigate to tab '${textMatch}', skipping: ${e}`);
@@ -385,6 +385,7 @@ export class AccountPage {
       await tab.waitFor({ state: 'visible', timeout: 15000 });
       await tab.click();
       await this.page.waitForTimeout(2500);
+      await captureEvidence(this.page, `Tab switched by id: ${id}`);
       console.log(`Navigated to tab #${id}`);
     } catch (e) {
       console.log(`Could not navigate to tab #${id}, skipping: ${e}`);
@@ -2652,7 +2653,15 @@ export class AccountPage {
     return null;
   }
 
-  async selectDispatchMode(mode: 'email' | 'post' | 'no dispatch') {
+  async selectDispatchMode(mode: 'email' | 'post' | 'no dispatch' | string) {
+    // Default to post (P-post) if no dispatch mode is provided.
+    let effectiveMode: 'email' | 'post' | 'no dispatch' | string = (mode as string) || '';
+    if (!effectiveMode || !effectiveMode.trim()) {
+      console.log('Dispatch mode is empty, defaulting to P-post');
+      effectiveMode = 'post';
+    }
+    mode = effectiveMode as any;
+
     try {
       const dropdown = await this.findDispatchDropdown();
       if (!dropdown) {

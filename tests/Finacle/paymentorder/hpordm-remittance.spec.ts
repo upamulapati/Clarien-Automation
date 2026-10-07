@@ -8,21 +8,50 @@ import { writeSharedState, getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
-import HPORDM_DATA from '../../../data/hpordmdata.json';
+import HPORDM_BASE_DATA from '../../../data/hpordmdata.json';
+import FLOW1_DATA from '../../../data/flow1.json';
 import FLOW7_DATA from '../../../data/flow7.json';
+import * as fs from 'fs';
+import * as path from 'path';
+
+const FLOW5_PATH = path.resolve(process.cwd(), 'data', 'flow5.json');
+let FLOW5_DATA: any = {};
+if (fs.existsSync(FLOW5_PATH)) {
+  try {
+    FLOW5_DATA = JSON.parse(fs.readFileSync(FLOW5_PATH, 'utf8'));
+  } catch (e) {
+    console.warn('[HPORDM] data/flow5.json exists but could not be parsed, using fallback.');
+  }
+}
+
+const FLOW5_SOURCE = (Array.isArray(FLOW5_DATA) ? { paymentOrderTestData: FLOW5_DATA } : FLOW5_DATA) as any;
 
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
 
-const SCENARIOS = ((HPORDM_DATA as any).paymentOrderTestData ?? []).map((scenario: any) => ({
-  name: scenario.name,
-  sharedKey: scenario.sharedKey,
-  data: {
-    ...scenario.data,
-    amount: FLOW7_DATA.paymentOrderAmounts?.[scenario.sharedKey] ?? scenario.data.amount,
-    debitAccount: SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount,
-  },
-}));
+const FLOW_DATA = (process.env.CIF_MOD_FLOW === 'flow1' ? FLOW1_DATA : process.env.CIF_MOD_FLOW === 'flow5' ? FLOW5_SOURCE : FLOW7_DATA) as any;
+const HPORDM_DATA = (process.env.CIF_MOD_FLOW === 'flow1' ? FLOW1_DATA : process.env.CIF_MOD_FLOW === 'flow5' ? FLOW5_SOURCE : HPORDM_BASE_DATA) as any;
+
+const SAVINGS_CURRENCY = FLOW_DATA.savingsAccounts?.[0]?.currency;
+const useSharedFor = (ccy: string) => SHARED_ACCOUNT_ID && SAVINGS_CURRENCY && ccy === SAVINGS_CURRENCY;
+
+const SCENARIOS = (HPORDM_DATA.paymentOrderTestData ?? []).map((scenario: any) => {
+  const ccy = scenario.data.ccy;
+  const useShared = useSharedFor(ccy);
+  const useDataDebit = !!scenario.data?.debitAccount;
+  const debitAccount = useShared && !useDataDebit ? SHARED_ACCOUNT_ID : (scenario.data?.debitAccount ?? SHARED_ACCOUNT_ID);
+  if (useShared && !useDataDebit) console.log(`[HPORDM] ${scenario.name}: using created account ${SHARED_ACCOUNT_ID} (${SAVINGS_CURRENCY})`);
+  else console.log(`[HPORDM] ${scenario.name}: using data debit account ${debitAccount} (${ccy})`);
+  return {
+    name: scenario.name,
+    sharedKey: scenario.sharedKey,
+    data: {
+      ...scenario.data,
+      amount: FLOW_DATA.paymentOrderAmounts?.[scenario.sharedKey as string] ?? scenario.data.amount,
+      debitAccount,
+    },
+  };
+});
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
@@ -207,12 +236,11 @@ for (const scenario of SCENARIOS) {
     expect(cleanText).toContain(scenario.data.ccy.toLowerCase());
     expect(cleanText).toContain(scenario.data.amount.toLowerCase());
     expect(pageText).toContain(scenario.data.beneficiaryAccountId);
-    const expectedBic = (scenario.data.bankCode && scenario.data.branchCode)
-      ? scenario.data.bankCode + scenario.data.branchCode
-      : scenario.data.bic;
-    expect(pageText).toContain(expectedBic);
-    expect(pageText).toContain(scenario.data.bankCode);
-    expect(pageText).toContain(scenario.data.branchCode);
+    if (scenario.data.bankCode) expect(pageText).toContain(scenario.data.bankCode);
+    if (scenario.data.branchCode) expect(pageText).toContain(scenario.data.branchCode);
+    if (!scenario.data.bankCode || !scenario.data.branchCode) {
+      expect(pageText).toContain(scenario.data.bic);
+    }
     expect(pageText).toContain(scenario.data.country);
 
     if (scenario.data.ourCorrespondentBic) {

@@ -188,25 +188,23 @@ function renderTest(result) {
   const dataByStep = new Map();
   for (const d of data) {
     const step = getAttachmentStep(d.name);
-    if (!dataByStep.has(step)) {
-      dataByStep.set(step, parseDataAttachment(d));
-    }
+    dataByStep.set(step, parseDataAttachment(d));
   }
 
-  const seen = new Set();
-  const actions = [];
+  // Deduplicate screenshots by action name, keeping the last (most recent) one.
+  // This gives the final full-page state after the operation is complete.
+  const imagesByStep = new Map();
   for (const att of images) {
-    const action = getAttachmentStep(att.name);
-    if (!seen.has(action)) {
-      seen.add(action);
-      actions.push(action);
-    }
+    const step = getAttachmentStep(att.name);
+    imagesByStep.set(step, att);
   }
+  const actions = [...imagesByStep.keys()];
 
   const mainActionsHtml = actions.length
     ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
     : '';
-  const imgHtml = images.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
+  const uniqueImages = [...imagesByStep.values()];
+  const imgHtml = uniqueImages.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
 
   return `
     <section class="test">
@@ -361,11 +359,11 @@ async function main() {
     .test-meta { color: #555; margin-bottom: 8px; }
     .test-meta span { display: inline-block; margin-right: 16px; }
     .status-icon { display: inline-block; padding: 2px 6px; border-radius: 3px; font-weight: bold; text-transform: uppercase; font-size: 10px; margin-right: 6px; color: #fff; }
-    .status-passed .status-icon, .status-passed { background: #2da94f; }
-    .status-failed .status-icon, .status-failed { background: #d00; }
-    .status-broken .status-icon, .status-broken { background: #f39c12; }
-    .status-skipped .status-icon, .status-skipped { background: #aaa; }
-    .status-unknown .status-icon, .status-unknown { background: #777; }
+    .status-icon.status-passed, .status-passed .status-icon { background: #2da94f; }
+    .status-icon.status-failed, .status-failed .status-icon { background: #d00; }
+    .status-icon.status-broken, .status-broken .status-icon { background: #f39c12; }
+    .status-icon.status-skipped, .status-skipped .status-icon { background: #aaa; }
+    .status-icon.status-unknown, .status-unknown .status-icon { background: #777; }
     .message { background: #ffecec; border-left: 4px solid #d00; padding: 8px; margin: 8px 0; font-weight: bold; }
     .trace pre { background: #f8f8f8; padding: 8px; overflow-wrap: break-word; white-space: pre-wrap; font-size: 9px; }
     .steps { margin-top: 8px; }

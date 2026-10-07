@@ -16,7 +16,7 @@ if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHA
 const CONFIG = getPrimaryConfig();
 const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
 
-const SAVINGS_DATA = (process.env.CIF_MOD_FLOW === 'flow7' ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
+const SAVINGS_DATA = (process.env.CIF_MOD_FLOW ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';

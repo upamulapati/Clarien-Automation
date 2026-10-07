@@ -21,8 +21,10 @@ export async function captureEvidence(
   // Ensure the test-specific output directory exists.
   await fs.promises.mkdir(path.dirname(screenshotPath), { recursive: true }).catch(() => {});
 
-  // Wait for any async data to finish loading before taking the screenshot.
+  // Wait for any async data to finish loading and the UI to settle
+  // before taking the screenshot so the entered data is fully rendered.
   await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(800).catch(() => {});
 
   // Take a full-page screenshot and attach it to the test report.
   await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});

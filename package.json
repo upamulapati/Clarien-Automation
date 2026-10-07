@@ -8,6 +8,7 @@
     "@types/node": "^25.6.0",
     "allure-commandline": "^2.30.0",
     "allure-playwright": "^3.10.0",
+    "pptxgenjs": "^4.0.1",
     "typescript": "^5.9.3"
   },
   "scripts": {
@@ -21,6 +22,7 @@
     "test-endtoendwithExistingCIF": "node scripts/runOrdered.js endtoendwithExistingCIF && npm run allure:generate",
     "test-flow7": "node scripts/runOrdered.js flow7 && npm run allure:generate",
     "test-flow6": "node scripts/runOrdered.js flow6 && npm run allure:generate",
+    "test-flow1": "node scripts/runOrdered.js flow1 && npm run allure:generate",
     "allure:generate": "npx allure generate ./reports/allureReports --clean -o ./reports/allure-report && node scripts/generateAllurePdf.js",
     "pdf:generate": "node scripts/generateAllurePdf.js",
     "allure:open": "npx allure open ./reports/allure-report",
