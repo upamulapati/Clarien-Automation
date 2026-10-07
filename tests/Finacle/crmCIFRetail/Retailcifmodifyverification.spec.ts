@@ -4,6 +4,7 @@ import { getCreatedCif } from "../../config/cifStore";
 import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
 import { getSharedValue } from "../../helpers/sharedState";
 import COMMON_DATA from "../../../data/common-data.json";
+import FLOW9_DATA from "../../../data/flow9.json";
 
 // CIF Modification Checker / verification (Page Object Model).
 // Approves the pending modification (submitted by the maker) as the checker
@@ -23,9 +24,12 @@ const MAKER = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 const MOD = CRM_TEST_DATA.retail.modification;
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
+const FLOW9_CIF_ID = process.env.FLOW9_CIF_ID ?? (IS_FLOW9 ? (FLOW9_DATA as any).cifId : undefined);
+if (IS_FLOW9 && !FLOW9_CIF_ID) throw new Error('Flow 9 requires a CIF ID in flow9.json or FLOW9_CIF_ID env.');
 const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
-const CIF_ID = SHARED_CIF ?? MOD.fallbackCifId;
-if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
+const CIF_ID = process.env.CIF_ID ?? (FLOW9_CIF_ID ?? SHARED_CIF ?? MOD.fallbackCifId);
+if (CIF_ID) console.log(`[CIF_ID] Using CIF ID: ${CIF_ID}`);
 
 test.describe("CIF Modification Checker", () => {
   let checker: CrmRetailCheckerPage;

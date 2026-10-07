@@ -10,6 +10,15 @@ const SHARED_CIF = getSharedValue('cifId');
 let sharedCifId = SHARED_CIF || '';
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
+const CIF_ID =
+  process.env.CIF_ID ||
+  process.env.SUSPEND_CIF_ID ||
+  sharedCifId ||
+  '0002063125';
+if (!CIF_ID) throw new Error('No CIF ID — set CIF_ID or SUSPEND_CIF_ID env, or a shared cifId');
+sharedCifId = CIF_ID;
+console.log(`[CIF_ID] Suspending CIF ID: ${CIF_ID}`);
+
 const CONFIG = getPrimaryConfig();
 
 // ===================== TEST SUITE =====================

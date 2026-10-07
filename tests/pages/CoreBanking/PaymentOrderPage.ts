@@ -45,7 +45,7 @@ export class PaymentOrderPage {
 
   // ============ Frame Helpers ============
 
-  private getFinwFrame(): Frame {
+  public getFinwFrame(): Frame {
 
     const finwFrame = this.page.frame({ name: 'FINW' });
 
@@ -747,7 +747,7 @@ export class PaymentOrderPage {
 
       this.page.context().waitForEvent('page', { timeout: 10000 }).catch(() => null),
 
-      lookupIcon.click(),
+      lookupIcon.evaluate((el) => (el as HTMLElement).click()).catch(() => null),
 
     ]);
 

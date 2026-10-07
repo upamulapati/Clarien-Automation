@@ -1,27 +1,37 @@
 import { test, expect } from '@playwright/test';
-import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { HomePage } from '../../pages/HomePages/HomePage';
-import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
+import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { recordTransactionId, resetTransactionIds } from '../../helpers/sharedState';
+import { recordTransactionId, resetTransactionIds, getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import FLOW6_DATA from '../../../data/flow6.json';
+import FLOW9_DATA from '../../../data/flow9.json';
+
+const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
+const FLOW_DATA = IS_FLOW9 ? (FLOW9_DATA as any) : FLOW6_DATA;
 
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = DEFAULT_CUSTOMER.solId;
+const SOL_ID = process.env.FLOW9_HTM_SOL_ID ?? process.env.FLOW6_HTM_SOL_ID ?? FLOW_DATA.currentAccounts[0]?.solId;
 const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
 
-// Part transaction details.
-const DEBIT_ACCOUNT = process.env.FLOW6_HTM_DEBIT ?? FLOW6_DATA.htmAccounts.debit;
-const CREDIT_ACCOUNT = process.env.FLOW6_HTM_CREDIT ?? FLOW6_DATA.htmAccounts.credit;
-const AMOUNT = process.env.FLOW6_HTM_AMOUNT ?? FLOW6_DATA.initialFundingAmount;
+// Part transaction details. The runner (runOrdered.js) injects the correct
+// debit/credit accounts and amount for the current HTM occurrence, mirroring
+// the flow7 pattern. If these are not set, fall back to the flow6 data file.
+const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
+const HTM_ACCOUNTS = FLOW_DATA.htmAccounts;
+const DEFAULT_CREDIT = SHARED_ACCOUNT_ID ?? HTM_ACCOUNTS.credit;
+const DEFAULT_AMOUNT = FLOW_DATA.htmDownstreamAmounts?.initialFunding;
+const DEBIT_ACCOUNT = process.env.FLOW9_HTM_DEBIT ?? process.env.FLOW6_HTM_DEBIT ?? HTM_ACCOUNTS.debit;
+const CREDIT_ACCOUNT = process.env.FLOW9_HTM_CREDIT ?? process.env.FLOW6_HTM_CREDIT ?? DEFAULT_CREDIT;
+const AMOUNT = process.env.FLOW9_HTM_AMOUNT ?? process.env.FLOW6_HTM_AMOUNT ?? DEFAULT_AMOUNT;
+if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
 let homePage: HomePage;
-let tmPage: SavingsBankAccountPage;
+let tmPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(180000);
@@ -29,7 +39,7 @@ test.beforeEach(async ({ page }) => {
 
   // Step 1: Login to finacle (maker user).
   ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  tmPage = new SavingsBankAccountPage(page);
+  tmPage = new AccountPage(page);
 });
 
 // HTM - Post a transfer (debit one account, credit another) by part
@@ -118,8 +128,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
 
   // Persist the transaction ID so the verification spec can authorise it.
   if (transactionId) {
-    resetTransactionIds();
-    recordTransactionId(transactionId);
+    updateSharedState((state) => { state.transactionId = transactionId; });
   }
 
   // Acknowledge the confirmation screen.
