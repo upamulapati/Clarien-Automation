@@ -455,13 +455,14 @@ export class CrmEndToEndPage extends CrmBasePage {
           for (const inp of inputs) {
             const name = (inp.name || '').toUpperCase();
             const val = (inp.value || '').trim();
-            if (name && (name.includes('GCIF') || name.includes('CIF') || name.includes('ENTITY') || name.includes('CUST_ID')) && val) {
-              const m = val.match(/\d{5,}/);
+            // Ignore short/popup IDs such as process-selection entityId; real CIFs are >=9 digits.
+            if (name && !name.includes('ENTITYID') && (name.includes('GCIF') || name.includes('CIF') || name.includes('CUST_ID')) && val) {
+              const m = val.match(/\d{9,}/);
               if (m) return { source: inp.name, id: m[0] };
             }
           }
           const text = document.body?.innerText || '';
-          const m = text.match(/(?:CIF|Entity|Customer|Client)\s*(?:ID|Id|id)?\s*[:\s-]*(\d{5,})/i) || text.match(/\b([46]\d{9})\b/);
+          const m = text.match(/(?:CIF|Customer|Client)\s*(?:ID)?\s*[:\s-]*(\d{9,})/i) || text.match(/\b([46]\d{9})\b/);
           return m ? { source: 'text', id: m[1] } : null;
         });
       } catch (_) { return null; }
