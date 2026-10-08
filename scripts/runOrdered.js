@@ -1,6 +1,8 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const xlsx = require('xlsx');
+const { resolve: resolveCrmStep } = require('./crmDataResolver');
 
 const suiteName = process.argv[2];
 
@@ -20,10 +22,6 @@ if (fs.existsSync(sharedStateFile)) {
   console.log(`[runOrdered] Cleared stale shared state: ${sharedStateFile}`);
 }
 
-if (!testOrder[suiteName]) {
-  console.error(`Suite "${suiteName}" not found.`);
-  process.exit(1);
-}
 
 const headed = process.env.CI ? '' : '--headed';
 const patchScript = path.resolve(__dirname, 'patch-fs.js').replace(/\\/g, '/');
@@ -194,6 +192,31 @@ function getFlow9StepEnv(file, state, htmOccurrence, modOccurrence, lastHtmOverr
   return overrides;
 }
 
+function getFlowFromExcel(suiteName) {
+  const excelPath = path.resolve(__dirname, '../data/test-data.xlsx');
+  if (!fs.existsSync(excelPath)) return null;
+  const wb = xlsx.readFile(excelPath);
+  if (!wb.Sheets['FlowConfig']) return null;
+
+  const rows = xlsx.utils.sheet_to_json(wb.Sheets['FlowConfig']);
+  const steps = rows.filter(
+    r => r.flowName === suiteName && String(r.enabled).toUpperCase() !== 'N'
+  );
+  if (steps.length === 0) return null;
+
+  const sorted = steps.sort((a, b) => Number(a.step) - Number(b.step));
+  const files = sorted.map(s => s.spec);
+  return { files, steps: sorted };
+}
+
+function resolveFlow(suiteName) {
+  const fromExcel = getFlowFromExcel(suiteName);
+  if (fromExcel) return fromExcel;
+  if (testOrder[suiteName]) return { files: testOrder[suiteName] };
+  console.error(`Suite "${suiteName}" not found in FlowConfig or testOrder.json.`);
+  process.exit(1);
+}
+
 function writeLastRunManifest() {
   const resultsDir = path.resolve(cwd, 'reports', 'allureReports');
   const files = fs.existsSync(resultsDir)
@@ -237,8 +260,10 @@ const allureReportDir = path.resolve(cwd, 'reports/allure-report');
 console.log('Previous reports cleaned.\n');
 
 const startTime = Date.now();
-const files = testOrder[suiteName];
-console.log(`Running suite: ${suiteName}\n`);
+const flow = resolveFlow(suiteName);
+const files = flow.files;
+const steps = flow.steps || [];
+console.log(`Running suite: ${suiteName} (${files.length} spec(s))\n`);
 let exitCode = 0;
 let failedFile = '';
 let htmOccurrence = 1;
@@ -263,6 +288,15 @@ for (let i = 0; i < files.length; i++) {
   const flow9Overrides = getFlow9StepEnv(file, state, flow9HtmOccurrence, flow9ModOccurrence, lastFlow9HtmOverrides);
   const flow10Overrides = getFlow10StepEnv(file);
   const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides };
+
+  // Inject CRM step data for Excel-driven flows
+  if (steps[i] && steps[i].dataSheet === 'CRM' && steps[i].customerType && steps[i].dataRowId != null) {
+    const stepFile = resolveCrmStep(steps[i].customerType, Number(steps[i].dataRowId));
+    stepOverrides.CRM_STEP_DATA = stepFile;
+  } else {
+    delete stepOverrides.CRM_STEP_DATA;
+  }
+
   const childEnv = { ...env, ...stepOverrides };
 
   try {

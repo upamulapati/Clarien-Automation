@@ -305,7 +305,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     await this.setField(f, ['CorporateBO.registration_Number'], cd.registrationNo, 'Registration No');
     await this.setField(f, ['3_CorporateBO.date_Of_Incorporation'], cd.incorporationDate, 'Incorporation Date');
     await this.setField(f, ['3_CorporateBO.date_Of_Commencement'], cd.businessCommencementDate, 'Business Commencement Date');
-    await this.setLov(f, ['CorporateBO.primary_Service_Center'], ['Cat_CorporateBO.primary_Service_Center'], cd.primarySolId, cd.primarySolId, 'Primary Service Center');
+    await this.setLov(f, ['CorporateBO.primary_Service_Center'], ['Cat_CorporateBO.primary_Service_Center'], cd.solId, cd.solId, 'Primary Service Center');
     await this.refreshAccountFrame('after Primary Service Center');
 
     await this.setLovViaPopup('CorporateModBO.segment', cd.corporateSegment, 'Corporate Segment');
@@ -358,7 +358,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       setSel(['CorporateBO.accessOwnerSegment'], 'BANKING OPERATIONS');
       setSel(['BaselProfiling'], 'No');
       setInp(['CorporateBO.relationship_CreatedBy'], data.createdBy);
-      setInp(['CorporateBO.PrimaryRMLogin_ID'], data.prmId);
+      setInp(['CorporateBO.PrimaryRMLogin_ID'], data.primaryRelationshipManagerId);
       setInp(['CorporateBO.Email2'], data.email);
       setInp(['CorporateBO.corporateName_Native'], data.notes);
       // Notes field is a textarea with lowercase name
@@ -915,7 +915,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     }
 
     for (const f of page.frames()) {
-      const result = await f.evaluate((args: { natCode: string; natDisp: string; createdBy: string; prmId: string; notes: string }) => {
+      const result = await f.evaluate((args: { natCode: string; natDisp: string; createdBy: string; primaryRelationshipManagerId: string; notes: string }) => {
         const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
         const setSel = (name: string, match: string) => { const sel = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement; if (!sel) return false; for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(match.toUpperCase()) || o.value.toUpperCase().includes(match.toUpperCase())) { sel.value = o.value; fire(sel); return true; } } return false; };
         const setInp = (name: string, val: string) => { const el = document.querySelector(`input[name="${name}"]`) as HTMLInputElement; if (!el) return false; el.removeAttribute('readonly'); el.value = val; fire(el); return true; };
@@ -985,14 +985,14 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
             }
           });
         }
-        if (setInp('CorporateBO.PrimaryRMLogin_ID', args.prmId)) res.fixes.push('PRMID=' + args.prmId);
+        if (setInp('CorporateBO.PrimaryRMLogin_ID', args.primaryRelationshipManagerId)) res.fixes.push('PRMID=' + args.primaryRelationshipManagerId);
         setSel('CorporateBO.NativeLangCode', 'ENGLISH');
         setSel('CorporateModBO.Status_Desc', 'ACTIVE');
         setSel('CorporateModBO.IsEbankingEnabled', 'N');
         setSel('CorporateModBO.Cust_Type_Desc', 'Corporate');
         setSel('Assigned_BackendID', 'FINACLECORE');
         return res;
-      }, { natCode: this.natInfo.codeName, natDisp: this.natInfo.dispName, createdBy: cd.createdBy, prmId: cd.prmId, notes: ctd.notes }).catch(() => ({ foundAny: false, fixes: [] }));
+      }, { natCode: this.natInfo.codeName, natDisp: this.natInfo.dispName, createdBy: cd.createdBy, primaryRelationshipManagerId: cd.primaryRelationshipManagerId, notes: ctd.notes }).catch(() => ({ foundAny: false, fixes: [] }));
       if (result.foundAny) {
         if (result.fixes.length > 0) console.log('  \u2713 Re-filled: ' + result.fixes.join(', '));
         else console.log('  \u2713 All mandatory fields already filled');
@@ -1019,7 +1019,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     }
     if (!page.isClosed()) await page.waitForTimeout(this.timeouts.short).catch(() => {});
     if (!page.isClosed()) {
-      await this.selectLovValue({ parentPage: page, target: page, buttonName: 'btnone_CorporateBO.relationship_CreatedBy', searchValue: cd.prmId, label: 'Relationship Created By', config: this.config });
+      await this.selectLovValue({ parentPage: page, target: page, buttonName: 'btnone_CorporateBO.relationship_CreatedBy', searchValue: cd.primaryRelationshipManagerId, label: 'Relationship Created By', config: this.config });
       if (!page.isClosed()) await page.waitForTimeout(this.timeouts.medium).catch(() => {});
     }
   }

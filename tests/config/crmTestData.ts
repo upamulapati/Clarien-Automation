@@ -1,4 +1,5 @@
-import crmTestData from './crmTestData.json';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // =====================================================================
 // Type Definitions
@@ -43,6 +44,12 @@ export interface VerificationOptions {
 // =====================================================================
 // Exported Test Data
 // =====================================================================
+
+const stepDataPath = process.env.CRM_STEP_DATA;
+const defaultDataPath = path.resolve(__dirname, 'crmTestData.json');
+const crmTestData = (stepDataPath && fs.existsSync(stepDataPath))
+  ? JSON.parse(fs.readFileSync(stepDataPath, 'utf8'))
+  : JSON.parse(fs.readFileSync(defaultDataPath, 'utf8'));
 
 export const CRM_TEST_DATA = crmTestData;
 

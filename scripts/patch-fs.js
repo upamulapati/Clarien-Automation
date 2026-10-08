@@ -119,7 +119,9 @@ if (FLOW_X_PATH) {
   try {
     FLOW_X_DATA = JSON.parse(origReadFileSync(FLOW_X_PATH, 'utf8'));
   } catch (err) {
-    console.warn(`[patch-fs] Could not load ${CIF_MOD_FLOW}.json: ${err.message}`);
+    if (err.code !== 'ENOENT') {
+      console.warn(`[patch-fs] Could not load ${CIF_MOD_FLOW}.json: ${err.message}`);
+    }
   }
 }
 
