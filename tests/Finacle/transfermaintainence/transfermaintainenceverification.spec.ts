@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0] ?? {};
+const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.

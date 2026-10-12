@@ -24,8 +24,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
-  test(acct.testLabel, async ({ page }) => {
-    const verifyAccountId = getSharedValue((state) => state.currentAccounts?.[String(acct.instance)] ?? state.accountId) ?? acct.accountId;
+  const acctData = acct.data ?? acct;
+  test(acctData.testLabel, async ({ page }) => {
+    const verifyAccountId = getSharedValue((state) => state.currentAccounts?.[String(acctData.instance)] ?? state.accountId) ?? acctData.accountId;
     console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
     console.log(`Verifying current account modification: ${verifyAccountId}`);
 
@@ -48,8 +49,8 @@ for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
 
     console.log('Visiting required HACM verification tabs...');
 
-    const EXPECTED_DISPATCH_MODE = (acct.dispatchMode ?? 'no dispatch') as string;
-    const EXPECTED_ACCOUNT_STATUS = (acct.accountStatus ?? 'inactive') as string;
+    const EXPECTED_DISPATCH_MODE = (acctData.dispatchMode ?? 'no dispatch') as string;
+    const EXPECTED_ACCOUNT_STATUS = (acctData.accountStatus ?? 'inactive') as string;
 
     console.log('Visiting General tab to check Dispatch Mode...');
     await accountPage.visitTab('General');
@@ -83,7 +84,7 @@ for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
     console.log('Visiting Addl. Info. tab...');
     await accountPage.visitTab('Addl. Info.');
 
-    if (acct.visitDocumentTab === true || String(acct.visitDocumentTab).toLowerCase() === 'y' || String(acct.visitDocumentTab).toLowerCase() === 'true') {
+    if (acctData.visitDocumentTab === true || String(acctData.visitDocumentTab).toLowerCase() === 'y' || String(acctData.visitDocumentTab).toLowerCase() === 'true') {
       console.log('Visiting Document details tab...');
       await accountPage.visitTabById('documentdetails');
     }

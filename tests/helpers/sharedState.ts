@@ -37,6 +37,7 @@ export interface SharedState {
   topUpDepositAccounts?: Record<string, string>;
   closedAccounts?: {
     termDepositPartial?: string;
+    termDepositPremature?: string;
     topUpDeposit?: string;
     topUpDepositPartial?: string;
   };
@@ -294,6 +295,7 @@ export function saveTopUpDepositAccounts(accounts: Record<string, string>): void
 // ----------------------------------------------------------------------
 export type ClosedAccountType =
   | 'termDepositPartial'
+  | 'termDepositPremature'
   | 'topUpDeposit'
   | 'topUpDepositPartial';
 

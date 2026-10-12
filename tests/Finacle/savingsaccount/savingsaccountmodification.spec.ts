@@ -10,7 +10,8 @@ import COMMON_DATA from '../../../data/common-data.json';
 // The account to modify is resolved at test runtime from the account created by the
 // savingsaccountcreation / savingsaccountcreationverify specs (keyed by instance).
 for (const acct of SAVINGS_MODIFY_DATA) {
-  const accountType = acct.type ?? 'savings';
+  const acctData = acct.data ?? acct;
+  const accountType = acctData.type ?? 'savings';
 
   test.describe(`Account Modification - ${accountType}`, () => {
     test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -25,13 +26,13 @@ for (const acct of SAVINGS_MODIFY_DATA) {
     accountPage = new AccountPage(page);
   });
 
-    test(`HACM - modify savings account dispatch mode and A/c status - instance ${acct.instance}`, async ({ page }) => {
-      const createdAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acct.instance)] ?? state.accountId);
-      const effectiveAccountId = createdAccountId || acct.accountId;
+    test(`HACM - modify savings account dispatch mode and A/c status - instance ${acctData.instance}`, async ({ page }) => {
+      const createdAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acctData.instance)] ?? state.accountId);
+      const effectiveAccountId = createdAccountId || acctData.accountId;
       if (!createdAccountId) {
-        console.warn(`[Modification] No created account found for instance ${acct.instance}; falling back to Excel accountId ${acct.accountId}`);
+        console.warn(`[Modification] No created account found for instance ${acctData.instance}; falling back to Excel accountId ${acctData.accountId}`);
       } else {
-        console.log(`[Modification] Using created account for instance ${acct.instance}: ${effectiveAccountId}`);
+        console.log(`[Modification] Using created account for instance ${acctData.instance}: ${effectiveAccountId}`);
       }
 
       console.log('Selecting Core Server...');
@@ -52,13 +53,13 @@ for (const acct of SAVINGS_MODIFY_DATA) {
       await accountPage.clickGo();
 
       console.log('Visiting General Details tab to modify Dispatch Mode...');
-      const effectiveDispatchMode = (acct.dispatchMode ?? 'post') as 'email' | 'no dispatch' | 'post';
+      const effectiveDispatchMode = (acctData.dispatchMode ?? 'post') as 'email' | 'no dispatch' | 'post';
       await accountPage.visitGeneralDetailsTab();
       await accountPage.selectDispatchMode(effectiveDispatchMode);
 
       console.log('Visiting Scheme tab to modify A/c Status...');
       await accountPage.visitTab('Scheme');
-      await accountPage.selectAccountStatus((acct.accountStatus ?? 'inactive') as 'active' | 'dormant' | 'inactive');
+      await accountPage.selectAccountStatus((acctData.accountStatus ?? 'inactive') as 'active' | 'dormant' | 'inactive');
 
       console.log('Clicking Submit button...');
       await accountPage.submitForm();

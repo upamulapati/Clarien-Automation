@@ -23,17 +23,18 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
 const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.map((entry: any, index: number) => {
-  const scheme = entry.schemeCode ?? 'unknown';
+  const entryData = entry.data ?? entry;
+  const scheme = entryData.schemeCode ?? 'unknown';
   const data = {
     ...DEFAULT_CUSTOMER,
-    ...entry,
-    functionOption: entry.functionOption ?? DEFAULT_CUSTOMER.functionOption,
-    ccy: entry.currency ?? entry.ccy ?? DEFAULT_CUSTOMER.ccy,
-    cifCode: entry.cifCode ?? entry.cif ?? DEFAULT_CUSTOMER.cifCode,
-    dispatchMode: entry.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode,
-    schemeCode: entry.schemeCode,
+    ...entryData,
+    functionOption: entryData.functionOption ?? DEFAULT_CUSTOMER.functionOption,
+    ccy: entryData.currency ?? entryData.ccy ?? DEFAULT_CUSTOMER.ccy,
+    cifCode: entryData.cifCode ?? entryData.cif ?? DEFAULT_CUSTOMER.cifCode,
+    dispatchMode: entryData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode,
+    schemeCode: entryData.schemeCode,
   };
-  return { name: `${scheme}-${data.ccy}-${index}`, instance: entry.instance ?? index, data };
+  return { name: `${scheme}-${data.ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index, data };
 });
 
 const LEGACY_SCENARIOS = [

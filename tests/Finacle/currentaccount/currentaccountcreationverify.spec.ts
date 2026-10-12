@@ -19,9 +19,10 @@ const IS_EXCEL = CURRENT_ACCOUNT_DATA.length > 0;
 const CURRENT_ACCOUNT_VERIFY_MENU = COMMON_DATA.currentAccount.screens.verify;
 
 const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.map((entry: any, index: number) => {
-  const scheme = entry.schemeCode ?? 'unknown';
-  const ccy = entry.currency ?? entry.ccy ?? DEFAULT_CUSTOMER.ccy;
-  return { name: `${scheme}-${ccy}-${index}`, instance: entry.instance ?? index };
+  const entryData = entry.data ?? entry;
+  const scheme = entryData.schemeCode ?? 'unknown';
+  const ccy = entryData.currency ?? entryData.ccy ?? DEFAULT_CUSTOMER.ccy;
+  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index };
 });
 
 const LEGACY_SCENARIOS = [{ name: 'flow6/flow9-verify' }];

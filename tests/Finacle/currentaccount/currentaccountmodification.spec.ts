@@ -24,11 +24,12 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const acct of CURRENT_MODIFY_DATA) {
+  const acctData = acct.data ?? acct;
   test(`HACM - modify current account dispatch mode and A/c status - instance ${acct.instance}`, async ({ page }) => {
     const createdAccountId = getSharedValue((state) => state.currentAccounts?.[String(acct.instance)] ?? state.accountId);
-    const effectiveAccountId = createdAccountId || acct.accountId;
+    const effectiveAccountId = createdAccountId || acctData.accountId;
     if (!createdAccountId) {
-      console.warn(`[Modification] No created account found for instance ${acct.instance}; falling back to Excel accountId ${acct.accountId}`);
+      console.warn(`[Modification] No created account found for instance ${acct.instance}; falling back to Excel accountId ${acctData.accountId}`);
     } else {
       console.log(`[Modification] Using created account for instance ${acct.instance}: ${effectiveAccountId}`);
     }
@@ -50,8 +51,8 @@ for (const acct of CURRENT_MODIFY_DATA) {
     console.log('Clicking Go button...');
     await accountPage.clickGo();
 
-    const DISPATCH_MODE = (acct.dispatchMode ?? 'no dispatch') as 'email' | 'post' | 'no dispatch';
-    const ACCOUNT_STATUS = (acct.accountStatus ?? 'inactive') as 'active' | 'dormant' | 'inactive';
+    const DISPATCH_MODE = (acctData.dispatchMode ?? 'no dispatch') as 'email' | 'post' | 'no dispatch';
+    const ACCOUNT_STATUS = (acctData.accountStatus ?? 'inactive') as 'active' | 'dormant' | 'inactive';
 
     console.log(`Visiting General Details tab to modify Dispatch Mode to ${DISPATCH_MODE}...`);
     await accountPage.visitGeneralDetailsTab();

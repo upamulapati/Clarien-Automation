@@ -6,7 +6,7 @@ import { CREDENTIALS } from '../../../data/credentials';
 import { recordTransactionId, getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0] ?? {};
+const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;

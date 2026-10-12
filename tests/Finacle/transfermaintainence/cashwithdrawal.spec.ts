@@ -8,7 +8,7 @@ import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { recordTransactionId } from '../../helpers/sharedState';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0] ?? {};
+const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 const MAKER = CREDENTIALS.verifierCredentials;
 const VERIFIER = CREDENTIALS.credentials;
 const ACCOUNT_ID = STEP.accountId ?? '6000197087';

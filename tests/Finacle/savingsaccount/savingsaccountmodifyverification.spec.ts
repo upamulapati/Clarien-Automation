@@ -10,15 +10,16 @@ import COMMON_DATA from '../../../data/common-data.json';
 const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
 
 for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
-  const accountType = acct.type ?? 'savings';
+  const acctData = acct.data ?? acct;
+  const accountType = acctData.type ?? 'savings';
 
   test.describe(`Savings Account Modification Verification - ${accountType}`, () => {
     test.beforeEach(async () => {
       test.setTimeout(300000);
     });
 
-    test(acct.testLabel, async ({ page }) => {
-      const verifyAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acct.instance)] ?? state.accountId) ?? acct.accountId;
+    test(acctData.testLabel, async ({ page }) => {
+      const verifyAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acctData.instance)] ?? state.accountId) ?? acctData.accountId;
       console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
 
       const lastDialogMessages: string[] = [];
@@ -52,7 +53,7 @@ for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
         await accountPage.visitTab(tab);
       }
 
-      if (acct.visitDocumentTab === true || String(acct.visitDocumentTab).toLowerCase() === 'y' || String(acct.visitDocumentTab).toLowerCase() === 'true') {
+      if (acctData.visitDocumentTab === true || String(acctData.visitDocumentTab).toLowerCase() === 'y' || String(acctData.visitDocumentTab).toLowerCase() === 'true') {
         console.log('Visiting Document details tab...');
         await accountPage.visitTabById('documentdetails');
       }

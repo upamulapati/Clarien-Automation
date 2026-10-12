@@ -1,6 +1,5 @@
 import COMMON_DATA from '../../data/common-data.json';
-import { TERM_DEPOSIT_DATA } from './termDepositTestData';
-import { TOP_UP_DEPOSIT_DATA } from './topUpDepositTestData';
+import { TERM_DEPOSIT_DATA, TOP_UP_DEPOSIT_DATA } from './excelTestData';
 
 // Single source of truth for the shared customer/branch defaults.
 // Product test data below is built by merging these defaults with product-specific

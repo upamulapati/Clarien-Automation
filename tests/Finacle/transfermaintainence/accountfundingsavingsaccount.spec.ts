@@ -12,9 +12,9 @@ import { TRANSFER_DATA } from '../../config/excelTestData';
 
 const CONFIG = getPrimaryConfig();
 
-const SAVINGS_FUNDING_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'savingsFunding') ?? TRANSFER_DATA[0] ?? {};
-const SERIAL_245_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'serial245') ?? {};
-const SERIAL_261_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'serial261') ?? {};
+const SAVINGS_FUNDING_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'savingsFunding')?.data ?? TRANSFER_DATA[0]?.data ?? {};
+const SERIAL_245_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'serial245')?.data ?? {};
+const SERIAL_261_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'serial261')?.data ?? {};
 
 const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;

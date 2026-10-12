@@ -8,7 +8,7 @@ import { writeSharedState, getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
-import { HPORDM_TEST_DATA } from '../../config/hpordmTestData';
+import { HPORDM_TEST_DATA } from '../../config/excelTestData';
 
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);

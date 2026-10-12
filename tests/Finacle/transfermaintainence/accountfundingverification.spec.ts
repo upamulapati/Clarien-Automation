@@ -7,7 +7,7 @@ import { readTransactionIds } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0] ?? {};
+const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer (the transaction was posted by the maker in transfermaintainence.spec).

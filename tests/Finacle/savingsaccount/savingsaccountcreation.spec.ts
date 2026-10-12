@@ -15,14 +15,15 @@ const CONFIG = getPrimaryConfig({ username: 'finacletest5' });
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
-  const scheme = entry.schemeCode ?? 'random';
+  const entryData = entry.data ?? entry;
+  const scheme = entryData.schemeCode ?? 'random';
   const data = {
     ...DEFAULT_CUSTOMER,
-    ...entry,
-    functionOption: entry.functionOption ?? DEFAULT_CUSTOMER.functionOption ?? 'O',
-    ccy: entry.currency ?? DEFAULT_CUSTOMER.ccy,
-    cifCode: entry.cifCode ?? entry.cif ?? SHARED_CIF ?? DEFAULT_CUSTOMER.cifCode,
-    dispatchMode: entry.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode ?? 'post',
+    ...entryData,
+    functionOption: entryData.functionOption ?? DEFAULT_CUSTOMER.functionOption ?? 'O',
+    ccy: entryData.currency ?? DEFAULT_CUSTOMER.ccy,
+    cifCode: entryData.cifCode ?? entryData.cif ?? SHARED_CIF ?? DEFAULT_CUSTOMER.cifCode,
+    dispatchMode: entryData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode ?? 'post',
   };
   return { name: `${scheme}-${data.ccy}-${index}`, data };
 });

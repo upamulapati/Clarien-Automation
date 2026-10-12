@@ -10,9 +10,10 @@ import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
-  const scheme = entry.schemeCode ?? 'random';
-  const ccy = entry.currency ?? DEFAULT_CUSTOMER.ccy;
-  return { name: `${scheme}-${ccy}-${index}`, instance: entry.instance ?? index };
+  const entryData = entry.data ?? entry;
+  const scheme = entryData.schemeCode ?? 'random';
+  const ccy = entryData.currency ?? DEFAULT_CUSTOMER.ccy;
+  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index };
 });
 
 test.describe('Savings Account Verification', () => {

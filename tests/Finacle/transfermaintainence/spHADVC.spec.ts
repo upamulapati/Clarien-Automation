@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0] ?? {};
+const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 test.describe(STEP.testLabel ? `HADVC - ${STEP.testLabel}` : 'HADVC - Service Pack Validation', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });

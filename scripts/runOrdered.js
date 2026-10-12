@@ -3,10 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 const { resolve: resolveCrmStep } = require('./crmDataResolver');
-const { resolve: resolveFlowData } = require('./flowDataResolver');
-const { resolve: resolveHpordmStep } = require('./hpordmDataResolver');
-const { resolve: resolveTermDepositStep } = require('./termDepositDataResolver');
-const { resolve: resolveTopUpDepositStep } = require('./topUpDepositDataResolver');
+const { resolve: resolveFlowData, resolveProduct } = require('./flowDataResolver');
 
 const suiteName = process.argv[2];
 
@@ -319,7 +316,13 @@ for (let i = 0; i < files.length; i++) {
   // Inject HPORDM step data for the payment-order spec (filtered by suite/flowName)
   if (file.includes('hpordm-remittance.spec.ts')) {
     try {
-      const stepFile = resolveHpordmStep('HPORDM', suiteName);
+      const stepFile = resolveProduct(
+        'HPORDM',
+        suiteName,
+        path.resolve(cwd, 'data', 'hpordm-step-data.json'),
+        'paymentOrderTestData',
+        { flowName: 'paymentorder', menuOption: 'HPORDM', function: 'Add', enabled: 'Y' }
+      );
       stepOverrides.HPORDM_STEP_DATA = stepFile;
     } catch (e) {
       console.log(`[runOrdered] Could not resolve HPORDM step data: ${e.message}`);
@@ -331,7 +334,13 @@ for (let i = 0; i < files.length; i++) {
   // Inject term deposit step data for any term-deposit spec (filtered by flowName)
   if (file.includes('Termdeposits')) {
     try {
-      const stepFile = resolveTermDepositStep('term_deposits', 'termdeposit');
+      const stepFile = resolveProduct(
+        'term_deposits',
+        'termdeposit',
+        path.resolve(cwd, 'data', 'term-deposit-step-data.json'),
+        'termDepositTestData',
+        { flowName: 'termdeposit', menuOption: 'HOAACTD', function: 'Add', enabled: 'Y' }
+      );
       stepOverrides.TERM_DEPOSIT_STEP_DATA = stepFile;
     } catch (e) {
       console.log(`[runOrdered] Could not resolve term deposit step data: ${e.message}`);
@@ -343,7 +352,13 @@ for (let i = 0; i < files.length; i++) {
   // Inject top-up deposit step data for any top-up deposit spec (filtered by flowName)
   if (file.includes('Topupdeposits')) {
     try {
-      const stepFile = resolveTopUpDepositStep('topup_deposits', 'topupdeposit');
+      const stepFile = resolveProduct(
+        'topup_deposits',
+        'topupdeposit',
+        path.resolve(cwd, 'data', 'top-up-deposit-step-data.json'),
+        'topUpDepositTestData',
+        { flowName: 'topupdeposit', menuOption: 'HOAACTU', function: 'Add', enabled: 'Y' }
+      );
       stepOverrides.TOP_UP_DEPOSIT_STEP_DATA = stepFile;
     } catch (e) {
       console.log(`[runOrdered] Could not resolve top-up deposit step data: ${e.message}`);
