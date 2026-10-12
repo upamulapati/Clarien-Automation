@@ -3,12 +3,11 @@ import { TopUpDepositPage } from '../../pages/CoreBanking/TopUpDepositPage';
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
-import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
-const SCHEME_CODES: string[] = COMMON_DATA.topUpDeposit.schemeCodes;
+const SCHEME_CODES: string[] = TOP_UP_DEPOSIT_DATA.schemeCodes as string[];
 
 test('HOAACTU - create top-up deposit accounts for all scheme codes', async ({ page }) => {
   test.setTimeout(900000);

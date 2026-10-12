@@ -3,6 +3,9 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 const { resolve: resolveCrmStep } = require('./crmDataResolver');
+const { resolve: resolveHpordmStep } = require('./hpordmDataResolver');
+const { resolve: resolveTermDepositStep } = require('./termDepositDataResolver');
+const { resolve: resolveTopUpDepositStep } = require('./topUpDepositDataResolver');
 
 const suiteName = process.argv[2];
 
@@ -290,11 +293,48 @@ for (let i = 0; i < files.length; i++) {
   const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides };
 
   // Inject CRM step data for Excel-driven flows
-  if (steps[i] && steps[i].dataSheet === 'CRM' && steps[i].customerType && steps[i].dataRowId != null) {
-    const stepFile = resolveCrmStep(steps[i].customerType, Number(steps[i].dataRowId));
+  if (steps[i] && steps[i].customerType && steps[i].dataRowId != null &&
+      (steps[i].dataSheet === 'CRM' || steps[i].dataSheet === 'CRM_Mod')) {
+    const stepFile = resolveCrmStep(steps[i].customerType, Number(steps[i].dataRowId), steps[i].dataSheet);
     stepOverrides.CRM_STEP_DATA = stepFile;
   } else {
     delete stepOverrides.CRM_STEP_DATA;
+  }
+
+  // Inject HPORDM step data for the payment-order spec (filtered by suite/flowName)
+  if (file.includes('hpordm-remittance.spec.ts')) {
+    try {
+      const stepFile = resolveHpordmStep('HPORDM', suiteName);
+      stepOverrides.HPORDM_STEP_DATA = stepFile;
+    } catch (e) {
+      console.log(`[runOrdered] Could not resolve HPORDM step data: ${e.message}`);
+    }
+  } else {
+    delete stepOverrides.HPORDM_STEP_DATA;
+  }
+
+  // Inject term deposit step data for any term-deposit spec (filtered by flowName)
+  if (file.includes('Termdeposits')) {
+    try {
+      const stepFile = resolveTermDepositStep('term_deposits', 'termdeposit');
+      stepOverrides.TERM_DEPOSIT_STEP_DATA = stepFile;
+    } catch (e) {
+      console.log(`[runOrdered] Could not resolve term deposit step data: ${e.message}`);
+    }
+  } else {
+    delete stepOverrides.TERM_DEPOSIT_STEP_DATA;
+  }
+
+  // Inject top-up deposit step data for any top-up deposit spec (filtered by flowName)
+  if (file.includes('Topupdeposits')) {
+    try {
+      const stepFile = resolveTopUpDepositStep('topup_deposits', 'topupdeposit');
+      stepOverrides.TOP_UP_DEPOSIT_STEP_DATA = stepFile;
+    } catch (e) {
+      console.log(`[runOrdered] Could not resolve top-up deposit step data: ${e.message}`);
+    }
+  } else {
+    delete stepOverrides.TOP_UP_DEPOSIT_STEP_DATA;
   }
 
   const childEnv = { ...env, ...stepOverrides };

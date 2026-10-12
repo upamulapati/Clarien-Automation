@@ -1,31 +1,19 @@
 import { test, expect } from "@playwright/test";
-import { getPrimaryConfig, getCheckerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
-import { getSharedValue } from "../../helpers/sharedState";
-import { shouldUpdate } from "../../helpers/shouldUpdate";
+import { getMakerConfig, getCheckerConfig, CRM_TEST_DATA } from "../../config/crmTestData";
 import { CrmRetailModificationPage } from "../../pages/CRM/crmRetailModificationPage";
 import { CrmOtherBankDetailsPage } from "../../pages/CRM/crmOtherBankDetailsPage";
 import { ServicePackPage } from "../../pages/CRM/servicePackPage";
-import COMBINED_DATA from "./combinedcifmodificationdata.json";
-import FLOW7_DATA from "../../../data/flow7.json";
-import FLOW9_DATA from "../../../data/flow9.json";
-import FLOW10_DATA from "../../../data/flow10.json";
 import { CrmRetailCheckerPage } from "../../pages/CRM/crmRetailCheckerPage";
 
-// Flow-controlled combined CIF modification.
-// The flow key is the base name of this spec file (e.g. combinedcifmodification_flow),
-// or it can be overridden with the CIF_MOD_FLOW environment variable.
-// cifmodificationflowconfig.json decides which sections (address/phone/bank) to run.
-// cifmodificationflowdata.json supplies the actual values. Missing values fall back to crmTestData.
-const CONFIG = getPrimaryConfig();
+// Single consolidated CIF modification spec for retail CIFs.
+// All test data is taken from the CRM_Mod sheet (resolved into CRM_TEST_DATA.retail.modification).
+const CONFIG = getMakerConfig();
 const MOD = CRM_TEST_DATA.retail.modification;
-const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
-const FLOW = process.env.CIF_MOD_FLOW || 'flow7';
-const FLOW_DATA = FLOW === 'flow10' ? FLOW10_DATA : FLOW === 'flow9' ? FLOW9_DATA : FLOW7_DATA;
-const data = FLOW_DATA as any;
-const DATA = (FLOW_DATA as any).cifModification || (COMBINED_DATA as any).cifModification || COMBINED_DATA;
-// Skip Other Bank Details for now due to admin-side issue.
-const TABS = ((DATA.tabs || []) as any[]).filter(tab => tab.name !== 'Other Bank Details');
-const CIF_ID = (FLOW_DATA as any).cifId || SHARED_CIF || COMBINED_DATA.cifId || MOD.fallbackCifId;
+const data = MOD;
+// Optional tab-level scenario overrides may be supplied in the 'tabs' field of the CRM_Mod row.
+const TABS = ((data.tabs || []) as any[]).filter(tab => tab.name !== 'Other Bank Details');
+const CIF_ID = String(data.cifId || data.fallbackCifId || '').trim();
+if (!CIF_ID) throw new Error('CIF ID is missing in the CRM_Mod sheet (cifId or fallbackCifId).');
 const BASE_OBD = { ...CRM_TEST_DATA.corporate.otherBankDetails };
 
 function isEmpty(value: any): boolean {
@@ -62,6 +50,28 @@ function setAddressEnv(address: any) {
   if (address.countryCode) process.env.COUNTRY_CODE = String(address.countryCode);
 }
 
+async function verifyAsChecker(page: any, cifId: string) {
+  const checkerConfig = getCheckerConfig();
+  const checker = new CrmRetailCheckerPage(page, checkerConfig);
+  checker.attachDialogHandler(page);
+
+  await checker.login(checkerConfig.username, checkerConfig.password);
+  expect(await checker.waitForDashboard(page), 'Checker login must succeed').toBeTruthy();
+
+  await checker.switchToCrm();
+  await checker.navigateToEntityQueue();
+
+  const result = await checker.approvePendingModification(cifId);
+  if (result.pendingRecordExists) {
+    expect(result.approveSelected && result.committed, 'Approve decision must be saved').toBeTruthy();
+    console.log(`CIF ${cifId} verified by checker`);
+  } else {
+    console.log(`No pending record for CIF ${cifId}; may already be verified.`);
+  }
+
+  await checker.logout().catch(() => {});
+}
+
 test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
   let retailMod: CrmRetailModificationPage;
   let obdPage: CrmOtherBankDetailsPage;
@@ -77,9 +87,9 @@ test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
     retailMod = new CrmRetailModificationPage(page, CONFIG);
     obdPage = new CrmOtherBankDetailsPage(page, CONFIG);
 
-    const hasAddress = shouldUpdate("address", test.info().file) && !isEmpty(data.address);
-    const hasPhone = shouldUpdate("phone", test.info().file) && !isEmpty(data.phone);
-    const hasOtherBank = shouldUpdate("bank", test.info().file) && !isEmpty(data.otherBank);
+    const hasAddress = !isEmpty(data.address);
+    const hasPhone = !isEmpty(data.phone);
+    const hasOtherBank = !isEmpty(data.otherBank);
 
     if (TABS.length > 0) {
       for (const tab of TABS) {
@@ -205,6 +215,12 @@ test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
 
       await retailMod.openGeneralDetailsEdit(CIF_ID);
 
+      if (data.lastName) {
+        const lastNameVal = await retailMod.modifyLastName(data.lastName);
+        expect(lastNameVal.toUpperCase(), `Last Name must be ${data.lastName}`).toContain(data.lastName.toUpperCase());
+        console.log(`✓ Last Name updated to ${data.lastName}`);
+      }
+
       const addrUndef = await sp.verifyAddressFieldsNotUndefined(page);
       if (addrUndef.checked) {
         expect(addrUndef.undefinedFields.length, "SP#5: No address fields should contain undefined").toBe(0);
@@ -238,6 +254,9 @@ test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
       const shown = await retailMod.verifyRecordInGrid(CIF_ID);
       expect(shown, "Submitted record must display in the Customer Search Results grid").toBeTruthy();
       console.log(`✓ General Details modification submitted for CIF ${CIF_ID}.`);
+
+      await retailMod.logout().catch(() => {});
+      await verifyAsChecker(page, CIF_ID);
     }
 
     // ---------- Other Bank Details ----------
@@ -247,7 +266,8 @@ test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
       otherBank.fallbackCifId = CIF_ID;
       Object.assign(CRM_TEST_DATA.corporate.otherBankDetails, otherBank);
 
-      const ok = await obdPage.addOtherBankDetails("retail");
+      await obdPage.loginAsMaker();
+      const ok = await obdPage.addOtherBankDetails("retail", CIF_ID);
       expect(ok, "Other Bank Details should be added and submitted").toBeTruthy();
 
       const obdMsg = obdPage.lastDialogMessage;
@@ -255,6 +275,9 @@ test.describe("CIF Combined Modification Maker — Flow Controlled", () => {
       expect(obdMsg).toMatch(/submitted successfully|saved successfully/i);
 
       console.log("✓ Other Bank Details added");
+
+      await obdPage.logout().catch(() => {});
+      await verifyAsChecker(page, CIF_ID);
     }
   });
 });

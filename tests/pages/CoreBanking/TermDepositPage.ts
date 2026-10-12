@@ -58,21 +58,25 @@ export class TermDepositPage extends AccountPage {
     }
   }
 
-  protected async setTextByIds(ids: string[], value: string): Promise<boolean> {
+  protected async setTextByIds(ids: string[], value: string, fireEvents = true): Promise<boolean> {
     const frame = this.getTdFrame();
     if (!frame) return false;
     for (const id of ids) {
       try {
-        const ok = await frame.evaluate(({ id: t, val }) => {
+        const ok = await frame.evaluate(({ id: t, val, fire }) => {
           const input = document.getElementById(t) as HTMLInputElement | null;
           if (!input || input.readOnly || input.disabled) return false;
-          input.focus();
-          input.value = val;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          input.blur();
+          if (fire) {
+            input.focus();
+            input.value = val;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            input.blur();
+          } else {
+            input.value = val;
+          }
           return true;
-        }, { id, val: value });
+        }, { id, val: value, fire: fireEvents });
         if (ok) {
           console.log(`Filled #${id} = ${value}`);
           await this.page.waitForTimeout(300);
@@ -415,10 +419,16 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(500);
     }
 
-    await this.setTextByIds(['acctId', 'acid', 'acId', 'accountId'], accountId);
-    await this.page.waitForTimeout(2000);
+    const entered = await this.setTextByIds(['tempForacid', 'acctId', 'acid', 'acId', 'accountId'], accountId, false);
+    if (!entered) {
+      console.log(`Could not populate account ID field for modification of ${accountId}`);
+    }
+    await this.page.waitForTimeout(1000);
     await this.closeExtraPopups();
-    await this.clickGoButton();
+    const goClicked = await this.clickGoButton();
+    if (!goClicked) {
+      console.log('Go button not found; modification may not proceed');
+    }
     await this.page.waitForTimeout(4000);
 
     await this.visitTab('Scheme');
@@ -438,28 +448,35 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(4000);
     }
 
-    const statusMessage = await this.getStatusMessage();
     await this.acceptWarningPopup().catch(() => {});
+    await this.page.waitForTimeout(2000);
+    const statusMessage = await this.getStatusMessage();
     return statusMessage;
   }
 
-  private async clickGoButton() {
-    const selector = 'button:has-text("Go"), input[value="Go" i], input[type="button"][value="Go" i], input[type="submit"][value="Go" i]';
+  private async clickGoButton(): Promise<boolean> {
+    const selector = 'button:has-text("Go"), input[type="button"][value="Go" i], input[type="submit"][value="Go" i], input[type="image"][alt="Go" i]';
     const finwFrame = this.getTdFrame();
     if (finwFrame) {
       const btn = finwFrame.locator(selector).first();
       if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
         await btn.click();
-        return;
+        console.log('Clicked Go button in FINW frame');
+        await this.page.waitForTimeout(1000);
+        return true;
       }
     }
     for (const frame of this.page.frames()) {
       const btn = frame.locator(selector).first();
       if (await btn.count().catch(() => 0) > 0 && await btn.isVisible().catch(() => false)) {
         await btn.click();
-        return;
+        console.log(`Clicked Go button in frame '${frame.name() || 'main'}'`);
+        await this.page.waitForTimeout(1000);
+        return true;
       }
     }
+    console.log('Could not click Go button in any frame');
+    return false;
   }
 
   async verifyRelatedPartyDetails(screenCode: string, accountId: string): Promise<string | null> {
@@ -592,10 +609,16 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(500);
     }
 
-    await this.setTextByIds(['acctId', 'acid', 'acId', 'accountId'], accountId);
-    await this.page.waitForTimeout(2000);
+    const entered = await this.setTextByIds(['tempForacid', 'acctId', 'acid', 'acId', 'accountId'], accountId, false);
+    if (!entered) {
+      console.log(`Could not populate account ID field for related party deletion: ${accountId}`);
+    }
+    await this.page.waitForTimeout(1000);
     await this.closeExtraPopups();
-    await this.clickGoButton();
+    const goClicked = await this.clickGoButton();
+    if (!goClicked) {
+      console.log('Go button not found; related party deletion may not proceed');
+    }
     await this.page.waitForTimeout(4000);
 
     await this.visitTab('Related Party');
@@ -661,10 +684,16 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(500);
     }
 
-    await this.setTextByIds(['acctId', 'acid', 'acId', 'accountId'], data.accountId);
-    await this.page.waitForTimeout(2000);
+    const entered = await this.setTextByIds(['tempForacid', 'acctId', 'acid', 'acId', 'accountId'], data.accountId, false);
+    if (!entered) {
+      console.log(`Could not populate account ID field for related party addition: ${data.accountId}`);
+    }
+    await this.page.waitForTimeout(1000);
     await this.closeExtraPopups();
-    await this.clickGoButton();
+    const goClicked = await this.clickGoButton();
+    if (!goClicked) {
+      console.log('Go button not found; related party addition may not proceed');
+    }
     await this.page.waitForTimeout(4000);
 
     await this.visitTab('General');
@@ -749,7 +778,7 @@ export class TermDepositPage extends AccountPage {
     const relnCodeEl = rpFrame.locator('#relnCode');
     if (await relnCodeEl.count() > 0) {
       await relnCodeEl.click({ clickCount: 3 });
-      await relnCodeEl.fill(data.relationCode);
+      await relnCodeEl.fill(String(data.relationCode ?? ''));
       await relnCodeEl.press('Tab');
       await this.page.waitForTimeout(2000);
       console.log(`Relation Code set to: ${data.relationCode}`);
@@ -780,7 +809,7 @@ export class TermDepositPage extends AccountPage {
     if (cifEl) {
       await cifEl.click({ clickCount: 3 } as any);
       await this.page.waitForTimeout(300);
-      await cifEl.type(data.relatedPartyCifCode);
+      await cifEl.type(String(data.relatedPartyCifCode ?? ''));
       await cifEl.press('Tab');
       await this.page.waitForTimeout(4000);
       console.log(`CIF ID entered: ${data.relatedPartyCifCode} -- auto-population triggered`);

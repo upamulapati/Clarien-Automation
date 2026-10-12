@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const ACCOUNT_ID = COMMON_DATA.topUpDepositRelatedParty.accountId;
+const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.relatedPartyAccountId || '9200000632';
 
 test('HOAACVTU - verify related party details for top-up deposit account', async ({ page }) => {
   test.setTimeout(300000);
@@ -16,7 +16,7 @@ test('HOAACVTU - verify related party details for top-up deposit account', async
   console.log(`Verifying related party details for account: ${ACCOUNT_ID}`);
 
   const statusMessage = await tdPage.verifyRelatedPartyDetails(
-    COMMON_DATA.topUpDeposit.screens.verify,
+    TOP_UP_DEPOSIT_DATA.screens.verify,
     ACCOUNT_ID
   );
 

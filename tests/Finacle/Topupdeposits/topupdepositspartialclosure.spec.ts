@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
   getTopUpDepositAccounts,
@@ -11,13 +11,16 @@ import {
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-const PARTIAL_WITHDRAWAL_AMT = '500';
+const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.partialClosure;
+const PARTIAL_WITHDRAWAL_AMT = TOP_UP_DEPOSIT_DATA.partialClosureWithdrawalAmount;
+const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
 
 function getGeneratedAccount(): string {
+  if (TOP_UP_DEPOSIT_DATA.partialClosureAccountId) return TOP_UP_DEPOSIT_DATA.partialClosureAccountId as string;
   const accounts = getTopUpDepositAccounts();
   const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
   if (firstValid) return firstValid;
-  return COMMON_DATA.topUpDepositRelatedParty.accountId;
+  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 }
 
 test('HCAACTU - top-up deposit partial closure', async ({ page }) => {
@@ -26,9 +29,9 @@ test('HCAACTU - top-up deposit partial closure', async ({ page }) => {
   const tdPage = new TermDepositPage(page);
   const accountId = getGeneratedAccount();
   console.log(`Performing partial closure for TU account: ${accountId}`);
-  const statusMessage = await tdPage.partialClosure(COMMON_DATA.topUpDeposit.screens.partialClosure, accountId, {
+  const statusMessage = await tdPage.partialClosure(SCREEN_CODE, accountId, {
     withdrawalAmount: PARTIAL_WITHDRAWAL_AMT,
-    repaymentAccountId: COMMON_DATA.topUpDeposit.repaymentAcctId,
+    repaymentAccountId: REPAYMENT_ACCOUNT_ID,
   });
   saveClosedAccountId('topUpDepositPartial', accountId);
   console.log(`Saved partially closed TU account ID to shared-state`);

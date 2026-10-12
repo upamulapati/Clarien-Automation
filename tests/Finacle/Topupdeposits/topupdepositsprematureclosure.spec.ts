@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
   getTopUpDepositAccounts,
@@ -11,11 +11,16 @@ import {
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
+const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.prematureClosure;
+const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
+
 function getGeneratedAccount(): string {
+  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
+
   const accounts = getTopUpDepositAccounts();
   const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
   if (firstValid) return firstValid;
-  return COMMON_DATA.topUpDepositRelatedParty.accountId;
+  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 }
 
 test('HCAACTU - top-up deposit premature closure', async ({ page }) => {
@@ -25,10 +30,10 @@ test('HCAACTU - top-up deposit premature closure', async ({ page }) => {
   const accountId = getGeneratedAccount();
   console.log(`Performing premature closure for TU account: ${accountId}`);
   const statusMessage = await tdPage.prematureClosure(
-    COMMON_DATA.topUpDeposit.screens.prematureClosure,
+    SCREEN_CODE,
     accountId,
     'Z-close',
-    COMMON_DATA.topUpDeposit.repaymentAcctId
+    REPAYMENT_ACCOUNT_ID
   );
   saveClosedAccountId('topUpDeposit', accountId);
   console.log(`Saved closed TU account ID to shared-state`);

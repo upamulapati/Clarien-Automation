@@ -1,18 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { TopUpDepositPage } from '../../pages/CoreBanking/TopUpDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const ACCOUNT_ID = '9200000593';
+const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.renewalAccountId || '9200000593';
+const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.renewalVerify;
 
 test('HTDREN - top-up deposit renewal verification', async ({ page }) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const topUpPage = new TopUpDepositPage(page);
   console.log(`Verifying renewal for top-up deposit account: ${ACCOUNT_ID}`);
-  const statusMessage = await topUpPage.verifyTopUpRenewal('HTDREN', ACCOUNT_ID);
+  const statusMessage = await topUpPage.verifyTopUpRenewal(SCREEN_CODE, ACCOUNT_ID);
   console.log('====================================');
   console.log('TOP-UP DEPOSIT RENEWAL VERIFICATION COMPLETED');
   console.log(`Account: ${ACCOUNT_ID}`);

@@ -476,45 +476,66 @@ export class AccountPage {
         '.message',
         'span[id*="msg" i]',
         'div[id*="msg" i]',
+        'tr',
+        'td',
       ];
-      // Scan every frame and collect all non-empty messages from the candidate selectors.
-      const messages: string[] = [];
+      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|linked|generated)\b/i;
+      const sessionNoise = /(Last Successful Login|Last Failed Login|Account Expiry Date|Last login time|Last logout time|Client machine)/i;
+      const noise = /^\s*(Error Details(?:\s+[A-Za-z/\.\s]+)*|Error Messages|Error Code|Error Code Description|Type Error Code Description|User Information Messages)\s*$/i;
+
+      const allMessages: string[] = [];
       const seen = new Set<string>();
-      for (const frame of this.page.frames()) {
-        for (const sel of candidates) {
-          const texts = await frame.locator(sel).allTextContents().catch(() => [] as string[]);
-          for (const raw of texts) {
-            const text = (raw || '').replace(/\s+/g, ' ').trim();
-            if (text && !seen.has(text.toLowerCase())) {
-              seen.add(text.toLowerCase());
-              messages.push(text);
-            }
+      const add = (text: string) => {
+        const t = (text || '').replace(/\s+/g, ' ').trim();
+        if (t && !seen.has(t.toLowerCase()) && t.length >= 5 && t.length < 400) {
+          seen.add(t.toLowerCase());
+          allMessages.push(t);
+        }
+      };
+
+      // Scan every page (including popup windows) and frame for status messages.
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          for (const sel of candidates) {
+            const texts = await frame.locator(sel).allTextContents().catch(() => [] as string[]);
+            for (const raw of texts) add(raw);
           }
         }
       }
-      if (messages.length > 0) {
-        return messages.length === 1 ? messages[0] : messages.join(' | ');
-      }
 
-      // Fallback: Finacle sometimes writes the status directly into the frame body
-      // (e.g. "Transaction Id : CB123 has been posted successfully").
-      const statusKeywords = /\b(success|successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected)\b/i;
-      const bodyText = await this.getFinwFrame().locator('body').innerText().catch(() => '');
-      const bodyLines = bodyText
-        .split(/\r?\n/)
-        .map(s => s.replace(/\s+/g, ' ').trim())
-        .filter(s => s.length > 10 && s.length < 300);
-      for (const line of bodyLines) {
-        if (statusKeywords.test(line) && !seen.has(line.toLowerCase())) {
-          seen.add(line.toLowerCase());
-          messages.push(line);
+      // Fallback: Finacle sometimes writes the status directly into the frame body.
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const bodyText = await frame.locator('body').innerText().catch(() => '');
+          const bodyLines = bodyText
+            .split(/\r?\n/)
+            .map(s => s.replace(/\s+/g, ' ').trim())
+            .filter(s => s.length > 10 && s.length < 300);
+          for (const line of bodyLines) add(line);
         }
       }
 
-      if (messages.length > 0) {
-        return messages.length === 1 ? messages[0] : messages.join(' | ');
-      }
-      return null;
+      const relevant = allMessages.filter(m => !noise.test(m) && !sessionNoise.test(m) && statusKeywords.test(m));
+      if (relevant.length === 0) return null;
+
+      const successKeywords = /\b(success|successfully|posted|completed|authorised|authorized|verified|approved|modified|created|deleted|added|disbursed|linked|generated)\b/i;
+      const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected)\b/i;
+
+      relevant.sort((a, b) => {
+        const aSuccess = successKeywords.test(a) ? 1 : 0;
+        const bSuccess = successKeywords.test(b) ? 1 : 0;
+        if (aSuccess !== bSuccess) return bSuccess - aSuccess;
+
+        const aError = errorKeywords.test(a) ? 1 : 0;
+        const bError = errorKeywords.test(b) ? 1 : 0;
+        if (aError !== bError) return aError - bError;
+
+        return b.length - a.length;
+      });
+
+      return relevant[0] ?? null;
     } catch (e) {
       console.log(`Could not read status message: ${e}`);
       return null;

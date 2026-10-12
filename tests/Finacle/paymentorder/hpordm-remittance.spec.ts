@@ -8,57 +8,25 @@ import { writeSharedState, getSharedValue } from '../../helpers/sharedState';
 import { setupDialogHandlers } from '../../config/crmSetup';
 import { captureEvidence } from '../../helpers/evidence';
 import { getApplicationDate } from '../../helpers/common';
-import HPORDM_BASE_DATA from '../../../data/hpordmdata.json';
-import FLOW1_DATA from '../../../data/flow1.json';
-import FLOW7_DATA from '../../../data/flow7.json';
-import FLOW5_DATA from '../../../data/flow5.json';
-import FLOW8_DATA from '../../../data/flow8.json';
-import FLOW2_DATA from '../../../data/flow2.json';
-import FLOW9_DATA from '../../../data/flow9.json';
-import FLOW10_DATA from '../../../data/flow10.json';
+import { HPORDM_TEST_DATA } from '../../config/hpordmTestData';
 
-const IS_FLOW5 = process.env.CIF_MOD_FLOW === 'flow5';
-const IS_FLOW7 = process.env.CIF_MOD_FLOW === 'flow7';
-const IS_FLOW8 = process.env.CIF_MOD_FLOW === 'flow8';
-const IS_FLOW2 = process.env.CIF_MOD_FLOW === 'flow2';
-const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
-const IS_FLOW10 = process.env.CIF_MOD_FLOW === 'flow10';
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using debit/charging account from previous run: ${SHARED_ACCOUNT_ID}`);
 
-const RAW_SCENARIOS = IS_FLOW10
-  ? ((FLOW10_DATA as any).paymentOrderTestData ?? [])
-  : IS_FLOW9
-  ? ((FLOW9_DATA as any).paymentOrderTestData ?? [])
-  : IS_FLOW8
-  ? ((FLOW8_DATA as any).paymentOrderTestData ?? [])
-  : IS_FLOW2
-  ? ((FLOW2_DATA as any).paymentOrderTestData ?? [])
-  : IS_FLOW5
-  ? ((FLOW5_DATA as any).paymentOrderTestData ?? [])
-  : ((HPORDM_DATA as any).paymentOrderTestData ?? []);
-const FLOW_AMOUNTS = IS_FLOW10
-  ? (FLOW10_DATA as any).paymentOrderAmounts
-  : IS_FLOW9
-  ? (FLOW9_DATA as any).paymentOrderAmounts
-  : IS_FLOW7
-  ? (FLOW7_DATA as any).paymentOrderAmounts
-  : undefined;
+const RAW_SCENARIOS = HPORDM_TEST_DATA.paymentOrderTestData;
 
 const SCENARIOS = RAW_SCENARIOS.map((scenario: any) => ({
-  name: scenario.name,
-  sharedKey: scenario.sharedKey,
+  ...scenario,
   data: {
     ...scenario.data,
-    amount: FLOW_AMOUNTS?.[scenario.sharedKey] ?? scenario.data.amount,
-    debitAccount: (IS_FLOW9 || IS_FLOW10) ? scenario.data?.debitAccount : (SHARED_ACCOUNT_ID ?? scenario.data?.debitAccount),
+    debitAccount: scenario.data?.debitAccount ?? SHARED_ACCOUNT_ID ?? '',
   },
 }));
 
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
 for (const scenario of SCENARIOS) {
-  test(`HPORDM - add payment order remittance (${scenario.name})`, async ({ page }) => {
+  test(`HPORDM - add payment order remittance (${scenario.name} - instance ${scenario.instance})`, async ({ page }) => {
   test.setTimeout(900000);
 
   const lastDialogMessages: string[] = [];
@@ -74,12 +42,12 @@ for (const scenario of SCENARIOS) {
 
   // Step 2: Type menu option "HPORDM".
   console.log('Searching for HPORDM...');
-  await accountPage.searchTransactionManagement('HPORDM');
+  await accountPage.searchTransactionManagement(scenario.menuOption);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - Add, Payment product - customer transfer, click GO.
   console.log('Selecting Add function...');
-  await accountPage.selectFunction('Add');
+  await accountPage.selectFunction(scenario.function || 'Add');
   const businessDate = await getApplicationDate(page);
   console.log(`Business date: ${businessDate}`);
   await captureEvidence(page, `Step 3: Add function opened (${scenario.name})`, { function: 'Add', paymentProduct: scenario.data.paymentProduct, businessDate });
@@ -200,7 +168,7 @@ for (const scenario of SCENARIOS) {
   await homePage.logout();
   });
 
-  test(`HPORDM - verify payment order (${scenario.name})`, async ({ page }) => {
+  test(`HPORDM - verify payment order (${scenario.name} - instance ${scenario.instance})`, async ({ page }) => {
     test.setTimeout(900000);
 
     const paymentOrderId = getSharedValue((state: any) => (state as any)[scenario.sharedKey] as string | undefined) ?? '';
@@ -219,7 +187,7 @@ for (const scenario of SCENARIOS) {
     await accountPage.selectCoreServer();
 
     console.log('Searching for HPORDM...');
-    await accountPage.searchTransactionManagement('HPORDM');
+    await accountPage.searchTransactionManagement(scenario.menuOption);
     await page.waitForTimeout(3000);
 
     console.log('Selecting Verify function...');

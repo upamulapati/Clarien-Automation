@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TERM_DEPOSIT_DATA } from '../../config/testData';
 
-const ACCOUNT_ID = '9200000658';
-const SCREENS = COMMON_DATA.termDeposit.screens;
-const INTEREST_OUTFLOW_START_DATE = '30-08-2026';
+const ACCOUNT_ID = TERM_DEPOSIT_DATA.spflowAccountId;
+const SCREENS = TERM_DEPOSIT_DATA.screens;
+const INTEREST_OUTFLOW_START_DATE = TERM_DEPOSIT_DATA.spflowInterestOutflowStartDate;
 
 test('HOAACMTD/HOAACVTD - modify, verify, and validate revised TD principal flow', async ({ page }, testInfo) => {
   test.setTimeout(600000);

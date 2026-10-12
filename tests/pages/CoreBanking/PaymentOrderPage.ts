@@ -475,6 +475,42 @@ export class PaymentOrderPage {
 
   async selectPaymentProduct(product: string) {
 
+    if (!product) {
+
+      console.log('No payment product value provided from Excel');
+
+      return;
+
+    }
+
+    const finw = this.getFinwFrame();
+
+    const productCode = String(product).toLowerCase() === 'customer transfer' ? 'CT' : product;
+
+    const orderTypeSelect = finw.locator('select[name="pordm.orderType"]').first();
+
+    try {
+
+      if (await orderTypeSelect.count() > 0) {
+
+        await orderTypeSelect.selectOption({ value: productCode });
+
+        await this.page.waitForTimeout(1000);
+
+        console.log(`Selected payment product '${product}' (value: ${productCode})`);
+
+        return;
+
+      }
+
+    } catch (e) {
+
+      console.log(`Could not select payment product by value '${productCode}': ${e}`);
+
+    }
+
+    // Fallback to label-based selection
+
     await this.selectByLabel('Payment product', product);
 
   }

@@ -1,4 +1,6 @@
 import COMMON_DATA from '../../data/common-data.json';
+import { TERM_DEPOSIT_DATA } from './termDepositTestData';
+import { TOP_UP_DEPOSIT_DATA } from './topUpDepositTestData';
 
 // Single source of truth for the shared customer/branch defaults.
 // Product test data below is built by merging these defaults with product-specific
@@ -19,15 +21,7 @@ export const CURRENT_ACCOUNT_DATA = {
   dispatchMode: DEFAULT_CUSTOMER.dispatchMode as 'email' | 'post' | 'no dispatch',
 };
 
-export const TERM_DEPOSIT_DATA = {
-  ...CUSTOMER_DEFAULTS,
-  ...COMMON_DATA.termDeposit,
-};
-
-export const TOP_UP_DEPOSIT_DATA = {
-  ...CUSTOMER_DEFAULTS,
-  ...COMMON_DATA.topUpDeposit,
-};
+export { TERM_DEPOSIT_DATA, TOP_UP_DEPOSIT_DATA };
 
 export const SERVICE_PACK_NOMINATION_DATA = {
   ...CUSTOMER_DEFAULTS,

@@ -1,12 +1,20 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
+import { getTopUpDepositAccounts } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const ACCOUNT_ID = '9300000131';
+
+function getGeneratedAccount(): string {
+  const accounts = getTopUpDepositAccounts();
+  const firstAccountId = Object.values(accounts)[0] as string | undefined;
+  return firstAccountId || TOP_UP_DEPOSIT_DATA.verificationAccountId || '9300000131';
+}
+
+const ACCOUNT_ID = getGeneratedAccount();
 
 test('HOAACVTU - verify top-up deposit account creation', async ({ page }) => {
   test.setTimeout(300000);
@@ -16,7 +24,7 @@ test('HOAACVTU - verify top-up deposit account creation', async ({ page }) => {
   console.log(`Verifying top-up deposit account: ${ACCOUNT_ID}`);
 
   await tdPage.selectCoreServer();
-  await tdPage.searchMenu(COMMON_DATA.topUpDeposit.screens.verify);
+  await tdPage.searchMenu(TOP_UP_DEPOSIT_DATA.screens.verify);
   await page.waitForTimeout(3000);
   await tdPage.selectVerifyFunction().catch(() => {});
   await tdPage.enterTemporaryAccountId(ACCOUNT_ID).catch(async () => {

@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 
 const HTUTM_DATA = {
-  screenCode: 'HTUTM',
-  creditAccount: '9300000131',
-  debitAccount: '500USD2297007',
-  amount: '500',
-  installmentType: 'Normal Installment',
+  screenCode: TOP_UP_DEPOSIT_DATA.spTransferScreenCode,
+  creditAccount: TOP_UP_DEPOSIT_DATA.spTransferCreditAccount,
+  debitAccount: TOP_UP_DEPOSIT_DATA.spTransferDebitAccount,
+  amount: TOP_UP_DEPOSIT_DATA.spTransferAmount,
+  installmentType: TOP_UP_DEPOSIT_DATA.spTransferInstallmentType,
 };
 
 test('HTUTM - top-up transfer maintenance', async ({ page }, testInfo) => {

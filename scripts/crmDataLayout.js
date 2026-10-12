@@ -4,6 +4,36 @@ const path = require('path');
 const CRM_JSON = path.resolve(__dirname, '../tests/config/crmTestData.json');
 const crm = JSON.parse(fs.readFileSync(CRM_JSON, 'utf8'));
 
+const COMBINED_MOD = {
+  cifId: '',
+  address: {
+    type: 'Mailing',
+    houseNo: 'BLOCK NO 13',
+    streetNo: '13',
+    streetName: 'HM STREET',
+    postalCode: '531310',
+    state: 'CALIFORNIA',
+    stateCode: 'US005',
+    city: 'JAFFREY',
+    country: 'Bermuda',
+    countryCode: 'BM'
+  },
+  phone: {
+    type: 'MOBILE NUMBER 1',
+    phoneNo: '88888888'
+  },
+  otherBank: {
+    bankName: 'CLARIEN BANK LIMITED',
+    branchName: 'CLARIEN BANK LIMITED',
+    productCategory: 'CLARIEN TRUST MICROGEN',
+    accountId: '666666666',
+    channel: 'EMAIL',
+    addressLine1: 'SYENT STREET 08',
+    city: 'AFORE',
+    state: 'CALIFORNIA',
+    country: 'Bermuda'
+  }
+};
 // Sections that make up the CRM CIF creation data, in the order they appear in crmTestData.json.
 const LAYOUT = [
   { customerType: 'retail', instance: 1, sections: [
@@ -22,6 +52,25 @@ const LAYOUT = [
     { name: 'validCcyData', data: crm.corporate.endToEnd.validCcyData }
   ]}
 ];
+
+const MOD_LAYTOUT = [
+  { customerType: 'retail', instance: 1, sections: [
+    { name: 'modification', target: ['retail', 'modification'], data: crm.retail.modification },
+    { name: 'otherBankDetails', target: ['corporate', 'otherBankDetails'], data: crm.corporate.otherBankDetails }
+  ]},
+  { customerType: 'corporate', instance: 2, sections: [
+    { name: 'modification', target: ['corporate', 'modification'], data: crm.corporate.modification },
+    { name: 'otherBankDetails', target: ['corporate', 'otherBankDetails'], data: crm.corporate.otherBankDetails }
+  ]},
+  { customerType: 'retail', instance: 3, sections: [
+    { name: 'modification', target: ['retail', 'modification'], data: COMBINED_MOD },
+    { name: 'otherBankDetails', target: ['corporate', 'otherBankDetails'], data: COMBINED_MOD.otherBank }
+  ]}
+];
+
+function getModificationLayout(customerType, instance) {
+  return MOD_LAYTOUT.find(l => l.customerType === customerType && l.instance === Number(instance));
+}
 
 function getCustomerLayout(customerType, instance) {
   return LAYOUT.find(l => l.customerType === customerType && l.instance === Number(instance));
@@ -90,4 +139,60 @@ function inflate(customerType, instance, flatRow) {
   return endToEnd;
 }
 
-module.exports = { crm, LAYOUT, getCustomerLayout, flatten, inflate };
+function modFlatten(customerType, instance) {
+  const layout = getModificationLayout(customerType, instance);
+  if (!layout) throw new Error(`No CRM modification layout for ${customerType} / ${instance}`);
+
+  const row = { instance: Number(instance) };
+  for (const section of layout.sections) {
+    for (const [key, value] of Object.entries(section.data)) {
+      if (value === null || value === undefined) continue;
+      if (Array.isArray(value)) continue;
+
+      if (typeof value === 'object') {
+        for (const [subKey, subValue] of Object.entries(value)) {
+          if (subValue === null || subValue === undefined) continue;
+          if (Array.isArray(subValue) || typeof subValue === 'object') continue;
+          row[`${section.name}.${key}.${subKey}`] = subValue;
+        }
+      } else {
+        row[`${section.name}.${key}`] = value;
+      }
+    }
+  }
+
+  return row;
+}
+
+function modInflate(customerType, instance, flatRow) {
+  const layout = getModificationLayout(customerType, instance);
+  if (!layout) throw new Error(`No CRM modification layout for ${customerType} / ${instance}`);
+
+  const stepData = JSON.parse(JSON.stringify(crm));
+  for (const section of layout.sections) {
+    let target = stepData;
+    for (const k of section.target) target = target[k];
+
+    for (const [key, value] of Object.entries(section.data)) {
+      if (value === null || value === undefined) continue;
+      if (Array.isArray(value)) continue;
+
+      if (typeof value === 'object') {
+        if (!target[key] || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        for (const subKey of Object.keys(value)) {
+          const col = `${section.name}.${key}.${subKey}`;
+          if (flatRow[col] !== undefined) target[key][subKey] = flatRow[col];
+        }
+      } else {
+        const col = `${section.name}.${key}`;
+        if (flatRow[col] !== undefined) target[key] = flatRow[col];
+      }
+    }
+  }
+
+  return stepData;
+}
+
+module.exports = { crm, LAYOUT, getCustomerLayout, flatten, inflate, MOD_LAYTOUT, getModificationLayout, modFlatten, modInflate };

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
+import { TERM_DEPOSIT_DATA } from '../../config/testData';
 
 // -------------------------------------------------------------------
 // SP #172 | Call ID: INC000001227660 | Menu: HTDITCI
@@ -11,7 +12,7 @@ import { ServicePackPage } from '../../pages/servicepackpage';
 test('HTDITCI - SP #172 INC000001227660 - TD interest table code searcher validation', async ({ page }) => {
   test.setTimeout(300000);
   const spPage = new ServicePackPage(page);
-  const result = await spPage.servicePackHtditciSearcherValidation();
+  const result = await spPage.servicePackHtditciSearcherValidation(TERM_DEPOSIT_DATA.htditciScreenCode);
   console.log('HTDITCI searcher validation result:', result);
   expect(result.success, result.message).toBe(true);
 });

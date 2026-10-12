@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { TERM_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const ACCOUNT_ID = '9200000670';
-const SCREEN_CODE = 'HTDREN';
+const ACCOUNT_ID = TERM_DEPOSIT_DATA.renewalVerificationAccountId;
+const SCREEN_CODE = TERM_DEPOSIT_DATA.renewalScreenCode;
 
 test(`${SCREEN_CODE} - term deposit renewal verification`, async ({ page }) => {
   test.setTimeout(300000);

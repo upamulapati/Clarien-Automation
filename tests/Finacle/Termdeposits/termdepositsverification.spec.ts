@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TERM_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import { getTermDepositAccounts } from '../../helpers/sharedState';
 
@@ -15,12 +15,12 @@ const PASSWORD = CREDENTIALS.secondCredentials.password;
 function getGeneratedAccount(): string {
   const accounts = getTermDepositAccounts();
   const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  return firstAccountId || COMMON_DATA.termDeposit.verificationAccountId || ACCOUNT_ID;
+  return firstAccountId || TERM_DEPOSIT_DATA.verificationAccountId || ACCOUNT_ID;
 }
 
 const ACCOUNT_ID = getGeneratedAccount();
 
-test(`${COMMON_DATA.termDeposit.screens.verify} - verify term deposit account creation`, async ({ page }) => {
+test(`${TERM_DEPOSIT_DATA.screens.verify} - verify term deposit account creation`, async ({ page }) => {
   test.setTimeout(300000);
 
   console.log(`Verifying term deposit account: ${ACCOUNT_ID}`);
@@ -32,8 +32,8 @@ test(`${COMMON_DATA.termDeposit.screens.verify} - verify term deposit account cr
   await tdPage.selectCoreServer();
   await page.waitForTimeout(5000);
 
-  console.log(`Searching for ${COMMON_DATA.termDeposit.screens.verify}...`);
-  await tdPage.searchMenu(COMMON_DATA.termDeposit.screens.verify);
+  console.log(`Searching for ${TERM_DEPOSIT_DATA.screens.verify}...`);
+  await tdPage.searchMenu(TERM_DEPOSIT_DATA.screens.verify);
   await page.waitForTimeout(3000);
 
   console.log('Selecting Verify function...');

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
   getClosedAccountId,
@@ -15,11 +15,13 @@ function getClosedAccount(): string {
   const closed = getClosedAccountId('topUpDeposit');
   if (closed) return closed;
 
+  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
+
   const accounts = getTopUpDepositAccounts();
   const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
   if (firstValid) return firstValid;
 
-  return COMMON_DATA.topUpDepositRelatedParty.accountId;
+  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 }
 
 test('HCAACVTU - top-up deposit premature closure verification', async ({ page }) => {
@@ -28,7 +30,7 @@ test('HCAACVTU - top-up deposit premature closure verification', async ({ page }
   const tdPage = new TermDepositPage(page);
   const accountId = getClosedAccount();
   console.log(`Verifying premature closure for TU account: ${accountId}`);
-  const statusMessage = await tdPage.verifyClosure(COMMON_DATA.topUpDeposit.screens.prematureClosureVerify, accountId);
+  const statusMessage = await tdPage.verifyClosure(TOP_UP_DEPOSIT_DATA.screens.prematureClosureVerify, accountId);
   console.log('====================================');
   console.log('TU PREMATURE CLOSURE VERIFICATION STATUS:', statusMessage ?? 'Closure authorization completed');
   expect(statusMessage).toBeTruthy();
