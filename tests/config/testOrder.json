@@ -180,14 +180,13 @@
 
 ] ,
  "flow5": [ 
-
-  
-
 "tests/Finacle/paymentorder/hpordm-remittance.spec.ts"
+] ,
 
-] 
-
-
+"savingsaccount":[
+"tests/Finacle/savingsaccount/savingsaccountcreation.spec.ts",
+"tests/Finacle/savingsaccount/savingsaccountcreationverify.spec.ts"
+]
   
 
  

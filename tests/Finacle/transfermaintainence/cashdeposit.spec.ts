@@ -6,14 +6,19 @@ import { captureEvidence } from '../../helpers/evidence';
 import { CREDENTIALS } from '../../../data/credentials';
 import { DEFAULT_CUSTOMER } from '../../config/testData';
 import { recordTransactionId } from '../../helpers/sharedState';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
+const STEP: any = TRANSFER_DATA[0] ?? {};
 const MAKER = CREDENTIALS.verifierCredentials;
 const VERIFIER = CREDENTIALS.credentials;
-const ACCOUNT_ID = '6000197087';
-const CURRENCY = 'BMD';
-const AMOUNT = '100.00';
-const TRAN_TYPE_SUBTYPE = 'C/NR - Cash/Normal Receipt';
-const SOL_ID = DEFAULT_CUSTOMER.solId;
+const ACCOUNT_ID = STEP.accountId ?? '6000197087';
+const CURRENCY = STEP.currency ?? 'BMD';
+const AMOUNT = STEP.amount ?? '100.00';
+const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'C/NR - Cash/Normal Receipt';
+const SOL_ID = STEP.solId ?? DEFAULT_CUSTOMER.solId;
+const MENU_CODE = STEP.menuCode ?? 'HCASHDEP';
+const PART_TRAN_TYPE = STEP.partTranType ?? 'C';
+const FUNCTION_OPTION = STEP.functionOption ?? 'A';
 
 test.describe('HCASHDEP - Cash Deposit Post and Verify', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -27,11 +32,11 @@ test.describe('HCASHDEP - Cash Deposit Post and Verify', () => {
     const { homePage } = await loginToFinacle(page, MAKER.username, MAKER.password);
     const cash = new CashTransactionPage(page);
 
-    await cash.invokeCashMenu('HCASHDEP');
+    await cash.invokeCashMenu(MENU_CODE);
     await captureEvidence(page, 'HCASHDEP menu invoked', { accountId: ACCOUNT_ID, amount: AMOUNT, ccy: CURRENCY });
 
     // Step 3-5: Add function, transaction type, then Go.
-    await cash.selectFunction('A');
+    await cash.selectFunction(FUNCTION_OPTION);
     await cash.selectTranTypeSubType(TRAN_TYPE_SUBTYPE);
     await cash.clickGo();
     await page.waitForTimeout(3000);
@@ -39,7 +44,7 @@ test.describe('HCASHDEP - Cash Deposit Post and Verify', () => {
 
     // Step 6-8: Credit account, currency, amount and list all part transactions.
     await cash.selectCurrency(CURRENCY);
-    await cash.selectPartTranType('C');
+    await cash.selectPartTranType(PART_TRAN_TYPE);
     await cash.enterAccountId(ACCOUNT_ID);
     await cash.enterAmount(AMOUNT);
     await cash.selectListAllPartTransaction();
@@ -97,7 +102,7 @@ test.describe('HCASHDEP - Cash Deposit Post and Verify', () => {
       VERIFIER.username,
       VERIFIER.password
     );
-    await cash.invokeCashMenu('HCASHDEP');
+    await cash.invokeCashMenu(MENU_CODE);
     await cash.selectFunction('V');
     await cash.enterTransactionId(transactionId!);
     await cash.clickGo();

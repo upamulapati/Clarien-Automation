@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
 const { resolve: resolveCrmStep } = require('./crmDataResolver');
+const { resolve: resolveFlowData } = require('./flowDataResolver');
 
 const suiteName = process.argv[2];
 
@@ -219,9 +220,18 @@ function resolveFlow(suiteName) {
 
 function writeLastRunManifest() {
   const resultsDir = path.resolve(cwd, 'reports', 'allureReports');
-  const files = fs.existsSync(resultsDir)
-    ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json')).sort()
+  const allFiles = fs.existsSync(resultsDir)
+    ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json'))
     : [];
+  const files = allFiles
+    .filter(f => {
+      try {
+        return fs.statSync(path.join(resultsDir, f)).mtime.getTime() >= startTime;
+      } catch (e) {
+        return false;
+      }
+    })
+    .sort();
   const manifest = { suite: suiteName, startTime, timestamp: new Date().toISOString(), files };
   fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }
@@ -289,12 +299,18 @@ for (let i = 0; i < files.length; i++) {
   const flow10Overrides = getFlow10StepEnv(file);
   const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides };
 
-  // Inject CRM step data for Excel-driven flows
-  if (steps[i] && steps[i].dataSheet === 'CRM' && steps[i].customerType && steps[i].dataRowId != null) {
-    const stepFile = resolveCrmStep(steps[i].customerType, Number(steps[i].dataRowId));
-    stepOverrides.CRM_STEP_DATA = stepFile;
-  } else {
-    delete stepOverrides.CRM_STEP_DATA;
+  // Inject step data for Excel-driven flows
+  delete stepOverrides.CRM_STEP_DATA;
+  delete stepOverrides.STEP_DATA;
+
+  if (steps[i] && steps[i].dataSheet && steps[i].dataRowId != null) {
+    if (steps[i].dataSheet === 'CRM' && steps[i].customerType) {
+      const stepFile = resolveCrmStep(steps[i].customerType, Number(steps[i].dataRowId));
+      stepOverrides.CRM_STEP_DATA = stepFile;
+    } else {
+      const stepFile = resolveFlowData(steps[i].dataSheet, steps[i].dataRowId, path.resolve(cwd, 'data', 'flow-step-data.json'));
+      stepOverrides.STEP_DATA = stepFile;
+    }
   }
 
   const childEnv = { ...env, ...stepOverrides };

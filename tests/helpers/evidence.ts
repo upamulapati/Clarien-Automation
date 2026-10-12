@@ -28,7 +28,9 @@ export async function captureEvidence(
 
   // Take a full-page screenshot and attach it to the test report.
   await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
-  await info.attach(`${step} - screenshot`, { path: screenshotPath, contentType: 'image/png' });
+  if (fs.existsSync(screenshotPath)) {
+    await info.attach(`${step} - screenshot`, { path: screenshotPath, contentType: 'image/png' });
+  }
 
   // Attach the optional data payload as a JSON snippet.
   if (data !== undefined) {

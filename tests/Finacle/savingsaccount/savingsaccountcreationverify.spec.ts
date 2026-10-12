@@ -4,19 +4,15 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
-import DEFAULT_SAVINGS_DATA from '../../../data/savings-account-test-data.json';
-import FLOW7_DATA from '../../../data/flow7.json';
-import COMMON_DATA from '../../../data/common-data.json';
+import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 
-const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
-const VERIFY_CONFIG = getVerificationConfig();
-
-const SAVINGS_DATA = (process.env.CIF_MOD_FLOW ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
+// SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
+const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';
   const ccy = entry.currency ?? DEFAULT_CUSTOMER.ccy;
-  return { name: `${scheme}-${ccy}-${index}` };
+  return { name: `${scheme}-${ccy}-${index}`, instance: entry.instance ?? index };
 });
 
 test.describe('Savings Account Verification', () => {
@@ -85,9 +81,11 @@ test.describe('Savings Account Verification', () => {
       const verifiedAccountId = await savingsAccountPage.getAccountId();
       console.log('Verified Account ID:', verifiedAccountId);
       if (verifiedAccountId) {
+        const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
         updateSharedState((state) => {
           state.savingsAccounts ??= {};
           state.savingsAccounts[scenario.name] = verifiedAccountId;
+          if (instanceKey) state.savingsAccounts[instanceKey] = verifiedAccountId;
           state.accountId = verifiedAccountId;
         });
       }

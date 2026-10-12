@@ -3,31 +3,25 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { recordTransactionId, resetTransactionIds, getSharedValue, updateSharedState } from '../../helpers/sharedState';
-import FLOW6_DATA from '../../../data/flow6.json';
-import FLOW9_DATA from '../../../data/flow9.json';
+import { recordTransactionId, getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
-const FLOW_DATA = IS_FLOW9 ? (FLOW9_DATA as any) : FLOW6_DATA;
+const STEP: any = TRANSFER_DATA[0] ?? {};
 
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = process.env.FLOW9_HTM_SOL_ID ?? process.env.FLOW6_HTM_SOL_ID ?? FLOW_DATA.currentAccounts[0]?.solId;
-const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
+const SOL_ID = STEP.solId ?? '100';
+const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'T/CI';
 
-// Part transaction details. The runner (runOrdered.js) injects the correct
-// debit/credit accounts and amount for the current HTM occurrence, mirroring
-// the flow7 pattern. If these are not set, fall back to the flow6 data file.
+// Part transaction details. Prefer the account created by an upstream flow;
+// otherwise use the credit account supplied from Excel.
 const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
-const HTM_ACCOUNTS = FLOW_DATA.htmAccounts;
-const DEFAULT_CREDIT = SHARED_ACCOUNT_ID ?? HTM_ACCOUNTS.credit;
-const DEFAULT_AMOUNT = FLOW_DATA.htmDownstreamAmounts?.initialFunding;
-const DEBIT_ACCOUNT = process.env.FLOW9_HTM_DEBIT ?? process.env.FLOW6_HTM_DEBIT ?? HTM_ACCOUNTS.debit;
-const CREDIT_ACCOUNT = process.env.FLOW9_HTM_CREDIT ?? process.env.FLOW6_HTM_CREDIT ?? DEFAULT_CREDIT;
-const AMOUNT = process.env.FLOW9_HTM_AMOUNT ?? process.env.FLOW6_HTM_AMOUNT ?? DEFAULT_AMOUNT;
+const DEBIT_ACCOUNT = STEP.debitAccount ?? '7600000172';
+const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? STEP.creditAccount ?? '6000087527';
+const AMOUNT = STEP.amount ?? '1000';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
 let homePage: HomePage;
@@ -128,6 +122,7 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
 
   // Persist the transaction ID so the verification spec can authorise it.
   if (transactionId) {
+    recordTransactionId(transactionId);
     updateSharedState((state) => { state.transactionId = transactionId; });
   }
 

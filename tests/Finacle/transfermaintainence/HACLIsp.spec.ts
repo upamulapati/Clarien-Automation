@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
-test.describe('HACLIsp - Service Pack Transaction Validation', () => {
+const STEP: any = TRANSFER_DATA[0] ?? {};
+
+test.describe(STEP.testLabel ?? 'HACLIsp - Service Pack Transaction Validation', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-  test('HACLIsp - Complete maker/verifier/narrative flow', async ({ page }) => {
+  test(STEP.testLabel ?? 'HACLIsp - Complete maker/verifier/narrative flow', async ({ page }) => {
     test.setTimeout(900000);
     const spPage = new ServicePackPage(page);
 

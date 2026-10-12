@@ -3,14 +3,12 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
-import FLOW6_DATA from '../../../data/flow6.json';
-import FLOW9_DATA from '../../../data/flow9.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
-const FLOW_DATA = IS_FLOW9 ? (FLOW9_DATA as any) : FLOW6_DATA;
+const STEP: any = TRANSFER_DATA[0] ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
@@ -22,19 +20,19 @@ const CONFIG = {
 };
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = process.env.FLOW9_HTM_DEBIT ?? process.env.FLOW6_HTM_DEBIT ?? FLOW_DATA.htmAccounts.debit;
+const DEBIT_ACCOUNT = STEP.debitAccount ?? '7600000172';
 const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = process.env.FLOW9_HTM_CREDIT ?? process.env.FLOW6_HTM_CREDIT ?? (SHARED_CREDIT_ACCOUNT ?? FLOW_DATA.htmAccounts.credit);
+const CREDIT_ACCOUNT = SHARED_CREDIT_ACCOUNT ?? STEP.creditAccount ?? '6000087527';
 if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
-const AMOUNT = process.env.FLOW9_HTM_AMOUNT ?? process.env.FLOW6_HTM_AMOUNT ?? FLOW_DATA.initialFundingAmount;
+const AMOUNT = STEP.amount ?? '1000';
 
 // Transaction ID: prefer shared state from the posting spec; must be present.
 const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
-const TRANSACTION_ID = SHARED_TXN_ID ?? '';
-if (SHARED_TXN_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${SHARED_TXN_ID}`);
+const TRANSACTION_ID = (STEP.transactionId ?? SHARED_TXN_ID ?? '').trim();
+if (TRANSACTION_ID && !STEP.transactionId) console.log(`[SharedState] Using Transaction ID from previous run: ${TRANSACTION_ID}`);
 
 
-test.describe('Transfer Maintenance - Verification', () => {
+test.describe(STEP.testLabel ?? 'Transfer Maintenance - Verification', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
   let lastDialogMessages: string[] = [];

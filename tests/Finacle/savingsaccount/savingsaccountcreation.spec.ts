@@ -4,19 +4,15 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
-import DEFAULT_SAVINGS_DATA from '../../../data/savings-account-test-data.json';
-import FLOW7_DATA from '../../../data/flow7.json';
-import COMMON_DATA from '../../../data/common-data.json';
+import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
 // otherwise fall back to the hardcoded value in common-data.json.
 const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
-const CONFIG = getPrimaryConfig();
-const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
-
-const SAVINGS_DATA = (process.env.CIF_MOD_FLOW ? FLOW7_DATA.savingsAccounts : DEFAULT_SAVINGS_DATA) as any[];
+const CONFIG = getPrimaryConfig({ username: 'finacletest5' });
+// SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const scheme = entry.schemeCode ?? 'random';
@@ -67,9 +63,11 @@ for (const scenario of SCENARIOS) {
   expect(result.accountNumber).toBeTruthy();
 
       // Persist the generated Account ID for downstream verification specs
+      const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
       updateSharedState((state) => {
         if (!state.savingsAccounts) state.savingsAccounts = {};
         state.savingsAccounts[scenario.name] = result.accountNumber ?? '';
+        if (instanceKey) state.savingsAccounts[instanceKey] = result.accountNumber ?? '';
         state.accountId = result.accountNumber ?? '';
       });
 

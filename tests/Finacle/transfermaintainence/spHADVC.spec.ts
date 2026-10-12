@@ -1,10 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { ServicePackPage } from '../../pages/servicepackpage';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
-test.describe('HADVC - Service Pack Validation', () => {
+const STEP: any = TRANSFER_DATA[0] ?? {};
+
+test.describe(STEP.testLabel ? `HADVC - ${STEP.testLabel}` : 'HADVC - Service Pack Validation', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-  test('HADVC - report queue generated and criteria reset for account 7500001466', async ({ page }) => {
+  test(STEP.testLabel ?? 'HADVC - report queue generated and criteria reset for account 7500001466', async ({ page }) => {
     test.setTimeout(300000);
     const spPage = new ServicePackPage(page);
     const result = await spPage.servicePackHADVCValidation();
