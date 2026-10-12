@@ -4,20 +4,21 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
+import { SAVINGS_MODIFY_VERIFY_DATA } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
 
-const VERIFY_CONFIG = getVerificationConfig();
+const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
 
-for (const acct of COMMON_DATA.accountVerification) {
-  if (acct.type !== 'savings') continue;
+for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
+  const accountType = acct.type ?? 'savings';
 
-  test.describe(`Savings Account Modification Verification - ${acct.type}`, () => {
+  test.describe(`Savings Account Modification Verification - ${accountType}`, () => {
     test.beforeEach(async () => {
       test.setTimeout(300000);
     });
 
     test(acct.testLabel, async ({ page }) => {
-      const verifyAccountId = getSharedValue('accountId') ?? acct.accountId;
+      const verifyAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acct.instance)] ?? state.accountId) ?? acct.accountId;
       console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
 
       const lastDialogMessages: string[] = [];
@@ -51,7 +52,7 @@ for (const acct of COMMON_DATA.accountVerification) {
         await accountPage.visitTab(tab);
       }
 
-      if (acct.visitDocumentTab) {
+      if (acct.visitDocumentTab === true || String(acct.visitDocumentTab).toLowerCase() === 'y' || String(acct.visitDocumentTab).toLowerCase() === 'true') {
         console.log('Visiting Document details tab...');
         await accountPage.visitTabById('documentdetails');
       }

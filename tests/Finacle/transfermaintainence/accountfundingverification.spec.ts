@@ -5,6 +5,9 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import { readTransactionIds } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
+import { TRANSFER_DATA } from '../../config/excelTestData';
+
+const STEP: any = TRANSFER_DATA[0] ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer (the transaction was posted by the maker in transfermaintainence.spec).
@@ -13,12 +16,12 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Transaction ID to verify. Set this directly to override; when left blank the
 // id is read from the shared store written by the posting spec.
-const TRANSACTION_ID = 'CB1';
+const TRANSACTION_ID = (STEP.transactionId ?? '').trim();
 
 // Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = '6000123165';
-const CREDIT_ACCOUNT = '9200000593';//'4600000119';
-const AMOUNT = '1000';
+const DEBIT_ACCOUNT = STEP.debitAccount ?? '6000123165';
+const CREDIT_ACCOUNT = STEP.creditAccount ?? '9200000593';
+const AMOUNT = STEP.amount ?? '1000';
 
 
 let homePage: HomePage;

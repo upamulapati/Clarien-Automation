@@ -4,32 +4,36 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { getSharedValue } from '../../helpers/sharedState';
+import { recordTransactionId, getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import COMMON_DATA from '../../../data/common-data.json';
-import FLOW7_DATA from '../../../data/flow7.json';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 
 const CONFIG = getPrimaryConfig();
+
+const SAVINGS_FUNDING_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'savingsFunding') ?? TRANSFER_DATA[0] ?? {};
+const SERIAL_245_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'serial245') ?? {};
+const SERIAL_261_ROW: any = TRANSFER_DATA.find((r: any) => r.testType === 'serial261') ?? {};
 
 const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;
 
 // Transfer header inputs.
-const SOL_ID = process.env.FLOW7_HTM_SOL_ID ?? DEFAULT_CUSTOMER.solId;
-const TRAN_TYPE_SUBTYPE = 'T/CI'; // Transfer / Customer Induced
+const SOL_ID = SAVINGS_FUNDING_ROW.solId ?? DEFAULT_CUSTOMER.solId;
+const TRAN_TYPE_SUBTYPE = SAVINGS_FUNDING_ROW.tranTypeSubType ?? 'T/CI';
 
 // Part transaction details.
-const DEBIT_ACCOUNT = process.env.FLOW7_HTM_DEBIT ?? '6000123165';   // account to be debited
+const DEBIT_ACCOUNT = SAVINGS_FUNDING_ROW.debitAccount ?? '6000123165';
 // Credit the dynamically created savings account if available.
-const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
-const CREDIT_ACCOUNT = process.env.FLOW7_HTM_CREDIT ?? (SHARED_ACCOUNT_ID ?? '4600000119');
+const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
+const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? SAVINGS_FUNDING_ROW.creditAccount ?? '4600000119';
 if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
 
-const INITIAL_FUNDING_AMOUNT = process.env.FLOW7_HTM_AMOUNT ?? FLOW7_DATA.initialFundingAmount;
-const SECONDARY_AMOUNT = FLOW7_DATA.secondaryFundingAmount ?? '100';
+const INITIAL_FUNDING_AMOUNT = SAVINGS_FUNDING_ROW.amount ?? '1000';
+const SECONDARY_AMOUNT = SAVINGS_FUNDING_ROW.secondaryAmount ?? '100';
 
-test.describe('Transfer Maintenance - Fund Savings Account', () => {
+test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savings Account', () => {
   
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
@@ -136,7 +140,7 @@ test.describe('Transfer Maintenance - Fund Savings Account', () => {
 
     // Persist the transaction ID so the verification spec can authorise it.
     if (transactionId) {
-      const { updateSharedState } = require('../../helpers/sharedState');
+      recordTransactionId(transactionId);
       updateSharedState((state: any) => { state.transactionId = transactionId; });
     }
 

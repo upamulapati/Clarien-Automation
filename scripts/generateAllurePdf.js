@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 const RESULTS_DIR = path.resolve('reports', 'allureReports');
 const OUTPUT_DIR = path.resolve('reports');
 const OUTPUT_HTML = path.join(OUTPUT_DIR, 'allure-pdf.html');
-const OUTPUT_PDF = path.join(OUTPUT_DIR, 'allure-report.pdf');
+const OUTPUT_PDF = path.join(OUTPUT_DIR, 'currentaccountcreationandmodification report.pdf');
 const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
 const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 

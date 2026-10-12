@@ -5,23 +5,14 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
 import { getSharedValue } from '../../helpers/sharedState';
-import FLOW9_DATA from '../../../data/flow9.json';
+import { CURRENT_MODIFY_VERIFY_DATA } from '../../config/excelTestData';
 
 // Current account modification verification must be performed by a different user.
-const USERNAME = CREDENTIALS.secondCredentials.username;
+const USERNAME = 'finacletest14';
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
-
-// A/c Id that was modified.
-const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId') ?? process.env.FLOW9_CURRENT_ACCOUNT_ID;
-if (IS_FLOW9 && !SHARED_ACCOUNT_ID) throw new Error('Flow 9 requires the modified current account ID.');
-const ACCOUNT_ID = (IS_FLOW9 ? SHARED_ACCOUNT_ID! : (SHARED_ACCOUNT_ID ?? '4600000134')) as string;
 
 // HACM (Customer Account Maintenance) screen for current accounts.
 const HACM_MENU = COMMON_DATA.currentAccount.screens.modifyAndVerify;
-
-const EXPECTED_DISPATCH_MODE = process.env.FLOW9_DISPATCH_MODE ?? process.env.FLOW6_DISPATCH_MODE ?? (IS_FLOW9 ? (FLOW9_DATA as any).modification.dispatchMode : 'no dispatch');
-const EXPECTED_ACCOUNT_STATUS = process.env.FLOW9_ACCOUNT_STATUS ?? process.env.FLOW6_ACCOUNT_STATUS ?? (IS_FLOW9 ? (FLOW9_DATA as any).modification.accountStatus : 'inactive');
 
 let homePage: HomePage;
 let accountPage: AccountPage;
@@ -32,86 +23,98 @@ test.beforeEach(async ({ page }) => {
   accountPage = new AccountPage(page);
 });
 
-test('HACM - verify current account modification', async ({ page }) => {
-  console.log(`Verifying current account modification: ${ACCOUNT_ID}`);
+for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
+  test(acct.testLabel, async ({ page }) => {
+    const verifyAccountId = getSharedValue((state) => state.currentAccounts?.[String(acct.instance)] ?? state.accountId) ?? acct.accountId;
+    console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
+    console.log(`Verifying current account modification: ${verifyAccountId}`);
 
-  console.log('Selecting Core Server...');
-  await accountPage.selectCoreServer();
-  await page.waitForTimeout(5000);
+    console.log('Selecting Core Server...');
+    await accountPage.selectCoreServer();
+    await page.waitForTimeout(5000);
 
-  console.log(`Searching for ${HACM_MENU}...`);
-  await accountPage.searchMenu(HACM_MENU);
-  await page.waitForTimeout(3000);
+    console.log(`Searching for ${HACM_MENU}...`);
+    await accountPage.searchMenu(HACM_MENU);
+    await page.waitForTimeout(3000);
 
-  console.log('Selecting V-Verify function...');
-  await accountPage.selectFunction('V-Verify');
+    console.log('Selecting V-Verify function...');
+    await accountPage.selectFunction('V-Verify');
 
-  console.log('Entering account ID to verify...');
-  await accountPage.enterHacmAccountId(ACCOUNT_ID);
+    console.log('Entering account ID to verify...');
+    await accountPage.enterHacmAccountId(verifyAccountId);
 
-  console.log('Clicking Go button...');
-  await accountPage.clickGo();
+    console.log('Clicking Go button...');
+    await accountPage.clickGo();
 
-  console.log('Visiting required HACM verification tabs...');
+    console.log('Visiting required HACM verification tabs...');
 
-  console.log('Visiting General tab to check Dispatch Mode...');
-  await accountPage.visitTab('General');
-  const dispatchMode = await accountPage.getDispatchMode();
-  console.log('Captured dispatch mode:', dispatchMode);
-  if (!dispatchMode) {
-    console.warn('Dispatch mode was not captured on General tab');
-  } else if (!new RegExp(EXPECTED_DISPATCH_MODE.replace(/[-\s]/g, '[-\\s]?'), 'i').test(dispatchMode)) {
-    console.warn(`Expected dispatch mode to reflect '${EXPECTED_DISPATCH_MODE}', got: ${dispatchMode}`);
-  }
+    const EXPECTED_DISPATCH_MODE = (acct.dispatchMode ?? 'no dispatch') as string;
+    const EXPECTED_ACCOUNT_STATUS = (acct.accountStatus ?? 'inactive') as string;
 
-  console.log('Visiting Interest & Tax tab...');
-  await accountPage.visitTab('Interest & Tax');
+    console.log('Visiting General tab to check Dispatch Mode...');
+    await accountPage.visitTab('General');
+    const dispatchMode = await accountPage.getDispatchMode();
+    console.log('Captured dispatch mode:', dispatchMode);
+    if (!dispatchMode) {
+      console.warn('Dispatch mode was not captured on General tab');
+    } else if (!new RegExp(EXPECTED_DISPATCH_MODE.replace(/[-\s]/g, '[-\\s]?'), 'i').test(dispatchMode)) {
+      console.warn(`Expected dispatch mode to reflect '${EXPECTED_DISPATCH_MODE}', got: ${dispatchMode}`);
+    }
 
-  console.log('Visiting Related Party tab...');
-  await accountPage.visitTab('Related Party');
+    console.log('Visiting Interest & Tax tab...');
+    await accountPage.visitTab('Interest & Tax');
 
-  console.log('Visiting MIS Codes tab...');
-  await accountPage.visitTab('MIS Codes');
+    console.log('Visiting Related Party tab...');
+    await accountPage.visitTab('Related Party');
 
-  console.log('Visiting Scheme tab to check A/c Status...');
-  await accountPage.visitTab('Scheme');
-  const accountStatus = await accountPage.getAccountStatus();
-  console.log('Captured A/c status:', accountStatus);
-  if (!accountStatus) {
-    console.warn('A/c Status was not captured on Scheme tab');
-  } else if (!new RegExp(EXPECTED_ACCOUNT_STATUS, 'i').test(accountStatus)) {
-    console.warn(`Expected A/c Status to be '${EXPECTED_ACCOUNT_STATUS}', got: ${accountStatus}`);
-  }
+    console.log('Visiting MIS Codes tab...');
+    await accountPage.visitTab('MIS Codes');
 
-  console.log('Visiting Addl. Info. tab...');
-  await accountPage.visitTab('Addl. Info.');
+    console.log('Visiting Scheme tab to check A/c Status...');
+    await accountPage.visitTab('Scheme');
+    const accountStatus = await accountPage.getAccountStatus();
+    console.log('Captured A/c status:', accountStatus);
+    if (!accountStatus) {
+      console.warn('A/c Status was not captured on Scheme tab');
+    } else if (!new RegExp(EXPECTED_ACCOUNT_STATUS, 'i').test(accountStatus)) {
+      console.warn(`Expected A/c Status to be '${EXPECTED_ACCOUNT_STATUS}', got: ${accountStatus}`);
+    }
 
-  console.log('Clicking Submit button...');
-  await accountPage.clickSubmit();
+    console.log('Visiting Addl. Info. tab...');
+    await accountPage.visitTab('Addl. Info.');
 
-  // Dismiss any non-blocking warning/exception popup that appears.
-  if (!page.isClosed()) {
-    await accountPage.acceptWarningPopup().catch(() => {});
-    await page.waitForTimeout(2000).catch(() => {});
-  }
+    if (acct.visitDocumentTab === true || String(acct.visitDocumentTab).toLowerCase() === 'y' || String(acct.visitDocumentTab).toLowerCase() === 'true') {
+      console.log('Visiting Document details tab...');
+      await accountPage.visitTabById('documentdetails');
+    }
 
-  await page.waitForTimeout(3000);
-  const result = await accountPage.verifyAccountCreated();
-  console.log('Exact verification result message:', result.message);
+    console.log('Clicking Submit button...');
+    await accountPage.clickSubmit();
 
-  if (!result.success) {
-    console.error('Current account modification verification did not report success. Full message:', result.message);
-    console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
-  }
+    // Dismiss any non-blocking warning/exception popup that appears.
+    if (!page.isClosed()) {
+      await accountPage.acceptWarningPopup().catch(() => {});
+      await page.waitForTimeout(2000).catch(() => {});
+    }
 
-  expect(result.message, 'No status message captured for current account modification verification').toBeTruthy();
-  expect(
-    result.message,
-    `Current account modification verification did not report success. Full message: ${result.message}`
-  ).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+    await page.waitForTimeout(3000);
+    const result = await accountPage.verifyAccountCreated();
+    console.log('Exact verification result message:', result.message);
 
-  console.log('Current account modification verification passed.');
+    if (!result.success) {
+      console.error('Current account modification verification did not report success. Full message:', result.message);
+      console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
+    }
 
-  console.log('Logging out...');
-  await homePage.logout();
-});
+    expect(result.message, 'No status message captured for current account modification verification').toBeTruthy();
+    expect(
+      result.message,
+      `Current account modification verification did not report success. Full message: ${result.message}`
+    ).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+
+    console.log('Current account modification verification passed.');
+
+    console.log('Logging out...');
+    await homePage.logout();
+  });
+}

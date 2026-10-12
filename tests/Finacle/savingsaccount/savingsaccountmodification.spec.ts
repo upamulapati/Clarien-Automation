@@ -3,21 +3,16 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { getSharedValue } from '../../helpers/sharedState';
+import { SAVINGS_MODIFY_DATA } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
 
-// Use Account ID from shared state (written by savingsaccountcreation) for the
-// savings entry; fall back to the hardcoded value in common-data.json.
-const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
+// Parameterized test: iterates over savings account modification data from Excel/JSON.
+// The account to modify is resolved at test runtime from the account created by the
+// savingsaccountcreation / savingsaccountcreationverify specs (keyed by instance).
+for (const acct of SAVINGS_MODIFY_DATA) {
+  const accountType = acct.type ?? 'savings';
 
-// Parameterized test: iterates over both savings and current account modification data
-for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savings')) {
-  // For savings type, prefer the dynamically created account ID
-  const effectiveAccountId = acct.type === 'savings' && SHARED_ACCOUNT_ID
-    ? SHARED_ACCOUNT_ID
-    : acct.accountId;
-
-  test.describe(`Account Modification - ${acct.type}`, () => {
+  test.describe(`Account Modification - ${accountType}`, () => {
     test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
     let lastDialogMessages: string[] = [];
@@ -26,11 +21,19 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
 
   test.beforeEach(async ({ page }) => {
     test.setTimeout(300000);
-    ({ homePage } = await loginToFinacle(page, COMMON_DATA.credentials.username, COMMON_DATA.credentials.password));
+    ({ homePage } = await loginToFinacle(page, 'finacletest5', COMMON_DATA.credentials.password));
     accountPage = new AccountPage(page);
   });
 
-    test(`HACM - modify savings account dispatch mode and A/c status - ${acct.accountId}`, async ({ page }) => {
+    test(`HACM - modify savings account dispatch mode and A/c status - instance ${acct.instance}`, async ({ page }) => {
+      const createdAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acct.instance)] ?? state.accountId);
+      const effectiveAccountId = createdAccountId || acct.accountId;
+      if (!createdAccountId) {
+        console.warn(`[Modification] No created account found for instance ${acct.instance}; falling back to Excel accountId ${acct.accountId}`);
+      } else {
+        console.log(`[Modification] Using created account for instance ${acct.instance}: ${effectiveAccountId}`);
+      }
+
       console.log('Selecting Core Server...');
       await accountPage.selectCoreServer();
       await page.waitForTimeout(3000);
@@ -49,13 +52,13 @@ for (const acct of COMMON_DATA.accountModification.filter(a => a.type === 'savin
       await accountPage.clickGo();
 
       console.log('Visiting General Details tab to modify Dispatch Mode...');
-      const effectiveDispatchMode = (process.env.FLOW7_SAVINGS_DISPATCH as 'email' | 'no dispatch' | 'post') ?? acct.dispatchMode;
+      const effectiveDispatchMode = (acct.dispatchMode ?? 'post') as 'email' | 'no dispatch' | 'post';
       await accountPage.visitGeneralDetailsTab();
       await accountPage.selectDispatchMode(effectiveDispatchMode);
 
       console.log('Visiting Scheme tab to modify A/c Status...');
       await accountPage.visitTab('Scheme');
-      await accountPage.selectAccountStatus('inactive');
+      await accountPage.selectAccountStatus((acct.accountStatus ?? 'inactive') as 'active' | 'dormant' | 'inactive');
 
       console.log('Clicking Submit button...');
       await accountPage.submitForm();

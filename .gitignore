@@ -22,4 +22,7 @@ data/shared-state.json
 # Runtime CRM step data resolved from test-data.xlsx (generated at runtime)
 data/crm-step-data.json
 
+# Runtime flow step data resolved from test-data.xlsx (generated at runtime)
+data/flow-step-data.json
+
 scripts/buildCrmSheet.js
