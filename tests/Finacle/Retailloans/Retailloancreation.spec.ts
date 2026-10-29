@@ -2,42 +2,62 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { DEFAULT_CUSTOMER } from '../../config/testData';
-import COMMON_DATA from '../../../data/common-data.json';
+import { RETAIL_LOAN_DATA } from '../../config/excelTestData';
 import { CREDENTIALS } from '../../../data/credentials';
 import { saveLoanAccount, updateSharedState } from '../../helpers/sharedState';
-import { getCreatedCif } from '../../config/cifStore';
 import { captureEvidence } from '../../helpers/evidence';
+import * as xlsx from 'xlsx';
+import * as path from 'path';
+
+const wb = xlsx.readFile(path.resolve('data/test-data.xlsx'));
+const ALL_LOAN_ROWS = xlsx.utils.sheet_to_json(wb.Sheets['retail_loans']) as any[];
+
+function getScenario(key: string): any {
+  const row = ALL_LOAN_ROWS.find(
+    (r) =>
+      String(r.sharedKey).toLowerCase() === key.toLowerCase() &&
+      String(r.menuOption).toUpperCase() === 'HOAACLA'
+  );
+  if (!row) throw new Error(`No retail_loans creation row with sharedKey=${key} and menuOption=HOAACLA`);
+  return row;
+}
+
+const STEP = RETAIL_LOAN_DATA[0]?.data ?? {};
 
 // Retail loan creation (HOAACLA) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Loan header inputs.
-const CURRENCY = DEFAULT_CUSTOMER.ccy;
-const SOL_ID = DEFAULT_CUSTOMER.solId;
-const CIF_ID = getCreatedCif('retail', DEFAULT_CUSTOMER.cifCode);
+const CURRENCY = STEP['Currency'];
+if (!CURRENCY) throw new Error('Currency is required in the Excel sheet');
+const SOL_ID = STEP['Sol Id'];
+if (!SOL_ID) throw new Error('Sol Id is required in the Excel sheet');
+const rawCif = STEP['CIF Id'];
+if (!rawCif) throw new Error('CIF Id is required in the Excel sheet');
+const CIF_ID = String(rawCif).padStart(10, '0');
 if (CIF_ID) console.log(`[SharedState] Using CIF ID: ${CIF_ID}`);
 
 // NOTE: Set this to a valid retail-loan scheme code. If left blank, the scheme
 // search popup will fall back to selecting the first available scheme.
-const LOAN_SCHEME_CODE = 'LNPEM';
+const LOAN_SCHEME_CODE = STEP['Scheme Code'];
 
 // Operative (repayment) SB account number used on the Loan details tab. This is
 // the savings account under CIF 0005000599 used across the savings specs.
-const OPERATIVE_SB_ACCOUNT = '7710003367';
+const OPERATIVE_SB_ACCOUNT = STEP['Operative A/c Id'];
 
 // Loan parameters.
-const LOAN_AMOUNT = '1000';
-const LOAN_PERIOD_MONTHS = '12';
-const NO_OF_INSTALMENTS = '12';
+const LOAN_AMOUNT = STEP['Loan Amount'];
+const LOAN_PERIOD_MONTHS = STEP['Loan Period (Months)'];
+const NO_OF_INSTALMENTS = STEP['No. Of Instalments'];
 
 // Account limit expiry date = loan last instalment date (one year ahead).
-const expiryDate = (() => {
+const computedExpiry = (() => {
   const d = new Date();
   d.setFullYear(d.getFullYear() + 1);
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
 })();
+const expiryDate = STEP['Expiry Date'] || computedExpiry;
 
 let homePage: HomePage;
 let loanPage: AccountPage;
@@ -54,9 +74,25 @@ test.beforeEach(async ({ page }) => {
 });
 
 // HOAACLA - Create a retail loan account and capture the generated account number.
-test('HOAACLA - create retail loan account', async ({ page }) => {
+test.describe.serial('Create retail loan accounts', () => {
+for (const accountKey of ['chargeoffLoanAccountId', 'payoffLoanAccountId']) {
+  test(`HOAACLA - create retail loan account ${accountKey}`, async ({ page }) => {
   try {
-    console.log('Creating retail loan account...');
+    const SCENARIO = getScenario(accountKey);
+    const STEP = SCENARIO;
+
+    const CURRENCY = STEP['Currency'];
+    const SOL_ID = STEP['Sol Id'];
+    const rawCif = STEP['CIF Id'];
+    const CIF_ID = String(rawCif).padStart(10, '0');
+    const LOAN_SCHEME_CODE = STEP['Scheme Code'];
+    const OPERATIVE_SB_ACCOUNT = STEP['Operative A/c Id'];
+    const LOAN_AMOUNT = STEP['Loan Amount'];
+    const LOAN_PERIOD_MONTHS = STEP['Loan Period (Months)'];
+    const NO_OF_INSTALMENTS = STEP['No. Of Instalments'];
+    const expiryDate = STEP['Expiry Date'] || computedExpiry;
+
+    console.log(`Creating retail loan account [${accountKey}] with scheme ${LOAN_SCHEME_CODE}...`);
 
   // Step 1: Select "core server" from the solution drop down
   console.log('Selecting Core Server...');
@@ -64,7 +100,9 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
 
   // Step 2: Type menu option "HOAACLA" in finacle
   console.log('Searching for HOAACLA...');
-  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.create);
+  const menuOption = STEP['menuOption'];
+  if (!menuOption) throw new Error('menuOption is required in the Excel sheet');
+  await loanPage.searchMenu(menuOption);
   await page.waitForTimeout(3000);
   await captureEvidence(page, 'Step 1-2: Loan screen opened', { currency: CURRENCY, solId: SOL_ID, cifCode: CIF_ID, schemeCode: LOAN_SCHEME_CODE });
 
@@ -164,11 +202,24 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
 
   await captureEvidence(page, 'Step 16: Loan account generated', { cifCode: CIF_ID, loanAccountNumber });
 
-  // Persist the CIF ID and loan Account ID for downstream specs
+  // Persist the CIF ID and loan account ID(s) for downstream specs.
+  // Two accounts are created in the same FlowConfig step: key '1' (used for
+  // full disbursement) and key 'partial' (used for partial disbursement).
   updateSharedState((state) => {
-    (state as any).loanCifId = CIF_ID;
+    state.loanCifId = CIF_ID;
     if (loanAccountNumber) {
-      (state as any).loanAccountId = loanAccountNumber;
+      if (!state.loanAccounts) {
+        state.loanAccounts = {};
+      }
+
+      // Persist under the explicit shared-state key (driven by the Excel sharedKey).
+      (state as any)[accountKey] = loanAccountNumber;
+      state.loanAccounts[accountKey] = loanAccountNumber;
+
+      // Keep the legacy generic key set to the first (chargeoff) account.
+      if (!state.loanAccountId) {
+        state.loanAccountId = loanAccountNumber;
+      }
       saveLoanAccount(loanAccountNumber);
     }
   });
@@ -182,7 +233,7 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
   console.log('Logging out...');
   await homePage.logout();
   } catch (err: any) {
-    console.log('Retail loan creation failed:', err);
+    console.log(`Retail loan creation [${accountKey}] failed:`, err);
     // Navigate to the failing tab and capture the field-level error.
     try {
       await loanPage.visitLoanTab('Account Limits', 'acctlmt');
@@ -203,9 +254,11 @@ test('HOAACLA - create retail loan account', async ({ page }) => {
     } catch (tabErr) {
       console.log('Could not capture Account Limits tab details:', tabErr);
     }
-    await captureEvidence(page, 'Retail loan creation failed', { error: err.message });
+    await captureEvidence(page, `Retail loan creation [${accountKey}] failed`, { error: err.message });
     throw err;
-  }
+    }
+  });
+}
 });
 
 // === STRICT ASSERTIONS INJECTION ===

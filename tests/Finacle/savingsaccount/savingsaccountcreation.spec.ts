@@ -5,6 +5,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import FLOW7_DATA from '../../../data/flow7.json';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
 // otherwise fall back to the hardcoded value in common-data.json.
@@ -89,14 +90,23 @@ for (const scenario of SCENARIOS) {
       await savingsAccountPage.createSavingsAccount(scenario.data as any, { skipGeneralDetailsRevisit: true, relatedParties: scenario.relatedParties });
 
       const result = await savingsAccountPage.verifyAccountCreated();
-  console.log('Exact result message:', result.message);
-  expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
-  expect(result.message).toBeTruthy();
+      console.log('Exact result message:', result.message);
+      expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+      expect(result.message).toBeTruthy();
       console.log('Account created:', result.message);
-  expect(result.message).toBeTruthy();
-  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
+      expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
       console.log('Captured Account ID:', result.accountNumber);
-  expect(result.accountNumber).toBeTruthy();
+      expect(result.accountNumber).toBeTruthy();
+
+      const hasRelatedParties = (scenario.data.jointHolders && scenario.data.jointHolders.length > 0) || scenario.data.relatedPartyCif;
+      if (hasRelatedParties) {
+        const relatedResult = await savingsAccountPage.addRelatedPartiesToSavingsAccount(
+          result.accountNumber as string,
+          scenario.data as any
+        );
+        expect(relatedResult.success, `Expected related party addition to succeed but got: ${relatedResult.message}`).toBe(true);
+        console.log('Related party result:', relatedResult.message);
+      }
 
       // Persist the generated Account ID for downstream verification specs
       const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
@@ -105,6 +115,9 @@ for (const scenario of SCENARIOS) {
         state.savingsAccounts[scenario.name] = result.accountNumber ?? '';
         if (instanceKey) state.savingsAccounts[instanceKey] = result.accountNumber ?? '';
         state.accountId = result.accountNumber ?? '';
+        if (hasRelatedParties) {
+          state.relatedPartyAddedForSavings = true;
+        }
       });
 
       await homePage.logout();

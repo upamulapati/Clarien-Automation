@@ -1,0 +1,288 @@
+﻿
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1)
+[1A[2K[chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1)
+ΓÜá Already logged in detected (errorPage.jsp), resetting session...
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KΓ£ô appSelect visible after session reset
+
+[1A[2K≡ƒô╕ Evidence captured: CRM login complete (session reset)
+
+[1A[2KSelecting Core Server...
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KSearching for HOAACSB...
+
+[1A[2KOption containing 'HOAACSB' not found in loginFrame, trying FINW frame
+
+[1A[2KOption containing 'HOAACSB' not found in any frame
+
+[1A[2KFINW frame is available
+
+[1A[2K≡ƒô╕ Evidence captured: Menu searched: HOAACSB
+
+[1A[2KCreating savings account SVSTF-BMD-1 (CIF: 0002000757)...
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KTyped scheme code "SVSTF" into criteria field
+
+[1A[2KSelecting specific scheme: SVSTF
+
+[1A[2KNo enabled dropdown option matching 'post' found
+
+[1A[2KCould not set visible dispatch mode: P - Post
+
+[1A[2KSet hidden dispatch-mode fields to 'P' (P - Post) - count=1
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KfillByLabel("Relative To Staff", "Yes"): {"ok":false,"reason":"no input found after label: Relative To Staff"}
+
+[1A[2KfillByLabel("relativeToStaff", "Yes"): {"ok":false,"reason":"no input found after label: relativeToStaff"}
+
+[1A[2KCould not select 'Yes' for label 'Relative To Staff'
+
+[1A[2KCould not select 'Yes' for label 'relativeToStaff'
+
+[1A[2KCould not populate supplied field: relativeToStaff = Yes
+
+[1A[2KfillByLabel("Relative Staff ID", "123"): {"ok":true,"id":"relativeStaffId","name":"generaldetails.relativeStaffId","via":"sibling-disabled"}
+
+[1A[2KfillByLabel("Charge Level Code", "STAFF"): {"ok":true,"id":"chargeLvlCode","name":"generaldetails.chargeLvlCode","via":"sibling"}
+
+[1A[2KfillByLabel("Account Statement", "N - None"): {"ok":false,"reason":"label cell not found: Account Statement"}
+
+[1A[2KfillByLabel("accountStatement", "N - None"): {"ok":false,"reason":"label cell not found: accountStatement"}
+
+[1A[2KfillByLabel("A/c Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/c Statement"}
+
+[1A[2KfillByLabel("A/c. Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/c. Statement"}
+
+[1A[2KfillByLabel("A/C Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/C Statement"}
+
+[1A[2KCould not select 'N - None' for label 'Account Statement'
+
+[1A[2KCould not select 'N - None' for label 'accountStatement'
+
+[1A[2KCould not select 'N - None' for label 'A/c Statement'
+
+[1A[2KSelected 'N - None' for label 'A/c. Statement' (#pbPsFlg)
+
+[1A[2KStatement Frequency set: {"statementFrequency":"M - Monthly","statementWeek":"","statementDay":"31","statementP":"P - Previous day","statementG":"G - Gregorian Calendar"}
+
+[1A[2KDispatch mode options: ["Select","A - Post and Email","B - Special Delivery and Email","C - Collect by Person","D - Courier and Email","E - Email Only","N - No Dispatch","P - Post","Q - Courier","S - Special Delivery"]
+
+[1A[2KDispatch dropdown is not actionable (hidden=false, disabled=true); forcing value via JS
+
+[1A[2KForced dispatch code 'P' in disabled #despatchMode
+
+[1A[2KSelected dispatch mode: P - Post (value=P)
+
+[1A[2KSet hidden dispatch-mode fields to 'P' (P - Post) - count=2
+
+[1A[2KClicked tab by id fallback: generaldetails2
+
+[1A[2KClicked tab a #13: "interest details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Interest Details
+
+[1A[2KNext interest calculation date: 09-11-2026
+
+[1A[2KSet Collect Interest: Yes (actual: Y)
+
+[1A[2KSet Interest Debit A/c. ID: 4600000119
+
+[1A[2KSet Interest Rate Code: SVSTF
+
+[1A[2KInterest Calculation Frequency (Cr.) set: {"frequency":"Q - Quarterly","week":"","day":"31","p":"P - Previous day","g":"G - Gregorian Calendar"}
+
+[1A[2KInterest Calculation Frequency (Dr.) set: {"frequency":"Q - Quarterly","week":"","day":"31","p":"P - Previous day","g":"G - Gregorian Calendar"}
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab by id fallback: sbschemedetails
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab a #13: "scheme details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Scheme Details
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab by id fallback: relatedpartydetails
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab a #15: "related party details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Related Party
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab by id fallback: miscodes
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab a #5: "mis codes"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: MIS Codes
+
+[1A[2KfillByLabel("Sector Code", "007"): {"ok":false,"reason":"label cell not found: Sector Code"}
+
+[1A[2KfillByLabel("sectorCode", "007"): {"ok":false,"reason":"label cell not found: sectorCode"}
+
+[1A[2KCould not select '007' for label 'Sector Code'
+
+[1A[2KCould not select '007' for label 'sectorCode'
+
+[1A[2KCould not populate supplied field: sectorCode = 007
+
+[1A[2KfillByLabel("Subsector Code", "999"): {"ok":false,"reason":"label cell not found: Subsector Code"}
+
+[1A[2KfillByLabel("subsectorCode", "999"): {"ok":false,"reason":"label cell not found: subsectorCode"}
+
+[1A[2KCould not select '999' for label 'Subsector Code'
+
+[1A[2KCould not select '999' for label 'subsectorCode'
+
+[1A[2KCould not populate supplied field: subsectorCode = 999
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KDispatch mode dropdown/control not found, cannot get value
+
+[1A[2KDispatch Mode mismatch in General Details. Expected: P - Post, Got: <null>. Re-selecting...
+
+[1A[2KNo enabled dropdown option matching 'post' found
+
+[1A[2KCould not set visible dispatch mode: P - Post
+
+[1A[2KSet hidden dispatch-mode fields to 'P' (P - Post) - count=1
+
+[1A[2KGeneral Details Dispatch Mode verified: P (expected: P - Post)
+
+[1A[2KTab 'Others' not found (it may already be active), skipping
+
+[1A[2KfillByLabel("External System Pricing For", "N - None"): {"ok":false,"reason":"label cell not found: External System Pricing For"}
+
+[1A[2KfillByLabel("externalSystemPricingFor", "N - None"): {"ok":false,"reason":"label cell not found: externalSystemPricingFor"}
+
+[1A[2KCould not select 'N - None' for label 'External System Pricing For'
+
+[1A[2KCould not select 'N - None' for label 'externalSystemPricingFor'
+
+[1A[2KCould not populate supplied field: externalSystemPricingFor = N - None
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked tab a #10: "account limits"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Account Limits
+
+[1A[2KUsing Account Limits expiry date: 01-10-2027
+
+[1A[2KUsing BOD 01-10-2026 for Account Limits dates
+
+[1A[2KCould not fill Loan limit expiry date; available date input ids: ["acctOpenDate","pegRevDate_ui","pegRevDate","nextIntCrCalcDt_ui","nextIntCrCalcDt","nextIntDrCalcDt_ui","nextIntDrCalcDt"]
+
+[1A[2KCould not fill Loan limit document date; available date input ids: ["acctOpenDate","pegRevDate_ui","pegRevDate","nextIntCrCalcDt_ui","nextIntCrCalcDt","nextIntDrCalcDt_ui","nextIntDrCalcDt"]
+
+[1A[2KCould not fill Sanction Date; available date input ids: ["acctOpenDate","pegRevDate_ui","pegRevDate","nextIntCrCalcDt_ui","nextIntCrCalcDt","nextIntDrCalcDt_ui","nextIntDrCalcDt"]
+
+[1A[2KCould not fill Review Date; available date input ids: ["acctOpenDate","pegRevDate_ui","pegRevDate","nextIntCrCalcDt_ui","nextIntCrCalcDt","nextIntDrCalcDt_ui","nextIntDrCalcDt"]
+
+[1A[2KclickLookupIconByLabel("Sanction Level"): {"ok":false,"reason":"label cell not found"}
+
+[1A[2KLookup popup not opened for Sanction Level
+
+[1A[2KCould not fill Sanction Level; tried ids ["sanctionLevelCode","sanctionLevel","sancLevel","sanctionLvl"]
+
+[1A[2KfillByLabel("Sanction Level", "1"): {"ok":false,"reason":"label cell not found: Sanction Level"}
+
+[1A[2KclickLookupIconByLabel("Sanction Authority"): {"ok":false,"reason":"label cell not found"}
+
+[1A[2KLookup popup not opened for Sanction Authority
+
+[1A[2KfillByLabel("Sanction Authority", "SYSTEM"): {"ok":false,"reason":"label cell not found: Sanction Authority"}
+
+[1A[2KNo enabled dropdown option matching 'EQUAL' found
+
+[1A[2KCould not fill Sanction limit; tried ids ["sanctionLimit"]
+
+[1A[2KCould not fill Drawing power; tried ids ["drawingPower"]
+
+[1A[2KCould not fill Drawing power percent; tried ids ["drawingPowerPcnt"]
+
+[1A[2KInjected dispatch mode 'P' into submit form: {"ok":true,"reason":"updated existing","name":"generaldetails.despatchMode"}
+
+[1A[2KDispatch Mode hidden input in submit form verified: P
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KDialog message: Enter the field.
+
+[1A[2KClicked Submit button in frame 'FINW'
+
+[1A[2K≡ƒô╕ Evidence captured: Submit button clicked
+
+[1A[2KExtracted Account ID from body text: 0002000757
+
+[1A[2KExact result message: New A/c. ID: 0002000757
+
+[1A[2KAccount created: New A/c. ID: 0002000757
+
+[1A[2KCaptured Account ID: 0002000757
+
+[1A[2K≡ƒô╕ Evidence captured: Pre-logout state
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2K  1 passed (3.0m)

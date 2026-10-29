@@ -175,7 +175,9 @@ function resolve(dataSheet, dataRowId, outputPath) {
     dataSheet === 'CurrentAccountModifyVerifyData' ? 'currentModifyVerifyData' :
     dataSheet === 'SavingsAccountModifyData' ? 'savingsModifyData' :
     dataSheet === 'SavingsAccountModifyVerifyData' ? 'savingsModifyVerifyData' :
-    dataSheet === 'TransferMaintenanceData' ? 'transferData' : 'data';
+    dataSheet === 'TransferMaintenanceData' ? 'transferData' :
+    dataSheet === 'retail_loans' ? 'retailLoansData' :
+    dataSheet === 'retail_loans_mod' ? 'retailLoansModData' : 'data';
   const content = { [dataKey]: selected };
 
   fs.writeFileSync(outputPath, JSON.stringify(content, null, 2), 'utf8');

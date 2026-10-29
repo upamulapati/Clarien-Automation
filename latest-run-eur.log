@@ -1,0 +1,277 @@
+﻿
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVREG-EUR-2)
+[1A[2K[chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVREG-EUR-2)
+ΓÜá Already logged in detected (errorPage.jsp), resetting session...
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KΓ£ô appSelect visible after session reset
+
+[1A[2K≡ƒô╕ Evidence captured: CRM login complete (session reset)
+
+[1A[2KSelecting Core Server...
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KSearching for HOAACSB...
+
+[1A[2KOption containing 'HOAACSB' not found in loginFrame, trying FINW frame
+
+[1A[2KOption containing 'HOAACSB' not found in any frame
+
+[1A[2KFINW frame is available
+
+[1A[2K≡ƒô╕ Evidence captured: Menu searched: HOAACSB
+
+[1A[2KCreating savings account SVREG-EUR-2 (CIF: 0005000599)...
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KTyped scheme code "SVREG" into criteria field
+
+[1A[2KSelecting specific scheme: SVREG
+
+[1A[2KNo enabled dropdown option matching 'email' found
+
+[1A[2KCould not set visible dispatch mode: E - Email Only
+
+[1A[2KSet hidden dispatch-mode fields to 'E' (E - Email Only) - count=0
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KDispatch mode options: ["Select","A - Post and Email","B - Special Delivery and Email","C - Collect by Person","D - Courier and Email","E - Email Only","N - No Dispatch","P - Post","Q - Courier","S - Special Delivery"]
+
+[1A[2KSelected dispatch code 'E' in #despatchMode
+
+[1A[2KSelected dispatch mode: E - Email Only (value=E)
+
+[1A[2KSet hidden dispatch-mode fields to 'E' (E - Email Only) - count=1
+
+[1A[2KfillByLabel("Charge Level Code", "PRSNL"): {"ok":true,"id":"chargeLvlCode","name":"generaldetails.chargeLvlCode","via":"sibling"}
+
+[1A[2KfillByLabel("Account Statement", "S - Statement"): {"ok":false,"reason":"label cell not found: Account Statement"}
+
+[1A[2KfillByLabel("accountStatement", "S - Statement"): {"ok":false,"reason":"label cell not found: accountStatement"}
+
+[1A[2KfillByLabel("A/c Statement", "S - Statement"): {"ok":false,"reason":"no input found after label: A/c Statement"}
+
+[1A[2KfillByLabel("A/c. Statement", "S - Statement"): {"ok":false,"reason":"no input found after label: A/c. Statement"}
+
+[1A[2KfillByLabel("A/C Statement", "S - Statement"): {"ok":false,"reason":"no input found after label: A/C Statement"}
+
+[1A[2KCould not select 'S - Statement' for label 'Account Statement'
+
+[1A[2KCould not select 'S - Statement' for label 'accountStatement'
+
+[1A[2KCould not select 'S - Statement' for label 'A/c Statement'
+
+[1A[2KSelected 'S - Statement' for label 'A/c. Statement' (#pbPsFlg)
+
+[1A[2KClicked tab by id fallback: generaldetails2
+
+[1A[2KClicked tab a #13: "interest details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Interest Details
+
+[1A[2KCould not set interest credit account, skipping: TimeoutError: locator.selectOption: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#intCrAcctFlg')[22m
+
+
+[1A[2KNext interest calculation date: 05-11-2026
+
+[1A[2KCould not fill next interest date, skipping: TimeoutError: locator.clear: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#nextIntCrCalcDt_ui')[22m
+
+
+[1A[2KfillByLabel("Interest Credit Account", "S - Original A/c."): {"ok":false,"reason":"label cell not found: Interest Credit Account"}
+
+[1A[2KfillByLabel("interestCreditAccount", "S - Original A/c."): {"ok":false,"reason":"label cell not found: interestCreditAccount"}
+
+[1A[2KfillByLabel("Interest Credit A/c", "S - Original A/c."): {"ok":false,"reason":"label cell not found: Interest Credit A/c"}
+
+[1A[2KfillByLabel("Interest Credit A/c.", "S - Original A/c."): {"ok":false,"reason":"label cell not found: Interest Credit A/c."}
+
+[1A[2KfillByLabel("Interest Credit A/C", "S - Original A/c."): {"ok":false,"reason":"label cell not found: Interest Credit A/C"}
+
+[1A[2KCould not select 'S - Original A/c.' for label 'Interest Credit Account'
+
+[1A[2KCould not select 'S - Original A/c.' for label 'interestCreditAccount'
+
+[1A[2KCould not select 'S - Original A/c.' for label 'Interest Credit A/c'
+
+[1A[2KCould not select 'S - Original A/c.' for label 'Interest Credit A/c.'
+
+[1A[2KCould not select 'S - Original A/c.' for label 'Interest Credit A/C'
+
+[1A[2KCould not populate supplied field: interestCreditAccount = S - Original A/c.
+
+node.exe : [1A[2KSavings account creation test failed for SVREG-EUR-2: locator.selectOption: Timeout 30000ms exceeded.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([1A[2KSavings...000ms exceeded.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Call log:
+[2m  - waiting for locator('#intDrAcctFlg')[22m
+
+    at AccountPage.setInterestDebitAccount [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:3596:39[90m)[39m
+    at AccountPage.fillSavingsTabFields [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:3670:9[90m)[39m
+    at AccountPage.fillAllTabs [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:3723:5[90m)[39m
+    at AccountPage.createSavingsAccount [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:3748:5[90m)[39m
+    at [90mC:\Users\Smartest\Clarien-Automation\[39mtests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:54:7 {
+  name: [32m'TimeoutError'[39m,
+  [32mSymbol(step)[39m: {
+    location: {
+      file: [32m'C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts'[39m,
+      line: [33m3596[39m,
+      column: [33m39[39m,
+      function: [32m'AccountPage.setInterestDebitAccount'[39m
+    },
+    category: [32m'pw:api'[39m,
+    title: [32m"Select option locator('#intDrAcctFlg')"[39m,
+    apiName: [32m'locator.selectOption'[39m,
+    params: {
+      selector: [32m'#intDrAcctFlg'[39m,
+      options: [36m[Array][39m,
+      strict: [33mtrue[39m,
+      timeout: [33m30000[39m
+    },
+    group: [90mundefined[39m,
+    stepId: [32m'pw:api@295'[39m,
+    boxedStack: [90mundefined[39m,
+    steps: [],
+    attachmentIndices: [],
+    info: TestStepInfoImpl {
+      annotations: [],
+      _testInfo: [36m[TestInfoImpl][39m,
+      _stepId: [32m'pw:api@295'[39m,
+      _title: [32m"Select option locator('#intDrAcctFlg')"[39m,
+      _parentStep: [90mundefined[39m,
+      skip: [36m[Function (anonymous)][39m
+    },
+    complete: [36m[Function: complete][39m,
+    endWallTime: [33m1792590853414[39m,
+    error: {
+      message: [32m'TimeoutError: locator.selectOption: Timeout 30000ms exceeded.\n'[39m +
+        [32m'Call log:\n'[39m +
+        [32m"\x1B[2m  - waiting for locator('#intDrAcctFlg')\x1B[22m\n"[39m,
+      stack: [32m'TimeoutError: locator.selectOption: Timeout 30000ms exceeded.\n'[39m +
+        [32m'Call log:\n'[39m +
+        [32m"\x1B[2m  - waiting for locator('#intDrAcctFlg')\x1B[22m\n"[39m +
+        [32m'\n'[39m +
+        [32m'    at AccountPage.setInterestDebitAccount (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:3596:39)\n'[39m +
+        [32m'    at AccountPage.fillSavingsTabFields (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:3670:9)\n'[39m +
+        [32m'    at AccountPage.fillAllTabs (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:3723:5)\n'[39m +
+        [32m'    at AccountPage.createSavingsAccount (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:3748:5)\n'[39m +
+        [32m'    at C:\\Users\\Smartest\\Clarien-Automation\\tests\\Finacle\\savingsaccount\\savingsaccountcreation.spec.ts:54:7'[39m,
+      cause: [90mundefined[39m
+    }
+  }
+}
+[1A[2KCIF used: 0005000599
+[1A[2KDialog messages: Do you want to reset the previous session and re-login ? | You will be redirected to your default application now. | Are you sure you want to change the solution?
+
+
+
+[1A[2K  1) [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVREG-EUR-2) 
+
+    TimeoutError: locator.selectOption: Timeout 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#intDrAcctFlg')[22m
+
+
+       at pages\CoreBanking\AccountPage.ts:3596
+
+      3594 |       await this.interestDebitAccount.selectOption(code);
+      3595 |     } catch {
+    > 3596 |       await this.interestDebitAccount.selectOption({ label: value });
+           |                                       ^
+      3597 |     }
+      3598 |     console.log(`Selected Interest Debit A/c: ${value}`);
+      3599 |   }
+        at AccountPage.setInterestDebitAccount (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:3596:39)
+        at AccountPage.fillSavingsTabFields (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:3670:9)
+        at AccountPage.fillAllTabs (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:3723:5)
+        at AccountPage.createSavingsAccount (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:3748:5)
+        at C:\Users\Smartest\Clarien-Automation\tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:54:7
+
+    attachment #1: CRM login complete (session reset) - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\attachments\CRM-login-complete-session-reset---screenshot-705de021da0da0d2d1f52c1200ec2416e8e60910.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #3: Menu searched: HOAACSB - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\attachments\Menu-searched-HOAACSB---screenshot-1a1ea70bbb1976bbbb11310e6f11e0968a8577d5.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #5: Tab switched: General Details - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\attachments\Tab-switched-General-Details---screenshot-dff2e86498a44c2802e99b22279bbea124c725e2.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #6: Tab switched: Interest Details - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\attachments\Tab-switched-Interest-Details---screenshot-28c76826fba2fc7c809b8771663ff6a6bca018a4.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #7: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #8: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-1.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #9: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-2.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #10: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-5.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #11: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-6.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #12: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-7.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #13: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-4.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #14: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #15: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-8.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #16: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\video-3.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\Finacle-savingsaccount-sav-82074-avings-account-SVREG-EUR-2--chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVREG-EUR-2) 

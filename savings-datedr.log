@@ -1,0 +1,364 @@
+﻿
+Running 1 test using 1 worker
+
+[1A[2K[1/1] [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1)
+[1A[2K[chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1)
+Dialog message: You will be redirected to your default application now.
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KΓ£ô appSelect visible after login
+
+[1A[2K≡ƒô╕ Evidence captured: CRM login complete
+
+[1A[2KSelecting Core Server...
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KSearching for HOAACSB...
+
+[1A[2KGlobal popup handler: fetch.jsp?rtId=1o97oc7o22o1&fetchId=SOLID&precedence=F&wReturn=100&wReturnDesc=s
+
+[1A[2KGlobal popup handler: fetch.jsp?rtId=1o97oc7o22o1&fetchId=SOLID&precedence=F&wReturn=100&wReturnDesc=s
+
+[1A[2KOption containing 'HOAACSB' not found in loginFrame, trying FINW frame
+
+[1A[2KOption containing 'HOAACSB' not found in any frame
+
+[1A[2KFINW frame is available
+
+[1A[2K≡ƒô╕ Evidence captured: Menu searched: HOAACSB
+
+[1A[2KCreating savings account SVSTF-BMD-1 (CIF: 0002000757)...
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KGlobal popup handler: search_scheme.jsp?wReturn=schmCode&wReturnDesc=schmCodeDesc&solId=100&listreqd=s
+
+[1A[2KTyped scheme code "SVSTF" into criteria field
+
+[1A[2KSelecting specific scheme: SVSTF
+
+[1A[2KNo enabled dropdown option matching 'post' found
+
+[1A[2KCould not set visible dispatch mode: P - Post
+
+[1A[2KSet hidden dispatch-mode fields to 'P' (P - Post) - count=1
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KfillByLabel("Relative To Staff", "Yes"): {"ok":false,"reason":"no input found after label: Relative To Staff"}
+
+[1A[2KfillByLabel("relativeToStaff", "Yes"): {"ok":false,"reason":"no input found after label: relativeToStaff"}
+
+[1A[2KCould not select 'Yes' for label 'Relative To Staff'
+
+[1A[2KCould not select 'Yes' for label 'relativeToStaff'
+
+[1A[2KCould not populate supplied field: relativeToStaff = Yes
+
+[1A[2KfillByLabel("Relative Staff ID", "123"): {"ok":true,"id":"relativeStaffId","name":"generaldetails.relativeStaffId","via":"sibling-disabled"}
+
+[1A[2KfillByLabel("Charge Level Code", "STAFF"): {"ok":true,"id":"chargeLvlCode","name":"generaldetails.chargeLvlCode","via":"sibling"}
+
+[1A[2KfillByLabel("Account Statement", "N - None"): {"ok":false,"reason":"label cell not found: Account Statement"}
+
+[1A[2KfillByLabel("accountStatement", "N - None"): {"ok":false,"reason":"label cell not found: accountStatement"}
+
+[1A[2KfillByLabel("A/c Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/c Statement"}
+
+[1A[2KfillByLabel("A/c. Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/c. Statement"}
+
+[1A[2KfillByLabel("A/C Statement", "N - None"): {"ok":false,"reason":"no input found after label: A/C Statement"}
+
+[1A[2KCould not select 'N - None' for label 'Account Statement'
+
+[1A[2KCould not select 'N - None' for label 'accountStatement'
+
+[1A[2KCould not select 'N - None' for label 'A/c Statement'
+
+[1A[2KSelected 'N - None' for label 'A/c. Statement' (#pbPsFlg)
+
+[1A[2KStatement Frequency set: {"statementFrequency":"M - Monthly","statementWeek":"","statementDay":"31","statementP":"P - Previous day","statementG":"G - Gregorian Calendar"}
+
+[1A[2KDispatch mode options: ["Select","A - Post and Email","B - Special Delivery and Email","C - Collect by Person","D - Courier and Email","E - Email Only","N - No Dispatch","P - Post","Q - Courier","S - Special Delivery"]
+
+[1A[2KDispatch dropdown is not actionable (hidden=false, disabled=true); forcing value via JS
+
+[1A[2KForced dispatch code 'P' in disabled #despatchMode
+
+[1A[2KSelected dispatch mode: P - Post (value=P)
+
+[1A[2KSet hidden dispatch-mode fields to 'P' (P - Post) - count=2
+
+[1A[2KClicked tab by id fallback: generaldetails2
+
+[1A[2KClicked tab a #13: "interest details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Interest Details
+
+[1A[2KNext interest calculation date: 02-11-2026
+
+[1A[2KfillByLabel("Interest Credit Account", "O - Operative A/c."): {"ok":false,"reason":"label cell not found: Interest Credit Account"}
+
+[1A[2KfillByLabel("interestCreditAccount", "O - Operative A/c."): {"ok":false,"reason":"label cell not found: interestCreditAccount"}
+
+[1A[2KfillByLabel("Interest Credit A/c", "O - Operative A/c."): {"ok":false,"reason":"no input found after label: Interest Credit A/c"}
+
+[1A[2KfillByLabel("Interest Credit A/c.", "O - Operative A/c."): {"ok":false,"reason":"no input found after label: Interest Credit A/c."}
+
+[1A[2KfillByLabel("Interest Credit A/C", "O - Operative A/c."): {"ok":false,"reason":"no input found after label: Interest Credit A/C"}
+
+[1A[2KCould not select 'O - Operative A/c.' for label 'Interest Credit Account'
+
+[1A[2KCould not select 'O - Operative A/c.' for label 'interestCreditAccount'
+
+[1A[2KSelected 'O - Operative A/c.' for label 'Interest Credit A/c' (#intCrAcctFlg)
+
+[1A[2KSelected Interest Debit A/c: O - Operative A/c.
+
+[1A[2KfillByLabel("Interest Credit Account ID", "7710003367"): {"ok":false,"reason":"label cell not found: Interest Credit Account ID"}
+
+[1A[2KfillByLabel("interestCreditAccountId", "7710003367"): {"ok":false,"reason":"label cell not found: interestCreditAccountId"}
+
+[1A[2KfillByLabel("Interest Credit A/c ID", "7710003367"): {"ok":true,"id":"intCrAcctNum","name":"generaldetails2.intCrAcctNum","via":"sibling"}
+
+[1A[2KSet Collect Interest: Yes (actual: Y)
+
+[1A[2KSet Interest Debit A/c. ID: 4600000119
+
+[1A[2KSet Interest Rate Code: SVSTF
+
+[1A[2KInterest Calculation Frequency (Cr.) set: {"frequency":"Q - Quarterly","week":"","day":"31","p":"P - Previous day","g":"G - Gregorian Calendar"}
+
+[1A[2KInterest Calculation Frequency (Dr.) set: {"frequency":"Q - Quarterly","week":"","day":"31","p":"P - Previous day","g":"G - Gregorian Calendar"}
+
+
+node.exe : [1A[2KSavings account creation test failed for SVSTF-BMD-1: locator.clear: Timeout 30000ms exceeded.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([1A[2KSavings...000ms exceeded.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Call log:
+[2m  - waiting for locator('#nextIntDrCalcDt_ui').first()[22m
+[2m    - locator resolved to <input fmnd="N" disabled size="10" enabled="" type="text" fdt="uidate" mnebl="false" maxlength="10" class="textfieldfont" hotkeyid="calendar103" id="nextIntDrCalcDt_ui" onchange="fnEventFormatDate(this)" name="generaldetails2.nextIntDrCalcDt_ui"/>[22m
+[2m    - fill("")[22m
+[2m  - attempting fill action[22m
+[2m    2 ├ù waiting for element to be visible, enabled and editable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying fill action[22m
+[2m    - waiting 20ms[22m
+[2m    2 ├ù waiting for element to be visible, enabled and editable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying fill action[22m
+[2m      - waiting 100ms[22m
+[2m    59 ├ù waiting for element to be visible, enabled and editable[22m
+[2m       - element is not enabled[22m
+[2m     - retrying fill action[22m
+[2m       - waiting 500ms[22m
+
+    at AccountPage.fillDateField [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:4219:29[90m)[39m
+    at AccountPage.setNextInterestCalculationDateDr [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:4014:20[90m)[39m
+    at AccountPage.setAdditionalInterestDetails [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:4006:9[90m)[39m
+    at AccountPage.fillAllTabs [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:4042:5[90m)[39m
+    at AccountPage.createSavingsAccount [90m(C:\Users\Smartest\Clarien-Automation\[39mtests\pages\CoreBanking\AccountPage.ts:4067:5[90m)[39m
+    at [90mC:\Users\Smartest\Clarien-Automation\[39mtests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:54:7 {
+  name: [32m'TimeoutError'[39m,
+  [32mSymbol(step)[39m: {
+    location: {
+      file: [32m'C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts'[39m,
+      line: [33m4219[39m,
+      column: [33m29[39m,
+      function: [32m'AccountPage.fillDateField'[39m
+    },
+    category: [32m'pw:api'[39m,
+    title: [32m"Clear locator('#nextIntDrCalcDt_ui').first()"[39m,
+    apiName: [32m'locator.clear'[39m,
+    params: {
+      selector: [32m'#nextIntDrCalcDt_ui >> nth=0'[39m,
+      value: [32m''[39m,
+      strict: [33mtrue[39m,
+      timeout: [33m30000[39m
+    },
+    group: [90mundefined[39m,
+    stepId: [32m'pw:api@333'[39m,
+    boxedStack: [90mundefined[39m,
+    steps: [],
+    attachmentIndices: [],
+    info: TestStepInfoImpl {
+      annotations: [],
+      _testInfo: [36m[TestInfoImpl][39m,
+      _stepId: [32m'pw:api@333'[39m,
+      _title: [32m"Clear locator('#nextIntDrCalcDt_ui').first()"[39m,
+      _parentStep: [90mundefined[39m,
+      skip: [36m[Function (anonymous)][39m
+    },
+    complete: [36m[Function: complete][39m,
+    endWallTime: [33m1792684131825[39m,
+    error: {
+      message: [32m'TimeoutError: locator.clear: Timeout 30000ms exceeded.\n'[39m +
+        [32m'Call log:\n'[39m +
+        [32m"\x1B[2m  - waiting for locator('#nextIntDrCalcDt_ui').first()\x1B[22m\n"[39m +
+        [32m'\x1B[2m    - locator resolved to <input fmnd="N" disabled size="10" enabled="" type="text" fdt="uidate" mnebl="false" maxlength="10" class="textfieldfont" hotkeyid="calendar103" id="nextIntDrCalcDt_ui" onchange="fnEventFormatDate(this)" name="generaldetails2.nextIntDrCalcDt_ui"/>\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - fill("")\x1B[22m\n'[39m +
+        [32m'\x1B[2m  - attempting fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m    2 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m      - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - retrying fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - waiting 20ms\x1B[22m\n'[39m +
+        [32m'\x1B[2m    2 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m      - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - retrying fill action\x1B[22m\n'[39m +
+
+
+        [32m'\x1B[2m      - waiting 100ms\x1B[22m\n'[39m +
+        [32m'\x1B[2m    59 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m       - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m     - retrying fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m       - waiting 500ms\x1B[22m\n'[39m,
+      stack: [32m'TimeoutError: locator.clear: Timeout 30000ms exceeded.\n'[39m +
+        [32m'Call log:\n'[39m +
+        [32m"\x1B[2m  - waiting for locator('#nextIntDrCalcDt_ui').first()\x1B[22m\n"[39m +
+        [32m'\x1B[2m    - locator resolved to <input fmnd="N" disabled size="10" enabled="" type="text" fdt="uidate" mnebl="false" maxlength="10" class="textfieldfont" hotkeyid="calendar103" id="nextIntDrCalcDt_ui" onchange="fnEventFormatDate(this)" name="generaldetails2.nextIntDrCalcDt_ui"/>\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - fill("")\x1B[22m\n'[39m +
+        [32m'\x1B[2m  - attempting fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m    2 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m      - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - retrying fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - waiting 20ms\x1B[22m\n'[39m +
+        [32m'\x1B[2m    2 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m      - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m    - retrying fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m      - waiting 100ms\x1B[22m\n'[39m +
+        [32m'\x1B[2m    59 ├ù waiting for element to be visible, enabled and editable\x1B[22m\n'[39m +
+        [32m'\x1B[2m       - element is not enabled\x1B[22m\n'[39m +
+        [32m'\x1B[2m     - retrying fill action\x1B[22m\n'[39m +
+        [32m'\x1B[2m       - waiting 500ms\x1B[22m\n'[39m +
+        [32m'\n'[39m +
+        [32m'    at AccountPage.fillDateField (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:4219:29)\n'[39m +
+        [32m'    at AccountPage.setNextInterestCalculationDateDr (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:4014:20)\n'[39m +
+        [32m'    at AccountPage.setAdditionalInterestDetails (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:4006:9)\n'[39m +
+        [32m'    at AccountPage.fillAllTabs (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:4042:5)\n'[39m +
+        [32m'    at AccountPage.createSavingsAccount (C:\\Users\\Smartest\\Clarien-Automation\\tests\\pages\\CoreBanking\\AccountPage.ts:4067:5)\n'[39m +
+        [32m'    at C:\\Users\\Smartest\\Clarien-Automation\\tests\\Finacle\\savingsaccount\\savingsaccountcreation.spec.ts:54:7'[39m,
+      cause: [90mundefined[39m
+    }
+  }
+}
+[1A[2KCIF used: 0002000757
+[1A[2KDialog messages: You will be redirected to your default application now. | Are you sure you want to change the solution?
+[1A[2K  1) [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1) 
+
+    TimeoutError: locator.clear: Timeout 30000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#nextIntDrCalcDt_ui').first()[22m
+    [2m    - locator resolved to <input fmnd="N" disabled size="10" enabled="" type="text" fdt="uidate" mnebl="false" maxlength="10" class="textfieldfont" hotkeyid="calendar103" id="nextIntDrCalcDt_ui" onchange="fnEventFormatDate(this)" name="generaldetails2.nextIntDrCalcDt_ui"/>[22m
+    [2m    - fill("")[22m
+    [2m  - attempting fill action[22m
+    [2m    2 ├ù waiting for element to be visible, enabled and editable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying fill action[22m
+    [2m    - waiting 20ms[22m
+    [2m    2 ├ù waiting for element to be visible, enabled and editable[22m
+    [2m      - element is not enabled[22m
+    [2m    - retrying fill action[22m
+    [2m      - waiting 100ms[22m
+    [2m    59 ├ù waiting for element to be visible, enabled and editable[22m
+    [2m       - element is not enabled[22m
+    [2m     - retrying fill action[22m
+    [2m       - waiting 500ms[22m
+
+
+       at pages\CoreBanking\AccountPage.ts:4219
+
+      4217 |       const field = finwFrame.locator(`#${id}`);
+      4218 |       if (await field.count() > 0 && await field.first().isVisible().catch(() => false)) {
+    > 4219 |         await field.first().clear();
+           |                             ^
+      4220 |         await field.first().fill(value);
+      4221 |         await field.first().press('Tab');
+      4222 |         await this.page.waitForTimeout(1000);
+        at AccountPage.fillDateField (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:4219:29)
+        at AccountPage.setNextInterestCalculationDateDr (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:4014:20)
+        at AccountPage.setAdditionalInterestDetails (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:4006:9)
+        at AccountPage.fillAllTabs (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:4042:5)
+        at AccountPage.createSavingsAccount (C:\Users\Smartest\Clarien-Automation\tests\pages\CoreBanking\AccountPage.ts:4067:5)
+        at C:\Users\Smartest\Clarien-Automation\tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:54:7
+
+    attachment #1: CRM login complete - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\attachments\CRM-login-complete---screenshot-3c707ee9e2cee52c13cc60fba1164dca10538f58.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #3: Menu searched: HOAACSB - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\attachments\Menu-searched-HOAACSB---screenshot-cef13da15520478efdb2d8c07d35f300582ed926.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #5: Tab switched: General Details - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\attachments\Tab-switched-General-Details---screenshot-dbbb8caa0f16fe9ed0323714d21eb776f6a0e5c1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #6: Tab switched: Interest Details - screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\attachments\Tab-switched-Interest-Details---screenshot-37893debe4d9fd666468cb2c3402c5ddef2a8ccb.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #7: screenshot (image/png) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\test-failed-1.png
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #8: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-1.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #9: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-2.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #10: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-6.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #11: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-7.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #12: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #13: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-5.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #14: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-10.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #15: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-4.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #16: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-8.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #17: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-9.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    attachment #18: video (video/webm) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\video-3.webm
+    ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    Error Context: test-results\Finacle-savingsaccount-sav-9ba79-avings-account-SVSTF-BMD-1--chromium\error-context.md
+
+
+[1A[2K  1 failed
+    [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreation.spec.ts:35:7 ΓÇ║ HOAACSB - create savings account (SVSTF-BMD-1) 

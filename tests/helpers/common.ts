@@ -35,12 +35,17 @@ function parseApplicationDate(text: string): string | null {
   if (numericMatch) {
     return `${numericMatch[1]}-${numericMatch[2]}-${numericMatch[3]}`;
   }
+  // Pattern: dd/mm/yyyy displayed in Finacle UI
+  const slashMatch = text.match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/);
+  if (slashMatch) {
+    return `${slashMatch[1]}-${slashMatch[2]}-${slashMatch[3]}`;
+  }
   return null;
 }
 
 /**
  * Reads the application/business date displayed by Finacle and returns it as dd-mm-yyyy.
- * Falls back to the test machine's current date if the UI date cannot be read.
+ * Throws if the date cannot be determined, so tests never silently use the test machine's date.
  */
 export async function getApplicationDate(page: Page): Promise<string> {
   if (process.env.APPLICATION_DATE) {
@@ -52,20 +57,15 @@ export async function getApplicationDate(page: Page): Promise<string> {
     console.log(`Using applicationDate from data: ${dataApplicationDate}`);
     return dataApplicationDate;
   }
-  try {
-    for (const frame of page.frames()) {
-      const text = await frame.locator('body').innerText().catch(() => '');
-      const parsed = parseApplicationDate(text);
-      if (parsed) {
-        console.log(`Application date read from UI: ${parsed}`);
-        return parsed;
-      }
+  for (const frame of page.frames()) {
+    const text = await frame.locator('body').innerText().catch(() => '');
+    const parsed = parseApplicationDate(text);
+    if (parsed) {
+      console.log(`Application date read from UI: ${parsed}`);
+      return parsed;
     }
-  } catch (e) {
-    console.log(`Could not read application date from UI: ${e}`);
   }
-  console.log('Falling back to system date for application date');
-  return formatDDMMYYYY(new Date());
+  throw new Error('Could not determine Finacle application date from the UI. Expected format dd/mm/yyyy, dd-mm-yyyy or "1 October, 2026".');
 }
 
 /**

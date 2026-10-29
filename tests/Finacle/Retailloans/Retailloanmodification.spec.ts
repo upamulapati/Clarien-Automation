@@ -2,8 +2,11 @@ import { expect, Page, test } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { RETAIL_LOAN_MODIFY_DATA } from '../../config/excelTestData';
 import { CREDENTIALS } from '../../../data/credentials';
+import { getSharedValue } from '../../helpers/sharedState';
+
+const STEP = RETAIL_LOAN_MODIFY_DATA[0]?.data ?? {};
 
 // Retail loan modification (HACMLA) is performed by the maker user (same maker
 // who opened the loans in Retailloancreation.spec.ts).
@@ -11,11 +14,16 @@ const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // New value applied during modification - Loan Period (Months/Days).
-const NEW_LOAN_PERIOD_MONTHS = '24';
+const NEW_LOAN_PERIOD_MONTHS = STEP['New Loan Period (Months)'] ?? 24;
 
 // Loan accounts to modify. Set to the specific A/c ID(s) requested for this run.
+const LOAN_ACCOUNT_NUMBER = getSharedValue<string>(
+  (state) => (state as any).loanAccountNumber ?? (state as any).loanAccountId ?? Object.values((state as any).loanAccounts ?? {})[0]
+);
+if (!LOAN_ACCOUNT_NUMBER) throw new Error('No loan account found in shared state');
+
 const LOAN_ACCOUNTS: { scheme: string; accountNumber: string }[] = [
-  { scheme: 'MODIFIED', accountNumber: '3200000048' },
+  { scheme: (STEP['Scheme'] as string) || 'RetailLoan', accountNumber: LOAN_ACCOUNT_NUMBER },
 ];
 
 let homePage: HomePage;
@@ -130,7 +138,8 @@ async function modifyLoanAccount(
 
   // Step 2: Type menu option "HACMLA" in finacle.
   console.log('Searching for HACMLA...');
-  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.modifyAndVerify);
+  const menuOption = (STEP['menuOption'] as string) || 'HACMLA';
+  await loanPage.searchMenu(menuOption);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - M - Modify
@@ -180,7 +189,7 @@ async function modifyLoanAccount(
 
   const phoneNumberBeforeAddressChange = await getRelatedPartyFieldValue(page, 'Phone No.');
   const emailIdBeforeAddressChange = await getRelatedPartyFieldValue(page, 'Email ID');
-  await selectRelatedPartyAddressType(page, 'ACCT');
+  await selectRelatedPartyAddressType(page, STEP['Address Type']);
   await expect.poll(() => getRelatedPartyFieldValue(page, 'Phone No.')).toBe(phoneNumberBeforeAddressChange);
   await expect.poll(() => getRelatedPartyFieldValue(page, 'Email ID')).toBe(emailIdBeforeAddressChange);
   await test.info().attach('related-party-details', {
@@ -216,7 +225,7 @@ async function modifyLoanAccount(
   await loanPage.clickAccept();
 
   console.log('Reopening HACMLA in Inquiry mode...');
-  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.modifyAndVerify);
+  await loanPage.searchMenu(menuOption);
   await page.waitForTimeout(3000);
   await loanPage.selectFunction('Inquire');
   await loanPage.enterHacmAccountId(loanAccountNumber);

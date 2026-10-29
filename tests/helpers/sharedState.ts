@@ -19,6 +19,7 @@ export interface CifEntry {
 
 export interface SharedState {
   accountId?: string;
+  relatedPartyAddedForSavings?: boolean;
   cifId?: string;
   loanCifId?: string;
   loanAccountId?: string;
@@ -41,9 +42,12 @@ export interface SharedState {
     topUpDeposit?: string;
     topUpDepositPartial?: string;
   };
+  chargeoffLoanAccountId?: string;
+  payoffLoanAccountId?: string;
   loanAccountNumber?: string;
   savingsAccounts?: Record<string, string>;
   currentAccounts?: Record<string, string>;
+  loanAccounts?: Record<string, string>;
   modifiedSavingsAccountId?: string;
   demandDraftId?: string;
   demandDraftCancellationId?: string;

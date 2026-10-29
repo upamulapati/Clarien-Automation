@@ -401,7 +401,7 @@ export class RetailLoanDisbursementPage extends AccountPage {
     return value ?? null;
   }
 
-  async createDisbursement(data: RetailLoanDisbursementData): Promise<{ message: string | null; screenshot: Buffer }> {
+  async createDisbursement(data: RetailLoanDisbursementData): Promise<{ message: string | null; screenshot: Buffer; actualAmount: string | null }> {
     console.log(`Starting HLADISB disbursement creation for loan: ${data.loanAccountNumber}`);
 
     await this.selectCoreServer();
@@ -410,7 +410,16 @@ export class RetailLoanDisbursementPage extends AccountPage {
 
     const selectedFunction = data.functionOption ?? 'Disbursement';
     console.log(`Selecting ${selectedFunction} function...`);
-    await this.selectFunction(selectedFunction);
+    let functionSelected = await this.selectFunction(selectedFunction);
+    if (!functionSelected) {
+      console.log('Function dropdown not found, retrying menu search...');
+      await this.searchMenu('HLADISB');
+      await this.page.waitForTimeout(3000);
+      functionSelected = await this.selectFunction(selectedFunction);
+    }
+    if (!functionSelected) {
+      throw new Error(`Could not select '${selectedFunction}' function for HLADISB`);
+    }
     await this.page.waitForTimeout(2000);
 
     console.log('Entering loan account id...');
@@ -511,9 +520,15 @@ export class RetailLoanDisbursementPage extends AccountPage {
         }
       }
     }
+    let actualAmount = await this.getDisbursementAmount();
+    if (!actualAmount && disbursementAmount) {
+      actualAmount = disbursementAmount;
+      console.log(`Post-submit UI amount not found; using entered amount: ${actualAmount}`);
+    }
+    console.log(`Post-submit disbursed amount: ${actualAmount}`);
     const screenshot = await this.page.screenshot({ fullPage: true });
     console.log(`Disbursement creation message: ${message}`);
-    return { message, screenshot };
+    return { message, screenshot, actualAmount };
   }
 
   async verifyDisbursement(data: RetailLoanDisbursementData): Promise<{ message: string | null; screenshot: Buffer; transactionId: string | null; transactionDate: string | null }> {
@@ -547,6 +562,11 @@ export class RetailLoanDisbursementPage extends AccountPage {
       // Trigger the account-validation lookup.
       await this.enterHacmAccountId(data.loanAccountNumber);
     }
+
+    const valueDate = await getApplicationDate(this.page);
+    console.log(`Entering transaction value date if available: ${valueDate}`);
+    await this.fillByLabel('Transaction Value Date', valueDate);
+    await this.fillByLabel('Value Date', valueDate);
 
     console.log('Clicking Accept...');
     await this.clickAccept();
@@ -595,8 +615,10 @@ export class RetailLoanDisbursementPage extends AccountPage {
 
   private extractTransactionDate(text: string | null): string | null {
     if (!text) return null;
-    const match = text.match(/(?:Transaction\s*Date|Tran\s*Date|Txn\s*Date)\s*[:\s]*(\d{2}-\d{2}-\d{4})/i)
-      ?? text.match(/\b(\d{2}-\d{2}-\d{4})\b/);
-    return match ? match[1] : null;
+    const match = text.match(/(?:Transaction\s*Date|Tran\s*Date|Txn\s*Date)\s*[:\s]*(\d{2}[/-]\d{2}[/-]\d{4})/i)
+      ?? text.match(/\b(\d{2}[/-]\d{2}[/-]\d{4})\b/);
+    if (!match) return null;
+    const [dd, mm, yyyy] = match[1].split(/[/-]/);
+    return `${dd}-${mm}-${yyyy}`;
   }
 }

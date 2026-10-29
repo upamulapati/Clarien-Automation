@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data-Driven Test Automation Approach — Business Reference</title>
+  <style>
+    @page { margin: 2cm; size: A4; }
+    body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #222; }
+    h1 { font-size: 24pt; color: #1a3c6c; margin: 0 0 12pt; }
+    h2 { font-size: 16pt; color: #1a3c6c; margin-top: 18pt; border-bottom: 1pt solid #1a3c6c; padding-bottom: 4pt; page-break-after: avoid; }
+    h3 { font-size: 13pt; color: #2a4c7c; margin-top: 14pt; page-break-after: avoid; }
+    p { margin: 8pt 0; text-align: justify; }
+    ul, ol { margin: 6pt 0; padding-left: 20pt; }
+    li { margin: 4pt 0; }
+    table { width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt; page-break-inside: auto; }
+    tr { page-break-inside: avoid; }
+    th, td { border: 1pt solid #999; padding: 8pt; text-align: left; vertical-align: top; }
+    th { background: #1a3c6c; color: #fff; }
+    code { font-family: Consolas, monospace; font-size: 9.5pt; background: #f4f4f4; padding: 1pt 3pt; border-radius: 2pt; }
+    .title-page { text-align: center; padding-top: 120pt; page-break-after: always; }
+    .subtitle { font-size: 14pt; color: #555; margin-top: 12pt; }
+    .meta { margin-top: 60pt; font-size: 10pt; color: #555; }
+    .status-yes { color: #1a7a1a; font-weight: bold; }
+    .status-partial { color: #b87300; font-weight: bold; }
+    .status-no { color: #b00000; font-weight: bold; }
+    .highlight { background: #fff3cd; padding: 2pt 4pt; border-radius: 2pt; }
+    .footer-note { font-size: 9pt; color: #666; margin-top: 24pt; }
+    .section { page-break-inside: avoid; }
+  </style>
+</head>
+<body>
+
+<div class="title-page">
+  <h1>Data-Driven Test Automation Approach</h1>
+  <div class="subtitle">Business Reference Document</div>
+  <p class="meta">
+    Prepared for business stakeholders and project sponsors<br>
+    Date: 13 October 2026
+  </p>
+</div>
+
+<h2>1. Executive Summary</h2>
+<p>
+  The Clarien test automation repository is being moved from a <strong>hard-coded, script-centric model</strong> to an <strong>Excel-driven, menu-driven model</strong>. The goal is to let business testers and QA analysts configure test data and test flows from a familiar workbook rather than changing source code.
+</p>
+<p>
+  This document explains what the repository looked like before, what has been changed so far, the resulting benefits, the remaining limitations, and how five specific client requirements can be addressed. It is intended for business users and management, so technical detail is kept at a high level.
+</p>
+
+<h2>2. Previous State</h2>
+<p>Before the data-driven approach, the automation framework had the following characteristics:</p>
+<ul>
+  <li><strong>Test data was embedded in the test scripts.</strong> Account numbers, customer names, amounts, currency, and menu codes were written directly inside the TypeScript spec files.</li>
+  <li><strong>Execution order was hard-coded.</strong> The list of spec files that made up a business flow was stored in <code>tests/config/testOrder.json</code>. Adding, removing, or reordering a step required a code change.</li>
+  <li><strong>Each new scenario often required a new or copied spec.</strong> When a tester wanted a different account number or a different customer, the typical path was to edit the script or create a copy.</li>
+  <li><strong>Shared state existed in code but was not driven by a configurable runner.</strong> Values such as a new account ID or transaction ID could already be passed between specs through existing helpers, but the test data and flow ordering still had to be changed in source files.</li>
+  <li><strong>Running a flow required command-line knowledge.</strong> Business users could not easily pick a flow from a list and run it.</li>
+</ul>
+<p>
+  In short, the framework was powerful but not self-service for business testers. Small data changes still went through the development team.
+</p>
+
+<h2>3. What Has Been Modified</h2>
+<p>The following changes were introduced to build the Excel and menu-driven approach:</p>
+
+<h3>3.1 Single Excel Workbook</h3>
+<p>
+  A workbook called <code>data/test-data.xlsx</code> is now the main repository for test data and flow configuration. It contains several sheets:
+</p>
+<ul>
+  <li><code>FlowConfig</code> — the master sheet that lists which spec runs in which order, which data sheet to use, and whether the step is enabled.</li>
+  <li>Product sheets such as <code>TransferMaintenanceData</code>, <code>SavingsAccountData</code>, <code>CurrentAccountData</code>, <code>HPORDM</code>, <code>term_deposits</code>, and <code>topup_deposits</code>.</li>
+  <li>Customer sheets such as <code>CRM</code> and <code>CRM_Mod</code> for retail and corporate CIF creation and modification.</li>
+</ul>
+
+<h3>3.2 Flow Configuration Sheet</h3>
+<p>
+  The <code>FlowConfig</code> sheet controls the execution of end-to-end business flows. Each row contains:
+</p>
+<ul>
+  <li>Flow name</li>
+  <li>Step number</li>
+  <li>Spec file to execute</li>
+  <li>Data sheet to read</li>
+  <li>Data row / instance number</li>
+  <li>Customer type</li>
+  <li>Enabled flag</li>
+</ul>
+<p>
+  This makes it possible to build a new flow by combining existing spec files and choosing which Excel data row each step should consume.
+</p>
+
+<h3>3.3 Resolver Scripts</h3>
+<p>
+  Two resolver scripts were added to convert the Excel workbook into the JSON format the Playwright specs expect:
+</p>
+<ul>
+  <li><code>scripts/flowDataResolver.js</code> handles product data such as accounts, transfers, payment orders, and term deposits.</li>
+  <li><code>scripts/crmDataResolver.js</code> handles customer data, including flattening and inflating the nested CRM data structure.</li>
+</ul>
+<p>
+  These resolvers run just before the relevant spec, so the spec always receives clean, up-to-date data.
+</p>
+
+<h3>3.4 Ordered Runner and Menu</h3>
+<ul>
+  <li><code>scripts/runOrdered.js</code> reads <code>FlowConfig</code>, executes each step in order, and passes data between specs through a shared-state file.</li>
+  <li><code>scripts/runFlowMenu.js</code> provides an interactive menu that lists the available enabled flows. The user picks a number and the selected flow runs.</li>
+</ul>
+
+<h3>3.5 Shared State Between Specs</h3>
+<p>
+  A shared-state file allows values created in one step, such as a generated account ID or transaction ID, to be used by a later step. This is essential for end-to-end flows such as “create savings account → fund savings account → verify.”
+</p>
+
+<h2>4. Benefits of the Current Approach</h2>
+<table>
+  <tr><th>Benefit</th><th>What it means for the business</th></tr>
+  <tr><td>Business ownership of test data</td><td>QA and business testers can change values in Excel without raising a development ticket.</td></tr>
+  <tr><td>Configurable test flows</td><td>Steps can be enabled, disabled, or reordered from the <code>FlowConfig</code> sheet. New flows can be assembled from existing specs.</td></tr>
+  <tr><td>Faster scenario creation</td><td>Creating a new test case is often as simple as adding a new row in Excel and pointing a flow step at it.</td></tr>
+  <tr><td>Reusable automation assets</td><td>One spec file supports many scenarios because it reads data at runtime.</td></tr>
+  <tr><td>Menu-driven execution</td><td>Non-technical users can select and run a flow from a simple numbered menu.</td></tr>
+  <tr><td>Versionable test data</td><td>The Excel workbook can be stored, diffed, and reviewed like any other business document.</td></tr>
+</table>
+
+<h2>5. Limitations of the Current Approach</h2>
+<table>
+  <tr><th>Limitation</th><th>Business impact</th></tr>
+  <tr><td>Not fully no-code</td><td>Adding an arbitrary new Excel column does not automatically do anything. If the spec has not been told to read that column, a developer must still map it to a UI action.</td></tr>
+  <tr><td>One row = one scenario</td><td>Product sheets are flat. A single row represents one scenario. Multi-part cases, such as several debit and credit legs in one transaction, are not supported today.</td></tr>
+  <tr><td>CRM data is single-row per instance in the main workbook</td><td>Multiple addresses, contacts, currencies, or other-bank details cannot be added by simply inserting more rows in the main <code>test-data.xlsx</code> customer sheets today.</td></tr>
+  <tr><td>Excel formatting must be handled</td><td>Dates, blank cells, merged cells, and number formats can be misread by the automation unless the resolver is aware of them.</td></tr>
+  <tr><td>New screens and business logic need code</td><td>The framework is data-driven at the value level, not at the flow-construction level. New menus, new screens, and new validation rules still require page-object and spec development.</td></tr>
+</table>
+
+<h2>6. Client Requirements — Analysis and Recommendations</h2>
+<p>
+  The client has raised five specific needs. The table below gives a quick summary; detailed guidance for each follows.
+</p>
+
+<table>
+  <tr>
+    <th>Requirement</th>
+    <th>Feasible today?</th>
+    <th>How to handle</th>
+    <th>Effort / impact</th>
+  </tr>
+  <tr>
+    <td>1. Add all application fields to Excel so the user can supply any field</td>
+    <td class="status-partial">Partial</td>
+    <td>Known fields can be added. New fields need a developer to wire them to the page object.</td>
+    <td>Low per field, but ongoing unless a generic mapper is built.</td>
+  </tr>
+  <tr>
+    <td>2. Many-to-many transactions (n debit accounts × m credit accounts)</td>
+    <td class="status-no">No as-is</td>
+    <td>Restructure transfer data to support arrays of accounts/amounts and loop through them in the HTM page object.</td>
+    <td>Medium — changes data shape and transaction logic.</td>
+  </tr>
+  <tr>
+    <td>3. No generic <code>accountId</code> for deposit/withdrawal; use only the needed side</td>
+    <td class="status-partial">Partial</td>
+    <td>Update cash deposit/withdrawal specs to use <code>creditAccount</code> or <code>debitAccount</code> based on transaction type.</td>
+    <td>Small — mainly a data-naming and conditional logic change.</td>
+  </tr>
+  <tr>
+    <td>4. Multiple addresses, contacts, currencies, other-bank details via extra rows per instance</td>
+    <td class="status-partial">Partial</td>
+    <td>Extend the resolver to group rows that share the same <code>instance</code> number, similar to the existing retail Excel reader.</td>
+    <td>Medium — requires resolver and page-object updates.</td>
+  </tr>
+  <tr>
+    <td>5. Keep modification data on separate sheets</td>
+    <td class="status-yes">Yes</td>
+    <td>Continue using the dedicated <code>CRM_Mod</code> sheet. Do not merge with creation data.</td>
+    <td>None — recommended current practice.</td>
+  </tr>
+</table>
+
+<h3>6.1 Requirement 1 — Excel as a Mirror of Application Fields</h3>
+<p><strong>What the client wants:</strong> All fields that appear in the Finacle application should be available as columns in the Excel workbook. The user should be able to fill any field and the automation should use it.</p>
+<p><strong>Current situation:</strong> Columns can be added freely to the Excel sheets, but the Playwright spec or page object must already know to read that column. Adding a column that is not referenced by the code has no effect.</p>
+<p><strong>Can it be done?</strong> Partially. For the set of fields already used by the existing page objects, it is straightforward to move them into Excel. For brand new fields, the page object must be updated to enter the value on the correct screen.</p>
+<p><strong>How to handle:</strong></p>
+<ul>
+  <li>Prepare a consolidated field catalogue with the business and QA teams listing every field the automation should support.</li>
+  <li>Map each field to the screen, section, and action where it is entered.</li>
+  <li>Develop the page-object method once for each new field, then expose it through the Excel column.</li>
+</ul>
+<p><strong>Recommendation:</strong> Do not promise a fully generic “any field without code” model unless the team is willing to build a field-to-UI mapping engine. The practical, low-risk path is a governed field list that grows over time as new page objects are added.</p>
+
+<h3>6.2 Requirement 2 — Many-to-Many Transactions</h3>
+<p><strong>What the client wants:</strong> Under Transaction Maintenance, the client wants to post a single transaction with multiple debit accounts and multiple credit accounts. For example, three debit accounts and five credit accounts in one HTM transaction.</p>
+<p><strong>Current situation:</strong> The existing transfer specs post exactly one debit account and one credit account. The data row in the <code>TransferMaintenanceData</code> sheet contains one <code>debitAccount</code>, one <code>creditAccount</code>, and one <code>amount</code>.</p>
+<p><strong>Can it be done?</strong> Not with the current implementation, but it is technically feasible.</p>
+<p><strong>How to handle:</strong></p>
+<ul>
+  <li>Redesign the transfer data so it can hold a list of debit entries and a list of credit entries. This can be done by storing JSON arrays in one or more Excel cells, or by linking several rows to the same transaction instance.</li>
+  <li>Update the HTM page object to add each debit part transaction and each credit part transaction in a loop.</li>
+  <li>Ensure the amounts balance before posting, or capture and report the application error if they do not.</li>
+</ul>
+<p><strong>Recommendation:</strong> Treat this as a proper change request. It changes both the data model and the transaction logic. A design session should agree on how many legs are realistic and how imbalance is handled.</p>
+
+<h3>6.3 Requirement 3 — Remove Generic <code>accountId</code> for Deposits and Withdrawals</h3>
+<p><strong>What the client wants:</strong> For a cash deposit, only the credit account should be supplied. For a cash withdrawal, only the debit account should be supplied. The generic <code>accountId</code> column should not be required.</p>
+<p><strong>Current situation:</strong> The cash deposit spec currently reads an <code>accountId</code> and a <code>partTranType</code> to know whether it is a credit. It does not distinguish between a debit and a credit account by column name.</p>
+<p><strong>Can it be done?</strong> Yes, with a small change.</p>
+<p><strong>How to handle:</strong></p>
+<ul>
+  <li>Introduce two explicit columns: <code>creditAccount</code> for deposits and <code>debitAccount</code> for withdrawals.</li>
+  <li>Update the cash deposit/withdrawal specs to select the correct account based on the transaction type, menu code, or <code>partTranType</code>.</li>
+  <li>For backward compatibility, keep <code>accountId</code> as a fallback until the new columns are fully adopted.</li>
+</ul>
+<p><strong>Recommendation:</strong> This is a quick, low-risk improvement that makes the data more intuitive. It should be done together with the menu code that identifies the transaction as deposit or withdrawal.</p>
+
+<h3>6.4 Requirement 4 — Multiple Addresses, Contacts, Currencies, and Other-Bank Details</h3>
+<p><strong>What the client wants:</strong> The client wants to add more rows for the same customer instance and have the automation treat them as one record with multiple repeating sections, such as several addresses or several contacts.</p>
+<p><strong>Current situation:</strong> The main <code>test-data.xlsx</code> customer sheets expect one row per instance. The repository already contains an Excel reader in <code>tests/config/excelReader.ts</code> that supports multi-row grouping for another workbook, but that logic is not applied to the main customer resolver today.</p>
+<p><strong>Can it be done?</strong> Not out of the box, but the building blocks exist.</p>
+<p><strong>How to handle:</strong></p>
+<ul>
+  <li>Extend <code>scripts/crmDataResolver.js</code> to read all rows with the same <code>instance</code> number and group repeatable sections into arrays.</li>
+  <li>Update the page objects that enter addresses, contacts, currencies, and other-bank details so they can loop through the arrays and add each entry.</li>
+  <li>Decide whether the main workbook is the right place for this, or whether the retail data should continue to live in a separate workbook as it does today.</li>
+</ul>
+<p><strong>Recommendation:</strong> This is a medium-sized change. It should be planned carefully because it affects data shape, resolver logic, and screen interaction. A prototype for one repeatable section, such as contact details, is a good first step.</p>
+
+<h3>6.5 Requirement 5 — Separate Sheets for Creation and Modification Data</h3>
+<p><strong>What the client wants:</strong> The client wants confirmation that maintaining separate sheets for creation and modification data is the right approach, rather than combining everything into one sheet.</p>
+<p><strong>Current situation:</strong> The workbook already uses a <code>CRM</code> sheet for creation and a <code>CRM_Mod</code> sheet for modification.</p>
+<p><strong>Can it be done?</strong> Yes, and it is already the current design.</p>
+<p><strong>How to handle:</strong></p>
+<ul>
+  <li>Continue with two dedicated sheets.</li>
+  <li>Reserve the creation sheet for fields that are present at the time the record is created.</li>
+  <li>Reserve the modification sheet for update-specific fields such as CIF ID, new values, and change reason.</li>
+</ul>
+<p><strong>Recommendation:</strong> Keep the separation. A single combined sheet would force every row to contain both creation and modification columns, creating sparse data, more errors, and harder maintenance. The current two-sheet model is the cleaner, safer choice.</p>
+
+<h2>7. Summary and Next Steps</h2>
+<p>
+  The data-driven approach already delivers significant value: test data is centralised, flows are configurable, and non-technical users can run flows from a menu. The remaining client requirements are all addressable, but they vary in effort and risk.
+</p>
+
+<table>
+  <tr><th>Priority</th><th>Action</th><th>Rationale</th></tr>
+  <tr><td>1</td><td>Adopt <code>creditAccount</code> / <code>debitAccount</code> for cash deposits and withdrawals</td><td>Quick win; improves data clarity</td></tr>
+  <tr><td>2</td><td>Maintain separate creation and modification sheets</td><td>No change needed; continue current practice</td></tr>
+  <tr><td>3</td><td>Build a governed field catalogue for Requirement 1</td><td>Prevents scope creep and sets realistic expectations</td></tr>
+  <tr><td>4</td><td>Prototype multi-row support for one repeatable CRM section</td><td>Reduces risk before full Requirement 4 delivery</td></tr>
+  <tr><td>5</td><td>Design many-to-many transaction data shape and page-object flow</td><td>Largest change; needs a design session</td></tr>
+</table>
+
+<p>
+  By sequencing the work this way, the quick improvements can be delivered first while the more complex features are designed with the right level of input from business and QA.
+</p>
+
+<p class="footer-note">
+  This document is based on the current state of the repository and the data-driven approach as implemented in <code>data/test-data.xlsx</code>, <code>scripts/runOrdered.js</code>, <code>scripts/flowDataResolver.js</code>, <code>scripts/crmDataResolver.js</code>, and the associated Playwright specs.
+</p>
+
+</body>
+</html>

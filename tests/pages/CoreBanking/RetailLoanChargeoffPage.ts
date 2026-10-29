@@ -3,6 +3,9 @@ import { AccountPage } from './AccountPage';
 
 export interface RetailLoanChargeoffData {
   loanAccountNumber: string;
+  chargeoffMode?: string;
+  reasonCode?: string;
+  reasonDescription?: string;
 }
 
 export class RetailLoanChargeoffPage extends AccountPage {
@@ -18,9 +21,14 @@ export class RetailLoanChargeoffPage extends AccountPage {
     await this.searchMenu('HCOLA');
     await this.page.waitForTimeout(3000);
 
-    console.log('Selecting function: Chargeoff');
-    await this.selectFunction('Chargeoff');
-    await this.page.waitForTimeout(1000);
+    console.log('Selecting HCOLA function: C - Charge Off');
+    const chargeoffSelected = await this.selectChargeoffFunction();
+    if (!chargeoffSelected) {
+      const finwFrame = this.getFinwFrame();
+      const options = await finwFrame.locator('select').first().locator('option').allTextContents().catch(() => []);
+      throw new Error(`HCOLA Charge Off (C) function could not be selected. Available function options: ${JSON.stringify(options)}`);
+    }
+    console.log('HCOLA Charge Off (C) function selected successfully');
 
     console.log(`Entering loan account id: ${data.loanAccountNumber}`);
     const accountFilled = await this.fillByLabel('A/c Id', data.loanAccountNumber);
@@ -32,11 +40,11 @@ export class RetailLoanChargeoffPage extends AccountPage {
     await this.page.waitForTimeout(3000);
 
     console.log('Selecting chargeoff mode: Full');
-    await this.selectChargeoffMode('Full');
+    await this.selectChargeoffMode(data.chargeoffMode ?? 'Full');
     await this.page.waitForTimeout(1000);
 
     console.log('Selecting reason code: Others / 999');
-    await this.selectReasonCode('999', 'Others');
+    await this.selectReasonCode(data.reasonCode ?? '999', data.reasonDescription ?? 'Others');
     await this.page.waitForTimeout(1000);
 
     console.log('Clicking Go to fetch chargeoff details...');
@@ -292,5 +300,46 @@ export class RetailLoanChargeoffPage extends AccountPage {
       code,
       'Reason Code'
     );
+  }
+
+  private async selectChargeoffFunction(): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const deadline = Date.now() + 15000;
+
+    while (Date.now() < deadline) {
+      const selects = finwFrame.locator('select');
+      const count = await selects.count();
+
+      for (let i = 0; i < count; i++) {
+        const dropdown = selects.nth(i);
+        const options = await dropdown.locator('option').allTextContents().catch(() => []);
+        const match = options.find((o) =>
+          /^\s*C\s*[-–]\s*Charge\s*Off?\b/i.test(o) ||
+          /^\s*C\s*[-–]\s*Chargeoff\b/i.test(o) ||
+          /\bCharge\s*Off\b/i.test(o)
+        );
+
+        if (match) {
+          await dropdown.waitFor({ state: 'visible', timeout: 10000 });
+          if (!(await dropdown.isEnabled().catch(() => false))) {
+            await this.page.waitForTimeout(500);
+            continue;
+          }
+          const code = match.split(/[-–]/)[0].trim();
+          try {
+            await dropdown.selectOption(code);
+          } catch {
+            await dropdown.selectOption({ label: match });
+          }
+          console.log(`Selected HCOLA Charge Off function: '${match}' (code: ${code})`);
+          return true;
+        }
+      }
+
+      await this.page.waitForTimeout(500);
+    }
+
+    console.log('HCOLA Charge Off (C) function option not found within timeout');
+    return false;
   }
 }

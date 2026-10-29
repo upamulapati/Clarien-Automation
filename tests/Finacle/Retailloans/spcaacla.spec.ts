@@ -1,8 +1,14 @@
 import { test, expect } from '@playwright/test';
+import { getSharedValue } from '../../helpers/sharedState';
 import { ServicePackPage } from '../../pages/servicepackpage';
+import { RETAIL_LOAN_DATA } from '../../config/excelTestData';
 
 // Loan account used for the SPCAACLA close-and-verify scenario.
-const LOAN_ACCOUNT_NUMBER = '3200000052';
+const STEP = RETAIL_LOAN_DATA[0]?.data ?? {};
+const LOAN_KEY = STEP.sharedKey ?? 'payoffLoanAccountId';
+const LOAN_ACCOUNT_NUMBER = getSharedValue<string>((state) => (state as any)[String(LOAN_KEY)] as string);
+if (!LOAN_ACCOUNT_NUMBER) throw new Error(`Payoff loan account for shared key '${LOAN_KEY}' must be available from the creation spec`);
+console.log(`[SharedState] Using loan account (key: ${LOAN_KEY}):`, LOAN_ACCOUNT_NUMBER);
 
 test('SPCAACLA - CAACLA retail loan close and verify', async ({ page }) => {
   test.setTimeout(300000);

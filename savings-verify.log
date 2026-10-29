@@ -1,0 +1,202 @@
+﻿
+Running 2 tests using 1 worker
+
+[1A[2K[1/2] [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreationverify.spec.ts:23:9 ΓÇ║ Savings Account Verification ΓÇ║ HOAACVSB - verify savings account (SVREG-BMD-0)
+[1A[2K[chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreationverify.spec.ts:23:9 ΓÇ║ Savings Account Verification ΓÇ║ HOAACVSB - verify savings account (SVREG-BMD-0)
+[Verify] Using Account ID: 7500001639 for SVREG-BMD-0
+
+[1A[2KΓÜá Already logged in detected (errorPage.jsp), resetting session...
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: Do you want to reset the previous session and re-login ?
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KΓ£ô appSelect visible after session reset
+
+[1A[2K≡ƒô╕ Evidence captured: CRM login complete (session reset)
+
+[1A[2KSelecting Core Server...
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KSearching for HOAACVSB (verification screen)...
+
+[1A[2KOption containing 'HOAACVSB' not found in loginFrame, trying FINW frame
+
+[1A[2KOption containing 'HOAACVSB' not found in any frame
+
+[1A[2KFINW frame is available
+
+[1A[2K≡ƒô╕ Evidence captured: Menu searched: HOAACVSB
+
+[1A[2KSelecting verify function option...
+
+[1A[2KSelected verify function option
+
+[1A[2KEntering temporary account ID...
+
+[1A[2KEntered temporary account ID: 7500001639
+
+[1A[2KClicking Go button...
+
+[1A[2KNavigating through all tabs...
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KClicked tab by id fallback: generaldetails2
+
+[1A[2KClicked tab a #12: "interest details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Interest Details
+
+[1A[2KClicked tab by id fallback: sbschemedetails
+
+[1A[2KClicked tab a #13: "scheme details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Scheme Details
+
+[1A[2KClicked tab by id fallback: relatedpartydetails
+
+[1A[2KClicked tab a #15: "related party details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Related Party
+
+[1A[2KClicked tab by id fallback: miscodes
+
+[1A[2KClicked tab a #10: "mis codes"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: MIS Codes
+
+[1A[2KVisiting Document details tab...
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched by id: documentdetails
+
+[1A[2KNavigated to tab #documentdetails
+
+[1A[2KClicking Submit button...
+
+[1A[2KClicked Submit button in frame 'FINW'
+
+[1A[2K≡ƒô╕ Evidence captured: Submit button clicked
+
+[1A[2KVerification status message: Error DetailsMIS CodesPayment SystemOther DetailsFFD ParametersDocument DetailsAccount Limits
+
+[1A[2KExtracted Account ID from body text: 7500001639
+
+[1A[2KVerified Account ID: 7500001639
+
+[1A[2KLogging out...
+
+[1A[2K≡ƒô╕ Evidence captured: Pre-logout state
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2K[2/2] [chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreationverify.spec.ts:23:9 ΓÇ║ Savings Account Verification ΓÇ║ HOAACVSB - verify savings account (SVSTF-BMD-1)
+[1A[2K[chromium] ΓÇ║ tests\Finacle\savingsaccount\savingsaccountcreationverify.spec.ts:23:9 ΓÇ║ Savings Account Verification ΓÇ║ HOAACVSB - verify savings account (SVSTF-BMD-1)
+[Verify] Using Account ID: 7500001640 for SVSTF-BMD-1
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KDialog message: You will be redirected to your default application now.
+
+[1A[2KΓ£ô appSelect visible after login
+
+[1A[2K≡ƒô╕ Evidence captured: CRM login complete
+
+[1A[2KSelecting Core Server...
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KDialog message: Are you sure you want to change the solution?
+
+[1A[2KSearching for HOAACVSB (verification screen)...
+
+[1A[2KOption containing 'HOAACVSB' not found in loginFrame, trying FINW frame
+
+[1A[2KOption containing 'HOAACVSB' not found in any frame
+
+[1A[2KFINW frame is available
+
+[1A[2K≡ƒô╕ Evidence captured: Menu searched: HOAACVSB
+
+[1A[2KSelecting verify function option...
+
+[1A[2KSelected verify function option
+
+[1A[2KEntering temporary account ID...
+
+[1A[2KEntered temporary account ID: 7500001640
+
+[1A[2KClicking Go button...
+
+[1A[2KNavigating through all tabs...
+
+[1A[2KClicked tab by id fallback: generaldetails
+
+[1A[2KClicked tab a #11: "general details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: General Details
+
+[1A[2KClicked tab by id fallback: generaldetails2
+
+[1A[2KClicked tab a #12: "interest details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Interest Details
+
+[1A[2KClicked tab by id fallback: sbschemedetails
+
+[1A[2KClicked tab a #13: "scheme details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Scheme Details
+
+[1A[2KClicked tab by id fallback: relatedpartydetails
+
+[1A[2KClicked tab a #15: "related party details"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: Related Party
+
+[1A[2KClicked tab by id fallback: miscodes
+
+[1A[2KClicked tab a #10: "mis codes"
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched: MIS Codes
+
+[1A[2KVisiting Document details tab...
+
+[1A[2K≡ƒô╕ Evidence captured: Tab switched by id: documentdetails
+
+[1A[2KNavigated to tab #documentdetails
+
+[1A[2KClicking Submit button...
+
+[1A[2KClicked Submit button in frame 'FINW'
+
+[1A[2K≡ƒô╕ Evidence captured: Submit button clicked
+
+[1A[2KVerification status message: Error DetailsMIS CodesPayment SystemOther DetailsFFD ParametersDocument DetailsAccount Limits
+
+[1A[2KExtracted Account ID from body text: 7500001640
+
+[1A[2KVerified Account ID: 7500001640
+
+[1A[2KLogging out...
+
+[1A[2K≡ƒô╕ Evidence captured: Pre-logout state
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2KDialog message: Are you sure you want to logout?
+
+[1A[2K  2 passed (4.6m)
