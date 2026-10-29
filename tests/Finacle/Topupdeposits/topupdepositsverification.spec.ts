@@ -3,7 +3,7 @@ import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getTopUpDepositAccounts } from '../../helpers/sharedState';
+import { getTopUpDepositAccounts, readSharedState } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
@@ -11,7 +11,8 @@ const PASSWORD = CREDENTIALS.secondCredentials.password;
 function getGeneratedAccount(): string {
   const accounts = getTopUpDepositAccounts();
   const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  return firstAccountId || TOP_UP_DEPOSIT_DATA.verificationAccountId || '9300000131';
+  const state = readSharedState();
+  return firstAccountId || state.accountId || TOP_UP_DEPOSIT_DATA.verificationAccountId || '9300000131';
 }
 
 const ACCOUNT_ID = getGeneratedAccount();

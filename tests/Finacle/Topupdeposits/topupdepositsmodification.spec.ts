@@ -2,10 +2,20 @@ import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
+import { getTopUpDepositAccounts, readSharedState } from '../../helpers/sharedState';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
+
+function getCreatedAccount(): string {
+  const accounts = getTopUpDepositAccounts();
+  const firstAccountId = Object.values(accounts)[0] as string | undefined;
+  const state = readSharedState();
+  return firstAccountId || state.accountId || TOP_UP_DEPOSIT_DATA.modificationAccountId || '9300000123';
+}
+
+const MOD_ACCOUNT_NUMBER = getCreatedAccount();
 
 test(TOP_UP_DEPOSIT_DATA.modificationTestLabel as string, async ({ page }) => {
   test.setTimeout(180000);
@@ -14,7 +24,7 @@ test(TOP_UP_DEPOSIT_DATA.modificationTestLabel as string, async ({ page }) => {
 
   const statusMessage = await tdPage.modifyTermDeposit(
     TOP_UP_DEPOSIT_DATA.screens.modify,
-    TOP_UP_DEPOSIT_DATA.modificationAccountId,
+    MOD_ACCOUNT_NUMBER,
     TOP_UP_DEPOSIT_DATA.newDepositPeriodMonths,
     TOP_UP_DEPOSIT_DATA.newDepositPeriodDays
   );

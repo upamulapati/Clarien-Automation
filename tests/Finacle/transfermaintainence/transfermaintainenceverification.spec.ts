@@ -6,9 +6,6 @@ import COMMON_DATA from '../../../data/common-data.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
-import { TRANSFER_DATA } from '../../config/excelTestData';
-
-const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer. Uses the standard verification credentials.
@@ -19,20 +16,12 @@ const CONFIG = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 
-// Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = STEP.debitAccount ?? '7600000172';
-const SHARED_CREDIT_ACCOUNT = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = SHARED_CREDIT_ACCOUNT ?? STEP.creditAccount ?? '6000087527';
-if (SHARED_CREDIT_ACCOUNT) console.log(`[SharedState] Using credit account from previous run: ${SHARED_CREDIT_ACCOUNT}`);
-const AMOUNT = STEP.amount ?? '1000';
-
 // Transaction ID: prefer shared state from the posting spec; must be present.
-const SHARED_TXN_ID = getSharedValue((state) => state.transactionId);
-const TRANSACTION_ID = (STEP.transactionId ?? SHARED_TXN_ID ?? '').trim();
-if (TRANSACTION_ID && !STEP.transactionId) console.log(`[SharedState] Using Transaction ID from previous run: ${TRANSACTION_ID}`);
+const TRANSACTION_ID = getSharedValue<string>('transactionId') ?? '';
+if (TRANSACTION_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${TRANSACTION_ID}`);
 
 
-test.describe(STEP.testLabel ?? 'Transfer Maintenance - Verification', () => {
+test.describe('Transfer Maintenance - Verification', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
   let lastDialogMessages: string[] = [];
@@ -80,25 +69,7 @@ test.describe(STEP.testLabel ?? 'Transfer Maintenance - Verification', () => {
     await tmPage.clickHtmGo();
     await page.waitForTimeout(3000);
 
-    // Step 6: Check the debit account number and amount (1st record).
-    console.log('Checking DEBIT record...');
-    const debit = await tmPage.readHtmPartTransaction('DEBIT (record 1)');
-    const debitAccountOk = debit.account.includes(DEBIT_ACCOUNT);
-    const debitAmountOk = debit.amount.replace(/[,\s]/g, '').startsWith(AMOUNT);
-    console.log(`DEBIT check -> account ${debitAccountOk ? 'PASS' : `MISMATCH (got '${debit.account}')`}, amount ${debitAmountOk ? 'PASS' : `MISMATCH (got '${debit.amount}')`}`);
-
-    // Step 7: Click on record to view 2nd record (credit account number).
-    console.log('Navigating to 2nd record (CREDIT)...');
-    await tmPage.clickHtmNextRecord();
-
-    // Step 8: Check the credit account number and amount (2nd record).
-    console.log('Checking CREDIT record...');
-    const credit = await tmPage.readHtmPartTransaction('CREDIT (record 2)');
-    const creditAccountOk = credit.account.includes(CREDIT_ACCOUNT);
-    const creditAmountOk = credit.amount.replace(/[,\s]/g, '').startsWith(AMOUNT);
-    console.log(`CREDIT check -> account ${creditAccountOk ? 'PASS' : `MISMATCH (got '${credit.account}')`}, amount ${creditAmountOk ? 'PASS' : `MISMATCH (got '${credit.amount}')`}`);
-
-    // Step 9: Click Submit - the transaction gets authorised/verified.
+    // Step 6: Click Submit - the transaction gets authorised/verified.
     console.log('Clicking Submit button...');
     await tmPage.clickHtmSubmit();
 

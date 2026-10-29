@@ -62,6 +62,10 @@ test.describe('Savings Account Verification', () => {
       console.log('Navigating through all tabs...');
       await savingsAccountPage.navigateAllTabs();
 
+      console.log('Capturing General Details field values for verification...');
+      await savingsAccountPage.visitGeneralDetailsTab();
+      await savingsAccountPage.captureSavingsFieldDiagnostics();
+
       // Document tab is mandatory on the verification screen, else Submit
       // is blocked with "Document Details: Visit document information."
       console.log('Visiting Document details tab...');
@@ -81,6 +85,7 @@ test.describe('Savings Account Verification', () => {
       // After verification the permanent account number is shown; persist it.
       const verifiedAccountId = await savingsAccountPage.getAccountId();
       console.log('Verified Account ID:', verifiedAccountId);
+      expect(verifiedAccountId, `Verified account ID for ${scenario.name} must be a real account number`).toMatch(/^\d{6,}$/);
       if (verifiedAccountId) {
         const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
         updateSharedState((state) => {

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { TopUpDepositPage } from '../../pages/CoreBanking/TopUpDepositPage';
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { saveTopUpDepositAccounts } from '../../helpers/sharedState';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 
@@ -19,6 +20,7 @@ test('HOAACTU - create top-up deposit accounts for all scheme codes', async ({ p
   );
   console.log('====================================');
   console.log('Generated top-up deposit accounts:', generatedAccounts);
+  saveTopUpDepositAccounts(generatedAccounts);
   expect(generatedAccounts).toBeTruthy();
   console.log('====================================');
   if (!page.isClosed()) {

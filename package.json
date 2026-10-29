@@ -8,6 +8,7 @@
     "@types/node": "^25.6.0",
     "allure-commandline": "^2.30.0",
     "allure-playwright": "^3.10.0",
+    "exceljs": "^4.4.0",
     "typescript": "^5.9.3"
   },
   "scripts": {

@@ -11,7 +11,7 @@ import { TRANSFER_DATA } from '../../config/excelTestData';
 const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 const MAKER = CREDENTIALS.verifierCredentials;
 const VERIFIER = CREDENTIALS.credentials;
-const ACCOUNT_ID = STEP.accountId ?? '6000197087';
+const ACCOUNT_ID = STEP.debitAccount ?? STEP.accountId ?? '6000197087';
 const CURRENCY = STEP.currency ?? 'BMD';
 const AMOUNT = STEP.amount ?? '100.00';
 const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'C/NP - Cash/Normal Payment';

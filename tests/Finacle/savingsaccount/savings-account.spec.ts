@@ -65,12 +65,12 @@ test('save savings bank account with SVREG scheme', async () => {
 });
 
 // Test 3: Data-driven - each JSON entry as a separate test case
-for (const testCase of TEST_DATA as any[]) {
-  const testLabel = testCase.description 
+(TEST_DATA as any[]).forEach((testCase, idx) => {
+  const testLabel = testCase.description
     ? `${testCase.description} ${testCase.currency}`
     : `${testCase.schemeCode} ${testCase.currency}`;
 
-  test(`save savings bank account - data driven ${testLabel}`, async ({ page }) => {
+  test(`save savings bank account - data driven ${testLabel} [${idx}]`, async ({ page }) => {
     // Re-navigate to HOAACSB for each test
     await savingsAccountPage.selectCoreServer();
     await savingsAccountPage.searchMenu(COMMON_DATA.savingsAccount.screens.create);
@@ -139,7 +139,7 @@ for (const testCase of TEST_DATA as any[]) {
     console.log('Logging out...');
     await homePage.logout();
   });
-}
+});
 
 // Test 4: Account Verification Workflow
 test('SB verification', async ({ page }) => {

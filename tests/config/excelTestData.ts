@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as path from 'path';
 
 import COMMON_DATA from '../../data/common-data.json';
 import DEFAULT_SAVINGS_DATA from '../../data/savings-account-test-data.json';
@@ -59,6 +60,22 @@ function normalizeRows(list: any[], defaults: Record<string, any> = {}): any[] {
   return list.map((row) => normalizeRow(row, defaults));
 }
 
+const xlsx = require('xlsx');
+
+function loadSavingsFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['SavingsAccountData'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
 function loadSection(
   envVar: string | undefined,
   fallback: any,
@@ -72,9 +89,10 @@ function loadSection(
   return normalizeRows(extractList(fallback, sheetKey), defaults);
 }
 
+const savingsExcel = loadSavingsFromExcel();
 const savingsFallback = process.env.CIF_MOD_FLOW
   ? FLOW7_DATA.savingsAccounts
-  : DEFAULT_SAVINGS_DATA;
+  : (savingsExcel ?? DEFAULT_SAVINGS_DATA);
 
 const currentModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
   .filter((a: any) => a.type === 'current');

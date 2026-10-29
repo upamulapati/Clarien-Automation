@@ -381,6 +381,10 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     console.log('\n========== CONTACT TAB ==========');
     const page = this.workingPage;
     const ctd = CRM_TEST_DATA.corporate.endToEnd.contactData;
+    const addresses = ctd.addresses || [ctd];
+    const phones = ctd.phones || [ctd];
+    const emails = ctd.emails || [ctd];
+
     await this.refreshAccountFrame('before Contact tab');
     await this.closeUnexpectedPopups(page);
     for (const f of page.frames()) {
@@ -394,7 +398,8 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     for (const f of page.frames()) { const t = f.getByText('Address', { exact: true }).first(); if (await t.isVisible({ timeout: 3000 }).catch(() => false)) { await t.click(); console.log('\u2713 Clicked Address sub-tab'); break; } }
     await page.waitForTimeout(this.timeouts.medium);
     await this.closeUnexpectedPopups(page);
-    await this.addAddress(ctd);
+
+    for (const addr of addresses) { await this.addAddress(addr); }
 
     // Phone and E-Mail
     for (const f of page.frames()) { const t = f.getByText('Phone and E-Mail', { exact: false }).first(); if (await t.isVisible({ timeout: 5000 }).catch(() => false)) { await t.click(); console.log('\u2713 Clicked Phone and E-Mail sub-tab'); break; } }
@@ -403,24 +408,30 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     let phoneFrame: any = null;
     for (const f of page.frames()) { if (await f.evaluate(() => Array.from(document.querySelectorAll('input, select')).some(el => (el as HTMLInputElement).name.toLowerCase().includes('phone') || (el as HTMLInputElement).name.toLowerCase().includes('country_code'))).catch(() => false)) { phoneFrame = f; break; } }
     if (phoneFrame) {
-      await phoneFrame.evaluate((data: any) => {
-        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { const n = (i as HTMLInputElement).name.toLowerCase(); if (n.includes(p) && !n.includes('email')) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
-        const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
-        setS('contact_no_type', 'COMMUNICATION'); setS('phone_type', 'COMMUNICATION');
-        setF('country_code', data.countryCode); setF('cntry_code', data.countryCode); setF('area_code', data.areaCode);
-        setF('phone_number', data.phoneNumber); setF('phone_no', data.phoneNumber); setF('contact_no', data.phoneNumber);
-      }, ctd).catch(() => {});
-      console.log('\u2713 Phone fields populated');
+      for (const phone of phones) {
+        await phoneFrame.evaluate((data: any) => {
+          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+          const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { const n = (i as HTMLInputElement).name.toLowerCase(); if (n.includes(p) && !n.includes('email')) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
+          const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
+          const pType = (data.phoneType || 'COMMUNICATION').toUpperCase();
+          setS('contact_no_type', pType); setS('phone_type', pType);
+          setF('country_code', data.countryCode); setF('cntry_code', data.countryCode); setF('area_code', data.areaCode);
+          setF('phone_number', data.phoneNumber); setF('phone_no', data.phoneNumber); setF('contact_no', data.phoneNumber);
+        }, phone).catch(() => {});
+        console.log('\u2713 Phone fields populated');
+      }
 
-      await phoneFrame.evaluate((data: any) => {
-        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p)) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
-        const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
-        setS('email_type', 'COMMUNICATION'); setS('emailid_type', 'COMMUNICATION');
-        setF('email_id', data.email); setF('email_address', data.email); setF('emailid', data.email);
-      }, ctd).catch(() => {});
-      console.log('\u2713 Email fields populated');
+      for (const email of emails) {
+        await phoneFrame.evaluate((data: any) => {
+          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+          const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p)) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
+          const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
+          const eType = (data.emailType || 'COMMUNICATION').toUpperCase();
+          setS('email_type', eType); setS('emailid_type', eType);
+          setF('email_id', data.email); setF('email_address', data.email); setF('emailid', data.email);
+        }, email).catch(() => {});
+        console.log('\u2713 Email fields populated');
+      }
     }
     for (const f of page.frames()) { const sb = f.locator('input[value="Save"]').first(); if (await sb.isVisible({ timeout: 3000 }).catch(() => false)) { await sb.click(); console.log('\u2713 Saved Contact tab'); break; } }
     await page.waitForTimeout(this.timeouts.medium);
@@ -470,10 +481,21 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.country', 'Bermuda', 'Country');
           await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.city', ctd.city, 'City');
           await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.state', ctd.state, 'State');
-          for (const pf of addrPopup.frames()) { for (const bv of ['Save', 'OK', 'Submit']) { const btn = pf.locator(`input[value="${bv}"]`).first(); if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) { await btn.click(); console.log('  \u2713 Clicked ' + bv + ' in address popup'); break; } } }
+          const findAddrSave = async (t: number) => {
+            for (const pf of addrPopup.frames()) {
+              for (const bv of ['Save', 'OK', 'Submit']) {
+                const b = pf.locator(`input[value="${bv}"]`).first();
+                if (await b.isVisible({ timeout: t }).catch(() => false)) return b;
+              }
+            }
+            return null;
+          };
+          let addrSaveBtn = await findAddrSave(3000);
+          if (addrSaveBtn) { await addrSaveBtn.click(); console.log('  \u2713 Clicked Save in address popup'); }
           await addrPopup.waitForTimeout(3000).catch(() => {});
           if (!addrPopup.isClosed()) {
-            for (const pf of addrPopup.frames()) { for (const bv of ['Save', 'OK', 'Submit']) { const btn = pf.locator(`input[value="${bv}"]`).first(); if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { await btn.click(); break; } } }
+            addrSaveBtn = await findAddrSave(2000);
+            if (addrSaveBtn) await addrSaveBtn.click();
           }
           if (!addrPopup.isClosed()) await addrPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!addrPopup.isClosed()) addrPopup.close().catch(() => {}); });
           addrAdded = true; console.log('\u2713 Address added');
@@ -490,7 +512,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
   async fillIdDocumentTab(): Promise<void> {
     console.log('\n========== ID DOCUMENT TAB ==========');
     const page = this.workingPage;
-    const vdd = CRM_TEST_DATA.corporate.endToEnd.validDocData;
+    const docs = CRM_TEST_DATA.corporate.endToEnd.documents || [CRM_TEST_DATA.corporate.endToEnd.validDocData];
     await this.closeUnexpectedPopups(page);
     let idDocTabClicked = false;
     for (const tabText of ['Identification Document Details', 'Document', 'ID Document', 'Identification']) {
@@ -520,6 +542,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     await page.waitForTimeout(this.timeouts.medium);
     await this.closeUnexpectedPopups(page);
 
+    for (const docData of docs) {
     let idAdded = false;
     for (const f of page.frames()) {
       let addBtn = f.locator('input[name="AddIdentificationDetails"]').first();
@@ -539,7 +562,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           const docTypeSelect = idt.locator('select[name="EntityDocumentBO.DocTypeCode"]');
           if (await docTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
             const docTypeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocTypeCode"]');
-            const targetType = docTypeOptions.find((o: string) => o === vdd.documentType) || docTypeOptions.find((o: string) => o.includes(vdd.documentType)) || docTypeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
+            const targetType = docTypeOptions.find((o: string) => o === docData.documentType) || docTypeOptions.find((o: string) => o.includes(docData.documentType)) || docTypeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
             if (targetType) {
               await docTypeSelect.selectOption({ label: targetType });
               console.log('  \u2713 Set Document Type: ' + targetType);
@@ -555,7 +578,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           const docCodeSelect = idt.locator('select[name="EntityDocumentBO.DocCode"]');
           if (await docCodeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
             const docCodeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocCode"]');
-            const targetCode = docCodeOptions.find((o: string) => o.includes(vdd.documentCode)) || docCodeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
+            const targetCode = docCodeOptions.find((o: string) => o.includes(docData.documentCode)) || docCodeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
             if (targetCode) {
               await docCodeSelect.selectOption({ label: targetCode });
               console.log('  \u2713 Set Document Code: ' + targetCode);
@@ -565,8 +588,8 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           // Reference Number
           const refInput = idt.locator('input[name="EntityDocumentBO.ReferenceNumber"]');
           if (await refInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await refInput.fill(vdd.uniqueId);
-            console.log('  \u2713 Set Reference Number: ' + vdd.uniqueId);
+            await refInput.fill(docData.uniqueId);
+            console.log('  \u2713 Set Reference Number: ' + docData.uniqueId);
           }
           // Issue/Expiry dates
           await idt.evaluate((data: { issueDate: string; expiryDate: string }) => {
@@ -581,12 +604,22 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
                 if (el) { el.removeAttribute('readonly'); el.value = data.expiryDate; fire(el); }
               });
             }
-          }, { issueDate: vdd.issueDate, expiryDate: vdd.expiryDate }).catch(() => {});
+          }, { issueDate: docData.issueDate, expiryDate: docData.expiryDate }).catch(() => {});
           // LOV for Place of Issue and Country of Issue
-          await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.PlaceOfIssue', vdd.placeOfIssue, 'Place of Issue');
+          await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.PlaceOfIssue', docData.placeOfIssue, 'Place of Issue');
           await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.CountryOfIssue', 'Bermuda', 'Country of Issue');
           // Save
-          for (const pf of idPopup.frames()) { for (const bv of ['Save', 'OK', 'Submit']) { const btn = pf.locator(`input[value="${bv}"]`).first(); if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) { await btn.click(); break; } } }
+          const findIdSave = async (t: number) => {
+            for (const pf of idPopup.frames()) {
+              for (const bv of ['Save', 'OK', 'Submit']) {
+                const b = pf.locator(`input[value="${bv}"]`).first();
+                if (await b.isVisible({ timeout: t }).catch(() => false)) return b;
+              }
+            }
+            return null;
+          };
+          const idDocSaveBtn = await findIdSave(3000);
+          if (idDocSaveBtn) { await idDocSaveBtn.click(); console.log('  \u2713 Clicked Save in ID Document popup'); }
           if (!idPopup.isClosed()) await idPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!idPopup.isClosed()) idPopup.close().catch(() => {}); });
           idAdded = true; console.log('\u2713 ID Document added');
         }
@@ -594,6 +627,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       }
     }
     if (!idAdded) console.log('\u26a0 Could not add ID Document');
+    }
     await page.waitForTimeout(this.timeouts.short3);
     await this.closeUnexpectedPopups(page);
   }
@@ -656,6 +690,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     console.log('\n========== CURRENCY TAB ==========');
     const page = this.workingPage;
     const vcd = CRM_TEST_DATA.corporate.endToEnd.validCcyData;
+    const ccyList = CRM_TEST_DATA.corporate.endToEnd.currencies || [vcd];
     await this.closeUnexpectedPopups(page);
     for (const f of page.frames()) {
       const t = f.getByText('Currency', { exact: false }).first();
@@ -666,60 +701,78 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     }
     await page.waitForTimeout(this.timeouts.medium);
     await this.closeUnexpectedPopups(page);
+
     let ccyAdded = false;
-    for (const f of page.frames()) {
-      let addBtn = f.locator('input[name="Add Currency"]').first();
-      let btnVisible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
-      if (!btnVisible) { addBtn = f.locator('input[value="Add CCY"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (!btnVisible) { addBtn = f.locator('input[value="Add Currency Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (!btnVisible) { addBtn = f.locator('input[value="Add"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (btnVisible) {
-        const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
-        await addBtn.click();
-        const ccyPopup = await pp;
-        if (ccyPopup) {
-          ccyPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
-          await this.waitForPopupReady(ccyPopup, 'Currency popup');
-          const ct = await this.findPopupTarget(ccyPopup);
-          await ct.evaluate((data: any) => {
-            const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-            const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p) && (i as HTMLInputElement).type !== 'hidden') { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
-            setF('credit_discount', data.creditDiscountPcnt); setF('debit_discount', data.debitDiscountPcnt);
-            setF('withholding_tax_pcnt', data.withholdingTaxPcnt); setF('withholdingtax', data.withholdingTaxPcnt);
-            setF('withholding_tax_floor', data.withholdingTaxFloorLimit); setF('floor_limit', data.withholdingTaxFloorLimit);
-            setF('preferential_expiry', data.preferentialExpiryDate); setF('expiry_date', data.preferentialExpiryDate);
-          }, vcd).catch(() => {});
-          // CCY LOV
-          for (const pf of ccyPopup.frames()) {
-            const lb = pf.locator('input[name*="btn"][name*="CCY"], input[name*="btn"][name*="ccy"]').first();
-            if (await lb.isVisible({ timeout: 3000 }).catch(() => false)) {
-              const lpp = ccyPopup.context().waitForEvent('page', { timeout: this.timeouts.long15 }).catch(() => null);
-              await lb.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).catch(() => {});
-              const lovP = await lpp;
-              if (lovP && !lovP.isClosed()) {
-                await this.waitForPopupReady(lovP, 'CCY LOV');
-                for (const lf of lovP.frames()) {
-                  const si = lf.locator('input[type="text"]').first();
-                  if (await si.isVisible({ timeout: 3000 }).catch(() => false)) {
-                    await si.fill(vcd.ccy).catch(() => {});
-                    const sub = lf.locator('input[value="Submit"]').first();
-                    if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) await sub.click().catch(() => {});
-                    await lovP.waitForTimeout(this.timeouts.short).catch(() => {});
-                    try { await Promise.race([lf.getByText(vcd.ccy, { exact: true }).first().dblclick({ timeout: this.timeouts.medium }), lovP.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-                    break;
+    for (const ccyData of ccyList) {
+      let ccyAddedThis = false;
+      for (const f of page.frames()) {
+        let addBtn = f.locator('input[name="Add Currency"]').first();
+        let btnVisible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
+        if (!btnVisible) { addBtn = f.locator('input[value="Add CCY"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
+        if (!btnVisible) { addBtn = f.locator('input[value="Add Currency Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
+        if (!btnVisible) { addBtn = f.locator('input[value="Add"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
+        if (btnVisible) {
+          const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
+          await addBtn.click();
+          const ccyPopup = await pp;
+          if (ccyPopup) {
+            ccyPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
+            await this.waitForPopupReady(ccyPopup, 'Currency popup');
+            const ct = await this.findPopupTarget(ccyPopup);
+            await ct.evaluate((data: any) => {
+              const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+              const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p) && (i as HTMLInputElement).type !== 'hidden') { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
+              setF('credit_discount', data.creditDiscountPcnt); setF('debit_discount', data.debitDiscountPcnt);
+              setF('withholding_tax_pcnt', data.withholdingTaxPcnt); setF('withholdingtax', data.withholdingTaxPcnt);
+              setF('withholding_tax_floor', data.withholdingTaxFloorLimit); setF('floor_limit', data.withholdingTaxFloorLimit);
+              setF('preferential_expiry', data.preferentialExpiryDate); setF('expiry_date', data.preferentialExpiryDate);
+            }, ccyData).catch(() => {});
+            // CCY LOV
+            for (const pf of ccyPopup.frames()) {
+              const lb = pf.locator('input[name*="btn"][name*="CCY"], input[name*="btn"][name*="ccy"]').first();
+              if (await lb.isVisible({ timeout: 3000 }).catch(() => false)) {
+                const lpp = ccyPopup.context().waitForEvent('page', { timeout: this.timeouts.long15 }).catch(() => null);
+                await lb.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).catch(() => {});
+                const lovP = await lpp;
+                if (lovP && !lovP.isClosed()) {
+                  await this.waitForPopupReady(lovP, 'CCY LOV');
+                  for (const lf of lovP.frames()) {
+                    const si = lf.locator('input[type="text"]').first();
+                    if (await si.isVisible({ timeout: 3000 }).catch(() => false)) {
+                      await si.fill(ccyData.ccy).catch(() => {});
+                      const sub = lf.locator('input[value="Submit"]').first();
+                      if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) await sub.click().catch(() => {});
+                      await lovP.waitForTimeout(this.timeouts.short).catch(() => {});
+                      try { await Promise.race([lf.getByText(ccyData.ccy, { exact: true }).first().dblclick({ timeout: this.timeouts.medium }), lovP.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
+                      break;
+                    }
                   }
+                  if (!lovP.isClosed()) await lovP.close().catch(() => {});
                 }
-                if (!lovP.isClosed()) await lovP.close().catch(() => {});
+                break;
               }
-              break;
             }
+            const findCcySave = async (t: number) => {
+              for (const pf of ccyPopup.frames()) {
+                for (const bv of ['Save', 'OK', 'Submit']) {
+                  const b = pf.locator(`input[value="${bv}"]`).first();
+                  if (await b.isVisible({ timeout: t }).catch(() => false)) return b;
+                }
+              }
+              return null;
+            };
+            const ccyDlgHandler = async (d: Dialog) => { await d.accept().catch(() => {}); };
+            ccyPopup.on('dialog', ccyDlgHandler);
+            const ccySaveBtn = await findCcySave(3000);
+            if (ccySaveBtn) { await ccySaveBtn.click(); console.log('\u2713 Clicked Save in Currency popup'); }
+            if (!ccyPopup.isClosed()) await ccyPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!ccyPopup.isClosed()) ccyPopup.close().catch(() => {}); });
+            ccyPopup.removeListener('dialog', ccyDlgHandler);
+            ccyAdded = true; ccyAddedThis = true; console.log('\u2713 Currency added');
           }
-          for (const pf of ccyPopup.frames()) { for (const bv of ['Save', 'OK', 'Submit']) { const btn = pf.locator(`input[value="${bv}"]`).first(); if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) { await btn.click(); break; } } }
-          if (!ccyPopup.isClosed()) await ccyPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!ccyPopup.isClosed()) ccyPopup.close().catch(() => {}); });
-          ccyAdded = true; console.log('\u2713 Currency added');
+          break;
         }
-        break;
       }
+      if (!ccyAddedThis) { console.log('\u26a0 Could not add Currency'); break; }
     }
     if (!ccyAdded) console.log('\u26a0 Could not add Currency');
     await page.waitForTimeout(this.timeouts.short3);

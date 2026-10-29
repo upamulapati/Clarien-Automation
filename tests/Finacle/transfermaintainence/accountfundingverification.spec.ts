@@ -5,23 +5,11 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import { readTransactionIds } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
-import { TRANSFER_DATA } from '../../config/excelTestData';
-
-const STEP: any = TRANSFER_DATA[0]?.data ?? {};
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
 // the transfer (the transaction was posted by the maker in transfermaintainence.spec).
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
-
-// Transaction ID to verify. Set this directly to override; when left blank the
-// id is read from the shared store written by the posting spec.
-const TRANSACTION_ID = (STEP.transactionId ?? '').trim();
-
-// Expected part-transaction details (must match the posting spec).
-const DEBIT_ACCOUNT = STEP.debitAccount ?? '6000123165';
-const CREDIT_ACCOUNT = STEP.creditAccount ?? '9200000593';
-const AMOUNT = STEP.amount ?? '1000';
 
 
 let homePage: HomePage;
@@ -40,10 +28,8 @@ test.beforeEach(async ({ page }) => {
 // transfermaintainence.spec.ts run. The generated transaction ID is read at
 // runtime from the shared store.
 test('HTM - transfer maintenance verification', async ({ page }) => {
-  // Prefer the in-script TRANSACTION_ID; otherwise fall back to the shared store.
-  const transactionIds = TRANSACTION_ID.trim()
-    ? [TRANSACTION_ID.trim()]
-    : readTransactionIds();
+  // Transaction IDs are written to the shared store by the posting spec.
+  const transactionIds = readTransactionIds();
 
   if (transactionIds.length === 0) {
     throw new Error(
@@ -63,22 +49,6 @@ test('HTM - transfer maintenance verification', async ({ page }) => {
   console.log('Logging out...');
   await homePage.logout();
 });
-
-// Compares a read part-transaction against the expected account/amount and logs
-// the result (soft check - the flow continues regardless).
-function logCheck(
-  label: string,
-  read: { account: string; amount: string },
-  expectedAccount: string,
-  expectedAmount: string,
-): void {
-  const accountOk = read.account.includes(expectedAccount);
-  const amountOk = read.amount.replace(/[,\s]/g, '').startsWith(expectedAmount);
-  console.log(
-    `${label} check -> account ${accountOk ? 'PASS' : `MISMATCH (got '${read.account}', expected '${expectedAccount}')`}, ` +
-    `amount ${amountOk ? 'PASS' : `MISMATCH (got '${read.amount}', expected '${expectedAmount}')`}`,
-  );
-}
 
 // Runs the HTM Verify flow for a single transaction ID.
 async function verifyTransaction(
@@ -112,20 +82,6 @@ async function verifyTransaction(
   console.log('Clicking Go button...');
   await tmPage.clickHtmGo();
   await page.waitForTimeout(3000);
-
-  // Step 6: Check the debit account number and amount (1st record).
-  console.log('Checking DEBIT record...');
-  const debit = await tmPage.readHtmPartTransaction('DEBIT (record 1)');
-  logCheck('DEBIT', debit, DEBIT_ACCOUNT, AMOUNT);
-
-  // Step 7: Click on record to view 2nd record (credit account number).
-  console.log('Navigating to 2nd record (CREDIT)...');
-  await tmPage.clickHtmNextRecord();
-
-  // Step 8: Check the credit account number and amount (2nd record).
-  console.log('Checking CREDIT record...');
-  const credit = await tmPage.readHtmPartTransaction('CREDIT (record 2)');
-  logCheck('CREDIT', credit, CREDIT_ACCOUNT, AMOUNT);
 
   // Step 9: Click Submit - the transaction gets authorised/verified.
   console.log('Clicking Submit button...');

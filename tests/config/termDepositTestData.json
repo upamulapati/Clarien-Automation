@@ -1,0 +1,69 @@
+{
+  "termDepositTestData": [
+    {
+      "instance": 1,
+      "flowName": "termdeposit",
+      "name": "Term Deposit - consolidated data",
+      "sharedKey": "termDepositData",
+      "menuOption": "HOAACTD",
+      "function": "Add",
+      "enabled": "Y",
+      "cifCode": "0005000599",
+      "ccy": "BMD",
+      "solId": "100",
+      "glSubHeadCode": "40300",
+      "depositAmount": "1000",
+      "depositPeriodMonths": "12",
+      "repaymentAccountId": "7710003367",
+      "operativeSbAccount": "",
+      "modeOfOperation": "016",
+      "dispatchMode": "post",
+      "schemeCodes": ["TDGNH"],
+      "depositAmountOverrides": {
+        "TDSPI": "10",
+        "TDSWH": "10",
+        "TDSWM": "10",
+        "TDSWQ": "10",
+        "TDSWZ": "10"
+      },
+      "screens": {
+        "create": "HOAACTD",
+        "modify": "HOAACMTD",
+        "verify": "HOAACVTD",
+        "inquiry": "HACMTD",
+        "partialClosure": "HCAACTD",
+        "partialClosureVerify": "HCAACVTD"
+      },
+      "modificationAccountId": "9200000614",
+      "verificationAccountId": "9200000634",
+      "newDepositPeriodMonths": "24",
+      "newDepositPeriodDays": "0",
+      "partialClosureScreenCode": "HCAACTD",
+      "partialClosureFunctionOption": "Z-close",
+      "partialClosureWithdrawalAmount": "500",
+      "partialClosureVerificationScreenCode": "HCAACVTD",
+      "partialClosureVerificationFunctionOption": "V-Verify",
+      "creditFrozenClosureAccountId": "9200000641",
+      "renewalAccountId": "9200000604",
+      "renewalScreenCode": "HTDREN",
+      "renewalVerificationAccountId": "9200000670",
+      "renewalDetails": {
+        "renewalPeriodMonths": "",
+        "renewalPeriodDays": "",
+        "printRenewalConfirmation": ""
+      },
+      "spflowAccountId": "9200000658",
+      "spflowInterestOutflowStartDate": "30-08-2026",
+      "spflowModifyScreen": "HOAACMTD",
+      "spflowVerifyScreen": "HOAACVTD",
+      "spflowInquiryScreen": "HACMTD",
+      "htditciScreenCode": "HTDITCI",
+      "relatedPartyAccountId": "9200000618",
+      "relatedPartyRelationType": "Joint Holder",
+      "relatedPartyRelationCode": "999",
+      "relatedPartyCifCode": "4100058390",
+      "testLabel": "HOAACTD - create term deposit accounts for all schemes",
+      "relatedPartyTestLabel": "HOAACMTD - add related party details to term deposit account"
+    }
+  ]
+}

@@ -16,13 +16,7 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const SOL_ID = STEP.solId ?? '100';
 const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'T/CI';
 
-// Part transaction details. Prefer the account created by an upstream flow;
-// otherwise use the credit account supplied from Excel.
-const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
-const DEBIT_ACCOUNT = STEP.debitAccount ?? '7600000172';
-const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? STEP.creditAccount ?? '6000087527';
-const AMOUNT = STEP.amount ?? '1000';
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
+// Pre/post HACLINQ checks and HTM posting use the resolved part transactions (debits/credits).
 
 let homePage: HomePage;
 let tmPage: AccountPage;
@@ -45,23 +39,17 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
 
   // Step 2: Type menu option "HTM" in finacle.
   // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
-  console.log('Pre-HTM HACLINQ: capturing DEBIT account...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const preDebitFrame = page.frame({ name: 'FINW' });
-  if (!preDebitFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ debit');
-  const preDebitBody = await preDebitFrame.locator('body').innerText();
-  expect(preDebitBody, `Pre-HTM HACLINQ debit account ${DEBIT_ACCOUNT} not loaded`).toContain(DEBIT_ACCOUNT);
-
-  console.log('Pre-HTM HACLINQ: capturing CREDIT account...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const preCreditFrame = page.frame({ name: 'FINW' });
-  if (!preCreditFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ credit');
-  const preCreditBody = await preCreditFrame.locator('body').innerText();
-  expect(preCreditBody, `Pre-HTM HACLINQ credit account ${CREDIT_ACCOUNT} not loaded`).toContain(CREDIT_ACCOUNT);
+  const preHtmAccounts = Array.from(new Set(tmPage.getHtmPartTransactions(STEP).map(e => e.accountId)));
+  for (const accountId of preHtmAccounts) {
+    console.log(`Pre-HTM HACLINQ: capturing account ${accountId}...`);
+    await tmPage.searchAccountInquiry('HACLINQ');
+    await tmPage.enterHaclinqAccountId(accountId);
+    await tmPage.clickHaclinqGo();
+    const preHtmFrame = page.frame({ name: 'FINW' });
+    if (!preHtmFrame) throw new Error(`FINW frame not found for pre-HTM HACLINQ account ${accountId}`);
+    const preHtmBody = await preHtmFrame.locator('body').innerText();
+    expect(preHtmBody, `Pre-HTM HACLINQ account ${accountId} not loaded`).toContain(accountId);
+  }
 
   console.log('Searching for HTM...');
   await tmPage.searchTransactionManagement('HTM');
@@ -85,68 +73,37 @@ test('HTM - transfer maintenance (post by part transaction)', async ({ page }) =
   // Diagnostic: surface the part-transaction field ids on the posting screen.
   await tmPage.logVisibleFields('HTM posting screen');
 
-  // Step 4-7: Debit part transaction - select Debit, enter debit a/c id and
-  // amount (Tab to commit the amount), then Add.
-  console.log('Adding DEBIT part transaction...');
-  await tmPage.selectHtmDebit();
-  await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
-  await tmPage.enterHtmAmount(AMOUNT, true);
-  await tmPage.clickHtmAdd();
+  // Step 4: Enter all part transactions (one-to-one, one-to-many or many-to-many)
+  // and post. The helper clicks Add for all entries except the last one, which
+  // Post commits.
+  console.log('Entering part transactions and posting...');
+  const transactionId = await tmPage.postHtmTransfer(STEP);
 
-  // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
-  // and amount (Tab to commit the amount). The debit was Added as record 1; the
-  // credit stays as the current entry which Post posts, so we do NOT click Add
-  // again (that would leave an extra blank record).
-  console.log('Entering CREDIT part transaction...');
-  await tmPage.selectHtmCredit();
-  await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
-  await tmPage.enterHtmAmount(AMOUNT, true);
-
-  // With the debit added (record 1) and the credit entered, scroll down and
-  // click Post to post both part transactions.
-  console.log('Clicking Post button...');
-  await tmPage.clickHtmPost();
-
-  // Surface any validation/exception message from the post.
-  const hasError = await tmPage.checkHtmError();
-  expect(hasError).toBe(false);
-  if (hasError) {
-    await tmPage.logScreenMessages();
-  }
-
-  // Capture the generated transaction ID (e.g. "CB5") from the
-  // "Posted successfully" confirmation screen for verification.
-  const transactionId = await tmPage.getHtmTransactionId();
+  // Step 5: Transaction must have generated an ID.
   expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
   console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
 
   // Persist the transaction ID so the verification spec can authorise it.
   if (transactionId) {
     recordTransactionId(transactionId);
-    updateSharedState((state) => { state.transactionId = transactionId; });
+    updateSharedState((state: any) => { state.transactionId = transactionId; });
   }
 
   // Acknowledge the confirmation screen.
   console.log('Clicking OK on confirmation...');
   await tmPage.clickHtmOk();
 
-  // Verification - HACLINQ (Account Ledger Inquiry): confirm the debit account
-  // was debited and the credit account was credited for the posted amount.
-  console.log('Verifying DEBIT account in HACLINQ...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const debitOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Debit', transactionId ?? undefined);
-  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
-  console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
-
-  console.log('Verifying CREDIT account in HACLINQ...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const creditOk = await tmPage.verifyHaclinqDebitCredit(AMOUNT, 'Credit', transactionId ?? undefined);
-  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${AMOUNT} with transaction ${transactionId}`).toBe(true);
-  console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
+  // Verification - HACLINQ (Account Ledger Inquiry): confirm each part transaction.
+  const entries = tmPage.getHtmPartTransactions(STEP);
+  for (const entry of entries) {
+    console.log(`Verifying ${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} account in HACLINQ...`);
+    await tmPage.searchAccountInquiry('HACLINQ');
+    await tmPage.enterHaclinqAccountId(entry.accountId);
+    await tmPage.clickHaclinqGo();
+    const ok = await tmPage.verifyHaclinqDebitCredit(entry.amount, entry.type === 'D' ? 'Debit' : 'Credit', transactionId ?? undefined);
+    expect(ok, `Post-HTM HACLINQ ${entry.type} verification failed for ${entry.accountId}. Expected amount ${entry.amount} with transaction ${transactionId}`).toBe(true);
+    console.log(`${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} verification (${entry.accountId}): ${ok ? 'PASS' : 'NOT CONFIRMED'}`);
+  }
 
   // Logout.
   console.log('Logging out...');

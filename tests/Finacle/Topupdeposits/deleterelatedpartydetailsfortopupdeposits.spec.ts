@@ -2,11 +2,19 @@ import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
+import { getTopUpDepositAccounts, readSharedState } from '../../helpers/sharedState';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
-const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.relatedPartyAccountId || '9200000632';
+function getCreatedAccount(): string {
+  const accounts = getTopUpDepositAccounts();
+  const firstAccountId = Object.values(accounts)[0] as string | undefined;
+  const state = readSharedState();
+  return firstAccountId || state.accountId || TOP_UP_DEPOSIT_DATA.relatedPartyAccountId || '9200000632';
+}
+
+const ACCOUNT_ID = getCreatedAccount();
 
 test('HOAACMTU - delete related party details from top-up deposit account', async ({ page }) => {
   test.setTimeout(180000);

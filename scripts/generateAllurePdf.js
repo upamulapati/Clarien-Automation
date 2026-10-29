@@ -2,11 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-const RESULTS_DIR = path.resolve('reports', 'allureReports');
+const RESULTS_DIR = process.env.ALLURE_RESULTS_DIR ? path.resolve(process.env.ALLURE_RESULTS_DIR) : path.resolve('reports', 'allureReports');
 const OUTPUT_DIR = path.resolve('reports');
-const OUTPUT_HTML = path.join(OUTPUT_DIR, 'allure-pdf.html');
-const OUTPUT_PDF = path.join(OUTPUT_DIR, 'currentaccountcreationandmodification report.pdf');
-const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
+const OUTPUT_HTML = process.env.OUTPUT_HTML ? path.resolve(process.env.OUTPUT_HTML) : path.join(OUTPUT_DIR, 'allure-pdf.html');
+const OUTPUT_PDF = process.env.OUTPUT_PDF ? path.resolve(process.env.OUTPUT_PDF) : path.join(OUTPUT_DIR, 'currentaccountcreationandmodification report.pdf');
+const LAST_RUN_FILE = process.env.LAST_RUN_FILE ? path.resolve(process.env.LAST_RUN_FILE) : path.join(OUTPUT_DIR, '.last-run.json');
 const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 
 const SP_REGEX = /\[SP#\d+\]/i;

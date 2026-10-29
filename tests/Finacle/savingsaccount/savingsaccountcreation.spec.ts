@@ -14,19 +14,54 @@ if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHA
 const CONFIG = getPrimaryConfig({ username: 'finacletest5' });
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
-const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
-  const entryData = entry.data ?? entry;
-  const scheme = entryData.schemeCode ?? 'random';
+const groups: { main: any; related: any[] }[] = [];
+let activeGroup: { main: any; related: any[] } | null = null;
+
+for (const entry of SAVINGS_DATA) {
+  const row = entry.data ?? entry;
+  const sheet = String(row.Sheet || '').trim().toLowerCase();
+  const isRelated = sheet === 'related party' || sheet === 'relatedparty';
+
+  if (isRelated) {
+    if (activeGroup) {
+      activeGroup.related.push(row);
+    } else {
+      console.warn('Related Party row before first Main row, skipping:', row);
+    }
+    continue;
+  }
+
+  activeGroup = { main: row, related: [] };
+  groups.push(activeGroup);
+}
+
+const SCENARIOS: any[] = [];
+let idx = 0;
+for (const group of groups) {
+  const mainData = group.main;
+  const pricingCode = String(mainData.externalSystemPricingFor || '').split('-')[0].trim().toUpperCase();
+  const isPricingNone = pricingCode === 'N';
   const data = {
     ...DEFAULT_CUSTOMER,
-    ...entryData,
-    functionOption: entryData.functionOption ?? DEFAULT_CUSTOMER.functionOption ?? 'O',
-    ccy: entryData.currency ?? DEFAULT_CUSTOMER.ccy,
-    cifCode: entryData.cifCode ?? entryData.cif ?? SHARED_CIF ?? DEFAULT_CUSTOMER.cifCode,
-    dispatchMode: entryData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode ?? 'post',
+    ...mainData,
+    functionOption: mainData.functionOption ?? DEFAULT_CUSTOMER.functionOption ?? 'O',
+    ccy: mainData.currency ?? DEFAULT_CUSTOMER.ccy,
+    cifCode: mainData.cifCode ?? mainData.cif ?? SHARED_CIF ?? DEFAULT_CUSTOMER.cifCode,
+    dispatchMode: mainData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode ?? 'post',
+    externalSystemPricing: mainData.externalSystemPricing ?? (mainData.externalSystemPricingFor ? 'Y' : DEFAULT_CUSTOMER.externalSystemPricing ?? 'N'),
+    relationshipPricingId: isPricingNone ? undefined : (mainData.relationshipPricingId ?? DEFAULT_CUSTOMER.relationshipPricingId),
+    pricingEffectiveDate: isPricingNone ? undefined : (mainData.pricingEffectiveDate ?? DEFAULT_CUSTOMER.pricingEffectiveDate),
+    pricingReviewDate: isPricingNone ? undefined : (mainData.pricingReviewDate ?? DEFAULT_CUSTOMER.pricingReviewDate),
   };
-  return { name: `${scheme}-${data.ccy}-${index}`, data };
-});
+  const scheme = mainData.schemeCode ?? 'random';
+  SCENARIOS.push({
+    name: `${scheme}-${data.ccy}-${idx}`,
+    data,
+    relatedParties: group.related,
+    instance: mainData.instance,
+  });
+  idx++;
+}
 
 //tags:- end2end,regression,sanity
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -51,7 +86,7 @@ for (const scenario of SCENARIOS) {
       await savingsAccountPage.searchMenu('HOAACSB');
 
       console.log(`Creating savings account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
-      await savingsAccountPage.createSavingsAccount(scenario.data as any);
+      await savingsAccountPage.createSavingsAccount(scenario.data as any, { skipGeneralDetailsRevisit: true, relatedParties: scenario.relatedParties });
 
       const result = await savingsAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);

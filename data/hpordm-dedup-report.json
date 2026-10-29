@@ -1,0 +1,121 @@
+{
+  "originalCount": 40,
+  "removedCount": 19,
+  "remainingCount": 21,
+  "duplicates": [
+    {
+      "removedName": "Flow 1 - ACH BMD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc4",
+      "keptName": "Flow 1 - BMD TO BMD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc8",
+      "keptName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc6"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD to USD to HSBC Bank",
+      "removedSharedKey": "paymentOrderIdAchFcc1",
+      "keptName": "Flow 1 - ACH BMD to USD to HSBC Bank",
+      "keptSharedKey": "paymentOrderIdAchFcc1"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO BMD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc2",
+      "keptName": "Flow 1 - ACH BMD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc2"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO USD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc3",
+      "keptName": "Flow 1 - ACH BMD TO USD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc3"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc4",
+      "keptName": "Flow 1 - BMD TO BMD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO USD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc5",
+      "keptName": "Flow 1 - ACH USD TO USD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc5"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc6",
+      "keptName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc6"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO USD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc7",
+      "keptName": "Flow 1 - ACH USD TO USD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc7"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc8",
+      "keptName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc6"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD to USD to HSBC Bank",
+      "removedSharedKey": "paymentOrderIdAchFcc1",
+      "keptName": "Flow 1 - ACH BMD to USD to HSBC Bank",
+      "keptSharedKey": "paymentOrderIdAchFcc1"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO BMD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc2",
+      "keptName": "Flow 1 - ACH BMD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc2"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO USD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc3",
+      "keptName": "Flow 1 - ACH BMD TO USD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc3"
+    },
+    {
+      "removedName": "Flow 1 - ACH BMD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc4",
+      "keptName": "Flow 1 - BMD TO BMD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO USD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc5",
+      "keptName": "Flow 1 - ACH USD TO USD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc5"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "removedSharedKey": "paymentOrderIdAchFcc6",
+      "keptName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc6"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO USD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc7",
+      "keptName": "Flow 1 - ACH USD TO USD to Butterfield bank",
+      "keptSharedKey": "paymentOrderIdAchFcc7"
+    },
+    {
+      "removedName": "Flow 1 - ACH USD TO BMD to Butterfield bank",
+      "removedSharedKey": "paymentOrderIdAchFcc8",
+      "keptName": "Flow 1 - ACH USD TO BMD to HSBC bank",
+      "keptSharedKey": "paymentOrderIdAchFcc6"
+    },
+    {
+      "removedName": "Flow 6 - SWIFT USD to USD",
+      "removedSharedKey": "paymentOrderIdSwiftUsd",
+      "keptName": "Flow 9 - SWIFT USD to USD",
+      "keptSharedKey": "paymentOrderIdSwiftUsd"
+    }
+  ]
+}

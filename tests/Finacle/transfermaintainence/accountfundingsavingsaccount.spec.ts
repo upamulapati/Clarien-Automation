@@ -4,7 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { recordTransactionId, getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { recordTransactionId, updateSharedState } from '../../helpers/sharedState';
 import { captureEvidence } from '../../helpers/evidence';
 import { getPrimaryConfig } from '../../config/crmTestData';
 import COMMON_DATA from '../../../data/common-data.json';
@@ -12,26 +12,27 @@ import { TRANSFER_DATA } from '../../config/excelTestData';
 
 const CONFIG = getPrimaryConfig();
 
-const SAVINGS_FUNDING_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'savingsFunding')?.data ?? TRANSFER_DATA[0]?.data ?? {};
+const BASE_STEP: any = TRANSFER_DATA[0]?.data ?? {};
+const SAVINGS_FUNDING_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'savingsFunding')?.data ?? BASE_STEP;
 const SERIAL_245_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'serial245')?.data ?? {};
 const SERIAL_261_ROW: any = TRANSFER_DATA.find((r: any) => r.data?.testType === 'serial261')?.data ?? {};
 
 const USERNAME = COMMON_DATA.credentials.username;
 const PASSWORD = COMMON_DATA.credentials.password;
 
-// Transfer header inputs.
-const SOL_ID = SAVINGS_FUNDING_ROW.solId ?? DEFAULT_CUSTOMER.solId;
+// Transfer header inputs (fallback to the first resolved row).
+const SOL_ID = SAVINGS_FUNDING_ROW.solId ?? DEFAULT_CUSTOMER.solId ?? '100';
 const TRAN_TYPE_SUBTYPE = SAVINGS_FUNDING_ROW.tranTypeSubType ?? 'T/CI';
 
-// Part transaction details.
-const DEBIT_ACCOUNT = SAVINGS_FUNDING_ROW.debitAccount ?? '6000123165';
-// Credit the dynamically created savings account if available.
-const SHARED_ACCOUNT_ID = getSharedValue<string>('accountId');
-const CREDIT_ACCOUNT = SHARED_ACCOUNT_ID ?? SAVINGS_FUNDING_ROW.creditAccount ?? '4600000119';
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Account ID as credit account: ${SHARED_ACCOUNT_ID}`);
+// Legacy scalar details for the Serial 245/261 tests.
+const SAVINGS_FUNDING_DEBIT = SAVINGS_FUNDING_ROW.debits?.[0];
+const SAVINGS_FUNDING_CREDIT = SAVINGS_FUNDING_DEBIT?.credits?.[0];
+const DEBIT_ACCOUNT = SAVINGS_FUNDING_DEBIT?.accountId ?? '';
+const CREDIT_ACCOUNT = SAVINGS_FUNDING_CREDIT?.accountId ?? '';
+const INITIAL_FUNDING_AMOUNT = SAVINGS_FUNDING_DEBIT?.amount ?? '100';
 
-const INITIAL_FUNDING_AMOUNT = SAVINGS_FUNDING_ROW.amount ?? '1000';
-const SECONDARY_AMOUNT = SAVINGS_FUNDING_ROW.secondaryAmount ?? '100';
+const SERIAL_245_DEBIT = SERIAL_245_ROW.debits?.[0];
+const SECONDARY_AMOUNT = SERIAL_245_DEBIT?.amount ?? '100';
 
 test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savings Account', () => {
   
@@ -48,129 +49,105 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
     spPage = new ServicePackPage(page);
   });
 
-  // HTM - Post a transfer (debit one account, credit another) by part
-  // transaction and capture the generated transaction ID for verification.
-  test('HTM - transfer maintenance (post by part transaction)', async ({ page }) => {
-    // Step 1: Select "core server" from the solution drop down.
-    console.log('Selecting Core Server...');
-    await tmPage.selectCoreServer();
-    await captureEvidence(page, 'Step 1: Core server selected', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
+  // HTM - Post one-to-one, one-to-many, or many-to-many transfers.
+  // Generates one Playwright test per resolved transfer row.
+  for (const [index, raw] of TRANSFER_DATA.entries()) {
+    const STEP: any = raw.data ?? {};
+    const label = STEP.testLabel ?? `transfer instance ${raw.instance ?? index + 1}`;
+    const STEP_SOL_ID = STEP.solId ?? SOL_ID;
+    const STEP_TRAN_TYPE = STEP.tranTypeSubType ?? TRAN_TYPE_SUBTYPE;
 
-    // Step 2: Type menu option "HTM" in finacle.
-    // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
-  console.log('Pre-HTM HACLINQ: capturing DEBIT account...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const preDebitFrame = page.frame({ name: 'FINW' });
-  if (!preDebitFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ debit');
-  const preDebitBody = await preDebitFrame.locator('body').innerText();
-  expect(preDebitBody, `Pre-HTM HACLINQ debit account ${DEBIT_ACCOUNT} not loaded`).toContain(DEBIT_ACCOUNT);
+    test(`HTM - transfer maintenance (${label})`, async ({ page }) => {
+      // Step 1: Select "core server" from the solution drop down.
+      console.log('Selecting Core Server...');
+      await tmPage.selectCoreServer();
 
-  console.log('Pre-HTM HACLINQ: capturing CREDIT account...');
-  await tmPage.searchAccountInquiry('HACLINQ');
-  await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
-  await tmPage.clickHaclinqGo();
-  const preCreditFrame = page.frame({ name: 'FINW' });
-  if (!preCreditFrame) throw new Error('FINW frame not found for pre-HTM HACLINQ credit');
-  const preCreditBody = await preCreditFrame.locator('body').innerText();
-  expect(preCreditBody, `Pre-HTM HACLINQ credit account ${CREDIT_ACCOUNT} not loaded`).toContain(CREDIT_ACCOUNT);
+      // Pre-HTM HACLINQ verification: capture every distinct account ledger before the transfer.
+      const preHtmAccounts = Array.from(new Set(tmPage.getHtmPartTransactions(STEP).map(e => e.accountId)));
+      for (const accountId of preHtmAccounts) {
+        console.log(`Pre-HTM HACLINQ: capturing account ${accountId}...`);
+        await tmPage.searchAccountInquiry('HACLINQ');
+        await tmPage.enterHaclinqAccountId(accountId);
+        await tmPage.clickHaclinqGo();
+        const preHtmFrame = page.frame({ name: 'FINW' });
+        if (!preHtmFrame) throw new Error(`FINW frame not found for pre-HTM HACLINQ account ${accountId}`);
+        const preHtmBody = await preHtmFrame.locator('body').innerText();
+        expect(preHtmBody, `Pre-HTM HACLINQ account ${accountId} not loaded`).toContain(accountId);
+      }
 
-  console.log('Searching for HTM...');
-    await tmPage.searchTransactionManagement('HTM');
-    await page.waitForTimeout(3000);
+      console.log('Searching for HTM...');
+      await tmPage.searchTransactionManagement('HTM');
+      await page.waitForTimeout(3000);
 
-    // Step 3: Function - A - Add, Sol id 100, transaction date today (defaulted),
-    // Transaction type/subtype T/CI - customer induced, then Go.
-    console.log('Selecting Add function...');
-    await tmPage.selectHtmFunction('A');
+      // Step 3: Function - A - Add, Sol id, transaction date today (defaulted),
+      // Transaction type/subtype, then Go.
+      console.log('Selecting Add function...');
+      await tmPage.selectHtmFunction('A');
 
-    console.log('Entering Sol id...');
-    await tmPage.enterHtmSolId(SOL_ID);
+      console.log('Entering Sol id...');
+      await tmPage.enterHtmSolId(String(STEP_SOL_ID));
 
-    console.log('Selecting transaction type/subtype...');
-    await tmPage.selectHtmTranTypeSubType(TRAN_TYPE_SUBTYPE);
+      console.log('Selecting transaction type/subtype...');
+      await tmPage.selectHtmTranTypeSubType(STEP_TRAN_TYPE);
 
-    console.log('Clicking Go button...');
-    await tmPage.clickHtmGo();
-    await page.waitForTimeout(5000);
+      console.log('Clicking Go button...');
+      await tmPage.clickHtmGo();
+      await page.waitForTimeout(5000);
 
-    // Diagnostic: surface the part-transaction field ids on the posting screen.
-    await tmPage.logVisibleFields('HTM posting screen');
-    await captureEvidence(page, 'Step 3: HTM form opened', { solId: SOL_ID, tranTypeSubType: TRAN_TYPE_SUBTYPE });
+      // Diagnostic: surface the part-transaction field ids on the posting screen.
+      await tmPage.logVisibleFields('HTM posting screen');
 
-    // Step 4-7: Debit part transaction - select Debit, enter debit a/c id and
-    // amount (Tab to commit the amount), then Add.
-    console.log('Adding DEBIT part transaction...');
-    await tmPage.selectHtmDebit();
-    await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
-    await tmPage.enterHtmAmount(INITIAL_FUNDING_AMOUNT, true);
-    await tmPage.clickHtmAdd();
+      // Step 4+: Enter all part transactions and post.
+      console.log('Entering part transactions and posting...');
+      const transactionId = await tmPage.postHtmTransfer(STEP);
 
-    // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
-    // and amount (Tab to commit the amount). The debit was Added as record 1; the
-    // credit stays as the current entry which Post posts, so we do NOT click Add
-    // again (that would leave an extra blank record).
-    console.log('Entering CREDIT part transaction...');
-    await tmPage.selectHtmCredit();
-    await tmPage.enterHtmAccountId(CREDIT_ACCOUNT);
-    await tmPage.enterHtmAmount(INITIAL_FUNDING_AMOUNT, true);
+      // Surface any validation/exception message from the post.
+      const hasError = await tmPage.checkHtmError();
+      if (hasError) {
+        await tmPage.logScreenMessages();
+      }
+      expect(hasError).toBe(false);
 
-    // Diagnostic: verify field values before posting
-    await tmPage.logVisibleFields('HTM after credit entry');
-    await captureEvidence(page, 'Step 4-10: Part transactions entered', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
+      // Capture the generated transaction ID (e.g. "CB5") from the
+      // "Posted successfully" confirmation screen for verification.
+      expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
+      console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
 
-    // With the debit added (record 1) and the credit entered, scroll down and
-    // click Post to post both part transactions.
-    console.log('Clicking Post button...');
-    await tmPage.clickHtmPost();
+      // Persist the transaction ID so the verification spec can authorise it.
+      if (transactionId) {
+        recordTransactionId(transactionId);
+        updateSharedState((state: any) => { state.transactionId = transactionId; });
+      }
 
-    // Surface any validation/exception message from the post.
-    const hasError = await tmPage.checkHtmError();
-    if (hasError) {
-      await tmPage.logScreenMessages();
-    }
-    expect(hasError).toBe(false);
+      await captureEvidence(page, 'Step: Transaction posted', { transactionId });
 
-    // Capture the generated transaction ID (e.g. "CB5") from the
-    // "Posted successfully" confirmation screen for verification.
-    const transactionId = await tmPage.getHtmTransactionId();
-    console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
-    await captureEvidence(page, 'Step: Transaction posted', { transactionId, debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT });
+      // Acknowledge the confirmation screen.
+      console.log('Clicking OK on confirmation...');
+      await tmPage.clickHtmOk();
 
-    // Persist the transaction ID so the verification spec can authorise it.
-    if (transactionId) {
-      recordTransactionId(transactionId);
-      updateSharedState((state: any) => { state.transactionId = transactionId; });
-    }
+      // Verification - HACLINQ (Account Ledger Inquiry): confirm every part transaction.
+      const entries = tmPage.getHtmPartTransactions(STEP);
+      for (const entry of entries) {
+        console.log(`Verifying ${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} account in HACLINQ...`);
+        await tmPage.searchAccountInquiry('HACLINQ');
+        await tmPage.enterHaclinqAccountId(entry.accountId);
+        await tmPage.clickHaclinqGo();
+        const ok = await tmPage.verifyHaclinqDebitCredit(
+          entry.amount,
+          entry.type === 'D' ? 'Debit' : 'Credit',
+          transactionId ?? undefined
+        );
+        expect(ok, `Post-HTM HACLINQ ${entry.type} verification failed for ${entry.accountId}. Expected amount ${entry.amount} with transaction ${transactionId}`).toBe(true);
+        console.log(`${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} verification (${entry.accountId}): ${ok ? 'PASS' : 'NOT CONFIRMED'}`);
+      }
 
-    // Acknowledge the confirmation screen.
-    console.log('Clicking OK on confirmation...');
-    await tmPage.clickHtmOk();
+      await captureEvidence(page, 'Step: HACLINQ verification complete', { transactionId, entries });
 
-    // Verification - HACLINQ (Account Ledger Inquiry): confirm the debit account
-    // was debited and the credit account was credited for the posted amount.
-    console.log('Verifying DEBIT account in HACLINQ...');
-    await tmPage.searchAccountInquiry('HACLINQ');
-    await tmPage.enterHaclinqAccountId(DEBIT_ACCOUNT);
-    await tmPage.clickHaclinqGo();
-    const debitOk = await tmPage.verifyHaclinqDebitCredit(INITIAL_FUNDING_AMOUNT, 'Debit', transactionId ?? undefined);
-  expect(debitOk, `Post-HTM HACLINQ debit verification failed for ${DEBIT_ACCOUNT}. Expected amount ${INITIAL_FUNDING_AMOUNT} with transaction ${transactionId}`).toBe(true);
-    console.log(`DEBIT verification (${DEBIT_ACCOUNT}): ${debitOk ? 'PASS' : 'NOT CONFIRMED'}`);
-
-    console.log('Verifying CREDIT account in HACLINQ...');
-    await tmPage.searchAccountInquiry('HACLINQ');
-    await tmPage.enterHaclinqAccountId(CREDIT_ACCOUNT);
-    await tmPage.clickHaclinqGo();
-    const creditOk = await tmPage.verifyHaclinqDebitCredit(INITIAL_FUNDING_AMOUNT, 'Credit', transactionId ?? undefined);
-  expect(creditOk, `Post-HTM HACLINQ credit verification failed for ${CREDIT_ACCOUNT}. Expected amount ${INITIAL_FUNDING_AMOUNT} with transaction ${transactionId}`).toBe(true);
-    console.log(`CREDIT verification (${CREDIT_ACCOUNT}): ${creditOk ? 'PASS' : 'NOT CONFIRMED'}`);
-    await captureEvidence(page, 'Step: HACLINQ verification complete', { debitAccount: DEBIT_ACCOUNT, creditAccount: CREDIT_ACCOUNT, amount: INITIAL_FUNDING_AMOUNT, transactionId, debitOk, creditOk });
-
-    // Logout.
-    console.log('Logging out...');
-    await homePage.logout();
-  });
+      // Logout.
+      console.log('Logging out...');
+      await homePage.logout();
+    });
+  }
 
   // Serial 245 (INC000001224790) - HTM Post by Part Transaction checkbox selects all
   // Verify that clicking the master Post checkbox on the Post by Part Transaction

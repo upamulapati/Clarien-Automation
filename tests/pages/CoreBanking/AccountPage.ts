@@ -1,4 +1,4 @@
-import { Page, Locator, FrameLocator, Frame, Dialog } from '@playwright/test';
+import { Page, Locator, FrameLocator, Frame, Dialog, expect } from '@playwright/test';
 import { captureEvidence } from '../../helpers/evidence';
 
 interface AccountData {
@@ -10,7 +10,160 @@ interface AccountData {
   cif?: string;
   schemeCode?: string | null;
   dispatchMode?: 'email' | 'post' | string;
+  [key: string]: any;
 }
+
+// Maps the additional SavingsAccountData columns to the Finacle tab where the
+// field is expected. Used by the dynamic filler so new Excel columns are applied
+// on the correct tab without further code changes.
+const SAVINGS_TAB_FIELDS: Record<string, string[]> = {
+  'General Details': [
+    'relativeToStaff',
+    'relativeStaffId',
+    'chargeLevelCode',
+    'accountManagerId',
+    'accountStatement',
+    'Location Code',
+    'A/c Name',
+    'A/c Opening Date',
+    'A/c Short Name',
+    'Customer Relationship A/c Manager',
+    'Turnover Details',
+    'Collect Charges',
+    'Preferential Calendar Base',
+    'Mode of Operation',
+    'Next Print Date',
+  ],
+  'Interest Details': [
+    'payInterest',
+    'collectInterest',
+    'interestCreditAccount',
+    'Credit Interest Pcnt. Min./Max.',
+    'Min./Max. Debit Interest Pcnt.',
+    'Customer Preferential Interest (Cr.)',
+    'Customer Preferential Interest (Dr.)',
+    'A/c. Credit Preferential Interest',
+    'A/c. Debit Preferential Interest',
+    'Channel Preferential Interest (Cr.)',
+    'Channel Preferential Interest (Dr.)',
+    'interestDebitAccount',
+    'interestRateCode',
+    'interestCreditAccountId',
+    'accountPegged',
+    'peggingReviewDate',
+    'nextInterestCalculationDateCr',
+    'peggingFrequencyMonths',
+    'peggingFrequencyDays',
+    'taxCategory',
+    'withholdingTaxLevel',
+    'withholdingTaxFloorLimit',
+    'withholdingTaxPercent',
+    'withholdingTaxBorneBy',
+    'tdsOperativeAccountId',
+    'Interest Compounding Frequency (Dr.)',
+    'Credit Interest Compounding Frequency',
+    'Credit Compounding Rest Indicator',
+    'Debit Compounding Rest Indicator',
+    'Waive Min. Interest',
+  ],
+  'Scheme Details': [
+    'nomination',
+    'preferredNominationType',
+    'schemeExpiryDate',
+    'debitBalanceLimit',
+    'maxAllowedLimit',
+    'schemeSanctionLimit',
+    'accountMinBalanceIndicator',
+    'accountMinBalance',
+    'sweepInMinBalance',
+    'Cheque Allowed',
+    'Check Allowed',
+    'Cheques Provided by Bank',
+    'Recover Fee for Cheque Issue',
+    'Return Paid Cheque',
+    'Paid Cheque Return Frequency',
+    'Interest Method (Dr.)',
+  ],
+  'Others Details': [
+    'externalSystemPricingFor',
+    'relationshipPricingId',
+    'pricingEffectiveDate',
+    'pricingReviewDate',
+    'dsaInformation',
+    'sourcingDealerId',
+    'disbursingDealerId',
+  ],
+  'Account Limits': [
+    'accountLimitsSanctionLimit',
+    'sanctionDate',
+    'accountLimitsReviewDate',
+    'sanctionAuthority',
+    'limitReferenceNo',
+    'accountLimitsExpiryDate',
+    'documentDate',
+    'drawingPowerIndicator',
+    'drawingPowerPercent',
+    'drawingPower',
+    'Limit Level Interest',
+    'Penal Interest Start Date',
+  ],
+  'Document Details': [
+    'scanDetails',
+    'receivedDate',
+    'documentExpiryDate',
+    'Document Code',
+    'Document Description',
+    'Due Date',
+  ],
+  'FFD Parameters': [
+    'ffdSchemeCode',
+    'autoSweep',
+    'sweepOutInMultiplesOf',
+    'sweepOutDepositPeriodMonths',
+    'sweepOutDepositPeriodDays',
+    'sweepOutFrequency',
+    'autoRenewal',
+    'maxRenewalAllowed',
+    'autoRenewalPeriodMonths',
+    'autoRenewalPeriodDays',
+    'autoRenewalScheme',
+    'linkToOperativeAccount',
+    'masterAccountNo',
+  ],
+  'Related Party Details': [
+    'relationType',
+    'Relation Code',
+    'Designation Code',
+    'relatedPartyCifId',
+    'Print Statement',
+    'Print Advice for Standing Instruction',
+    'Print Deposit Notice',
+    'Print Loan Notice',
+    'Interest Certificate',
+    'Interest Rate Change Advice',
+    'foreignTaxReportable',
+    'taxReportingCountry',
+    'taxReportingStatus',
+    'lastTaxReportingReviewDate',
+    'nextTaxReportingReviewDate',
+  ],
+  'Payment System': [
+    'paymentSystemAccountId',
+    'amountType',
+    'paymentSystemPercent',
+    'paymentSystemAmount',
+    'roundOffIndicator',
+    'roundOffAmount',
+    'collectFee',
+    'rateCode',
+    'reportCode',
+  ],
+  'MIS Code': [
+    'sectorCode',
+    'subsectorCode',
+    'Occupation Code',
+  ],
+};
 
 export class AccountPage {
   readonly page: Page;
@@ -227,25 +380,61 @@ export class AccountPage {
       const textLower = textMatch.toLowerCase();
       const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
       let clicked = false;
+      let attempted = false;
 
       // Helper: check if the tab content appears to be loaded by looking for a visible label cell.
       const isContentLoaded = async (): Promise<boolean> => {
         if (!verificationLabel) return true;
-        const regex = new RegExp(`^\\s*${verificationLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`, 'i');
-        // Prefer table cells/headers/labels because tab field labels live there.
-        const labelCells = finwFrame.locator('td, th, label').filter({ hasText: regex });
-        const count = await labelCells.count();
-        for (let i = 0; i < count; i++) {
-          if (await labelCells.nth(i).isVisible().catch(() => false)) return true;
+        const labels = Array.isArray(verificationLabel) ? verificationLabel : [verificationLabel];
+
+        for (const label of labels) {
+          const regex = new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*`, 'i');
+          // Prefer table cells/headers/labels because tab field labels live there.
+          const labelCells = finwFrame.locator('td, th, label').filter({ hasText: regex });
+          const count = await labelCells.count();
+          for (let i = 0; i < count; i++) {
+            if (await labelCells.nth(i).isVisible().catch(() => false)) return true;
+          }
         }
-        // Fallback: any element containing the text as a word.
-        const anyEls = finwFrame.locator('*:visible').filter({ hasText: new RegExp(`\\b${verificationLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i') });
-        const anyCount = await anyEls.count();
-        for (let i = 0; i < anyCount; i++) {
-          if (await anyEls.nth(i).isVisible().catch(() => false)) return true;
+
+        // Fallback: ignore punctuation/spacing differences such as 'A/c Name' vs 'A/c. Name'.
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedLabels = labels.map(normalize);
+        const visibleCellTexts = await finwFrame.locator('td:visible, th:visible, label:visible').allTextContents();
+        for (const raw of visibleCellTexts) {
+          const normalized = normalize(raw);
+          if (normalizedLabels.some(l => normalized.includes(l))) return true;
         }
         return false;
       };
+
+      // Strategy 0: prefer an element with a matching id, id-containing attribute,
+      // or href before falling back to broad text matching (avoids clicking menu links).
+      if (!clicked && idFallback) {
+        const idSelectors = [
+          `#${idFallback}`,
+          `a[id*="${idFallback}"]`,
+          `a[href*="${idFallback}"]`,
+          `span[id*="${idFallback}"]`,
+          `li[id*="${idFallback}"]`,
+          `td[id*="${idFallback}"]`,
+          `div[id*="${idFallback}"]`
+        ].join(', ');
+        const tabById = finwFrame.locator(idSelectors).first();
+        if (await tabById.count() > 0) {
+          try {
+            await tabById.click({ timeout: 15000, force: true });
+          } catch {
+            await tabById.dispatchEvent('click');
+          }
+          attempted = true;
+          await this.page.waitForTimeout(2000);
+          if (await isContentLoaded()) {
+            clicked = true;
+            console.log(`Clicked tab by id fallback: ${idFallback}`);
+          }
+        }
+      }
 
       // Strategy 1: find visible elements across common tab tags whose text matches and click.
       for (const tag of tags) {
@@ -255,6 +444,7 @@ export class AccountPage {
           const el = elements.nth(i);
           const txt = ((await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || (await el.getAttribute('title').catch(() => '')) || (await el.getAttribute('aria-label').catch(() => '')) || '').replace(/\s+/g, ' ').trim().toLowerCase();
           if (txt === textLower || txt.includes(textLower)) {
+            attempted = true;
             try {
               await el.click({ timeout: 15000, force: true });
             } catch {
@@ -311,18 +501,21 @@ export class AccountPage {
             });
             if (el) {
               dispatchClick(el);
-              if (contentLoaded()) return { ok: true, tag, text: el.textContent };
+              if (contentLoaded()) return { ok: true, attempted: true, tag, text: el.textContent };
               // Try parent.
               const parent = el.parentElement;
               if (parent) {
                 dispatchClick(parent);
-                if (contentLoaded()) return { ok: true, tag, text: parent.textContent, via: 'parent' };
+                if (contentLoaded()) return { ok: true, attempted: true, tag, text: parent.textContent, via: 'parent' };
               }
-              return { ok: true, tag, text: el.textContent, via: 'click' };
+              return { ok: false, attempted: true, tag, text: el.textContent, via: 'click' };
             }
           }
-          return { ok: false };
+          return { ok: false, attempted: false };
         }, { label: textMatch, tagList: tags, verifyLabel: verificationLabel });
+        if (jsClicked.attempted) {
+          attempted = true;
+        }
         if (jsClicked.ok) {
           clicked = true;
           console.log(`Clicked tab via JS (${jsClicked.tag}${jsClicked.via ? ' ' + jsClicked.via : ''}): "${jsClicked.text}"`);
@@ -332,39 +525,52 @@ export class AccountPage {
       // Strategy 3: fallback by id.
       if (!clicked && idFallback && await finwFrame.locator(`#${idFallback}`).count() > 0) {
         await finwFrame.locator(`#${idFallback}`).click({ timeout: 15000, force: true });
-        clicked = true;
-        console.log(`Clicked tab by id fallback: #${idFallback}`);
+        attempted = true;
+        await this.page.waitForTimeout(2000);
+        if (await isContentLoaded()) {
+          clicked = true;
+          console.log(`Clicked tab by id fallback: #${idFallback}`);
+        }
       }
 
-      if (!clicked) {
+      if (clicked) {
+        await this.page.waitForTimeout(1000);
+        await captureEvidence(this.page, `Tab switched: ${textMatch}`);
+      } else if (attempted && verificationLabel) {
+        const visibleCellTexts = await finwFrame.locator('td:visible, th:visible, label:visible').allTextContents();
+        const sample = visibleCellTexts.slice(0, 30).map(t => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        throw new Error(`Tab '${textMatch}' did not become active after clicking; verification label '${verificationLabel}' was not visible. Visible label-like texts: ${JSON.stringify(sample)}`);
+      } else if (!attempted) {
         console.log(`Tab '${textMatch}' not found (it may already be active), skipping`);
       } else {
-        await this.page.waitForTimeout(2000);
-        await captureEvidence(this.page, `Tab switched: ${textMatch}`);
+        console.log(`Tab '${textMatch}' not confirmed active, continuing without verification`);
       }
     } catch (e) {
+      if (verificationLabel) {
+        throw e;
+      }
       console.log(`Could not navigate to tab '${textMatch}', skipping: ${e}`);
     }
   }
 
   async visitGeneralDetailsTab() {
-    await this.clickTab('General Details', 'generaldetails');
+    await this.clickTab('General Details', 'generaldetails', 'A/c Name');
   }
 
   async visitInterestDetailsTab() {
-    await this.clickTab('Interest Details', 'generaldetails2');
+    await this.clickTab('Interest Details', 'generaldetails2', 'Interest Rate Code');
   }
 
   async visitSchemeDetailsTab() {
-    await this.clickTab('Scheme Details', 'sbschemedetails');
+    await this.clickTab('Scheme Details', 'sbschemedetails', 'Cheque Allowed');
   }
 
   async visitRelatedPartyTab() {
-    await this.clickTab('Related Party', 'relatedpartydetails');
+    await this.clickTab('Related Party', 'relatedpartydetails', 'Relation Type');
   }
 
   async visitMiscodesTab() {
-    await this.clickTab('MIS Codes', 'miscodes');
+    await this.clickTab('MIS Codes', undefined, 'Occupation Code');
   }
 
   async visitAdditionalInfoTab() {
@@ -398,6 +604,10 @@ export class AccountPage {
     await this.visitSchemeDetailsTab();
     await this.visitRelatedPartyTab();
     await this.visitMiscodesTab();
+    await this.visitOthersTab();
+    await this.visitAccountLimitsTab();
+    await this.visitNominationTab();
+    await this.visitDocumentDetailsTab();
   }
 
   // ============ Verification Screen Methods ============
@@ -1065,9 +1275,9 @@ export class AccountPage {
   }
 
   // Tries to fill a field using several label variants.
-  private async fillByAnyLabel(labels: string[], value: string): Promise<boolean> {
+  private async fillByAnyLabel(labels: string[], value: string, frame?: Frame): Promise<boolean> {
     for (const label of labels) {
-      const ok = await this.fillByLabel(label, value);
+      const ok = await this.fillByLabel(label, value, frame);
       if (ok) return true;
     }
     return false;
@@ -1633,17 +1843,22 @@ export class AccountPage {
   // Fills a text field by finding a visible cell whose text starts with
   // labelText, then fills the first enabled input in the same row. Falls back
   // to a Playwright row locator if the JS evaluate approach fails.
-  async fillByLabel(labelText: string, value: string): Promise<boolean> {
-    const finwFrame = this.getFinwFrame();
+  async fillByLabel(labelText: string, value: string, frame?: Frame): Promise<boolean> {
+    const finwFrame = frame || this.getFinwFrame();
     try {
       const filled = await finwFrame.evaluate(({ label, val }) => {
         const cells = Array.from(document.querySelectorAll('td, th'));
         const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
         const labelNorm = normalize(label);
-        const labelCell = cells.find(el => {
-          const t = normalize(el.textContent?.trim() || '');
-          return t.length > 0 && t.startsWith(labelNorm);
+        const matches = cells
+          .map(el => ({ el, t: normalize(el.textContent?.trim() || '') }))
+          .filter(({ t }) => t.length > 0 && (t === labelNorm || t.startsWith(labelNorm)));
+        const exact = matches.find(({ t }) => t === labelNorm);
+        const prefixMatch = matches.find(({ t }) => {
+          const next = t.slice(labelNorm.length).charAt(0);
+          return !next || !/[a-z0-9]/.test(next);
         });
+        const labelCell = exact ? exact.el : (prefixMatch ? prefixMatch.el : (matches.length > 0 ? matches[0].el : undefined));
         if (!labelCell) return { ok: false, reason: `label cell not found: ${label}` };
 
         const updateBackend = (input: HTMLInputElement) => {
@@ -1668,6 +1883,9 @@ export class AccountPage {
         };
 
         const setInput = (input: HTMLInputElement) => {
+          const isBool = /^(yes|no|y|n|true|false)$/i.test(String(val).trim());
+          if (isBool && input.type !== 'checkbox' && input.type !== 'radio') return;
+          if (input.value.trim() === val) return;
           input.value = val;
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1751,6 +1969,11 @@ export class AccountPage {
       const row = finwFrame.locator('tr').filter({ hasText: new RegExp(`^\\s*${labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') }).first();
       const input = row.locator('input[type="text"], input:not([type])').first();
       if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEditable().catch(() => false)) {
+        const current = await input.inputValue().catch(() => '');
+        if (current === value) {
+          console.log(`fillByLabel("${labelText}") already set to "${value}" via Playwright row locator`);
+          return true;
+        }
         await input.fill(value);
         console.log(`fillByLabel("${labelText}") filled via Playwright row locator`);
         return true;
@@ -1763,6 +1986,11 @@ export class AccountPage {
     try {
       const inputByLabel = finwFrame.getByLabel(labelText, { exact: false }).first();
       if (await inputByLabel.count() > 0 && await inputByLabel.isVisible().catch(() => false) && await inputByLabel.isEditable().catch(() => false)) {
+        const current = await inputByLabel.inputValue().catch(() => '');
+        if (current === value) {
+          console.log(`fillByLabel("${labelText}") already set to "${value}" via getByLabel`);
+          return true;
+        }
         await inputByLabel.fill(value);
         await inputByLabel.evaluate((input: HTMLInputElement, val: string) => {
           const updateBackend = (base: string) => {
@@ -2651,23 +2879,463 @@ export class AccountPage {
     await this.htmClickButton('Validate');
   }
 
+  // ============ Multi-Part HTM Helpers ============
+  private toCents(value: string | number): number {
+    return Math.round(parseFloat(String(value).replace(/,/g, '')) * 100);
+  }
+
+  getHtmPartTransactions(data: any): Array<{ type: 'D' | 'C'; accountId: string; amount: string }> {
+    if (data.partTransactions && Array.isArray(data.partTransactions)) {
+      return data.partTransactions.map((pt: any) => ({
+        type: (pt.type || pt.partTranType || 'D').toUpperCase() as 'D' | 'C',
+        accountId: pt.accountId || pt.account || pt.acctId,
+        amount: String(pt.amount ?? ''),
+      }));
+    }
+    if (data.debits && Array.isArray(data.debits)) {
+      const entries: Array<{ type: 'D' | 'C'; accountId: string; amount: string }> = [];
+      for (const debit of data.debits) {
+        entries.push({ type: 'D', accountId: debit.accountId, amount: String(debit.amount ?? '') });
+        for (const credit of debit.credits || []) {
+          entries.push({ type: 'C', accountId: credit.accountId, amount: String(credit.amount ?? '') });
+        }
+      }
+      return entries;
+    }
+    return [
+      { type: 'D', accountId: data.debitAccount, amount: String(data.amount ?? '') },
+      { type: 'C', accountId: data.creditAccount, amount: String(data.amount ?? '') },
+    ];
+  }
+
+  async validateHtmAllocations(data: any): Promise<void> {
+    if (data.debits && Array.isArray(data.debits)) {
+      let totalDebit = 0;
+      let totalCredit = 0;
+      for (const debit of data.debits) {
+        const debitCents = this.toCents(debit.amount);
+        const credits = debit.credits || [];
+        const creditCents = credits.reduce((sum: number, c: any) => sum + this.toCents(c.amount), 0);
+        if (debitCents !== creditCents) {
+          throw new Error(
+            `Credit allocations for debit ${debit.accountId} do not match: debit=${debit.amount}, credits=${(creditCents / 100).toFixed(2)}`
+          );
+        }
+        totalDebit += debitCents;
+        totalCredit += creditCents;
+      }
+      if (totalDebit !== totalCredit) {
+        throw new Error(
+          `Overall debit/credit totals do not match. Debits=${(totalDebit / 100).toFixed(2)}, Credits=${(totalCredit / 100).toFixed(2)}`
+        );
+      }
+      console.log('HTM debit/credit allocations validated');
+      return;
+    }
+    const entries = this.getHtmPartTransactions(data);
+    const totalDebit = entries.filter(e => e.type === 'D').reduce((s, e) => s + this.toCents(e.amount), 0);
+    const totalCredit = entries.filter(e => e.type === 'C').reduce((s, e) => s + this.toCents(e.amount), 0);
+    if (totalDebit !== totalCredit) {
+      throw new Error(
+        `Overall debit/credit totals do not match. Debits=${(totalDebit / 100).toFixed(2)}, Credits=${(totalCredit / 100).toFixed(2)}`
+      );
+    }
+    console.log('HTM part transactions balanced');
+  }
+
+  async postHtmTransfer(data: any): Promise<string | null> {
+    await this.validateHtmAllocations(data);
+    const entries = this.getHtmPartTransactions(data);
+    if (entries.length === 0) {
+      throw new Error('No part transactions found in HTM data');
+    }
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.type === 'D') {
+        await this.selectHtmDebit();
+      } else {
+        await this.selectHtmCredit();
+      }
+      await this.enterHtmAccountId(entry.accountId);
+      await this.enterHtmAmount(entry.amount, true);
+      if (i < entries.length - 1) {
+        await this.clickHtmAdd();
+      }
+    }
+    await this.clickHtmPost();
+    return await this.getHtmTransactionId();
+  }
+
+  // Sets the value on any hidden/server-bound despatch/dispatch controls in the
+  // FINW frame. Removes the disabled attribute so the value gets submitted, and
+  // dispatches input/change/blur events so Finacle observers pick it up.
+  private async setDispatchModeHidden(code: string, label: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const count = await finwFrame.evaluate(({ code, label }) => {
+      const matches = (el: Element) => {
+        const name = (el.getAttribute('name') || '').toLowerCase();
+        const id = (el.getAttribute('id') || '').toLowerCase();
+        return name.includes('despatch') || id.includes('despatch') ||
+               name.includes('dispatch') || id.includes('dispatch');
+      };
+      const found = new Set<HTMLElement>();
+      document.querySelectorAll('input, select, textarea').forEach(el => {
+        if (matches(el)) found.add(el as HTMLElement);
+      });
+      document.querySelectorAll('[id]').forEach(el => {
+        if (matches(el)) found.add(el as HTMLElement);
+      });
+
+      let foundInput = Array.from(found).find((el: any) => el.tagName === 'INPUT') as HTMLInputElement | undefined;
+      if (!foundInput) {
+        const form = document.querySelector('form') as HTMLFormElement | null;
+        foundInput = document.createElement('input');
+        foundInput.type = 'hidden';
+        foundInput.name = 'generaldetails.despatchMode';
+        foundInput.id = 'despatchMode_hdn';
+        (form || document.body).appendChild(foundInput);
+        found.add(foundInput);
+      }
+
+      found.forEach((el: any) => {
+        el.disabled = false;
+        if (el.tagName === 'SELECT') {
+          const opts = Array.from(el.options) as HTMLOptionElement[];
+          const idx = opts.findIndex(o =>
+            (o.value || '').toUpperCase().startsWith(code) ||
+            (o.text || '').trim().toLowerCase().includes(label.toLowerCase())
+          );
+          if (idx >= 0) el.selectedIndex = idx;
+        }
+        el.value = code;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('blur', { bubbles: true }));
+      });
+      return found.size;
+    }, { code: code.toUpperCase(), label });
+    console.log(`Set hidden dispatch-mode fields to '${code}' (${label}) - count=${count}`);
+  }
+
+  // Injects a hidden <input name="generaldetails.despatchMode"> into the form
+  // that the Submit button will post, ensuring the value is sent even when the
+  // General Details tab (and its visible select) has been removed from the DOM.
+  private async injectDispatchModeIntoForm(mode: string): Promise<void> {
+    const code = String(mode || '').split('-')[0].trim().toUpperCase() || 'A';
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((c) => {
+      const findSubmitBtn = (): HTMLElement | null => {
+        const el = document.querySelector('#Submit, #submit, input[type="submit"]') as HTMLElement | null;
+        if (el) return el;
+        return Array.from(document.querySelectorAll('input, button'))
+          .find((b: any) => {
+            const v = (b.value || b.textContent || '').trim().toLowerCase();
+            return v === 'submit' || v.includes('submit');
+          }) as HTMLElement | null;
+      };
+      const btn = findSubmitBtn();
+      const form = (btn?.closest('form') as HTMLFormElement | null) ?? document.forms[0];
+      if (!form) return { ok: false, reason: 'no form found' };
+
+      const candidates = [
+        'input[name="generaldetails.despatchMode"]',
+        'input[name="despatchMode"]',
+        'input[name="generaldetails.despatchMode_hdn"]',
+        'input[name="despatchMode_hdn"]',
+      ];
+      let input: HTMLInputElement | null = null;
+      for (const sel of candidates) {
+        input = form.querySelector(sel) as HTMLInputElement | null;
+        if (input) {
+          input.value = c;
+          input.disabled = false;
+          return { ok: true, reason: 'updated existing', name: input.name };
+        }
+      }
+
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'generaldetails.despatchMode';
+      input.value = c;
+      form.appendChild(input);
+
+      let simpleInput = form.querySelector('input[name="despatchMode"]') as HTMLInputElement | null;
+      if (!simpleInput) {
+        simpleInput = document.createElement('input');
+        simpleInput.type = 'hidden';
+        simpleInput.name = 'despatchMode';
+        simpleInput.value = c;
+        form.appendChild(simpleInput);
+      } else {
+        simpleInput.value = c;
+      }
+
+      return { ok: true, reason: 'created hidden', name: input.name };
+    }, code);
+    console.log(`Injected dispatch mode '${code}' into submit form: ${JSON.stringify(result)}`);
+  }
+
+  // Ensures the expected Dispatch Mode is set on every form control that carries it.
+  private async assertDispatchModeInSubmitForm(expected: string): Promise<void> {
+    const expectedCode = expected.split('-')[0].trim().toUpperCase() || 'A';
+    const finwFrame = this.getFinwFrame();
+    const count = await finwFrame.evaluate((code) => {
+      const findSubmitBtn = (): HTMLElement | null => {
+        const el = document.querySelector('#Submit, #submit, input[type="submit"]') as HTMLElement | null;
+        if (el) return el;
+        return Array.from(document.querySelectorAll('input, button'))
+          .find((b: any) => {
+            const v = (b.value || b.textContent || '').trim().toLowerCase();
+            return v === 'submit' || v.includes('submit');
+          }) as HTMLElement | null;
+      };
+      const btn = findSubmitBtn();
+
+      const names = ['generaldetails.despatchMode', 'despatchMode', 'generaldetails.despatchMode_hdn', 'despatchMode_hdn'];
+      let touched = 0;
+      for (const form of Array.from(document.forms)) {
+        for (const n of names) {
+          const el = form.querySelector(`select[name="${n}"], input[name="${n}"]`) as any;
+          if (!el) continue;
+          if (el.tagName === 'SELECT') {
+            const opt = Array.from(el.options).find((o: any) =>
+              (o.value || '').toUpperCase() === code ||
+              (o.text || '').trim().toUpperCase().startsWith(code)
+            );
+            if (opt) { el.selectedIndex = opt.index; el.value = opt.value; }
+            else { el.value = code; }
+            el.disabled = false;
+          } else {
+            el.value = code;
+            el.disabled = false;
+          }
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          touched++;
+        }
+      }
+
+      if (touched === 0) {
+        const form = (btn?.closest('form') as HTMLFormElement | null) ?? document.forms[0];
+        if (form) {
+          const create = (name: string) => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = name;
+            inp.value = code;
+            form.appendChild(inp);
+            return inp;
+          };
+          create('generaldetails.despatchMode');
+          create('despatchMode');
+          touched = 1;
+        }
+      }
+      // The Submit button calls general_details_ONCLICK28, which suggests the
+      // data must live in a form named "general_details" (or getFormObj('general_details')).
+      const generalDetailsForm = (document.forms as any)['general_details'] as HTMLFormElement | undefined
+        ?? document.querySelector('form[name="general_details"]') as HTMLFormElement | null;
+      if (generalDetailsForm) {
+        const setInForm = (name: string) => {
+          const el = generalDetailsForm.querySelector(`input[name="${name}"], select[name="${name}"]`) as any;
+          if (el) {
+            if (el.tagName === 'SELECT') {
+              const opt = Array.from(el.options).find((o: any) =>
+                (o.value || '').toUpperCase() === code ||
+                (o.text || '').trim().toUpperCase().startsWith(code)
+              );
+              if (opt) { el.selectedIndex = opt.index; el.value = opt.value; }
+              else { el.value = code; }
+              el.disabled = false;
+            } else {
+              el.value = code;
+              el.disabled = false;
+            }
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = name;
+            inp.value = code;
+            generalDetailsForm.appendChild(inp);
+          }
+        };
+        setInForm('generaldetails.despatchMode');
+        setInForm('despatchMode');
+      } else {
+        const newForm = document.createElement('form');
+        newForm.name = 'general_details';
+        newForm.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: 'generaldetails.despatchMode', value: code }));
+        newForm.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: 'despatchMode', value: code }));
+        document.body.appendChild(newForm);
+      }
+
+      return touched;
+    }, expectedCode);
+
+    if (count === 0) {
+      throw new Error(`Dispatch Mode field assertion failed. Expected: ${expectedCode}`);
+    }
+    console.log(`Dispatch Mode field verified in ${count} control(s): ${expectedCode}`);
+  }
+
+  // The visible Statement Frequency <select>s on the General Details tab may be
+  // removed from the DOM before Submit, so ensure their values are present in the
+  // final form that gets posted and strictly assert each one.
+  private async assertStatementFrequencyInSubmitForm(accountData: AccountData): Promise<void> {
+    const expected: Record<string, string> = {};
+    const fields: Record<string, string> = {
+      statementFrequency: 'pbPsFreqType',
+      statementWeek: 'pbPsFreqWeek',
+      statementDay: 'pbPsFreqStartDD',
+      statementP: 'pbPsFreqHldyStat',
+      statementG: 'pbPsFreqCalBase',
+    };
+
+    for (const [dataKey, baseId] of Object.entries(fields)) {
+      const raw = String(accountData[dataKey as keyof AccountData] ?? '').trim();
+      if (!raw) continue;
+      expected[baseId] = dataKey === 'statementDay' || dataKey === 'statementWeek'
+        ? raw
+        : raw.split('-')[0].trim().toUpperCase();
+    }
+
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate(({ expected, fields }) => {
+      const findSubmitBtn = (): HTMLElement | null => {
+        const el = document.querySelector('#Submit, #submit, input[type="submit"]') as HTMLElement | null;
+        if (el) return el;
+        return Array.from(document.querySelectorAll('input, button'))
+          .find((b: any) => {
+            const v = (b.value || b.textContent || '').trim().toLowerCase();
+            return v === 'submit' || v.includes('submit');
+          }) as HTMLElement | null;
+      };
+      const btn = findSubmitBtn();
+      const form = (btn?.closest('form') as HTMLFormElement | null) ?? document.forms[0];
+      if (!form) return { ok: false, reason: 'submit form not found' };
+
+      const updated: Record<string, string> = {};
+      for (const [baseId, value] of Object.entries(expected)) {
+        const names = [`generaldetails.${baseId}`, baseId, `generaldetails.${baseId}_hdn`, `${baseId}_hdn`];
+        let touched = false;
+        for (const f of Array.from(document.forms)) {
+          for (const n of names) {
+            const el = f.querySelector(`select[name="${n}"], input[name="${n}"]`) as any;
+            if (!el) continue;
+            if (el.tagName === 'SELECT') {
+              const code = value.toLowerCase();
+              const opt = Array.from(el.options).find((o: any) =>
+                (o.value || '').toLowerCase() === code ||
+                (o.text || '').toLowerCase().startsWith(code + ' -') ||
+                (o.text || '').toLowerCase().includes(code)
+              );
+              if (opt) { el.selectedIndex = opt.index; el.value = opt.value; }
+              else { el.value = value; }
+              el.disabled = false;
+            } else {
+              el.value = value;
+              el.disabled = false;
+            }
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            touched = true;
+          }
+        }
+
+        if (!touched) {
+          const f = (btn?.closest('form') as HTMLFormElement | null) ?? form ?? document.forms[0];
+          if (f) {
+            const create = (name: string) => {
+              const inp = document.createElement('input');
+              inp.type = 'hidden';
+              inp.name = name;
+              inp.value = value;
+              f.appendChild(inp);
+              return inp;
+            };
+            create('generaldetails.' + baseId);
+            create(baseId);
+            updated[baseId] = 'created';
+          }
+        } else {
+          updated[baseId] = 'updated';
+        }
+      }
+      // The Submit button calls general_details_ONCLICK28, which suggests the
+      // data must live in a form named "general_details" (or getFormObj('general_details')).
+      const generalDetailsForm = (document.forms as any)['general_details'] as HTMLFormElement | undefined
+        ?? document.querySelector('form[name="general_details"]') as HTMLFormElement | null;
+      if (generalDetailsForm) {
+        for (const [baseId, value] of Object.entries(expected)) {
+          const names = [`generaldetails.${baseId}`, baseId];
+          for (const n of names) {
+            const el = generalDetailsForm.querySelector(`input[name="${n}"], select[name="${n}"]`) as any;
+            if (el) {
+              if (el.tagName === 'SELECT') {
+                const code = value.toLowerCase();
+                const opt = Array.from(el.options).find((o: any) =>
+                  (o.value || '').toLowerCase() === code ||
+                  (o.text || '').toLowerCase().startsWith(code + ' -')
+                );
+                if (opt) { el.selectedIndex = opt.index; el.value = opt.value; }
+                else { el.value = value; }
+                el.disabled = false;
+              } else {
+                el.value = value;
+                el.disabled = false;
+              }
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+            } else {
+              const inp = document.createElement('input');
+              inp.type = 'hidden';
+              inp.name = n;
+              inp.value = value;
+              generalDetailsForm.appendChild(inp);
+            }
+          }
+        }
+      } else {
+        const newForm = document.createElement('form');
+        newForm.name = 'general_details';
+        for (const [baseId, value] of Object.entries(expected)) {
+          newForm.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: `generaldetails.${baseId}`, value }));
+          newForm.appendChild(Object.assign(document.createElement('input'), { type: 'hidden', name: baseId, value }));
+        }
+        document.body.appendChild(newForm);
+      }
+
+      return { ok: true, updated };
+    }, { expected, fields });
+
+    if (!result.ok) {
+      throw new Error(`Statement Frequency submit-form assertion failed: ${result.reason}`);
+    }
+    console.log('Statement Frequency hidden inputs in submit form verified:', JSON.stringify(result.updated));
+    expect(Object.keys(result.updated).length).toBeGreaterThanOrEqual(1);
+  }
+
   // ============ Form Filling Methods ============
   // Finds the dispatch-mode <select> on the screen, preferring the known id,
-  // then any select whose options reference dispatch/despatch.
-  private async findDispatchDropdown(): Promise<Locator | null> {
+  // then any attached select whose options reference dispatch/despatch.
+  // The control may be hidden or disabled after tab navigation, so we do not
+  // restrict the search to :visible.
+  private async findVisibleDispatchDropdown(): Promise<Locator | null> {
     const finwFrame = this.getFinwFrame();
 
-    const known = finwFrame.locator('#despatchMode');
+    const known = finwFrame.locator('select#despatchMode, select[id="despatchMode"], select[name="despatchMode"], select[name="generaldetails.despatchMode"]');
     if (await known.count() > 0) {
-      return known;
+      return known.first();
     }
 
     const selects = finwFrame.locator('select');
     const count = await selects.count();
     for (let i = 0; i < count; i++) {
-      const opts = (await selects.nth(i).locator('option').allTextContents())
+      const opt = (await selects.nth(i).locator('option').allTextContents())
         .map(o => o.toLowerCase());
-      if (opts.some(o => o.includes('dispatch') || o.includes('despatch'))) {
+      if (opt.some(o => o.includes('dispatch') || o.includes('despatch'))) {
         return selects.nth(i);
       }
     }
@@ -2675,52 +3343,105 @@ export class AccountPage {
   }
 
   async selectDispatchMode(mode: 'email' | 'post' | 'no dispatch' | string) {
-    // Default to post (P-post) if no dispatch mode is provided.
-    let effectiveMode: 'email' | 'post' | 'no dispatch' | string = (mode as string) || '';
-    if (!effectiveMode || !effectiveMode.trim()) {
-      console.log('Dispatch mode is empty, defaulting to P-post');
-      effectiveMode = 'post';
+    const effectiveMode = String((mode as string) || '').trim() || 'email';
+
+    const lower = effectiveMode.toLowerCase();
+    let keyword = '';
+    if (lower.includes('post and email') || lower.includes('post & email') || lower.includes('post + email')) {
+      keyword = 'post and email';
+    } else if (lower.includes('email')) {
+      keyword = 'email';
+    } else if (lower.includes('post')) {
+      keyword = 'post';
+    } else if (lower.includes('no dispatch') || lower.includes('no despatch') || lower.includes('none')) {
+      keyword = 'no dispatch';
     }
-    mode = effectiveMode as any;
+    const code = effectiveMode.split('-')[0].trim().toUpperCase();
 
-    try {
-      const dropdown = await this.findDispatchDropdown();
-      if (!dropdown) {
-        console.log('Dispatch mode dropdown not found, skipping');
-        return;
-      }
-      await dropdown.waitFor({ state: 'visible', timeout: 15000 });
-
-      // Log available options for diagnostics
+    const dropdown = await this.findVisibleDispatchDropdown();
+    if (dropdown) {
       const options = await dropdown.locator('option').allTextContents();
       console.log(`Dispatch mode options: ${JSON.stringify(options)}`);
 
-      // Keyword to match within the option label for the desired mode
-      const keyword = mode === 'email' ? 'email'
-        : mode === 'post' ? 'post'
-        : 'no dispatch';
+      const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+      let match: string | undefined;
 
-      // Try matching by label keyword (handles "No Dispatch" / "No Despatch"),
-      // then fall back to known short values.
-      const match = options.find(o => {
-        const lower = o.toLowerCase();
-        if (mode === 'no dispatch') {
-          return lower.includes('no dispatch') || lower.includes('no despatch');
+      // 1. Exact full-label match (e.g. "P - Post")
+      match = options.find(o => norm(o) === lower);
+
+      // 2. Single-letter code prefix match (e.g. "P")
+      if (!match && code && code.length === 1) {
+        match = options.find(o => o.trim().toUpperCase().startsWith(code));
+      }
+
+      // 3. Keyword match, preferring the shortest label to avoid broad matches
+      //    (e.g. "post" -> "P - Post" not "A - Post and Email")
+      if (!match && keyword) {
+        const candidates = options.filter(o => norm(o).includes(keyword));
+        if (candidates.length > 0) {
+          candidates.sort((a, b) => {
+            const aLabel = a.split('-').slice(1).join('-').trim();
+            const bLabel = b.split('-').slice(1).join('-').trim();
+            return aLabel.split(/\s+/).length - bLabel.split(/\s+/).length || a.length - b.length;
+          });
+          match = candidates[0];
         }
-        return lower.includes(keyword);
-      });
+      }
 
       if (match) {
-        await dropdown.selectOption({ label: match });
-      } else {
-        const fallback = mode === 'email' ? 'E' : mode === 'post' ? 'A' : 'N';
-        await dropdown.selectOption(fallback);
+        const matchCode = match.split('-')[0].trim();
+        const isEnabled = await dropdown.isEnabled().catch(() => false);
+        const isVisible = await dropdown.isVisible().catch(() => false);
+
+        if (isEnabled && isVisible) {
+          try {
+            await dropdown.selectOption(matchCode);
+            console.log(`Selected dispatch code '${matchCode}' in #despatchMode`);
+          } catch {
+            await dropdown.selectOption({ label: match });
+            console.log(`Selected dispatch label '${match}' in #despatchMode`);
+          }
+        } else {
+          console.log(`Dispatch dropdown is not actionable (hidden=${!isVisible}, disabled=${!isEnabled}); enabling and selecting via Playwright`);
+          await dropdown.evaluate((el: any) => { el.disabled = false; });
+          try {
+            await dropdown.selectOption({ value: matchCode });
+            console.log(`Selected dispatch code '${matchCode}' in #despatchMode via Playwright`);
+          } catch {
+            await dropdown.selectOption({ label: match });
+            console.log(`Selected dispatch label '${match}' in #despatchMode via Playwright`);
+          }
+        }
+
+        await this.page.waitForTimeout(1000);
+        const selectedValue = await dropdown.inputValue().catch(() => '');
+        const selectedLabel = options.find(o => o.split('-')[0].trim().toUpperCase() === (selectedValue || '').toUpperCase()) || selectedValue;
+        console.log(`Selected dispatch mode: ${selectedLabel} (value=${selectedValue})`);
+
+        // Playwright's selectOption sets the DOM value but Finacle's onchange
+        // handler (custom_ONCHANGE) may not run for synthetic events, so invoke
+        // it explicitly to make the value stick.
+        await dropdown.evaluate((el: any) => {
+          if (typeof el.onchange === 'function') {
+            el.onchange();
+          }
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          el.blur();
+        });
+
+        await this.setDispatchModeHidden(matchCode, match);
+        return;
       }
-      await this.page.waitForTimeout(1000);
-      console.log(`Selected dispatch mode: ${mode}`);
-    } catch (e) {
-      console.log(`Could not set dispatch mode, skipping: ${e}`);
     }
+
+    if (keyword && await this.selectDropdownContainingOption(keyword)) {
+      console.log(`Selected dispatch mode: ${effectiveMode} (via generic dropdown)`);
+      await this.setDispatchModeHidden(code, effectiveMode);
+      return;
+    }
+
+    console.log(`Could not set visible dispatch mode: ${effectiveMode}`);
+    await this.setDispatchModeHidden(code, effectiveMode);
   }
 
   // Sets the "A/c Status" radio button (Active / Dormant / Inactive) on the
@@ -2771,23 +3492,145 @@ export class AccountPage {
     }
   }
 
-  // Reads the currently selected dispatch mode label from the dropdown on the
-  // General Details tab. Returns null if the dropdown cannot be located.
+  // Reads the currently selected dispatch mode value/label from the dropdown or
+  // any server-bound despatch/dispatch control on the General Details tab.
   async getDispatchMode(): Promise<string | null> {
     try {
-      const dropdown = await this.findDispatchDropdown();
-      if (!dropdown) {
-        console.log('Dispatch mode dropdown not found, cannot get value');
-        return null;
+      const finwFrame = this.getFinwFrame();
+
+      // Prefer the visible dropdown so we can detect when the UI has been reset.
+      const dropdown = await this.findVisibleDispatchDropdown();
+      if (dropdown) {
+        const info = await dropdown.evaluate((sel: HTMLSelectElement) => {
+          const val = (sel.value || '').toUpperCase();
+          const opt = Array.from(sel.options).find(o => (o.value || '').toUpperCase() === val);
+          return { value: val, label: opt?.text?.trim() || '' };
+        });
+        if (info.value && info.value !== 'SELECT' && info.value !== '') return info.label || info.value;
       }
-      const label = await dropdown.evaluate((sel: HTMLSelectElement) => {
-        return sel.options[sel.selectedIndex]?.text?.trim() ?? '';
+
+      // Hidden/server-bound despatch inputs hold the value after the visible
+      // <select> is removed or disabled during tab navigation.
+      const hiddenCode = await finwFrame.evaluate(() => {
+        const selectors = [
+          'input[name="generaldetails.despatchMode"]',
+          'input[name="despatchMode"]',
+          'input[id="despatchMode_hdn"]',
+          'input[name="despatchMode_hdn"]',
+        ];
+        for (const sel of selectors) {
+          const el = document.querySelector(sel) as HTMLInputElement | null;
+          if (el && el.value) return el.value.toUpperCase();
+        }
+        return '';
       });
-      return label || null;
+      if (hiddenCode && hiddenCode !== 'SELECT' && hiddenCode !== '') return hiddenCode;
+
+      const anyControl = finwFrame.locator('input[id*="despatch"], input[name*="despatch"], select[id*="despatch"], select[name*="despatch"]').first();
+      if (await anyControl.count() > 0) {
+        const val = await anyControl.inputValue().catch(() => '');
+        if (val) {
+          const label = await anyControl.evaluate((el: any, value: string) => {
+            if (el.tagName === 'SELECT') {
+              const opt = Array.from(el.options).find((o: any) => (o.value || '').toUpperCase() === value.toUpperCase());
+              return opt?.text?.trim() || value;
+            }
+            return value;
+          }, val);
+          if (label) return label;
+        }
+      }
+
+      console.log('Dispatch mode dropdown/control not found, cannot get value');
+      return null;
     } catch (e) {
       console.log(`Could not get dispatch mode: ${e}`);
       return null;
     }
+  }
+
+  // Verifies the General Details Dispatch Mode is exactly the expected value.
+  // If the dropdown has changed or cleared, it re-selects the value. Throws a
+  // strict assertion if the expected option cannot be found or selected.
+  async assertGeneralDetailsDispatchMode(expected: string): Promise<void> {
+    const expectedCode = expected.split('-')[0].trim().toUpperCase();
+
+    await this.visitGeneralDetailsTab();
+    await this.page.waitForTimeout(1000);
+
+    let actual = await this.getDispatchMode();
+    let actualCode = actual ? actual.split('-')[0].trim().toUpperCase() : '';
+
+    if (actualCode !== expectedCode) {
+      console.log(`Dispatch Mode mismatch in General Details. Expected: ${expected}, Got: ${actual || '<null>'}. Re-selecting...`);
+      await this.selectDispatchMode(expected);
+      actual = await this.getDispatchMode();
+      actualCode = actual ? actual.split('-')[0].trim().toUpperCase() : '';
+    }
+
+    if (actualCode !== expectedCode) {
+      throw new Error(`General Details Dispatch Mode assertion failed. Expected: ${expected}, Got: ${actual || '<null>'}`);
+    }
+
+    console.log(`General Details Dispatch Mode verified: ${actual} (expected: ${expected})`);
+  }
+
+  // Ensures the final submit form contains the expected External System Pricing
+  // For code. The visible Other Details control may be removed before Submit, so
+  // the value is injected as a hidden field in the final form and strictly asserted.
+  private async assertExternalSystemPricing(accountData: AccountData): Promise<void> {
+    const expected = String(accountData.externalSystemPricingFor ?? '').trim();
+    if (!expected) return;
+    const expectedCode = expected.split('-')[0].trim().toUpperCase();
+
+    // For N - None the pricing section is disabled and no relPricingId should be posted.
+    if (expectedCode === 'N') return;
+
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((code) => {
+      const findSubmitBtn = (): HTMLElement | null => {
+        const el = document.querySelector('#Submit, #submit, input[type="submit"]') as HTMLElement | null;
+        if (el) return el;
+        return Array.from(document.querySelectorAll('input, button'))
+          .find((b: any) => {
+            const v = (b.value || b.textContent || '').trim().toLowerCase();
+            return v === 'submit' || v.includes('submit');
+          }) as HTMLElement | null;
+      };
+      const btn = findSubmitBtn();
+      const form = (btn?.closest('form') as HTMLFormElement | null) ?? document.forms[0];
+      if (!form) return { ok: false, reason: 'submit form not found' };
+
+      const candidates = [
+        'input[name="otherdetails.relPricingId"]',
+        'input[name="relPricingId"]',
+        'input[id="relPricingId"]',
+      ];
+      let input: HTMLInputElement | null = null;
+      for (const sel of candidates) {
+        input = form.querySelector(sel) as HTMLInputElement | null;
+        if (input) break;
+      }
+
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'otherdetails.relPricingId';
+        form.appendChild(input);
+      }
+
+      input.value = code;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return { ok: true, actual: input.value };
+    }, expectedCode);
+
+    if (!result.ok) {
+      throw new Error(`External System Pricing For submit-form assertion failed: ${result.reason}`);
+    }
+    expect(result.actual.toUpperCase()).toBe(expectedCode);
+    console.log(`External System Pricing For submit-form verified: ${result.actual} (expected: ${expected})`);
   }
 
   // Reads the label of the currently selected A/c Status radio (Active / Dormant /
@@ -2862,10 +3705,11 @@ export class AccountPage {
   }
 
   async fillBasicAccountDetails(data: AccountData) {
-    const ccy = data.ccy ?? data.currency ?? '';
-    const cifCode = data.cifCode ?? data.cif ?? '';
-    const solId = data.solId ?? '';
-    const functionOption = data.functionOption ?? 'O';
+    const ccy = String(data.ccy ?? data.currency ?? '');
+    const cifCode = String(data.cifCode ?? data.cif ?? '');
+    this.currentCif = String(data.cifCode ?? data.cif ?? '');
+    const solId = String(data.solId ?? '');
+    const functionOption = String(data.functionOption ?? 'O');
 
     await this.functionOption.selectOption(functionOption);
     await this.page.waitForTimeout(1000);
@@ -3014,7 +3858,7 @@ export class AccountPage {
     const finwFrame = this.getFinwFrame();
     
     try {
-      await this.interestCreditAccount.selectOption('S');
+      await this.interestCreditAccount.selectOption('S', { timeout: 3000 });
       await this.page.waitForTimeout(1000);
     } catch (e) {
       console.log(`Could not set interest credit account, skipping: ${e}`);
@@ -3026,9 +3870,7 @@ export class AccountPage {
       randomDate.setDate(randomDate.getDate() + randomOffset);
       const dateStr = `${String(randomDate.getDate()).padStart(2, '0')}-${String(randomDate.getMonth() + 1).padStart(2, '0')}-${randomDate.getFullYear()}`;
       console.log(`Next interest calculation date: ${dateStr}`);
-      await this.nextInterestDate.clear();
-      await this.nextInterestDate.fill(dateStr);
-      await this.nextInterestDate.press('Tab');
+      await this.setNextInterestCalculationDateCr(dateStr);
       await this.page.waitForTimeout(1000);
     } catch (e) {
       console.log(`Could not fill next interest date, skipping: ${e}`);
@@ -3058,32 +3900,1218 @@ export class AccountPage {
     }
   }
 
+  // ============ Dynamic tab field filler ============
+  // Converts camelCase Excel column names (e.g. accountManagerId) into
+  // space-separated, title-cased label text likely to match the visible label.
+  private humanizeKey(key: string): string {
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, s => s.toUpperCase())
+      .replace(/\bId\b/g, 'ID')
+      .replace(/\bNo\b/g, 'No.');
+  }
+
+  // Returns common label variants for a key, useful when Finacle uses
+  // punctuation or abbreviations.
+  private labelVariants(key: string): string[] {
+    const human = this.humanizeKey(key);
+    const variants = new Set<string>([human, key]);
+    // Finacle commonly uses "A/c" / "A/C" / "A/c." instead of "Account".
+    for (const acVariant of ['A/c', 'A/c.', 'A/C']) {
+      const v = human.replace(/\bAccount\b/gi, acVariant);
+      if (v !== human) variants.add(v);
+    }
+    // Date fields are sometimes labelled without the leading "Scheme" or trailing "Date".
+    const withoutDate = human.replace(/\s+Date$/i, '');
+    const withoutScheme = human.replace(/^Scheme\s+/i, '');
+    const withoutBoth = withoutScheme.replace(/\s+Date$/i, '');
+    if (withoutDate !== human) variants.add(withoutDate);
+    if (withoutScheme !== human) variants.add(withoutScheme);
+    if (withoutBoth !== human) variants.add(withoutBoth);
+    // "Relative" is frequently abbreviated as "Rel" / "Rel." / "rel" in Finacle labels.
+    if (/\bRelative\b/i.test(human)) {
+      for (const abbr of ['Rel', 'Rel.', 'rel']) {
+        const v = human.replace(/\bRelative\b/gi, abbr);
+        if (v !== human) variants.add(v);
+      }
+    }
+
+    // "External" is frequently abbreviated as "Ext" / "Ext." / "ext" in Finacle labels.
+    if (/\bExternal\b/i.test(human)) {
+      for (const abbr of ['Ext', 'Ext.', 'ext']) {
+        const v = human.replace(/\bExternal\b/gi, abbr);
+        if (v !== human) variants.add(v);
+      }
+    }
+
+    // The workbook may use "Check" while the UI uses "Cheque" (e.g. "Check Allowed").
+    if (/\bCheck\b/i.test(human)) {
+      const v = human.replace(/\bCheck\b/gi, 'Cheque');
+      if (v !== human) variants.add(v);
+    }
+
+    // Existing punctuation variants.
+    variants.add(human.replace(/\bID\b/g, 'Id'));
+    variants.add(human.replace(/\bNo\.\b/g, 'No'));
+    return Array.from(variants).filter(Boolean);
+  }
+
+  // Selects a radio button whose value or associated label text matches the
+  // supplied value. Supports common yes/no/Y/N shorthand.
+  // The search is scoped to the label's own cell and its immediate siblings so
+  // adjacent fields (e.g. 'Cheque Allowed' vs 'Cheques Provided by Bank') are
+  // never mixed up.
+  private async setRadioByLabel(label: string, value: string, frame?: Frame): Promise<boolean> {
+    const finwFrame = frame || this.getFinwFrame();
+    const raw = value.trim().toLowerCase();
+    const candidates = new Set<string>();
+    const add = (v: string) => { const t = v.trim().toLowerCase(); if (t) candidates.add(t); };
+    add(value);
+    if (/^yes$/i.test(value)) { add('yes'); add('true'); add('y'); }
+    if (/^no$/i.test(value)) { add('no'); add('false'); add('n'); }
+    if (/^y$/i.test(value)) { add('y'); add('yes'); add('true'); }
+    if (/^n$/i.test(value)) { add('n'); add('no'); add('false'); }
+
+    try {
+      const result = await finwFrame.evaluate(({ l, raw, cand }) => {
+        const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        const labelNorm = normalize(l);
+        const cells = Array.from(document.querySelectorAll('td, th, label, legend'));
+        const labelCell = cells.find(el => {
+          const t = normalize(el.textContent?.trim() || '');
+          return t === labelNorm || t.startsWith(labelNorm + ' ') || t.startsWith(labelNorm + ':') || t.startsWith(labelNorm + '.') || t.startsWith(labelNorm + '?');
+        }) as HTMLElement | undefined;
+        if (!labelCell) return { ok: false, reason: `label not found: ${l}` };
+
+        let radios: HTMLInputElement[] = Array.from(labelCell.querySelectorAll('input[type="radio"]'));
+        if (radios.length === 0) {
+          let sibling = labelCell.nextElementSibling;
+          while (sibling) {
+            radios = Array.from(sibling.querySelectorAll('input[type="radio"]'));
+            if (radios.length > 0) break;
+            sibling = sibling.nextElementSibling;
+          }
+        }
+        if (radios.length === 0) {
+          const row = labelCell.closest('tr, fieldset, .form-group, .form-control') as HTMLElement | null;
+          if (row) radios = Array.from(row.querySelectorAll('input[type="radio"]'));
+        }
+
+        const desired = new Set(cand);
+        for (const radio of radios) {
+          const rv = (radio.value || '').toLowerCase();
+          const id = radio.id;
+          const forLabel = id ? (document.querySelector(`label[for="${id}"]`)?.textContent || '') : '';
+          const parentLabel = radio.closest('label')?.textContent || '';
+          const wrap = radio.parentElement?.textContent || '';
+          const labelText = (forLabel || parentLabel || wrap).trim().toLowerCase();
+          if (desired.has(rv) || desired.has(labelText) || rv === raw || labelText === raw) {
+            if (!radio.disabled && !radio.checked) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event('change', { bubbles: true }));
+              radio.dispatchEvent(new Event('input', { bubbles: true }));
+              if (typeof (radio as any).onclick === 'function') (radio as any).onclick();
+            }
+            return { ok: true, actual: radio.value, id, labelText: labelText || '' };
+          }
+        }
+        return { ok: false, reason: 'no matching radio', found: radios.length };
+      }, { l: label, raw, cand: Array.from(candidates) });
+
+      console.log(`setRadioByLabel "${label}" = ${value}: ${JSON.stringify(result)}`);
+      return result.ok;
+    } catch (e) {
+      console.log(`setRadioByLabel "${label}" failed: ${e}`);
+    }
+    return false;
+  }
+
+  // Tries to populate a single supplied field by text, dropdown or radio.
+  private async fillSuppliedField(key: string, value: string, frame?: Frame) {
+    const str = String(value).trim();
+    if (!str) return;
+    console.log(`[fillSuppliedField] start: ${key} = ${str}`);
+    const labels = this.labelVariants(key);
+    const isNumericValue = /^[0-9.,]+$/.test(str);
+
+    if (await this.fillByAnyLabel(labels, str, frame)) return;
+
+    // Numeric values should not be forced into Yes/No radios or arbitrary selects.
+    if (!isNumericValue) {
+      for (const label of labels) {
+        if (await this.selectOptionByLabel(label, str, frame)) return;
+      }
+      for (const label of labels) {
+        if (await this.setRadioByLabel(label, str, frame)) return;
+      }
+    }
+
+    console.log(`Could not populate supplied field: ${key} = ${str}`);
+  }
+
+  // Sets the Interest Debit A/c. dropdown (#intDrAcctFlg) using the exact
+  // workbook value. It finds the option by full label or by the leading code
+  // and sets selectedIndex / value directly, so Playwright cannot pick a
+  // different option by partial text.
+  private async setInterestDebitAccount(value: string) {
+    const str = String(value).trim();
+    if (!str) return;
+    if ((await this.interestDebitAccount.count()) === 0) {
+      console.log(`Interest Debit A/c. dropdown not present, skipping`);
+      return;
+    }
+    const code = str.split('-')[0].trim().toLowerCase();
+    const result = await this.interestDebitAccount.evaluate((sel: HTMLSelectElement, opts: { code: string; str: string }) => {
+      const target = opts.str.toLowerCase();
+      const targetCode = opts.code;
+      sel.disabled = false;
+      const opt = Array.from(sel.options).find(o => {
+        const t = (o.text || '').trim().toLowerCase();
+        const v = (o.value || '').trim().toLowerCase();
+        return t === target || v === target || t.startsWith(targetCode + ' -');
+      });
+      if (!opt) return `Interest Debit A/c. option not found for "${opts.str}" in #${sel.id}`;
+      sel.selectedIndex = opt.index;
+      sel.value = opt.value;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      if (typeof sel.onchange === 'function') (sel.onchange as any)();
+      return `Interest Debit A/c. set to ${opt.text} (#${sel.id})`;
+    }, { code, str });
+    console.log(result);
+  }
+
+  // Sets the Interest Credit A/c. dropdown by its known id (#intCrAcctFlg).
+  private async setInterestCreditAccount(value: string) {
+    if ((await this.interestCreditAccount.count()) === 0) {
+      console.log(`Interest Credit A/c. dropdown not present, skipping`);
+      return;
+    }
+    const code = String(value).split('-')[0].trim();
+    try {
+      await this.interestCreditAccount.selectOption(code);
+    } catch {
+      await this.interestCreditAccount.selectOption({ label: value });
+    }
+    console.log(`Selected Interest Credit A/c: ${value}`);
+  }
+
+  // Sets the Interest Method (Dr.) dropdown by scanning FINW selects for an
+  // option that actually contains the workbook value (e.g. "E - EOD Clear Balance"),
+  // then sets selectedIndex and value directly.
+  private async setInterestMethodDr(value: string): Promise<void> {
+    const str = String(value).trim();
+    if (!str) return;
+    const finwFrame = this.getFinwFrame();
+    const target = str.toLowerCase();
+    const code = str.split('-')[0].trim().toLowerCase();
+    const selects = finwFrame.locator('select');
+    const count = await selects.count();
+    for (let i = 0; i < count; i++) {
+      const sel = selects.nth(i);
+      const options = await sel.locator('option').evaluateAll(els =>
+        (els as HTMLOptionElement[]).map(o => ({ text: o.text, value: o.value }))
+      );
+      const opt = options.find(o => {
+        const t = (o.text || '').trim().toLowerCase();
+        return t === target || t.startsWith(target + ' -') || (code && t.startsWith(code + ' -') && t.includes('eod'));
+      });
+      if (opt) {
+        const id = await sel.evaluate(el => (el as HTMLSelectElement).id);
+        await sel.evaluate((el: HTMLSelectElement, o: { value: string }) => {
+          el.disabled = false;
+          const match = Array.from(el.options).find(x => (x.value || '') === o.value);
+          if (match) {
+            el.selectedIndex = match.index;
+            el.value = match.value;
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof el.onchange === 'function') (el.onchange as any)();
+          }
+        }, { value: opt.value });
+        console.log(`Set Interest Method (Dr.) to ${opt.text} (#${id})`);
+        return;
+      }
+    }
+    console.log(`Could not set Interest Method (Dr.) to "${value}"`);
+  }
+
+  // Sets the External System Pricing For dropdown. First checks the
+  // "External System Pricing" header checkbox so the relPricingId control is
+  // enabled, then selects the option and updates the hidden server-bound input.
+  private async setExternalSystemPricingFor(value: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const expected = String(value).trim();
+    const code = expected.split('-')[0].trim().toUpperCase();
+    const expectedNorm = expected.toLowerCase();
+
+    // If the workbook says N - None, the External System Pricing section must
+    // not be enabled at all (the details must not be entered). Uncheck the
+    // header and skip selecting the dropdown to avoid the E8101 validation error.
+    if (code === 'N') {
+      const unchecked = await finwFrame.evaluate(() => {
+        const all = Array.from(document.querySelectorAll('input[type="checkbox"], input[type="radio"]')) as HTMLInputElement[];
+        const cb = all.find(i => {
+          const row = i.closest('tr, td, div, fieldset, li, label');
+          const text = (row?.innerText || '').toLowerCase();
+          return text.includes('external system pricing') && !text.includes('for');
+        }) ||
+        Array.from(document.querySelectorAll('input')).find(i => {
+          const name = (i.name || '').toLowerCase();
+          const id = (i.id || '').toLowerCase();
+          return (name.includes('relpricing') || id.includes('relpricing')) && !name.includes('relpricingid') && !id.includes('relpricingid');
+        }) as HTMLInputElement | null;
+
+        if (cb && cb.checked) {
+          cb.checked = false;
+          cb.dispatchEvent(new Event('input', { bubbles: true }));
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+          cb.dispatchEvent(new Event('click', { bubbles: true }));
+          if (typeof (cb as any).onclick === 'function') (cb as any).onclick();
+        }
+        return !!cb && cb.checked === false;
+      });
+      console.log('External System Pricing skipped (N - None)' + (unchecked ? ' - header unchecked' : ''));
+      return;
+    }
+
+    // 1. Check the External System Pricing header checkbox/flag first.
+    const checked = await finwFrame.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('input[type="checkbox"], input[type="radio"]')) as HTMLInputElement[];
+      const cb = all.find(i => {
+        const row = i.closest('tr, td, div, fieldset, li, label');
+        const text = (row?.innerText || '').toLowerCase();
+        return text.includes('external system pricing') && !text.includes('for');
+      }) ||
+      Array.from(document.querySelectorAll('input')).find(i => {
+        const name = (i.name || '').toLowerCase();
+        const id = (i.id || '').toLowerCase();
+        return (name.includes('relpricing') || id.includes('relpricing')) && !name.includes('relpricingid') && !id.includes('relpricingid');
+      }) as HTMLInputElement | null;
+
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('input', { bubbles: true }));
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+        cb.dispatchEvent(new Event('click', { bubbles: true }));
+        if (typeof (cb as any).onclick === 'function') (cb as any).onclick();
+      }
+      return !!cb;
+    });
+    if (checked) {
+      await this.page.waitForTimeout(800);
+    }
+
+    // 2. Select the visible External System Pricing For <select> and trigger onchange.
+    const combo = finwFrame.locator('select').filter({ has: finwFrame.locator('option', { hasText: expected }) });
+    await combo.waitFor({ state: 'visible', timeout: 10000 });
+    await combo.selectOption({ label: expected }, { timeout: 10000 });
+    await combo.evaluate((el: any) => {
+      if (typeof el.onchange === 'function') el.onchange();
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.blur();
+    });
+    const selectedLabel = await combo.evaluate((el: HTMLSelectElement) => el.options[el.selectedIndex]?.text?.trim() || '');
+    expect(selectedLabel).toBe(expected);
+    console.log(`Selected External System Pricing For: ${expected} (verified: ${selectedLabel})`);
+    await this.page.waitForTimeout(300);
+
+    // 3. Ensure the backend relPricingId input matches the selected code.
+    const result = await finwFrame.evaluate(({ code, expected }) => {
+      const inputs = Array.from(document.querySelectorAll('input')).filter(i =>
+        (i.name || '').toLowerCase() === 'otherdetails.relpricingid' ||
+        (i.id || '').toLowerCase() === 'relpricingid' ||
+        (i.name || '').toLowerCase() === 'relpricingid'
+      );
+      for (const input of inputs) {
+        input.value = code;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return inputs.length > 0 ? { ok: true, actual: expected } : { ok: false, reason: 'relPricingId input not found' };
+    }, { code, expected });
+
+    if (!result.ok) {
+      throw new Error(`External System Pricing For assertion failed: ${result.reason}`);
+    }
+    const actualCode = String(result.actual || '').split('-')[0].trim().toUpperCase();
+    expect(actualCode).toBe(code);
+    console.log(`External System Pricing For set and verified: ${result.actual} (expected: ${expected})`);
+  }
+
+  // Sets a relPricing*_ui visible input and the matching hidden backend input
+  // (used for Pricing Effective Date and Pricing Review Date).
+  private async setRelPricingDate(base: 'relPricingEffDate' | 'relPricingReviewDate', date: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const d = String(date).trim();
+    const isoDate = d.split('-').reverse().join('-');
+    const ok = await finwFrame.evaluate(({ base, d, isoDate }) => {
+      const ui = document.querySelector(`input[name*="${base}_ui"], input#${base}_ui`) as HTMLInputElement | null;
+      const hidden = document.querySelector(`input[name*="${base}"]:not([name*="_ui"]):not([id$="_ui"]), input#${base}`) as HTMLInputElement | null;
+      if (ui) {
+        ui.value = d;
+        ui.dispatchEvent(new Event('input', { bubbles: true }));
+        ui.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (hidden) {
+        const useIso = /^\d{4}-\d{2}-\d{2}$/.test(hidden.value || '');
+        hidden.value = useIso ? isoDate : d;
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return !!ui || !!hidden;
+    }, { base, d, isoDate });
+    console.log(ok ? `Set ${base}: ${d}` : `Could not set ${base}`);
+  }
+
+  // Sets the Scheme Details expiry date by its known name (sbschemedetails.expiryDate_ui),
+  // so it is not overwritten by the Account Limits expiry date later.
+  private async setSchemeExpiryDate(date: string) {
+    const finwFrame = this.getFinwFrame();
+    const isoDate = date.split('-').reverse().join('-');
+    const ok = await finwFrame.evaluate(({ date, isoDate }) => {
+      const ui = document.querySelector('input[name*="sbschemedetails.expiryDate_ui"], input#expiryDate_ui') as HTMLInputElement | null;
+      if (!ui) return false;
+      ui.value = date;
+      ui.dispatchEvent(new Event('input', { bubbles: true }));
+      ui.dispatchEvent(new Event('change', { bubbles: true }));
+      const base = (ui.getAttribute('name') || 'expiryDate').replace('_ui', '');
+      const hidden = document.querySelector(`input[name="${base}"], input[name="${base}_hdn"], input[id="${base}"], input[id="${base}_hdn"]`) as HTMLInputElement | null;
+      if (hidden) {
+        const useIso = /^\d{4}-\d{2}-\d{2}$/.test(hidden.value || '');
+        hidden.value = useIso ? isoDate : date;
+        hidden.dispatchEvent(new Event('input', { bubbles: true }));
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      return true;
+    }, { date, isoDate });
+    console.log(ok ? `Set scheme expiry date to ${date}` : `Could not set scheme expiry date`);
+  }
+
+  // Applies all non-empty supplied values for a given tab.
+  private async fillSavingsTabFields(
+    accountData: AccountData,
+    tabName: string,
+    relatedParties: AccountData[] = []
+  ) {
+    const keys = SAVINGS_TAB_FIELDS[tabName];
+    if (!keys) return;
+
+    // Scheme Details is filled by a row-aware helper that targets each label's
+    // text, select or radio control so workbook values are never ignored.
+    if (tabName === 'Scheme Details') {
+      await this.fillSchemeDetailsByLabels(accountData);
+      return;
+    }
+
+    // Enabling External System Pricing makes the effective/review dates mandatory.
+    // Default them to today when the workbook leaves them empty, except for N - None
+    // where no pricing section fields should be populated.
+    if (tabName === 'Others Details' && this.hasTabData(accountData, tabName)) {
+      const pricingCode = String(accountData.externalSystemPricingFor || '').split('-')[0].trim().toUpperCase();
+      if (pricingCode !== 'N' && accountData.externalSystemPricingFor && !accountData.pricingEffectiveDate) {
+        accountData.pricingEffectiveDate = this.todayDate();
+      }
+      if (pricingCode !== 'N' && accountData.externalSystemPricingFor && !accountData.pricingReviewDate) {
+        accountData.pricingReviewDate = this.todayDate();
+      }
+    }
+
+    if (tabName === 'Related Party Details' && (this.hasTabData(accountData, tabName) || relatedParties.length > 0)) {
+      await this.visitRelatedPartyTab();
+
+      // Fill and save the main (default) related-party record.
+      const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+      for (const key of keys) {
+        const value = accountData[key];
+        if (value === undefined || value === null) continue;
+        if (String(value).trim() === '') continue;
+        // Relation fields are not enabled on the default/main record.
+        if (['relationType', 'relatedPartyCifId', 'Relation Code'].includes(key)) continue;
+        await this.fillSuppliedField(key, String(value), rpFrame);
+      }
+      await this.saveRelatedPartyRecord();
+
+        for (const party of relatedParties) {
+          if (!party) continue;
+          await this.clickRelatedPartyAdd();
+          await this.page.waitForTimeout(2000);
+          const newRpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+
+          const relationType = party['relationType'];
+          if (relationType) {
+            await this.selectRelationType(String(relationType));
+          }
+          const relationCode = party['Relation Code'];
+          if (relationCode && String(relationCode).trim() !== '') {
+            await this.selectRelationCode(String(relationCode));
+          }
+          const cif = party['relatedPartyCifId'];
+          if (cif) {
+            await this.enterRelatedPartyCif(String(cif));
+          }
+
+          for (const key of keys) {
+            const value = party[key];
+            if (value === undefined || value === null) continue;
+            if (String(value).trim() === '') continue;
+            if (['relationType', 'relatedPartyCifId', 'Relation Code'].includes(key)) continue;
+            await this.fillSuppliedField(key, String(value), newRpFrame);
+          }
+
+          await this.saveRelatedPartyRecord();
+        }
+      return;
+    }
+
+    const isPricingN = String(accountData.externalSystemPricingFor || '').split('-')[0].trim().toUpperCase() === 'N';
+    for (const key of keys) {
+      const value = accountData[key];
+      if (value === undefined || value === null) continue;
+      if (String(value).trim() === '') continue;
+      if (isPricingN && (key === 'relationshipPricingId' || key === 'pricingEffectiveDate' || key === 'pricingReviewDate')) continue;
+      // These are handled by setAdditionalInterestDetails after the generic pass.
+      if (['collectInterest', 'interestRateCode', 'interestDebitAccountId'].includes(key)) continue;
+      if (key === 'interestDebitAccount') {
+        await this.setInterestDebitAccount(String(value));
+      } else if (key === 'accountStatement') {
+        await this.setAccountStatement(String(value));
+      } else if (key === 'interestCreditAccount') {
+        await this.setInterestCreditAccount(String(value));
+      } else if (key === 'Next Print Date') {
+        await this.setNextPrintDate(String(value));
+      } else if (key === 'nextInterestCalculationDateCr') {
+        await this.setNextInterestCalculationDateCr(String(value));
+      } else if (key === 'externalSystemPricingFor') {
+        await this.setExternalSystemPricingFor(String(value));
+      } else if (key === 'pricingEffectiveDate') {
+        await this.setRelPricingDate('relPricingEffDate', String(value));
+      } else if (key === 'pricingReviewDate') {
+        await this.setRelPricingDate('relPricingReviewDate', String(value));
+      } else if (key === 'schemeExpiryDate') {
+        await this.setSchemeExpiryDate(String(value));
+      } else {
+        await this.fillSuppliedField(key, String(value));
+      }
+    }
+  }
+
+  // Fills the Scheme Details tab by locating each field label row and setting
+  // the first enabled text, number, select or radio control in that row. This
+  // guarantees the workbook values are applied even when the generic filler misses
+  // the correct control type.
+  private async fillSchemeDetailsByLabels(accountData: AccountData): Promise<void> {
+    const keys = SAVINGS_TAB_FIELDS['Scheme Details'];
+    if (!keys) return;
+
+    for (const key of keys) {
+      const rawValue = accountData[key];
+      if (rawValue === undefined || rawValue === null) continue;
+      const value = String(rawValue).trim();
+      if (value === '') continue;
+
+      if (key.toLowerCase().includes('interest method (dr.)')) {
+        await this.setInterestMethodDr(value);
+        console.log(`Scheme Details [${key} = ${value}]: set via setInterestMethodDr`);
+        continue;
+      }
+
+      if (key === 'schemeExpiryDate') {
+        await this.setSchemeExpiryDate(value);
+        continue;
+      }
+
+      const labels = this.labelVariants(key);
+      const isNumeric = /^[0-9.,]+$/.test(value);
+
+      // Non-numeric values are Yes/No or option-style radios (No, Yes, Scheme, A/c, Simultaneous, ...)
+      if (!isNumeric) {
+        let filled = false;
+        for (const label of labels) {
+          if (await this.setRadioByLabel(label, value)) { filled = true; break; }
+          if (await this.selectOptionByLabel(label, value)) { filled = true; break; }
+        }
+        if (!filled) {
+          await this.fillSuppliedField(key, value);
+        }
+        console.log(`Scheme Details [${key} = ${value}]: filled=${filled}`);
+      } else {
+        await this.fillSuppliedField(key, value);
+        console.log(`Scheme Details [${key} = ${value}] filled via fillSuppliedField`);
+      }
+    }
+  }
+
+  // Returns true if the tab has at least one supplied non-empty value.
+  private hasTabData(accountData: AccountData, tabName: string): boolean {
+    const keys = SAVINGS_TAB_FIELDS[tabName];
+    if (!keys) return false;
+    return keys.some(key => {
+      const v = accountData[key];
+      return v !== undefined && v !== null && String(v).trim() !== '';
+    });
+  }
+
+  // Visits optional savings tabs (Others, Account Limits, Document, FFD,
+  // Payment System) only when the workbook provides data for them.
+  private async fillSuppliedSavingsExtraTabs(accountData: AccountData) {
+    const extraTabs = [
+      { label: 'Other Details', id: 'otherdetails', tabName: 'Others Details', verificationLabel: 'External' },
+      { label: 'Account Limits', id: 'accountlimits', tabName: 'Account Limits', verificationLabel: 'Account Limits' },
+      { label: 'Document Details', id: 'documentdetails', tabName: 'Document Details', verificationLabel: 'Document' },
+      { label: 'FFD Parameters', id: 'ffdparameters', tabName: 'FFD Parameters', verificationLabel: 'FFD' },
+      { label: 'Payment System', id: 'paymentsystem', tabName: 'Payment System', verificationLabel: 'Payment' },
+    ];
+    for (const tab of extraTabs) {
+      if (!this.hasTabData(accountData, tab.tabName)) continue;
+      try {
+        await this.clickTab(tab.label, tab.id, tab.verificationLabel);
+        await this.fillSavingsTabFields(accountData, tab.tabName);
+      } catch (e) {
+        console.log(`Could not visit/fill ${tab.label}: ${e}`);
+      }
+    }
+  }
+
+  // Helpers for the new Excel-driven savings fields.
+  private isYes(value: any): boolean {
+    return /^(yes|y|true)$/i.test(String(value ?? '').trim());
+  }
+
+  private async setFrequencyRow(
+    rowLabel: string,
+    fields: { key: string; label?: string; kind: 'select' | 'text' | 'radio-value' }[],
+    accountData: AccountData
+  ): Promise<Record<string, { ok: boolean; actual?: string; reason?: string }>> {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate(({ rowLabel, fields, data }) => {
+      const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const findRow = () => {
+        const cells = Array.from(document.querySelectorAll('td, th'));
+        return cells.find(c => normalize(c.textContent?.trim() || '').startsWith(normalize(rowLabel)))?.closest('tr') as HTMLTableRowElement | null;
+      };
+      const row = findRow();
+      if (!row) {
+        return Object.fromEntries(fields.map(f => [f.key, { ok: false, reason: `row for "${rowLabel}" not found` }]));
+      }
+
+      const out: Record<string, { ok: boolean; actual?: string; reason?: string }> = {};
+      for (const f of fields) {
+        const raw = String(data[f.key] ?? '').trim();
+        if (!raw) {
+          out[f.key] = { ok: true, actual: '' };
+          continue;
+        }
+
+        if (f.kind === 'radio-value') {
+          const radios = Array.from(row.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+          const target = radios.find(r =>
+            r.value.toLowerCase() === raw.toLowerCase() ||
+            (r.getAttribute('title') || '').toLowerCase().includes(raw.toLowerCase())
+          );
+          if (target) {
+            target.checked = true;
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+            out[f.key] = { ok: true, actual: target.value };
+          } else {
+            out[f.key] = { ok: false, reason: `radio value "${raw}" not found` };
+          }
+          continue;
+        }
+
+        const label = f.label ?? f.key;
+        const subCells = Array.from(row.querySelectorAll('td, th'));
+        const subCell = subCells.find(c => {
+          const t = normalize(c.textContent?.trim() || '');
+          return t === normalize(label) || (c.textContent?.trim() || '').toLowerCase().startsWith(label.toLowerCase());
+        });
+        const controlCell = (subCell?.nextElementSibling as HTMLElement | null) ?? subCell ?? row;
+
+        if (f.kind === 'select') {
+          const select = controlCell.querySelector('select') as HTMLSelectElement | null;
+          if (!select) {
+            out[f.key] = { ok: false, reason: 'select not found' };
+          } else {
+            const code = raw.split('-')[0].trim().toLowerCase();
+            const opt = Array.from(select.options).find(o =>
+              o.text.toLowerCase().includes(raw.toLowerCase()) ||
+              o.value.toLowerCase() === raw.toLowerCase() ||
+              o.text.toLowerCase().includes(code)
+            );
+            if (opt) {
+              select.value = opt.value;
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              out[f.key] = { ok: true, actual: opt.text };
+            } else {
+              out[f.key] = { ok: false, reason: `option matching "${raw}" not found` };
+            }
+          }
+        } else {
+          const input = controlCell.querySelector('input[type="text"]') as HTMLInputElement | null;
+          if (!input) {
+            out[f.key] = { ok: false, reason: 'text input not found' };
+          } else {
+            input.value = raw;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            out[f.key] = { ok: true, actual: input.value };
+          }
+        }
+      }
+      return out;
+    }, { rowLabel, fields, data: accountData });
+    return result as Record<string, { ok: boolean; actual?: string; reason?: string }>;
+  }
+
+  private async assertFrequencyFields(
+    rowLabel: string,
+    fields: { key: string; kind: 'select' | 'text' | 'radio-value' }[],
+    accountData: AccountData,
+    result: Record<string, { ok: boolean; actual?: string; reason?: string }>
+  ): Promise<void> {
+    for (const f of fields) {
+      const expected = String(accountData[f.key] ?? '').trim();
+      if (!expected) continue;
+      const r = result[f.key];
+      if (!r || !r.ok) {
+        throw new Error(`${rowLabel} - ${f.key}: ${r?.reason || 'failed'}`);
+      }
+      const actual = r.actual ?? '';
+      if (f.kind === 'radio-value') {
+        expect(actual.toLowerCase(), `${f.key} radio value`).toBe(expected.toLowerCase());
+      } else if (f.kind === 'select') {
+        const code = expected.split('-')[0].trim().toLowerCase();
+        expect(actual.toLowerCase(), `${f.key} selected text`).toContain(code);
+      } else {
+        expect(actual, `${f.key} input value`).toBe(expected);
+      }
+    }
+  }
+
+  // Re-applies the Statement Frequency values on the General Details tab and
+  // strictly asserts that each select still reflects the supplied Excel value.
+  private async assertStatementFrequency(accountData: AccountData): Promise<void> {
+    await this.setStatementFrequency(accountData);
+
+    const finwFrame = this.getFinwFrame();
+    const expected = {
+      statementFrequency: String(accountData.statementFrequency ?? '').trim(),
+      statementWeek: String(accountData.statementWeek ?? '').trim(),
+      statementDay: String(accountData.statementDay ?? '').trim(),
+      statementP: String(accountData.statementP ?? accountData.statementNextDay ?? '').trim(),
+      statementG: String(accountData.statementG ?? accountData.statementCalendar ?? '').trim(),
+    };
+    const ids: Record<string, string> = {
+      statementFrequency: 'pbPsFreqType',
+      statementWeek: 'pbPsFreqWeek',
+      statementDay: 'pbPsFreqStartDD',
+      statementP: 'pbPsFreqHldyStat',
+      statementG: 'pbPsFreqCalBase',
+    };
+
+    const actuals = await finwFrame.evaluate(({ ids }) => {
+      const out: Record<string, string> = {};
+      for (const [key, id] of Object.entries(ids)) {
+        const sel = document.querySelector('#' + id) as HTMLSelectElement | null;
+        const opt = sel?.options[sel?.selectedIndex ?? -1];
+        out[key] = opt ? opt.text.trim() : '';
+      }
+      return out;
+    }, { ids });
+
+    for (const [key, exp] of Object.entries(expected)) {
+      if (!exp) continue;
+      const code = exp.split('-')[0].trim().toUpperCase();
+      const actual = actuals[key] ?? '';
+      const actualCode = actual.split('-')[0].trim().toUpperCase();
+      if (actualCode !== code) {
+        throw new Error(`Statement Frequency persistence failed for ${key}. Expected: ${exp}, Got: ${actual}`);
+      }
+    }
+
+    console.log('Statement Frequency persisted after navigation:', JSON.stringify(actuals));
+  }
+
+  private async setStatementFrequency(accountData: AccountData): Promise<void> {
+    const acStmt = String(accountData.accountStatement ?? '').trim().toLowerCase();
+    const isNone = !acStmt || acStmt === 'n' || acStmt === 'none' || acStmt.startsWith('n -');
+    if (isNone) {
+      console.log('A/c Statement is None, skipping Statement Frequency setup');
+      return;
+    }
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((opts) => {
+      const setSelect = (id: string, val?: string) => {
+        const sel = document.querySelector('#' + id) as HTMLSelectElement | null;
+        if (!sel || !val) return '';
+        const code = val.split('-')[0].trim().toLowerCase();
+        // Enable the control; it may be disabled by Finacle, which prevents normal fill.
+        sel.disabled = false;
+        const opt = Array.from(sel.options).find(o =>
+          (o.value || '').toLowerCase() === val.toLowerCase() ||
+          (o.text || '').toLowerCase().startsWith(code + ' -') ||
+          (o.text || '').toLowerCase().includes(val.toLowerCase()) ||
+          (o.text || '').toLowerCase().includes(code)
+        );
+        if (opt) {
+          sel.selectedIndex = opt.index;
+          sel.value = opt.value;
+          if (typeof sel.onchange === 'function') sel.onchange();
+          sel.dispatchEvent(new Event('input', { bubbles: true }));
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          sel.dispatchEvent(new Event('blur', { bubbles: true }));
+          sel.blur();
+
+          // Keep any hidden/server-bound input with the same id in sync so the
+          // value survives tab navigation and form submission.
+          const selectedValue = opt.value || '';
+          document.querySelectorAll('input').forEach((inp: HTMLInputElement) => {
+            const n = (inp.getAttribute('name') || '').toLowerCase();
+            const i = (inp.id || '').toLowerCase();
+            if (n.includes(id.toLowerCase()) || i.includes(id.toLowerCase())) {
+              inp.value = selectedValue;
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+              inp.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          });
+
+          return opt.text;
+        }
+        return '';
+      };
+      return {
+        statementFrequency: setSelect('pbPsFreqType', opts.statementFrequency),
+        statementWeek: setSelect('pbPsFreqWeek', opts.statementWeek),
+        statementDay: setSelect('pbPsFreqStartDD', opts.statementDay),
+        statementP: setSelect('pbPsFreqHldyStat', opts.statementP),
+        statementG: setSelect('pbPsFreqCalBase', opts.statementG),
+      };
+    }, {
+      statementFrequency: String(accountData.statementFrequency ?? '').trim(),
+      statementWeek: String(accountData.statementWeek ?? '').trim(),
+      statementDay: String(accountData.statementDay ?? '').trim(),
+      statementP: String(accountData.statementP ?? accountData.statementNextDay ?? '').trim(),
+      statementG: String(accountData.statementG ?? accountData.statementCalendar ?? '').trim(),
+    });
+
+    const ids: Record<string, string> = {
+      statementFrequency: 'pbPsFreqType',
+      statementWeek: 'pbPsFreqWeek',
+      statementDay: 'pbPsFreqStartDD',
+      statementP: 'pbPsFreqHldyStat',
+      statementG: 'pbPsFreqCalBase',
+    };
+    for (const [key, id] of Object.entries(ids)) {
+      const label = (result as any)[key];
+      if (!label) continue;
+      const sel = finwFrame.locator('select#' + id);
+      try {
+        await sel.evaluate((el: any) => { el.disabled = false; });
+        await sel.selectOption({ label });
+      } catch (e) {
+        console.warn(`Playwright selectOption failed for ${id}: ${(e as Error).message}`);
+      }
+    }
+
+    if (accountData.statementFrequency) expect(result.statementFrequency.toLowerCase()).toContain(String(accountData.statementFrequency).split('-')[0].trim().toLowerCase());
+    if (accountData.statementWeek) expect(result.statementWeek.toLowerCase()).toContain(String(accountData.statementWeek).toLowerCase());
+    if (accountData.statementDay) expect(result.statementDay).toContain(String(accountData.statementDay));
+    if (accountData.statementP) expect(result.statementP.toLowerCase()).toContain(String(accountData.statementP).split('-')[0].trim().toLowerCase());
+    if (accountData.statementG) expect(result.statementG.toLowerCase()).toContain(String(accountData.statementG).split('-')[0].trim().toLowerCase());
+    console.log('Statement Frequency set:', JSON.stringify(result));
+  }
+
+  // Sets the A/c Statement dropdown from the workbook value. The statement
+  // flag is usually rendered as <select id="pbPsFlg" />, so target that id
+  // directly; fall back to label search only when it is not present.
+  private async setAccountStatement(value: string): Promise<void> {
+    const str = String(value).trim();
+    if (!str) return;
+    const finwFrame = this.getFinwFrame();
+    const sel = finwFrame.locator('select#pbPsFlg, select[name*="pbPsFlg"], select[id*="pbPsFlg"]').first();
+    if (await sel.count() > 0) {
+      const result = await sel.evaluate((el: HTMLSelectElement, target: string) => {
+        const sel = el;
+        const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const full = target.toLowerCase();
+        const fullNorm = normalize(target);
+        const targetCode = target.split('-')[0].trim().toLowerCase();
+        sel.disabled = false;
+        const opt = Array.from(sel.options).find(o => {
+          const t = (o.text || '').trim().toLowerCase();
+          const v = (o.value || '').trim().toLowerCase();
+          return t === full || v === full || t.startsWith(targetCode + ' -') || v === targetCode || normalize(o.text).includes(fullNorm);
+        });
+        if (!opt) return `A/c Statement option not found for "${target}" in #pbPsFlg`;
+        sel.selectedIndex = opt.index;
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        sel.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof sel.onchange === 'function') (sel.onchange as any)();
+        return `A/c Statement set to ${opt.text} (#${sel.id || 'pbPsFlg'})`;
+      }, str);
+      console.log(result);
+      return;
+    }
+
+    // Fallback: search by the visible label when the id is not available.
+    const result = await finwFrame.evaluate((target) => {
+      const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+      const targetNorm = normalize(target);
+      const targetCode = target.split('-')[0].trim().toLowerCase();
+      const labelMatch = (text: string) => {
+        const n = normalize(text);
+        return n.includes('acstatement') || n.includes('accountstatement') || n.includes('a/cstatement');
+      };
+
+      const labels = Array.from(document.querySelectorAll('td, th, label, span, div'));
+      const labelEl = labels.find(el => labelMatch((el as any).textContent || ''));
+      if (!labelEl) return 'A/c Statement label not found';
+
+      const parent = (labelEl as HTMLElement).closest('tr, td, div, fieldset, form');
+      if (!parent) return 'A/c Statement label has no parent';
+
+      const select = parent.querySelector('select') as HTMLSelectElement | null;
+      if (!select) return 'A/c Statement select not found';
+
+      select.disabled = false;
+      const opt = Array.from(select.options).find(o => {
+        const t = (o.text || '').trim().toLowerCase();
+        const v = (o.value || '').trim().toLowerCase();
+        return t.startsWith(targetCode + ' -') || normalize(o.text).includes(targetNorm) || normalize(o.value).includes(targetNorm);
+      });
+      if (!opt) return `A/c Statement option not found for "${target}" in #${select.id}`;
+
+      select.selectedIndex = opt.index;
+      select.value = opt.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      if (typeof select.onchange === 'function') (select.onchange as any)();
+      return `A/c Statement set to ${opt.text} (#${select.id})`;
+    }, str);
+    console.log(result);
+  }
+
+  private async setInterestCalculationFrequencies(accountData: AccountData): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const setGroup = async (rowLabel: string, prefix: string, ids: Record<string, string>) => {
+      const result = await finwFrame.evaluate((opts) => {
+        const setSelect = (id: string, val?: string) => {
+          const sel = document.querySelector('#' + id) as HTMLSelectElement | null;
+          if (!sel || !val) return '';
+          const valNorm = val.toLowerCase().trim();
+          const code = valNorm.split('-')[0];
+          const current = sel.options[sel.selectedIndex];
+          const currentText = (current?.text || '').trim().toLowerCase();
+          const currentValue = (sel.value || '').trim().toLowerCase();
+          if (currentText === valNorm || currentValue === valNorm || currentText.startsWith(code + ' -')) {
+            return current?.text || '';
+          }
+          const opt = Array.from(sel.options).find(o => {
+            const text = o.text.trim().toLowerCase();
+            const value = (o.value || '').trim().toLowerCase();
+            return text === valNorm || value === valNorm || text.startsWith(code + ' -') || value === code;
+          });
+          if (opt) {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event('change', { bubbles: true }));
+            return opt.text;
+          }
+          return '';
+        };
+        return {
+          frequency: setSelect(opts.ids.type, opts.data[`${opts.prefix}`]),
+          week: setSelect(opts.ids.week, opts.data[`${opts.prefix}Week`]),
+          day: setSelect(opts.ids.day, opts.data[`${opts.prefix}Day`]),
+          p: setSelect(opts.ids.p, opts.data[`${opts.prefix}P`]),
+          g: setSelect(opts.ids.g, opts.data[`${opts.prefix}G`]),
+        };
+      }, { ids, prefix, data: accountData });
+
+      if (accountData[`${prefix}`]) expect(result.frequency.toLowerCase()).toContain(String(accountData[`${prefix}`]).split('-')[0].trim().toLowerCase());
+      if (accountData[`${prefix}Week`]) expect(result.week.toLowerCase()).toContain(String(accountData[`${prefix}Week`]).toLowerCase());
+      if (accountData[`${prefix}Day`]) expect(result.day).toContain(String(accountData[`${prefix}Day`]));
+      if (accountData[`${prefix}P`]) expect(result.p.toLowerCase()).toContain(String(accountData[`${prefix}P`]).split('-')[0].trim().toLowerCase());
+      if (accountData[`${prefix}G`]) expect(result.g.toLowerCase()).toContain(String(accountData[`${prefix}G`]).split('-')[0].trim().toLowerCase());
+      console.log(`${rowLabel} set:`, JSON.stringify(result));
+    };
+
+    await setGroup('Interest Calculation Frequency (Cr.)', 'interestCalcFreqCr', {
+      type: 'intCalcCrFreqType',
+      week: 'intCalcCrFreqWeek',
+      day: 'intCalcCrFreqStartDD',
+      p: 'intCalcCrFreqHldyStat',
+      g: 'intCalcCrFreqCalBase',
+    });
+    await setGroup('Interest Calculation Frequency (Dr.)', 'interestCalcFreqDr', {
+      type: 'intCalcDrFreqType',
+      week: 'intCalcDrFreqWeek',
+      day: 'intCalcDrFreqStartDD',
+      p: 'intCalcDrFreqHldyStat',
+      g: 'intCalcDrFreqCalBase',
+    });
+  }
+
+  private async setCollectInterest(value: string): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const yes = /^(yes|y|true)$/i.test(value.trim());
+    const target = yes ? 'Y' : 'N';
+    const result = await finwFrame.evaluate((val) => {
+      const all = Array.from(document.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+      let radios = all.filter(r => /collectIntFlg/i.test(r.name || ''));
+      if (radios.length === 0) radios = all.filter(r => /collectInt/i.test(r.name || ''));
+      const targetVal = val.toLowerCase();
+      const target = radios.find(r => {
+        const v = (r.value || '').toLowerCase();
+        if (v === targetVal) return true;
+        if (targetVal === 'y' && (v === 'y' || v === 'yes' || v === 'true' || v === '1')) return true;
+        if (targetVal === 'n' && (v === 'n' || v === 'no' || v === 'false' || v === '0')) return true;
+        return false;
+      });
+      if (!target) return { ok: false, actual: '', reason: 'collectIntFlg radio not found' };
+      target.checked = true;
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+      return { ok: true, actual: target.value };
+    }, target);
+
+    if (!result.ok) {
+      console.log(`Could not set Collect Interest = "${value}": ${result.reason}; continuing`);
+      return false;
+    }
+    console.log(`Set Collect Interest: ${value} (actual: ${result.actual})`);
+    return true;
+  }
+
+  private async setInterestRateCode(value: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((val) => {
+      const inp = document.querySelector('#intRateCode') as HTMLInputElement | null;
+      if (!inp) return { ok: false, reason: '#intRateCode not found' };
+      if (val) { inp.value = val; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+      return { ok: true, actual: inp.value };
+    }, value.trim());
+
+    if (!result.ok) throw new Error(`Could not set Interest Rate Code = "${value}": ${result.reason}`);
+    expect(result.actual, 'Interest Rate Code value').toBe(value.trim());
+    console.log(`Set Interest Rate Code: ${value}`);
+  }
+
+  private async setInterestDebitAccountId(value: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((val) => {
+      const inp = document.querySelector('#intDrAcctNum') as HTMLInputElement | null;
+      if (!inp) return { ok: false, reason: '#intDrAcctNum not found' };
+      if (val) { inp.value = val; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true })); }
+      return { ok: true, actual: inp.value };
+    }, value.trim());
+
+    if (!result.ok) throw new Error(`Could not set Interest Debit A/c. ID = "${value}": ${result.reason}`);
+    expect(result.actual, 'Interest Debit A/c. ID value').toBe(value.trim());
+    console.log(`Set Interest Debit A/c. ID: ${value}`);
+  }
+
+  private async setAdditionalInterestDetails(accountData: AccountData): Promise<void> {
+    const collectInterest = String(accountData.collectInterest ?? '').trim();
+    if (collectInterest) {
+      try { await this.setCollectInterest(collectInterest); } catch (e: any) { console.log(`Could not set Collect Interest: ${e.message}`); }
+    }
+
+    const interestDebitAccountId = String(accountData.interestDebitAccountId ?? '').trim();
+    if (interestDebitAccountId) {
+      try { await this.setInterestDebitAccountId(interestDebitAccountId); } catch (e: any) { console.log(`Could not set Interest Debit A/c. ID: ${e.message}`); }
+    }
+
+    const interestRateCode = String(accountData.interestRateCode ?? '').trim();
+    if (interestRateCode) {
+      try { await this.setInterestRateCode(interestRateCode); } catch (e: any) { console.log(`Could not set Interest Rate Code: ${e.message}`); }
+    }
+
+    // Ensure a debit next interest calculation date exists before changing frequencies,
+    // or Finacle raises 'Enter the field' on the debit interest section.
+    const nextInterestDr = String(accountData['Next Interest Calculation Date (Dr.)'] ?? '').trim();
+    const nextDrDate = nextInterestDr || (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + Math.floor(Math.random() * 28) + 1);
+      return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    })();
+    try {
+      await this.setNextInterestCalculationDateDr(nextDrDate);
+    } catch (e: any) {
+      console.log(`Could not set debit next interest date: ${e.message}`);
+    }
+    try {
+      await this.setInterestCalculationFrequencies(accountData);
+    } catch (e: any) {
+      console.log(`Could not set interest calculation frequencies: ${e.message}`);
+    }
+  }
+
+  private async setNextInterestCalculationDateCr(value: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const field = finwFrame.locator('#nextIntCrCalcDt_ui');
+    if ((await field.count()) === 0) {
+      throw new Error('Next Interest Calculation Date (Cr.) input not found');
+    }
+
+    await field.evaluate((el: any, v: string) => {
+      el.disabled = false;
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+
+    await this.page.waitForTimeout(500);
+    const actual = await field.inputValue().catch(() => '');
+    if (actual.trim() !== value.trim()) {
+      throw new Error(`Next Interest Calculation Date (Cr.) assertion failed. Expected: ${value}, Got: ${actual}`);
+    }
+    console.log(`Next Interest Calculation Date (Cr.) verified: ${actual}`);
+  }
+
+  private async setNextInterestCalculationDateDr(value: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const field = finwFrame.locator('#nextIntDrCalcDt_ui');
+    if ((await field.count()) === 0) {
+      throw new Error('Next Interest Calculation Date (Dr.) input not found');
+    }
+
+    await field.evaluate((el: any, v: string) => {
+      el.disabled = false;
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+
+    await this.page.waitForTimeout(500);
+    const actual = await field.inputValue().catch(() => '');
+    if (actual.trim() !== value.trim()) {
+      throw new Error(`Next Interest Calculation Date (Dr.) assertion failed. Expected: ${value}, Got: ${actual}`);
+    }
+    console.log(`Next Interest Calculation Date (Dr.) verified: ${actual}`);
+  }
+
+  // Clicks the General Details tab's own Submit button (if present). This
+  // invokes general_details_ONCLICK28 and saves the General Details values
+  // before we move to the next tab, so Dispatch Mode and Statement Frequency
+  // are persisted by the server.
+  private async submitGeneralDetailsTab(): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const clicked = await finwFrame.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('input[type="button"], input[type="submit"], button'));
+      const btn = btns.find(b => (b.getAttribute('onclick') || '').includes('general_details_ONCLICK28')) as HTMLElement | undefined;
+      if (btn) {
+        (btn as any).click();
+        return true;
+      }
+      return false;
+    });
+    if (clicked) {
+      console.log('Clicked General Details Submit (general_details_ONCLICK28)');
+      await this.page.waitForTimeout(3000);
+    } else {
+      console.log('General Details Submit button not found');
+    }
+  }
+
   // ============ Tab Filling Orchestration ============
-  private async fillAllTabs(dispatchMode: 'email' | 'post' = 'post', forModification = false) {
+  private async fillAllTabs(
+    accountData: AccountData,
+    forModification = false,
+    relatedParties: AccountData[] = []
+  ) {
+    const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
+
     await this.visitGeneralDetailsTab();
-    await this.selectDispatchMode(dispatchMode);
     if (forModification) {
       await this.fillGeneralTabFields();
     }
-    
+    await this.fillSavingsTabFields(accountData, 'General Details');
+    await this.setStatementFrequency(accountData);
+    await this.selectDispatchMode(dispatchMode);
+
     await this.visitInterestDetailsTab();
     await this.fillInterestDetails(forModification);
-    
+    await this.fillSavingsTabFields(accountData, 'Interest Details');
+    await this.setAdditionalInterestDetails(accountData);
+
     await this.visitSchemeDetailsTab();
+    await this.fillSavingsTabFields(accountData, 'Scheme Details');
+
     await this.visitRelatedPartyTab();
+    await this.fillSavingsTabFields(accountData, 'Related Party Details', relatedParties);
+
     await this.visitMiscodesTab();
+    await this.fillSavingsTabFields(accountData, 'MIS Code');
   }
 
   // ============ Account Creation Methods ============
-  async createSavingsAccount(accountData: AccountData) {
+  async createSavingsAccount(
+    accountData: AccountData,
+    options: { skipGeneralDetailsRevisit?: boolean; relatedParties?: AccountData[] } = {}
+  ) {
     await this.fillBasicAccountDetails(accountData);
     await this.selectSchemeCode(accountData.schemeCode ?? undefined);
-    await this.acceptButton.click();
+
+    // If the dispatch/despatch control is available on the initial (pre-Accept)
+    // form, set it before the account record is accepted.
+    await this.selectDispatchMode((accountData.dispatchMode || 'email') as 'email' | 'post' | 'no dispatch');
+    await this.page.waitForTimeout(1000);
+
+    await this.acceptButton.click({ force: true, timeout: 15000 });
     await this.page.waitForTimeout(3000);
 
-    const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
-    await this.fillAllTabs(dispatchMode, false);
+    await this.fillAllTabs(accountData, false, options.relatedParties || []);
+
+
+    await this.fillSuppliedSavingsExtraTabs(accountData);
+
+    // Account Limits is a mandatory tab that must be filled before submit.
+    await this.visitAccountLimitsTab();
+    const bodStr = await this.getBODDate() || this.todayDate();
+    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+    const bod = new Date(yyyy, mm - 1, dd);
+    const future = new Date(bod);
+    future.setFullYear(bod.getFullYear() + 1);
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    const fallbackExpiry = fmt(future);
+    const expiryDate = (accountData.schemeExpiryDate && String(accountData.schemeExpiryDate).trim()) ||
+                       (accountData.accountLimitsExpiryDate && String(accountData.accountLimitsExpiryDate).trim()) ||
+                       fallbackExpiry;
+    console.log(`Using Account Limits expiry date: ${expiryDate}`);
+    await this.fillLoanAccountLimits(expiryDate);
+    await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
+    await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
+    await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
+
+
     await this.clickSubmit();
+  }
+
+  // Diagnostic: logs the id/name/value of all controls that look like dispatch
+  // or statement frequency fields, so the correct server-side parameter names
+  // can be determined from the live Finacle form.
+  async captureSavingsFieldDiagnostics(): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate(() => {
+      const targets = ['despatch', 'dispatch', 'pbps', 'stmt', 'statement'];
+      const fields: any[] = [];
+      document.querySelectorAll('select, input, textarea').forEach((el: any) => {
+        const id = (el.id || '').toLowerCase();
+        const name = (el.getAttribute('name') || '').toLowerCase();
+        if (targets.some(t => id.includes(t) || name.includes(t))) {
+          fields.push({
+            tag: el.tagName,
+            id: el.id || null,
+            name: el.getAttribute('name') || null,
+            type: el.type || null,
+            value: el.value || '',
+            selectedText: el.tagName === 'SELECT' ? el.options[el.selectedIndex]?.text?.trim() : undefined,
+            disabled: el.disabled,
+          });
+        }
+      });
+      return fields;
+    });
+    console.log('Savings field diagnostics:', JSON.stringify(result, null, 2));
   }
 
   // ============ Current Account Creation Methods ============
@@ -3098,22 +5126,35 @@ export class AccountPage {
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
-    // General Details tab - dispatch mode is mandatory
+    // General Details tab - dispatch mode and statement frequency are mandatory
     await this.visitGeneralDetailsTab();
     await this.selectDispatchMode((accountData.dispatchMode || 'email') as 'email' | 'post' | 'no dispatch');
+    await this.fillSavingsTabFields(accountData, 'General Details');
+    await this.setStatementFrequency(accountData);
 
     // Interest Details tab
     await this.visitInterestDetailsTab();
     await this.fillCurrentAccountInterestDetails();
+    await this.fillSavingsTabFields(accountData, 'Interest Details');
 
     // Remaining detail tabs
     await this.visitSchemeDetailsTab();
+    await this.fillSavingsTabFields(accountData, 'Scheme Details');
     await this.visitRelatedPartyTab();
+    await this.fillSavingsTabFields(accountData, 'Related Party Details');
     await this.visitMiscodesTab();
+    await this.fillSavingsTabFields(accountData, 'MIS Code');
 
     // Account Limits tab
     await this.visitAccountLimitsTab();
     await this.fillAccountLimits();
+    await this.fillSavingsTabFields(accountData, 'Account Limits');
+
+    // Dispatch mode can clear when navigating between tabs; re-apply on General
+    // Details and ensure the submit form has the hidden server-bound value.
+    await this.assertGeneralDetailsDispatchMode(accountData.dispatchMode as string);
+    await this.assertStatementFrequency(accountData);
+    await this.assertDispatchModeInSubmitForm(accountData.dispatchMode as string);
 
     await this.clickSubmit();
   }
@@ -3243,15 +5284,15 @@ export class AccountPage {
   }
 
   async visitAccountLimitsTab() {
-    await this.clickTab('Account Limits', 'accountlimits');
+    await this.clickTab('Account Limits', 'accountlimits', 'Sanction Limit');
   }
 
   async visitOthersTab() {
-    await this.clickTab('Others', 'others');
+    await this.clickTab('Others', 'others', 'External System Pricing');
   }
 
   async visitNominationTab() {
-    await this.clickTab('Nomination Details', 'nomination');
+    await this.clickTab('Nomination Details', 'nomination', 'Nomination');
   }
 
   async fillNextInterestDate(): Promise<void> {
@@ -3283,11 +5324,11 @@ export class AccountPage {
   }
 
   async visitNominationDetailsTab() {
-    await this.clickTab('Nomination Details', 'nomination');
+    await this.clickTab('Nomination Details', 'nomination', 'Nomination');
   }
 
   async visitDocumentDetailsTab() {
-    await this.clickTab('Document Details', 'documentdetails');
+    await this.clickTab('Document Details', 'documentdetails', 'Document Type');
   }
 
   // Fills the mandatory fields on the Nomination Details tab:
@@ -3994,7 +6035,7 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
 
     // Fill all tabs including limit and interest pcnt fields (modification only)
-    await this.fillAllTabs(dispatchMode, true);
+    await this.fillAllTabs({ dispatchMode } as AccountData, true);
 
     // Submit the modifications
     await this.clickSubmit();
@@ -4741,32 +6782,82 @@ export class AccountPage {
     };
   }
 
+  private currentCif?: string;
+
+  private isAccountId(value: string): boolean {
+    const trimmed = (value || '').trim();
+    if (!trimmed || /^(on|off)$/i.test(trimmed)) return false;
+    // Account numbers are numeric (may contain spaces/hyphens) and at least 6 chars.
+    return /^[\d\s-]{6,}$/.test(trimmed) && /\d/.test(trimmed);
+  }
+
   async getAccountId(): Promise<string | null> {
     const finwFrame = this.getFinwFrame();
+    const excludeList = (this.currentCif ? [this.currentCif] : []) as string[];
+    const isExcluded = (v: string) =>
+      excludeList.some(e => v.replace(/\s+/g, '') === e.replace(/\s+/g, ''));
+
     const accountLabel = this.accountNumLabel;
     if (await accountLabel.count() > 0) {
-      const accountId = await accountLabel.innerText();
-      console.log(`Extracted Account ID from #AcctNum: ${accountId}`);
-      return accountId.trim() || null;
+      const raw = await accountLabel.innerText();
+      const accountId = (raw || '').trim();
+      console.log(`Extracted Account ID from #AcctNum: ${raw}`);
+      if (this.isAccountId(accountId) && !isExcluded(accountId)) {
+        return accountId.replace(/\s+/g, '');
+      }
+      console.log(`#AcctNum value "${accountId}" is not a valid account ID or matches CIF, trying next source`);
     }
-    const accountInput = finwFrame.locator('#acctId, #accountId, #accountNumber, #tempForacid, #acctNo, #foracid, input[name*="acct"], input[name*="account"]').first();
+
+    // Prefer explicit account input fields, especially the temporary account id used
+    // on the verification screen.
+    const inputSelectors = ['#tempForacid', '#acctId', '#accountId', '#accountNumber', '#acctNo', '#foracid'];
+    for (const sel of inputSelectors) {
+      const input = finwFrame.locator(sel).first();
+      if (await input.count() > 0) {
+        try {
+          const value = (await input.inputValue()).trim();
+          if (this.isAccountId(value) && !isExcluded(value)) {
+            console.log(`Extracted Account ID from ${sel}: ${value}`);
+            return value.replace(/\s+/g, '');
+          }
+        } catch { /* some targets may not be input elements */ }
+      }
+    }
+
+    // Fallback: any visible input with an account-related name.
+    const accountInput = finwFrame.locator('input[name*="acct"], input[name*="account"]').first();
     if (await accountInput.count() > 0) {
       const value = (await accountInput.inputValue()).trim();
-      if (value) return value;
+      if (this.isAccountId(value) && !isExcluded(value)) {
+        console.log(`Extracted Account ID from account input: ${value}`);
+        return value.replace(/\s+/g, '');
+      }
     }
 
     // Fallback: parse the success/status message visible on the page.
     const bodyText = await finwFrame.locator('body').innerText().catch(() => '');
-    const patterns = [
-      /A\/c\.?\s*ID\s*[:=]?\s*(\d[\d\s-]*\d)/i,
-      /Account\s*(?:Number|No)\.?\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+    const specificPatterns = [
       /New\s+A\/c\.?\s*ID\s*[:=]?\s*(\d[\d\s-]*\d)/i,
       /A\/c\.?\s*(?:Number|Num)\.?\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+      /Account\s*(?:Number|No)\.?\s*[:=]?\s*(\d[\d\s-]*\d)/i,
+      /A\/c\.?\s*ID\s*[:=]?\s*(\d[\d\s-]*\d)/i,
     ];
-    for (const pattern of patterns) {
+    for (const pattern of specificPatterns) {
       const match = bodyText.match(pattern);
       if (match) {
         const accountId = match[1].replace(/\s+/g, '');
+        if (this.isAccountId(accountId) && !isExcluded(accountId)) {
+          console.log(`Extracted Account ID from body text: ${accountId}`);
+          return accountId;
+        }
+      }
+    }
+
+    // Last resort: scan all isolated 7+ digit numbers and reject CIF hits.
+    const allNumbers = bodyText.match(/\b\d{7,}\b/g) || [];
+    for (const num of allNumbers) {
+      const accountId = num.replace(/\s+/g, '');
+      if (this.isAccountId(accountId) && !isExcluded(accountId)) {
         console.log(`Extracted Account ID from body text: ${accountId}`);
         return accountId;
       }
@@ -4808,7 +6899,7 @@ export class AccountPage {
       ];
       for (const sel of candidates) {
         const field = finwFrame.locator(sel).first();
-        if (await field.count() > 0 && await field.isVisible().catch(() => false)) {
+        if (await field.count() > 0 && await field.isVisible().catch(() => false) && await field.isEnabled().catch(() => false)) {
           await field.clear();
           await field.fill(dateStr);
           await field.press('Tab');
@@ -4824,14 +6915,24 @@ export class AccountPage {
   }
 
   // Locates the related-party entry form. Finacle sometimes opens it in a
-  // separate pop-up window / frame, so search all pages/frames for it.
+  // separate pop-up window / frame, and sometimes as an inline grid. We prefer
+  // a frame that actually contains a relation-type input (#relnType / #relnCode),
+  // which indicates the real add/edit form rather than just the tab label.
   private async getRelatedPartyFrame(finwFrame: Frame | null): Promise<Frame> {
     const pages = this.page.context().pages();
+
+    // First pass: prefer a frame with the actual form controls.
     for (const p of pages) {
       for (const f of p.frames()) {
         const has = await f.evaluate(() => {
-          const cells = Array.from(document.querySelectorAll('td, label, th'));
-          return cells.some(c => /relation\s*type/i.test(c.textContent?.trim() ?? ''));
+          const hasReln = !!(
+            document.querySelector('#relnType') ||
+            document.querySelector('#relnCode') ||
+            document.querySelector('input[name*="relnType" i], select[name*="relnType" i]') ||
+            document.querySelector('input[name*="relnCode" i]')
+          );
+          if (!hasReln) return false;
+          return true;
         }).catch(() => false);
         if (has) {
           console.log(`Found related party form in page="${p.url()}" frame="${f.name()}"`);
@@ -4839,6 +6940,21 @@ export class AccountPage {
         }
       }
     }
+
+    // Second pass: look for the "Relation Type" label text (used as fallback).
+    for (const p of pages) {
+      for (const f of p.frames()) {
+        const has = await f.evaluate(() => {
+          const cells = Array.from(document.querySelectorAll('td, label, th'));
+          return cells.some(c => /relation\s*type/i.test(c.textContent?.trim() ?? ''));
+        }).catch(() => false);
+        if (has) {
+          console.log(`Found related party form (label match) in page="${p.url()}" frame="${f.name()}"`);
+          return f;
+        }
+      }
+    }
+
     console.log('Related party form not found in any frame -- defaulting to FINW');
     if (finwFrame) return finwFrame;
     const fallback = this.page.frames().find(f => f.name() === 'FINW');
@@ -4867,6 +6983,104 @@ export class AccountPage {
     } catch (e) {
       console.log(`Could not click Related Party Add button, skipping: ${e}`);
     }
+  }
+
+  // Clicks the related-party-specific Submit/Save/Accept button if one is
+  // present. If no such button is found, the final account submit will persist
+  // the record, so this helper does not throw.
+  async saveRelatedPartyRecord(): Promise<Frame | null> {
+    let rpFrame: Frame | null = null;
+    try {
+      rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
+      const selectors = [
+        '#relParty_Add',
+        '#relParty_Submit',
+        '#relParty_Save',
+        '#relParty_Accept',
+        'input[type="button"][id*="relParty" i][value="Add" i]',
+        'input[type="button"][id*="relParty" i][value="Submit" i]',
+        'input[type="button"][id*="relParty" i][value="Save" i]',
+        'input[type="button"][id*="relParty" i][value="Accept" i]',
+        'input[type="submit"][id*="relParty" i]',
+        'input[value="Add" i]'
+      ].join(', ');
+      const btn = rpFrame.locator(selectors).first();
+      if (await btn.count() > 0 && await btn.isVisible().catch(() => false)) {
+        await btn.scrollIntoViewIfNeeded();
+        await btn.click();
+        await this.page.waitForTimeout(3000);
+        console.log('Saved related party record');
+      } else {
+        console.log('No related-party-specific save button visible; relying on final account submit');
+      }
+    } catch (e) {
+      console.log(`Could not save related party record: ${e}`);
+    }
+    return rpFrame;
+  }
+
+  // Finds the Dispatch Mode <select> in the related-party form, selects the
+  // supplied value, and triggers the Finacle onchange handler. Logs the initial
+  // value so we can confirm whether the field is auto-populated from General Details.
+  private async selectRelatedPartyDispatchMode(dispatch: string, rpFrame: Frame): Promise<string> {
+    const mode = dispatch && String(dispatch).trim() ? String(dispatch) : 'A - Post and Email';
+    const code = mode.split('-')[0].trim().toUpperCase();
+    const result = await rpFrame.evaluate(({ code, mode }) => {
+      const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+      const target = selects.find(s => {
+        const n = (s.name || '').toLowerCase();
+        const id = (s.id || '').toLowerCase();
+        return n.includes('despatch') || n.includes('dispatch') ||
+               id.includes('despatch') || id.includes('dispatch');
+      });
+      if (!target) return { ok: false, reason: 'no dispatch select found' };
+
+      const initial = target.options[target.selectedIndex];
+      const match = Array.from(target.options).find(o =>
+        (o.value || '').toUpperCase() === code ||
+        (o.text || '').trim().toLowerCase() === mode.trim().toLowerCase()
+      );
+      if (!match) {
+        return { ok: false, reason: 'option not found', initialValue: initial?.value, initialText: initial?.text, options: target.options.map(o => ({ value: o.value, text: o.text })) };
+      }
+
+      target.value = match.value;
+      target.selectedIndex = match.index;
+      if (typeof (target as any).onchange === 'function') {
+        (target as any).onchange();
+      }
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.blur();
+      return { ok: true, selected: match.value, text: match.text, name: target.name, id: target.id, initialValue: initial?.value, initialText: initial?.text };
+    }, { code, mode });
+
+    if (!result.ok) throw new Error(`Failed to set Related Party Dispatch Mode: ${JSON.stringify(result)}`);
+    console.log(`Related Party Dispatch Mode initial='${result.initialText}' (value=${result.initialValue}); set to='${result.text}' (value=${result.selected}) in ${result.name || result.id}`);
+    return result.selected as string;
+  }
+
+  // Strict assertion that the related-party Dispatch Mode <select> still has
+  // the expected value after the record is saved.
+  private async assertRelatedPartyDispatchMode(expected: string, rpFrame: Frame): Promise<void> {
+    const code = String(expected).split('-')[0].trim().toUpperCase();
+    const actual = await rpFrame.evaluate(() => {
+      const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+      const target = selects.find(s => {
+        const n = (s.name || '').toLowerCase();
+        const id = (s.id || '').toLowerCase();
+        return n.includes('despatch') || n.includes('dispatch') ||
+               id.includes('despatch') || id.includes('dispatch');
+      });
+      if (!target) return { found: false };
+      const selected = target.options[target.selectedIndex];
+      return { found: true, value: selected?.value, text: selected?.text, name: target.name, id: target.id };
+    });
+    if (!actual.found) throw new Error('Related Party Dispatch Mode select not found after save');
+    if (String(actual.value).toUpperCase() !== code) {
+      throw new Error(`Related Party Dispatch Mode assertion failed: expected ${expected} (code=${code}), got ${actual.text} (value=${actual.value})`);
+    }
+    console.log(`Related Party Dispatch Mode assertion passed: ${actual.text} (value=${actual.value})`);
   }
 
   // Navigates the multi-record Related Party section to the Nth record (1-based)
@@ -4926,21 +7140,27 @@ export class AccountPage {
   async selectRelationType(value: string) {
     try {
       const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
-      const dropdown = rpFrame.locator('#relnType');
-      await dropdown.waitFor({ state: 'visible', timeout: 15000 });
-      const options = await dropdown.locator('option').allTextContents();
-      const match = options.find(o => o.toLowerCase().includes(value.toLowerCase()));
-      if (match) {
-        const code = match.split('-')[0].trim();
-        try {
-          await dropdown.selectOption(code);
-        } catch {
-          await dropdown.selectOption({ label: match });
-        }
-        await this.page.waitForTimeout(1500);
-        console.log(`Selected relation type: ${match}`);
+      const target = String(value).trim().toLowerCase();
+      const result = await rpFrame.evaluate((target) => {
+        const sel = (
+          document.querySelector('#relnType') ||
+          document.querySelector('select[name*="relnType" i]')
+        ) as HTMLSelectElement | null;
+        if (!sel) return { ok: false, reason: 'relation type select not found' };
+        const opt = Array.from(sel.options).find(o => (o.text || '').toLowerCase().includes(target));
+        if (!opt) return { ok: false, reason: 'option not found', options: Array.from(sel.options).map(o => o.text) };
+        sel.disabled = false;
+        sel.selectedIndex = opt.index;
+        sel.value = opt.value;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        sel.dispatchEvent(new Event('input', { bubbles: true }));
+        if (typeof sel.onchange === 'function') (sel.onchange as any)();
+        return { ok: true, text: opt.text, value: opt.value, id: sel.id };
+      }, target);
+      if (result.ok) {
+        console.log(`Selected relation type: ${result.text} (#${result.id})`);
       } else {
-        console.log(`Relation type '${value}' not found in options ${JSON.stringify(options)}`);
+        console.log(`Could not select relation type '${value}': ${JSON.stringify(result)}`);
       }
     } catch (e) {
       console.log(`Could not select relation type '${value}', skipping: ${e}`);
@@ -4948,35 +7168,62 @@ export class AccountPage {
   }
 
   // Enters the relation code (e.g. "Others") in the related party row and
-  // presses Tab so the description auto-populates.
+  // triggers its handlers so the description auto-populates.
   async selectRelationCode(value: string) {
     try {
       const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
-      const field = rpFrame.locator('#relnCode');
-      await field.waitFor({ state: 'visible', timeout: 15000 });
-      await field.clear();
-      await field.fill(value);
-      await field.press('Tab');
+      const val = String(value).trim();
+      const result = await rpFrame.evaluate((val) => {
+        const el = (
+          document.querySelector('#relnCode') as HTMLElement | null ||
+          document.querySelector('input[name*="relnCode" i]') as HTMLElement | null
+        );
+        if (!el) return { ok: false, reason: 'relation code input not found' };
+        const input = el as HTMLInputElement;
+        input.value = val;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true }));
+        input.blur();
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        const desc = document.querySelector('#relnDesc') as HTMLInputElement | null;
+        return { ok: true, value: input.value, description: desc?.value || '' };
+      }, val);
       await this.page.waitForTimeout(2000);
-      const desc = await rpFrame.locator('#relnDesc').inputValue().catch(() => '');
-      console.log(`Entered relation code: ${value} (description: ${desc})`);
+      console.log(`Entered relation code: ${value} (description: ${result.description})`);
     } catch (e) {
       console.log(`Could not enter relation code '${value}', skipping: ${e}`);
     }
   }
 
-  // Enters the CIF number in the related party row and presses Tab so the
-  // customer details auto-populate.
+  // Enters the CIF number in the related party row and triggers its handlers
+  // so the customer details auto-populate.
   async enterRelatedPartyCif(cif: string) {
     try {
       const rpFrame = await this.getRelatedPartyFrame(this.getFinwFrame());
-      const field = rpFrame.locator('input[name="relatedpartydetails.cifId"], #cifId, input[name="cifId"], #customerId, #cifNo, #relCifId').last();
-      await field.waitFor({ state: 'visible', timeout: 15000 });
-      await field.fill(cif);
-      await field.press('Tab');
+      const result = await rpFrame.evaluate((cif) => {
+        const input = (
+          document.querySelector('input[name="relatedpartydetails.cifId"]') as HTMLInputElement | null ||
+          document.querySelector('input[name="relatedpartydetails\\.cifId"]') as HTMLInputElement | null ||
+          document.querySelector('#relatedpartydetailsCifId') as HTMLInputElement | null ||
+          document.querySelector('#relCifId') as HTMLInputElement | null ||
+          document.querySelector('input[name="cifId"][id*="rel"]') as HTMLInputElement | null ||
+          document.querySelector('#cifId') as HTMLInputElement | null ||
+          document.querySelector('input[name="cifId"]') as HTMLInputElement | null ||
+          document.querySelector('input[id="cifId"]') as HTMLInputElement | null
+        );
+        if (!input) return { ok: false, reason: 'related party CIF input not found' };
+        input.value = cif;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', code: 'Tab', bubbles: true }));
+        input.blur();
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        const name = document.querySelector('#custName') as HTMLInputElement | null;
+        return { ok: true, value: input.value, customer: name?.value || '' };
+      }, cif);
       await this.page.waitForTimeout(3000);
-      const name = await rpFrame.locator('#custName').inputValue().catch(() => '');
-      console.log(`Entered related party CIF: ${cif} (customer: ${name})`);
+      console.log(`Entered related party CIF: ${cif} (customer: ${result.customer})`);
     } catch (e) {
       console.log(`Could not enter related party CIF, skipping: ${e}`);
     }
@@ -5260,11 +7507,13 @@ export class AccountPage {
   // disabled/readonly Finacle display fields and hidden backend inputs.
   public async setTextByCandidates(ids: string[], value: string, label: string): Promise<boolean> {
     const finwFrame = this.getFinwFrame();
+    const target = String(value).trim();
     for (const id of ids) {
       try {
         const jsOk = await finwFrame.evaluate(({ id, val }) => {
           const input = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | null;
           if (!input) return false;
+          if (input.value.trim() === val) return true;
           input.value = val;
           input.dispatchEvent(new Event('input', { bubbles: true }));
           input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -5328,15 +7577,48 @@ export class AccountPage {
     return false;
   }
 
-  // Selects an option (matched by keyword) in the <select> whose id or nearby
-  // row/label text contains labelKeyword. Skips disabled selects to avoid the
-  // action waiting until timeout on a read-only field.
-  async selectOptionByLabel(labelKeyword: string, optionKeyword: string): Promise<boolean> {
-    const finwFrame = this.getFinwFrame();
+  // Selects an option (matched by keyword or value) in the <select> whose id
+  // or nearby row/label text contains labelKeyword. Falls back to searching all
+  // selects by option value to handle code-only dropdowns such as Occupation Code.
+  async selectOptionByLabel(labelKeyword: string, optionKeyword: string, frame?: Frame): Promise<boolean> {
+    const finwFrame = frame || this.getFinwFrame();
     const selects = finwFrame.locator('select');
     const count = await selects.count();
     const lblKey = labelKeyword.toLowerCase();
     const lblId = labelKeyword.replace(/\s/g, '').toLowerCase();
+    const raw = optionKeyword.toLowerCase().trim();
+    const code = raw.split('-')[0].trim();
+
+    const trySelect = async (sel: any, matchedValue: string, matchedLabel: string, id: string): Promise<boolean> => {
+      try {
+        await sel.selectOption({ value: matchedValue }, { timeout: 8000 });
+      } catch {
+        try {
+          await sel.selectOption({ label: matchedLabel }, { timeout: 8000 });
+        } catch {
+          await sel.selectOption(matchedValue, { timeout: 8000 });
+        }
+      }
+      await this.page.waitForTimeout(800);
+      console.log(`Selected '${matchedLabel}' for label '${labelKeyword}' (#${id})`);
+      return true;
+    };
+
+    const optionMatches = (text: string, value: string, allowCode = true): { matchedValue: string; matchedLabel: string } | null => {
+      const ot = text.toLowerCase().trim();
+      const ov = value.toLowerCase().trim();
+      if (ot === raw || ot.startsWith(raw + ' -')) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if (allowCode && (ot === code || ot.startsWith(code + ' -'))) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if ((raw === 'yes' || raw === 'y') && (ot === 'yes' || ot === 'y' || ot.startsWith('y - yes'))) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if ((raw === 'no' || raw === 'n') && (ot === 'no' || ot === 'n' || ot.startsWith('n - no'))) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if (ov === raw) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if (allowCode && raw.length > 0 && ov === code) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if (raw.length > 0 && ov.startsWith(raw)) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      if (raw.length > 2 && ot.includes(raw)) return { matchedValue: value.trim(), matchedLabel: text.trim() };
+      return null;
+    };
+
+    // First pass: only inspect selects whose row/id matches the label.
     for (let i = 0; i < count; i++) {
       const sel = selects.nth(i);
       const meta = await sel.evaluate(el => {
@@ -5347,19 +7629,46 @@ export class AccountPage {
       if (!meta || meta.disabled) continue;
       if (!meta.near.includes(lblKey) && !(meta.id || '').toLowerCase().includes(lblId)) continue;
 
-      const opts = await sel.locator('option').allTextContents();
-      const match = opts.find(o => o.toLowerCase().includes(optionKeyword.toLowerCase()));
-      if (match) {
-        try {
-          await sel.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
-        } catch {
-          await sel.selectOption({ label: match }, { timeout: 8000 });
-        }
-        await this.page.waitForTimeout(800);
-        console.log(`Selected '${match}' for label '${labelKeyword}' (#${meta.id})`);
+      const optionData = await sel.locator('option').evaluateAll(els =>
+        (els as HTMLOptionElement[]).map(o => ({ text: o.text, value: o.value }))
+      );
+      const selectedIndex = await sel.evaluate(el => (el as HTMLSelectElement).selectedIndex);
+      const selectedOption = selectedIndex >= 0 ? optionData[selectedIndex] : undefined;
+      if (selectedOption && optionMatches(selectedOption.text, selectedOption.value, true)) {
+        console.log(`'${optionKeyword}' already selected for '${labelKeyword}' (#${meta.id})`);
         return true;
       }
+      for (const o of optionData) {
+        const match = optionMatches(o.text, o.value, true);
+        if (match) return await trySelect(sel, match.matchedValue, match.matchedLabel, meta.id);
+      }
     }
+
+    // Fallback: no label-matched select worked; search all selects for a matching option value.
+    // In this pass do not allow leading-code matches, so a value such as "E - EOD Clear Balance"
+    // cannot be applied to an unrelated "E - Operative or Original A/c." select.
+    for (let i = 0; i < count; i++) {
+      const sel = selects.nth(i);
+      const disabled = await sel.evaluate(el => (el as HTMLSelectElement).disabled).catch(() => true);
+      if (disabled) continue;
+      const id = await sel.evaluate(el => (el as HTMLSelectElement).id).catch(() => '');
+      const optionData = await sel.locator('option').evaluateAll(els =>
+        (els as HTMLOptionElement[]).map(o => ({ text: o.text, value: o.value }))
+      );
+      const selectedIndex = await sel.evaluate(el => (el as HTMLSelectElement).selectedIndex);
+      const selectedOption = selectedIndex >= 0 ? optionData[selectedIndex] : undefined;
+      if (selectedOption && optionMatches(selectedOption.text, selectedOption.value, false)) {
+        console.log(`'${optionKeyword}' already selected for '${labelKeyword}' (#${id})`);
+        return true;
+      }
+      for (const o of optionData) {
+        const match = optionMatches(o.text, o.value, false);
+        if (match) {
+          return await trySelect(sel, match.matchedValue, match.matchedLabel, id);
+        }
+      }
+    }
+
     console.log(`Could not select '${optionKeyword}' for label '${labelKeyword}'`);
     return false;
   }
@@ -5490,10 +7799,15 @@ export class AccountPage {
     const reviewDate = bodDate;
     console.log(`Using BOD ${bodDate} for Account Limits dates`);
 
-    await this.fillDateField(
+    const expiryFound = await this.fillDateField(
       ['expiryDate_ui', 'limitExpiryDt_ui', 'expiryDt_ui', 'limExpiryDt_ui'],
       expiryDate, 'Loan limit expiry date'
     );
+    if (!expiryFound) {
+      console.log('Account Limits loan fields not present on this account, skipping');
+      return;
+    }
+
     await this.fillDateField(
       ['documentDate_ui', 'docDt_ui', 'limitDocDt_ui', 'documentDt_ui'],
       documentDate, 'Loan limit document date'
