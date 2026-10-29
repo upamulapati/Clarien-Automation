@@ -10,7 +10,6 @@ import COMMON_DATA from '../../../data/common-data.json';
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');
 const SHEET_NAME = 'SavingsAccountModifyData';
-
 interface FieldResult {
   field: string;
   expected: string;
