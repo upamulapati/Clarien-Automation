@@ -42,7 +42,7 @@ for (const group of groups) {
   const mainData = group.main;
   const pricingCode = String(mainData.externalSystemPricingFor || '').split('-')[0].trim().toUpperCase();
   const isPricingNone = pricingCode === 'N';
-  const data = {
+  const data: any = {
     ...DEFAULT_CUSTOMER,
     ...mainData,
     functionOption: mainData.functionOption ?? DEFAULT_CUSTOMER.functionOption ?? 'O',

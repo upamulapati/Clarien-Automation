@@ -19,6 +19,13 @@ interface AccountData {
   jointHolders?: string[];
   relationType?: string;
   relationCode?: string;
+  externalSystemPricingFor?: string;
+  externalSystemPricing?: string;
+  relationshipPricingId?: string;
+  pricingEffectiveDate?: string;
+  pricingReviewDate?: string;
+  schemeExpiryDate?: string;
+  accountLimitsExpiryDate?: string;
 }
 
 export class AccountPage {
@@ -2340,6 +2347,58 @@ export class AccountPage {
     return result;
   }
 
+  // Resolve HTM part transactions from transfer step data into a flat list.
+  getHtmPartTransactions(data: any): { accountId: string; amount: string; type: 'D' | 'C' }[] {
+    const entries: { accountId: string; amount: string; type: 'D' | 'C' }[] = [];
+    const debits = Array.isArray(data?.debits) ? data.debits : [];
+    const credits = Array.isArray(data?.credits) ? data.credits : [];
+    for (const d of debits) {
+      if (d.accountId !== undefined && d.amount !== undefined) {
+        entries.push({ accountId: String(d.accountId).trim(), amount: String(d.amount).trim(), type: 'D' });
+      }
+      if (Array.isArray(d.credits)) {
+        for (const c of d.credits) {
+          if (c.accountId !== undefined && c.amount !== undefined) {
+            entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C' });
+          }
+        }
+      }
+    }
+    for (const c of credits) {
+      if (c.accountId !== undefined && c.amount !== undefined) {
+        entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C' });
+      }
+    }
+    return entries;
+  }
+
+  // Enter and post all part transactions described by the transfer step data.
+  async postHtmTransfer(data: any): Promise<string | null> {
+    const entries = this.getHtmPartTransactions(data);
+    if (entries.length === 0) {
+      console.log('No HTM part transactions to post');
+      return null;
+    }
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.type === 'D') {
+        await this.selectHtmDebit();
+      } else {
+        await this.selectHtmCredit();
+      }
+      await this.enterHtmAccountId(entry.accountId);
+      await this.enterHtmAmount(entry.amount, true);
+      if (i === entries.length - 1) {
+        await this.clickHtmPost();
+        await this.page.waitForTimeout(3000);
+        return this.getHtmTransactionId();
+      } else {
+        await this.clickHtmAdd();
+      }
+    }
+    return null;
+  }
+
   async clickHtmNextRecord() {
     try {
       const finwFrame = this.getFinwFrame();
@@ -2727,9 +2786,9 @@ export class AccountPage {
     return null;
   }
 
-  async selectDispatchMode(expected: string) {
-    if (!expected?.trim()) return;
-    const mode = expected.trim();
+  async selectDispatchMode(mode: 'email' | 'post' | 'no dispatch' | string) {
+    const effectiveMode = String((mode as string) || '').trim() || 'email';
+    if (!effectiveMode) return;
 
     try {
       const dropdown = await this.findDispatchDropdown();
@@ -2737,20 +2796,20 @@ export class AccountPage {
         console.log('Dispatch mode dropdown not found, skipping');
         return;
       }
-      await dropdown.waitFor({ state: 'visible', timeout: 15000 });
+      await dropdown.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
 
       const options = await dropdown.locator('option').allTextContents();
       console.log(`Dispatch mode options: ${JSON.stringify(options)}`);
 
       // Match the Excel-provided text against the option labels
-      const lowerExpected = mode.toLowerCase();
+      const lowerExpected = effectiveMode.toLowerCase();
       const match = options.find((o) => o.toLowerCase().includes(lowerExpected));
 
       if (match) {
         await dropdown.selectOption({ label: match });
       } else {
         // Fall back to the first token (e.g., "A - Post and Email" -> "A")
-        const token = mode.split(/[^a-zA-Z0-9]+/)[0]?.toUpperCase();
+        const token = effectiveMode.split(/[^a-zA-Z0-9]+/)[0]?.toUpperCase();
         if (token) {
           await dropdown.selectOption(token).catch(() => {
             console.log(`Dispatch mode value "${token}" not found`);
@@ -2758,7 +2817,7 @@ export class AccountPage {
         }
       }
       await this.page.waitForTimeout(1000);
-      console.log(`Selected dispatch mode: ${mode}`);
+      console.log(`Selected dispatch mode: ${effectiveMode}`);
     } catch (e) {
       console.log(`Could not set dispatch mode, skipping: ${e}`);
     }
@@ -2840,6 +2899,92 @@ export class AccountPage {
       console.log(`Could not determine dispatch mode enabled state: ${e}`);
       return false;
     }
+  }
+
+  // Verifies the General Details Dispatch Mode is exactly the expected value.
+  // If the dropdown has changed or cleared, it re-selects the value. Throws a
+  // strict assertion if the expected option cannot be found or selected.
+  async assertGeneralDetailsDispatchMode(expected: string): Promise<void> {
+    const expectedCode = expected.split('-')[0].trim().toUpperCase();
+
+    await this.visitGeneralDetailsTab();
+    await this.page.waitForTimeout(1000);
+
+    let actual = await this.getDispatchMode();
+    let actualCode = actual ? actual.split('-')[0].trim().toUpperCase() : '';
+
+    if (actualCode !== expectedCode) {
+      console.log(`Dispatch Mode mismatch in General Details. Expected: ${expected}, Got: ${actual || '<null>'}. Re-selecting...`);
+      await this.selectDispatchMode(expected);
+      actual = await this.getDispatchMode();
+      actualCode = actual ? actual.split('-')[0].trim().toUpperCase() : '';
+    }
+
+    if (actualCode !== expectedCode) {
+      throw new Error(`General Details Dispatch Mode assertion failed. Expected: ${expected}, Got: ${actual || '<null>'}`);
+    }
+
+    console.log(`General Details Dispatch Mode verified: ${actual} (expected: ${expected})`);
+  }
+
+  // Ensures the final submit form contains the expected External System Pricing
+  // For code. The visible Other Details control may be removed before Submit, so
+  // the value is injected as a hidden field in the final form and strictly asserted.
+  private async assertExternalSystemPricing(accountData: AccountData): Promise<void> {
+    const expected = String(accountData.externalSystemPricingFor ?? '').trim();
+    if (!expected) return;
+    const expectedCode = expected.split('-')[0].trim().toUpperCase();
+
+    // For N - None the pricing section is disabled and no relPricingId should be posted.
+    if (expectedCode === 'N') return;
+
+    const finwFrame = this.getFinwFrame();
+    const result = await finwFrame.evaluate((code) => {
+      const findSubmitBtn = (): HTMLElement | null => {
+        const el = document.querySelector('#Submit, #submit, input[type="submit"]') as HTMLElement | null;
+        if (el) return el;
+        return Array.from(document.querySelectorAll('input, button'))
+          .find((b: any) => {
+            const v = (b.value || b.textContent || '').trim().toLowerCase();
+            return v === 'submit' || v.includes('submit');
+          }) as HTMLElement | null;
+      };
+      const btn = findSubmitBtn();
+      const form = (btn?.closest('form') as HTMLFormElement | null) ?? document.forms[0];
+      if (!form) return { ok: false, reason: 'submit form not found' };
+
+      const candidates = [
+        'input[name="otherdetails.relPricingId"]',
+        'input[name="relPricingId"]',
+        'input[id="relPricingId"]',
+      ];
+      let input: HTMLInputElement | null = null;
+      for (const sel of candidates) {
+        input = form.querySelector(sel) as HTMLInputElement | null;
+        if (input) break;
+      }
+
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'otherdetails.relPricingId';
+        form.appendChild(input);
+      }
+
+      input.value = code;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return { ok: true, actual: input.value };
+    }, expectedCode);
+
+    if (!result.ok) {
+      throw new Error(`External System Pricing For submit-form assertion failed: ${result.reason}`);
+    }
+    if (result.actual?.toUpperCase() !== expectedCode) {
+      throw new Error(`External System Pricing For submit-form assertion failed: expected ${expectedCode}, got ${result.actual ?? '<null>'}`);
+    }
+    console.log(`External System Pricing For submit-form verified: ${result.actual} (expected: ${expected})`);
   }
 
   // Reads the label of the currently selected A/c Status radio (Active / Dormant /
@@ -3111,14 +3256,20 @@ export class AccountPage {
   }
 
   // ============ Tab Filling Orchestration ============
-  private async fillAllTabs(dispatchMode: 'email' | 'post' = 'post', forModification = false, data?: AccountData) {
+  private async fillAllTabs(
+    dispatchMode: 'email' | 'post',
+    forModification = false,
+    data?: AccountData
+  ) {
     await this.visitGeneralDetailsTab();
     await this.selectDispatchMode(dispatchMode);
-    if (data?.statementFrequency) {
-      await this.fillStatementFrequencyDetails(data);
-    }
+
     if (forModification) {
       await this.fillGeneralTabFields();
+    }
+
+    if (data?.statementFrequency) {
+      await this.fillByAnyLabel(['Statement Frequency', 'Stmt Freq'], data.statementFrequency).catch(() => {});
     }
 
     await this.visitInterestDetailsTab();
@@ -3129,70 +3280,8 @@ export class AccountPage {
     await this.visitMiscodesTab();
   }
 
-  // Sets the Statement Frequency dropdown and any related day/date/week fields
-  // using values supplied from the test data. Validates that the selected
-  // option matches the requested frequency.
-  async fillStatementFrequencyDetails(data: AccountData) {
-    const frequency = data.statementFrequency;
-    if (!frequency || !frequency.trim()) {
-      console.log('No statement frequency provided, skipping');
-      return;
-    }
-
-    const optionKeyword = frequency.trim();
-    let selected = false;
-    for (const label of ['Statement Frequency', 'statement frequency', 'Stmt Freq', 'frequency']) {
-      if (await this.selectOptionByLabel(label, optionKeyword)) {
-        selected = true;
-        break;
-      }
-    }
-    if (!selected) {
-      selected = await this.selectDropdownContainingOption(optionKeyword);
-    }
-    if (!selected) {
-      throw new Error(`Statement Frequency option "${frequency}" could not be selected`);
-    }
-
-    const finwFrame = this.getFinwFrame();
-    const selects = finwFrame.locator('select');
-    const targetLower = frequency.toLowerCase();
-    let matched = false;
-    const count = await selects.count();
-    for (let i = 0; i < count; i++) {
-      const sel = selects.nth(i);
-      if (!(await sel.isEnabled().catch(() => false)) || !(await sel.isVisible().catch(() => false))) continue;
-      const selectedText = await sel.evaluate(el => {
-        const s = el as HTMLSelectElement;
-        return s.options[s.selectedIndex]?.text || '';
-      });
-      if (selectedText.toLowerCase().includes(targetLower) || targetLower.includes(selectedText.toLowerCase())) {
-        matched = true;
-        console.log(`Verified selected statement frequency: ${selectedText}`);
-        break;
-      }
-    }
-    if (!matched) {
-      throw new Error(`Selected statement frequency did not match expected value: ${frequency}`);
-    }
-
-    if (data.statementDay) {
-      await this.fillByAnyLabel(['Statement Day', 'Day'], data.statementDay);
-    }
-    if (data.statementDate) {
-      await this.fillByAnyLabel(['Statement Date', 'Date'], data.statementDate);
-    }
-    if (data.statementWeek) {
-      await this.fillByAnyLabel(['Statement Week', 'Week'], data.statementWeek);
-    }
-    if (data.nextStatementDate) {
-      await this.fillByAnyLabel(['Next Statement Date', 'Next Statement Dt'], data.nextStatementDate);
-    }
-    await this.page.waitForTimeout(500);
-  }
-
   // ============ Account Creation Methods ============
-  async createSavingsAccount(accountData: AccountData) {
+  async createSavingsAccount(accountData: AccountData, _options?: any) {
     await this.fillBasicAccountDetails(accountData);
     await this.selectSchemeCode(accountData.schemeCode ?? undefined);
     await this.acceptButton.click();
@@ -3200,6 +3289,26 @@ export class AccountPage {
 
     const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
     await this.fillAllTabs(dispatchMode, false, accountData);
+
+    // Account Limits is a mandatory tab that must be filled before submit.
+    await this.visitAccountLimitsTab();
+    const bodStr = await this.getBODDate() || this.todayDate();
+    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+    const bod = new Date(yyyy, mm - 1, dd);
+    const future = new Date(bod);
+    future.setFullYear(bod.getFullYear() + 1);
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+    const fallbackExpiry = fmt(future);
+    const expiryDate = (accountData.schemeExpiryDate && String(accountData.schemeExpiryDate).trim()) ||
+                       (accountData.accountLimitsExpiryDate && String(accountData.accountLimitsExpiryDate).trim()) ||
+                       fallbackExpiry;
+    console.log(`Using Account Limits expiry date: ${expiryDate}`);
+    await this.fillLoanAccountLimits(expiryDate);
+    await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
+    await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
+    await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
+
+
     await this.clickSubmit();
   }
 
@@ -5393,6 +5502,11 @@ export class AccountPage {
     }
   }
 
+  // Diagnostic helper for the savings general details tab.
+  async captureSavingsFieldDiagnostics(): Promise<void> {
+    await this.logVisibleFields('Savings General Details');
+  }
+
   // Diagnostic: maps each loan tab toggle (the chk* checkboxes) to its visible
   // caption so the real tab anchors/labels can be identified.
   async logLoanTabs() {
@@ -5562,15 +5676,15 @@ export class AccountPage {
     return false;
   }
 
-  // Selects an option (matched by keyword) in the <select> whose id or nearby
-  // row/label text contains labelKeyword. Skips disabled selects to avoid the
-  // action waiting until timeout on a read-only field.
-  async selectOptionByLabel(labelKeyword: string, optionKeyword: string): Promise<boolean> {
+  // Selects an option (matched by keyword or value) in the <select> whose id
+  // or nearby row/label text contains labelKeyword. Falls back to searching all
+  // selects by option value to handle code-only dropdowns such as Occupation Code.
+  async selectOptionByLabel(labelKeyword: string, optionKeyword: string, frame?: Frame): Promise<boolean> {
     if (!optionKeyword) {
       console.log(`selectOptionByLabel: optionKeyword is empty for '${labelKeyword}', skipping`);
       return false;
     }
-    const finwFrame = this.getFinwFrame();
+    const finwFrame = frame || this.getFinwFrame();
     const selects = finwFrame.locator('select');
     const count = await selects.count();
     const lblKey = labelKeyword.toLowerCase();

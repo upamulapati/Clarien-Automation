@@ -139,7 +139,7 @@ export const TRANSFER_DATA = loadSection(process.env.STEP_DATA, [], 'transferDat
   enabled: 'Y',
 });
 
-export const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
+export const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer as any;
 
 // Retail loan data.
 export const RETAIL_LOAN_DATA = loadSection(process.env.STEP_DATA, [], 'retailLoansData', {
