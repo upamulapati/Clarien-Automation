@@ -2,10 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
+const args = process.argv.slice(2);
+const onlyIndex = args.indexOf('--only');
+const onlyFilter = onlyIndex !== -1 ? args[onlyIndex + 1] : '';
+
 const RESULTS_DIR = path.resolve('reports', 'allureReports');
 const OUTPUT_DIR = path.resolve('reports');
-const OUTPUT_HTML = path.join(OUTPUT_DIR, 'allure-pdf.html');
-const OUTPUT_PDF = path.join(OUTPUT_DIR, 'currentaccountcreationandmodification report.pdf');
+const outputName = onlyFilter
+  ? `${onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()} instance 1`
+  : 'currentaccountcreationandmodification';
+const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
+const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
 const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
 const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 
@@ -351,9 +358,32 @@ async function main() {
     console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
   }
 
+  if (onlyFilter) {
+    const matching = parsed.filter(p => {
+      const label = (p.result.labels || []).find(l => l.name === 'suite' || l.name === 'package')?.value || '';
+      const key = ((label + ' ' + p.result.fullName + ' ' + p.result.name) || '').toLowerCase();
+      return key.includes(onlyFilter.toLowerCase());
+    });
+    const latest = matching.sort((a, b) => (b.start || b.mtime) - (a.start || a.mtime))[0];
+    selectedFiles = latest ? [latest.file] : [];
+    console.log(`Filtered by "${onlyFilter}": ${selectedFiles.length} result(s)`);
+  }
+
   const results = selectedFiles
     .map(f => parsed.find(p => p.file === f).result)
     .sort((a, b) => (a.start || 0) - (b.start || 0));
+
+  if (!results.length) {
+    console.error('No allure results matched the selected run. Run the tests before generating the report.');
+    process.exit(1);
+  }
+
+  const hasActionableResults = results.some(r => r.status && !['skipped', 'unknown'].includes(r.status));
+  if (!hasActionableResults) {
+    console.error('The selected run produced only skipped/unknown test results.');
+    console.error('This usually means the Playwright run was cancelled or did not execute any tests. Re-run to completion before generating the report.');
+    process.exit(1);
+  }
 
   const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
   const testsHtml = results.map(renderTest).join('');

@@ -8,6 +8,10 @@ import FLOW7_DATA from '../../../data/flow7.json';
 
 const CONFIG = getPrimaryConfig();
 
+const SHARED_STATE = getSharedValue((state) => state) ?? {};
+const RELATED_PARTY_ALREADY_ADDED = SHARED_STATE.relatedPartyAddedForSavings === true;
+if (RELATED_PARTY_ALREADY_ADDED) console.log('[SharedState] Related party already added during savings creation; skipping standalone spec');
+
 // Existing savings account number to which the related party will be added.
 const SHARED_ACCOUNT_ID = getSharedValue((state) => state.accountId);
 const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '7500001476';
@@ -26,6 +30,10 @@ test.describe('Add Related Party to Savings Account (HACM)', () => {
 
   for (const RELATED_PARTY_CIF of JOINT_HOLDERS) {
     test(`HACM - add related party to savings account (${RELATED_PARTY_CIF})`, async ({ page }) => {
+      if (RELATED_PARTY_ALREADY_ADDED) {
+        test.skip();
+        return;
+      }
       test.setTimeout(900000);
       setupDialogHandlers(page, lastDialogMessages);
       await login(page, CONFIG);

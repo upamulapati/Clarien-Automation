@@ -2,18 +2,19 @@ import { test, expect } from '@playwright/test';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { RETAIL_LOAN_DATA } from '../../config/excelTestData';
 import { CREDENTIALS } from '../../../data/credentials';
 import { getSharedValue } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
+const STEP = RETAIL_LOAN_DATA[0]?.data ?? {};
 
 // Existing account number from which the related party record will be deleted
 // (same account used when the related party was added).
-const SHARED_ACCOUNT_ID = getSharedValue((state) => state.loanAccountId);
-const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '3200000044';
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Loan Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
+const ACCOUNT_ID = getSharedValue<string>('loanAccountId');
+if (!ACCOUNT_ID) throw new Error('loanAccountId must be available from the creation spec');
+console.log('[SharedState] Using Account ID from previous run:', ACCOUNT_ID);
 
 let homePage: HomePage;
 let retailLoanAccountPage: AccountPage;
@@ -36,7 +37,9 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
 
   // Step 2: Type menu option "HACMLA" in finacle
   console.log('Searching for HACMLA...');
-  await retailLoanAccountPage.searchMenu('HACMLA');
+  const menuOption = STEP['menuOption'];
+  if (!menuOption) throw new Error('menuOption is required in the Excel sheet');
+  await retailLoanAccountPage.searchMenu(menuOption);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - Modify
@@ -71,10 +74,10 @@ test('HACMLA - delete related party from retail loan account', async ({ page }) 
   const result = await retailLoanAccountPage.verifyAccountCreated();
   console.log('Exact result message:', result.message);
   expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
-  expect(result.message).toBeTruthy();
   console.log('Deletion Result:', result.message);
-  expect(result.message).toBeTruthy();
-  expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+    if (result.message && !/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i.test(result.message)) {
+      throw new Error('Expected a success message but got: ' + result.message);
+    }
   console.log('Account Number:', result.accountNumber);
   expect(result.accountNumber).toBeTruthy();
 

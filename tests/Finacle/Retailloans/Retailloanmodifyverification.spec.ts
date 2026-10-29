@@ -3,8 +3,11 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { ServicePackPage } from '../../pages/servicepackpage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import COMMON_DATA from '../../../data/common-data.json';
+import { RETAIL_LOAN_MODIFY_DATA } from '../../config/excelTestData';
 import { CREDENTIALS } from '../../../data/credentials';
+import { getSharedValue } from '../../helpers/sharedState';
+
+const STEP = RETAIL_LOAN_MODIFY_DATA[0]?.data ?? {};
 
 // Verification of a loan modification must be performed by a DIFFERENT user than
 // the maker who modified the loan (the maker modified it in
@@ -14,8 +17,13 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
 // Loan accounts to verify after modification. Set to the specific A/c ID(s)
 // requested for this run.
+const LOAN_ACCOUNT_NUMBER = getSharedValue<string>(
+  (state) => (state as any).loanAccountNumber ?? (state as any).loanAccountId ?? Object.values((state as any).loanAccounts ?? {})[0]
+);
+if (!LOAN_ACCOUNT_NUMBER) throw new Error('No loan account found in shared state');
+
 const LOAN_ACCOUNTS: { scheme: string; accountNumber: string }[] = [
-  { scheme: 'MODIFIED', accountNumber: '3200000049' },
+  { scheme: (STEP['Scheme'] as string) || 'RetailLoan', accountNumber: LOAN_ACCOUNT_NUMBER },
 ];
 
 let homePage: HomePage;
@@ -64,7 +72,8 @@ async function verifyModifiedLoanAccount(
 
   // Step 2: Type menu option "HACMLA" in finacle.
   console.log('Searching for HACMLA...');
-  await loanPage.searchMenu(COMMON_DATA.retailLoans.screens.modifyAndVerify);
+  const menuOption = (STEP['menuOption'] as string) || 'HACMLA';
+  await loanPage.searchMenu(menuOption);
   await page.waitForTimeout(3000);
 
   // Step 3: Function - V - Verify, Temporary a/c id - the loan account number.

@@ -1,10 +1,10 @@
 {
   "credentials": {
-    "username": "finacletest1",
+    "username": "finacletest13",
     "password": "clarien@1234"
   },
   "secondCredentials": {
-    "username": "finacletest13",
+    "username": "finacletest14",
     "password": "clarien@1234"
   },
   "thirdCredentials": {
@@ -12,7 +12,7 @@
     "password": "clarien@1234"
   },
   "verifierCredentials": {
-    "username": "finacletest5",
+    "username": "finacletest14",
     "password": "clarien@1234"
   },
   "defaultCustomer": {

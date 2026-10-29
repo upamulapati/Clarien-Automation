@@ -1,5 +1,6 @@
 import { Page } from '@playwright/test';
 import { AccountPage } from './AccountPage';
+import { getApplicationDate } from '../../helpers/common';
 
 export interface RetailLoanChargeoffRecoveryData {
   loanAccountNumber: string;
@@ -79,7 +80,7 @@ export class RetailLoanChargeoffRecoveryPage extends AccountPage {
       await this.page.waitForTimeout(1000);
     }
 
-    const valueDate = data.valueDate ?? this.today();
+    const valueDate = data.valueDate || await getApplicationDate(this.page);
     console.log(`Entering value date: ${valueDate}`);
     const dateFilled =
       (await this.fillByLabel('Value Date', valueDate)) ||
@@ -123,11 +124,11 @@ export class RetailLoanChargeoffRecoveryPage extends AccountPage {
   }
 
   async verifyRecovery(data: RetailLoanChargeoffRecoveryData): Promise<{ message: string | null; transactionId: string | null }> {
-    console.log(`Starting HROCA chargeoff recovery verification for loan: ${data.loanAccountNumber}`);
+    console.log(`Starting HRACO chargeoff recovery verification for loan: ${data.loanAccountNumber}`);
 
     await this.selectCoreServer();
-    console.log('Searching for HROCA menu...');
-    await this.searchMenu('HROCA');
+    console.log('Searching for HRACO menu...');
+    await this.searchMenu('HRACO');
     await this.page.waitForTimeout(3000);
 
     console.log('Selecting Verify function...');
@@ -169,14 +170,6 @@ export class RetailLoanChargeoffRecoveryPage extends AccountPage {
     console.log(`Chargeoff recovery verification transaction ID: ${transactionId ?? 'NOT FOUND'}`);
 
     return { message: successMessage || message, transactionId };
-  }
-
-  private today(): string {
-    const d = new Date();
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${dd}-${mm}-${yyyy}`;
   }
 
   private extractSuccessMessage(text: string | null): string | null {

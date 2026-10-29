@@ -4,13 +4,15 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue } from '../../helpers/sharedState';
+import { RETAIL_LOAN_DATA } from '../../config/excelTestData';
 
 const VERIFY_CONFIG = getVerificationConfig();
+const STEP = RETAIL_LOAN_DATA[0]?.data ?? {};
 
 // Existing account in which the related party was deleted.
-const SHARED_ACCOUNT_ID = getSharedValue((state) => state.loanAccountId);
-const ACCOUNT_ID = SHARED_ACCOUNT_ID ?? '3200000044';
-if (SHARED_ACCOUNT_ID) console.log(`[SharedState] Using Loan Account ID from previous run: ${SHARED_ACCOUNT_ID}`);
+const ACCOUNT_ID = getSharedValue<string>('loanAccountId');
+if (!ACCOUNT_ID) throw new Error('loanAccountId must be available from the creation spec');
+console.log('[SharedState] Using Account ID from previous run:', ACCOUNT_ID);
 
 test.describe('Verify Deleted Related Party for Retail Loan Account', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
@@ -38,7 +40,9 @@ test.describe('Verify Deleted Related Party for Retail Loan Account', () => {
 
     // Step 2: Type menu option "HACMLA" in finacle
     console.log('Searching for HACMLA...');
-    await accountPage.searchMenu('HACMLA');
+    const menuOption = STEP['menuOption'];
+  if (!menuOption) throw new Error('menuOption is required in the Excel sheet');
+  await accountPage.searchMenu(menuOption);
     await page.waitForTimeout(3000);
 
     // Step 3: Function - V - Verify

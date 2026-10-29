@@ -10,6 +10,15 @@ interface AccountData {
   cif?: string;
   schemeCode?: string | null;
   dispatchMode?: 'email' | 'post' | string;
+  statementFrequency?: string;
+  statementDay?: string;
+  statementDate?: string;
+  statementWeek?: string;
+  nextStatementDate?: string;
+  relatedPartyCif?: string;
+  jointHolders?: string[];
+  relationType?: string;
+  relationCode?: string;
 }
 
 export class AccountPage {
@@ -179,23 +188,41 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
   }
 
+  private async exitBackgroundMenu() {
+    const exitLink = this.page.locator('a:has-text("Exit Background"), a:has-text("Exit Background Menu")').first();
+    if (await exitLink.count() > 0 && await exitLink.isVisible().catch(() => false)) {
+      try {
+        await exitLink.click();
+        await this.page.waitForTimeout(3000);
+        console.log('Clicked Exit Background to close the background menu.');
+      } catch (e) {
+        console.log('Could not click Exit Background:', e);
+      }
+    }
+  }
+
   async searchMenu(searchTerm: string) {
+    // Exit any open background menu first so the menu search lands on the right screen.
+    await this.exitBackgroundMenu();
     await this.page.waitForTimeout(3000);
     await this.menuSelect.fill(searchTerm);
     await this.menuSelect.press('Enter');
     await this.page.waitForTimeout(5000);
     
+    const searchPattern = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
     // Select the option that contains the searched code - try loginFrame first
-    const option = this.loginFrame.locator(`a:has-text('${searchTerm}')`).first();
-    if (await option.count() > 0) {
+    const option = this.loginFrame.locator('a, span, li, div, td, p, label').filter({ hasText: searchPattern }).first();
+    if (await option.count() > 0 && await option.isVisible().catch(() => false)) {
       await option.click();
       console.log(`Selected option: ${searchTerm}`);
       await this.page.waitForTimeout(5000);
     } else {
       console.log(`Option containing '${searchTerm}' not found in loginFrame, trying FINW frame`);
+      await this.waitForFinwFrame(15000);
       const finwFrame = this.getFinwFrame();
-      const finwOption = finwFrame.locator(`a:has-text('${searchTerm}')`).first();
-      if (await finwOption.count() > 0) {
+      const finwOption = finwFrame.locator('a, span, li, div, td, p, label').filter({ hasText: searchPattern }).first();
+      if (await finwOption.count() > 0 && await finwOption.isVisible().catch(() => false)) {
         await finwOption.click();
         console.log(`Selected option in FINW frame: ${searchTerm}`);
         await this.page.waitForTimeout(5000);
@@ -225,6 +252,7 @@ export class AccountPage {
     try {
       const finwFrame = this.getFinwFrame();
       const textLower = textMatch.toLowerCase();
+      const textNorm = textLower.replace(/[^a-z0-9]+/g, '');
       const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
       let clicked = false;
 
@@ -254,7 +282,8 @@ export class AccountPage {
         for (let i = 0; i < count; i++) {
           const el = elements.nth(i);
           const txt = ((await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || (await el.getAttribute('title').catch(() => '')) || (await el.getAttribute('aria-label').catch(() => '')) || '').replace(/\s+/g, ' ').trim().toLowerCase();
-          if (txt === textLower || txt.includes(textLower)) {
+          const nTxt = txt.replace(/[^a-z0-9]+/g, '');
+          if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm) || textNorm.includes(nTxt)) {
             try {
               await el.click({ timeout: 15000, force: true });
             } catch {
@@ -360,7 +389,31 @@ export class AccountPage {
   }
 
   async visitRelatedPartyTab() {
-    await this.clickTab('Related Party', 'relatedpartydetails');
+    try {
+      const finwFrame = this.getFinwFrame();
+      const switched = await finwFrame.evaluate(() => {
+        try {
+          const w = window as any;
+          if (typeof w.getStatus === 'function') {
+            w.getStatus('Y', 'relatedpartydetails');
+            return true;
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      });
+      if (!switched) {
+        const tab = finwFrame.locator('a#relatedpartydetails');
+        await tab.click();
+      }
+      await this.page.waitForTimeout(3000);
+      await captureEvidence(this.page, 'Tab switched: Related Party');
+      console.log('Switched to Related Party tab');
+    } catch (e) {
+      console.log(`Could not switch to Related Party tab, falling back: ${e}`);
+      await this.clickTab('Related Party', 'relatedpartydetails');
+    }
   }
 
   async visitMiscodesTab() {
@@ -479,7 +532,7 @@ export class AccountPage {
         'tr',
         'td',
       ];
-      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|linked|generated)\b/i;
+      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|linked|generated|rescheduled)\b/i;
       const sessionNoise = /(Last Successful Login|Last Failed Login|Account Expiry Date|Last login time|Last logout time|Client machine)/i;
       const noise = /^\s*(Error Details(?:\s+[A-Za-z/\.\s]+)*|Error Messages|Error Code|Error Code Description|Type Error Code Description|User Information Messages)\s*$/i;
 
@@ -2674,14 +2727,9 @@ export class AccountPage {
     return null;
   }
 
-  async selectDispatchMode(mode: 'email' | 'post' | 'no dispatch' | string) {
-    // Default to post (P-post) if no dispatch mode is provided.
-    let effectiveMode: 'email' | 'post' | 'no dispatch' | string = (mode as string) || '';
-    if (!effectiveMode || !effectiveMode.trim()) {
-      console.log('Dispatch mode is empty, defaulting to P-post');
-      effectiveMode = 'post';
-    }
-    mode = effectiveMode as any;
+  async selectDispatchMode(expected: string) {
+    if (!expected?.trim()) return;
+    const mode = expected.trim();
 
     try {
       const dropdown = await this.findDispatchDropdown();
@@ -2691,30 +2739,23 @@ export class AccountPage {
       }
       await dropdown.waitFor({ state: 'visible', timeout: 15000 });
 
-      // Log available options for diagnostics
       const options = await dropdown.locator('option').allTextContents();
       console.log(`Dispatch mode options: ${JSON.stringify(options)}`);
 
-      // Keyword to match within the option label for the desired mode
-      const keyword = mode === 'email' ? 'email'
-        : mode === 'post' ? 'post'
-        : 'no dispatch';
-
-      // Try matching by label keyword (handles "No Dispatch" / "No Despatch"),
-      // then fall back to known short values.
-      const match = options.find(o => {
-        const lower = o.toLowerCase();
-        if (mode === 'no dispatch') {
-          return lower.includes('no dispatch') || lower.includes('no despatch');
-        }
-        return lower.includes(keyword);
-      });
+      // Match the Excel-provided text against the option labels
+      const lowerExpected = mode.toLowerCase();
+      const match = options.find((o) => o.toLowerCase().includes(lowerExpected));
 
       if (match) {
         await dropdown.selectOption({ label: match });
       } else {
-        const fallback = mode === 'email' ? 'E' : mode === 'post' ? 'A' : 'N';
-        await dropdown.selectOption(fallback);
+        // Fall back to the first token (e.g., "A - Post and Email" -> "A")
+        const token = mode.split(/[^a-zA-Z0-9]+/)[0]?.toUpperCase();
+        if (token) {
+          await dropdown.selectOption(token).catch(() => {
+            console.log(`Dispatch mode value "${token}" not found`);
+          });
+        }
       }
       await this.page.waitForTimeout(1000);
       console.log(`Selected dispatch mode: ${mode}`);
@@ -2787,6 +2828,17 @@ export class AccountPage {
     } catch (e) {
       console.log(`Could not get dispatch mode: ${e}`);
       return null;
+    }
+  }
+
+  async isDispatchModeEnabled(): Promise<boolean> {
+    try {
+      const dropdown = await this.findDispatchDropdown();
+      if (!dropdown) return false;
+      return await dropdown.isEnabled();
+    } catch (e) {
+      console.log(`Could not determine dispatch mode enabled state: ${e}`);
+      return false;
     }
   }
 
@@ -3059,19 +3111,84 @@ export class AccountPage {
   }
 
   // ============ Tab Filling Orchestration ============
-  private async fillAllTabs(dispatchMode: 'email' | 'post' = 'post', forModification = false) {
+  private async fillAllTabs(dispatchMode: 'email' | 'post' = 'post', forModification = false, data?: AccountData) {
     await this.visitGeneralDetailsTab();
     await this.selectDispatchMode(dispatchMode);
+    if (data?.statementFrequency) {
+      await this.fillStatementFrequencyDetails(data);
+    }
     if (forModification) {
       await this.fillGeneralTabFields();
     }
-    
+
     await this.visitInterestDetailsTab();
     await this.fillInterestDetails(forModification);
-    
+
     await this.visitSchemeDetailsTab();
     await this.visitRelatedPartyTab();
     await this.visitMiscodesTab();
+  }
+
+  // Sets the Statement Frequency dropdown and any related day/date/week fields
+  // using values supplied from the test data. Validates that the selected
+  // option matches the requested frequency.
+  async fillStatementFrequencyDetails(data: AccountData) {
+    const frequency = data.statementFrequency;
+    if (!frequency || !frequency.trim()) {
+      console.log('No statement frequency provided, skipping');
+      return;
+    }
+
+    const optionKeyword = frequency.trim();
+    let selected = false;
+    for (const label of ['Statement Frequency', 'statement frequency', 'Stmt Freq', 'frequency']) {
+      if (await this.selectOptionByLabel(label, optionKeyword)) {
+        selected = true;
+        break;
+      }
+    }
+    if (!selected) {
+      selected = await this.selectDropdownContainingOption(optionKeyword);
+    }
+    if (!selected) {
+      throw new Error(`Statement Frequency option "${frequency}" could not be selected`);
+    }
+
+    const finwFrame = this.getFinwFrame();
+    const selects = finwFrame.locator('select');
+    const targetLower = frequency.toLowerCase();
+    let matched = false;
+    const count = await selects.count();
+    for (let i = 0; i < count; i++) {
+      const sel = selects.nth(i);
+      if (!(await sel.isEnabled().catch(() => false)) || !(await sel.isVisible().catch(() => false))) continue;
+      const selectedText = await sel.evaluate(el => {
+        const s = el as HTMLSelectElement;
+        return s.options[s.selectedIndex]?.text || '';
+      });
+      if (selectedText.toLowerCase().includes(targetLower) || targetLower.includes(selectedText.toLowerCase())) {
+        matched = true;
+        console.log(`Verified selected statement frequency: ${selectedText}`);
+        break;
+      }
+    }
+    if (!matched) {
+      throw new Error(`Selected statement frequency did not match expected value: ${frequency}`);
+    }
+
+    if (data.statementDay) {
+      await this.fillByAnyLabel(['Statement Day', 'Day'], data.statementDay);
+    }
+    if (data.statementDate) {
+      await this.fillByAnyLabel(['Statement Date', 'Date'], data.statementDate);
+    }
+    if (data.statementWeek) {
+      await this.fillByAnyLabel(['Statement Week', 'Week'], data.statementWeek);
+    }
+    if (data.nextStatementDate) {
+      await this.fillByAnyLabel(['Next Statement Date', 'Next Statement Dt'], data.nextStatementDate);
+    }
+    await this.page.waitForTimeout(500);
   }
 
   // ============ Account Creation Methods ============
@@ -3082,7 +3199,7 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
 
     const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
-    await this.fillAllTabs(dispatchMode, false);
+    await this.fillAllTabs(dispatchMode, false, accountData);
     await this.clickSubmit();
   }
 
@@ -4021,7 +4138,9 @@ export class AccountPage {
       'input[value*="Submit" i], ' +
       'input[type="submit"][value*="Submit" i], input[type="button"][value*="Submit" i], ' +
       'input[type="image"][alt*="Submit" i], input[type="image"][title*="Submit" i], ' +
-      'button:has-text("Submit"), a:has-text("Submit")';
+      'button:has-text("Submit"), a:has-text("Submit"),' +
+      'input[value*="Verify" i], button:has-text("Verify"), a:has-text("Verify"),' +
+      'input[value*="Authorise" i], input[value*="Authorize" i], button:has-text("Authorise"), button:has-text("Authorize")';
 
     const clickFirstVisible = async (frame: Frame): Promise<boolean> => {
       try {
@@ -4086,7 +4205,9 @@ export class AccountPage {
               const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
               const el = elements.find(e => {
                 const v = (e.getAttribute('value') || e.getAttribute('alt') || e.getAttribute('title') || e.textContent || '').trim().toLowerCase();
-                return v === 'submit' || v.includes('submit');
+                return v === 'submit' || v.includes('submit') ||
+                       v === 'verify' || v.includes('verify') ||
+                       v.includes('authorise') || v.includes('authorize');
               });
               if (el) { el.scrollIntoView({ block: 'center', inline: 'center' }); el.click(); return true; }
             }
@@ -4136,7 +4257,7 @@ export class AccountPage {
     return null;
   }
 
-  async selectFunction(value: string) {
+  async selectFunction(value: string): Promise<boolean> {
     try {
       const deadline = Date.now() + 30000;
       let dropdown = await this.findFunctionDropdown(value);
@@ -4145,8 +4266,8 @@ export class AccountPage {
         dropdown = await this.findFunctionDropdown(value);
       }
       if (!dropdown) {
-        console.log(`Function dropdown not found for '${value}', skipping`);
-        return;
+        console.log(`Function dropdown not found for '${value}'`);
+        return false;
       }
       await dropdown.waitFor({ state: 'visible', timeout: 15000 });
 
@@ -4172,8 +4293,10 @@ export class AccountPage {
       await this.page.waitForTimeout(1000);
       console.log(`Selected function: ${value}`);
       await captureEvidence(this.page, `Function selected: ${value}`, { function: value });
+      return true;
     } catch (e) {
-      console.log(`Could not select function '${value}', skipping: ${e}`);
+      console.log(`Could not select function '${value}': ${e}`);
+      return false;
     }
   }
 
@@ -4890,6 +5013,39 @@ export class AccountPage {
     }
   }
 
+  // Clicks the next-record arrow to navigate to the next related party record.
+  // Returns true if the arrow was present and clicked, false if there is no next record.
+  async goToNextRelatedPartyRecord(): Promise<boolean> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const nextRec = finwFrame.locator('#relParty_NextRec');
+      if (await nextRec.count() === 0) {
+        console.log('Related party next-record arrow not found');
+        return false;
+      }
+      const isDisabled = await nextRec.evaluate((el: HTMLElement) => {
+        const input = el as HTMLInputElement | HTMLButtonElement;
+        return input.disabled ||
+          el.getAttribute('disabled') === 'true' ||
+          el.getAttribute('aria-disabled') === 'true' ||
+          el.classList.contains('disabled') ||
+          el.style.display === 'none';
+      }).catch(() => true);
+      if (isDisabled) {
+        console.log('Related party next-record arrow is disabled');
+        return false;
+      }
+      await nextRec.scrollIntoViewIfNeeded();
+      await nextRec.click();
+      await this.page.waitForTimeout(2000);
+      console.log('Navigated to next related party record');
+      return true;
+    } catch (e) {
+      console.log(`Could not navigate to next related party record: ${e}`);
+      return false;
+    }
+  }
+
   // Marks the currently displayed related party record for deletion by ticking
   // the "Record" DEL checkbox (above the language preference field).
   async markRelatedPartyRecordForDeletion() {
@@ -4980,6 +5136,76 @@ export class AccountPage {
     } catch (e) {
       console.log(`Could not enter related party CIF, skipping: ${e}`);
     }
+  }
+
+  // Adds one or more related parties (joint holders) to an existing savings
+  // account via HACM Modify. Skips duplicate CIFs and uses the relation type
+  // and code from test data, defaulting to Joint Holder / 999.
+  async addRelatedPartiesToSavingsAccount(accountId: string, data: AccountData) {
+    console.log(`Opening HACM Modify to add related parties to account ${accountId}`);
+    await this.selectCoreServer();
+    await this.searchMenu('HACM');
+    await this.page.waitForTimeout(3000);
+    await this.selectFunction('Modify');
+    await this.enterHacmAccountId(accountId);
+    await this.clickGo();
+
+    await this.visitTabById('acmogd');
+    await this.setNextPrintDate();
+
+    const relationType = data.relationType ?? 'Joint Holder';
+    const relationCode = data.relationCode ?? '999';
+    const cifs = this.resolveJointHolders(data);
+
+    if (cifs.length === 0) {
+      console.log('No related party CIFs to add');
+      return { success: true, message: 'No related parties to add', accountNumber: accountId };
+    }
+
+    await this.visitTabById('relatedpartydetails');
+    for (const cif of cifs) {
+      console.log(`Adding related party: ${cif} (${relationType} / ${relationCode})`);
+      await this.clickRelatedPartyAdd();
+      await this.selectRelationType(relationType);
+      await this.selectRelationCode(relationCode);
+      await this.enterRelatedPartyCif(cif);
+    }
+
+    await this.submitForm();
+    const result = await this.verifyAccountCreated();
+    if (!result.success) {
+      throw new Error(`Failed to add related parties: ${result.message}`);
+    }
+    console.log('Related parties added:', result.message);
+    return result;
+  }
+
+  private resolveJointHolders(data: AccountData): string[] {
+    const all: string[] = [];
+    if (data.jointHolders && Array.isArray(data.jointHolders)) {
+      all.push(...data.jointHolders);
+    }
+    if (data.relatedPartyCif && !all.includes(data.relatedPartyCif)) {
+      all.push(data.relatedPartyCif);
+    }
+    const unique: string[] = [];
+    const seen = new Set<string>();
+    const primaryCif = String(data.cifCode ?? data.cif ?? '').trim();
+    for (const cif of all) {
+      const c = String(cif).trim();
+      if (!c) continue;
+      if (c === primaryCif) {
+        console.log(`Skipping related party CIF equal to primary CIF: ${c}`);
+        continue;
+      }
+      if (seen.has(c)) {
+        console.log(`Skipping duplicate related party CIF: ${c}`);
+        continue;
+      }
+      seen.add(c);
+      unique.push(c);
+    }
+    return unique;
   }
 
   // ============ HAFSM (Account Freeze / Stop Maintenance) Methods ============
@@ -5227,16 +5453,24 @@ export class AccountPage {
       await this.selectSchemeCode(data.schemeCode);
     } catch (e) {
       console.log(`Could not select scheme via popup, skipping: ${e}`);
-      // Fallback: fill scheme code directly by id and trigger validation.
-      const schemeInput = finwFrame.locator('#schmCode').first();
-      if (data.schemeCode && await schemeInput.count() > 0 && await schemeInput.isEditable().catch(() => false)) {
-        await schemeInput.fill(data.schemeCode);
-        await schemeInput.dispatchEvent('input');
-        await schemeInput.dispatchEvent('change');
-        await schemeInput.press('Tab').catch(() => {});
-        await this.page.waitForTimeout(1000);
-        console.log(`Filled scheme code directly via #schmCode = ${data.schemeCode}`);
-      }
+    }
+
+    // Close any leftover scheme search popup so the header fields are reachable again.
+    const pages = this.page.context().pages();
+    for (const p of pages) {
+      if (p !== this.page) await p.close().catch(() => {});
+    }
+    await this.page.waitForTimeout(500);
+
+    // Fallback: fill scheme code directly by id and trigger validation.
+    const schemeInput = finwFrame.locator('#schmCode').first();
+    if (data.schemeCode && await schemeInput.count() > 0 && await schemeInput.isEditable().catch(() => false)) {
+      await schemeInput.fill(data.schemeCode);
+      await schemeInput.dispatchEvent('input');
+      await schemeInput.dispatchEvent('change');
+      await schemeInput.press('Tab').catch(() => {});
+      await this.page.waitForTimeout(1000);
+      console.log(`Filled scheme code directly via #schmCode = ${data.schemeCode}`);
     }
 
     // Accept / Go
@@ -5332,6 +5566,10 @@ export class AccountPage {
   // row/label text contains labelKeyword. Skips disabled selects to avoid the
   // action waiting until timeout on a read-only field.
   async selectOptionByLabel(labelKeyword: string, optionKeyword: string): Promise<boolean> {
+    if (!optionKeyword) {
+      console.log(`selectOptionByLabel: optionKeyword is empty for '${labelKeyword}', skipping`);
+      return false;
+    }
     const finwFrame = this.getFinwFrame();
     const selects = finwFrame.locator('select');
     const count = await selects.count();
@@ -5424,11 +5662,23 @@ export class AccountPage {
   }
 
   async setLoanPeriodMonths(months: string) {
-    const updated = await this.setTextByCandidates(
-      ['loanPerdMths', 'loanPeriodMonths', 'loanTermMonths', 'tenureMonths'],
+    let updated = await this.setTextByCandidates(
+      ['loanPerdMths', 'loanPeriodMonths', 'loanTermMonths', 'tenureMonths',
+       'repaymentMths', 'repaymentMonths', 'loanRepaymentMonths', 'repaymentPerdMths',
+       'tenorMonths', 'loanTenorMonths', 'noOfMths'],
       months, 'Loan period (months)'
     );
-    if (!updated) throw new Error('Loan period (months) field was not found on the Loan Details tab');
+    if (!updated) {
+      for (const label of ['Loan Period (Months)', 'Loan Period', 'Tenor (Months)', 'Repayment Period (Months)', 'No. of Months']) {
+        if (await this.fillByLabel(label, months)) {
+          updated = true;
+          break;
+        }
+      }
+    }
+    if (!updated) {
+      console.warn(`Loan period (months) field not found; skipping for this screen`);
+    }
   }
 
   // Step 8: Payment plan - number of instalments.
@@ -5650,6 +5900,367 @@ export class AccountPage {
       }
     } catch (e) {
       console.log(`Could not log field errors: ${e}`);
+    }
+  }
+
+  // Generic field value reader for data-driven modification. Returns the
+  // current visible value of a field identified by its label text, the
+  // underlying control type, its id/name and whether it is disabled/read-only.
+  async getFieldValueByLabel(
+    labelText: string,
+    controlIndex?: number,
+    controlId?: string
+  ): Promise<{ value: string; type: 'text' | 'select' | 'radio' | 'checkbox' | 'date' | 'unknown'; id: string; disabled: boolean; matchedText?: string } | null> {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const result = await finwFrame.evaluate(({ label, controlIndex, controlId }) => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const labelNorm = norm(label);
+        const cells = Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[];
+        const matches = cells
+          .map((el) => ({ el, t: norm(el.textContent?.trim() || '') }))
+          .filter(({ t }) => t.length > 0 && (t === labelNorm || t.startsWith(labelNorm) || (labelNorm.length > 3 && t.includes(labelNorm))))
+          .sort((a, b) => {
+            if (a.t === labelNorm && b.t !== labelNorm) return -1;
+            if (b.t === labelNorm && a.t !== labelNorm) return 1;
+            const aStarts = a.t.startsWith(labelNorm);
+            const bStarts = b.t.startsWith(labelNorm);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return a.t.length - b.t.length;
+          });
+        const labelCell = matches[0]?.el;
+        if (!labelCell) return null;
+
+        const row = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
+
+        const controls: (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[] = [];
+
+        const notHidden = (el: Element) => el.tagName !== 'INPUT' || (el as HTMLInputElement).type !== 'hidden';
+
+        // 1) input inside the label cell itself (e.g., label + checkbox in the same td)
+        const sameCellInputs = Array.from(labelCell.querySelectorAll('input, select, textarea')).filter(
+          notHidden
+        ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+        controls.push(...sameCellInputs);
+
+        // 2) inputs in the immediate following cells, stopping at the next non-empty label cell
+        if (controls.length === 0) {
+          let sibling = labelCell.nextElementSibling;
+          while (sibling) {
+            const cellInputs = Array.from(sibling.querySelectorAll('input, select, textarea')).filter(
+              notHidden
+            ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+            if (cellInputs.length > 0) {
+              controls.push(...cellInputs);
+            }
+            if ((sibling.textContent?.trim() || '').length > 2) break;
+            sibling = sibling.nextElementSibling;
+          }
+        }
+
+        // 3) fallback: nearest input(s) to the right in the same row
+        if (controls.length === 0 && row !== labelCell) {
+          const labelRect = labelCell.getBoundingClientRect();
+          const rowInputs = Array.from(row.querySelectorAll('input, select, textarea')).filter(
+            notHidden
+          ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+          const rightInputs = rowInputs
+            .filter((el) => {
+              const r = (el as HTMLElement).getBoundingClientRect();
+              return r.width > 0 && r.height > 0 && r.left > labelRect.right;
+            })
+            .sort((a, b) => {
+              const ar = (a as HTMLElement).getBoundingClientRect();
+              const br = (b as HTMLElement).getBoundingClientRect();
+              return ar.left - br.left;
+            });
+          if (rightInputs.length > 0) controls.push(...rightInputs);
+        }
+
+        if (controls.length === 0) return null;
+
+        const idLower = controlId ? controlId.toLowerCase() : '';
+        let editable: (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) | undefined;
+        if (idLower) {
+          const rowInputs = Array.from(row.querySelectorAll('input, select, textarea')).filter(notHidden) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+          editable =
+            controls.find((el) => ((el as HTMLInputElement).id || (el as HTMLInputElement).name || '').toLowerCase().includes(idLower)) ||
+            rowInputs.find((el) => ((el as HTMLInputElement).id || (el as HTMLInputElement).name || '').toLowerCase().includes(idLower));
+          if (!editable) return null;
+        }
+
+        if (!editable) {
+          editable =
+            controlIndex !== undefined && controlIndex >= 0 && controls[controlIndex]
+              ? controls[controlIndex]
+              : controls.find((el) => !(el as HTMLInputElement).disabled && !(el as HTMLInputElement).readOnly) || controls[0];
+        }
+        const disabled = (editable as HTMLInputElement).disabled || (editable as HTMLInputElement).readOnly;
+
+        let value = '';
+        let type: 'text' | 'select' | 'radio' | 'checkbox' | 'date' | 'unknown' = 'unknown';
+
+        if (editable.tagName === 'SELECT') {
+          const sel = editable as HTMLSelectElement;
+          value = sel.options[sel.selectedIndex]?.text?.trim() || sel.value;
+          type = 'select';
+        } else if ((editable as HTMLInputElement).type === 'radio') {
+          const name = (editable as HTMLInputElement).name;
+          const radios = Array.from((row || document).querySelectorAll(`input[type="radio"][name="${name}"]`)) as HTMLInputElement[];
+          const checked = radios.find((r) => r.checked);
+          value = checked
+            ? ((checked.nextElementSibling?.textContent?.trim() ||
+                checked.parentElement?.textContent?.trim() ||
+                checked.value) ?? '')
+            : '';
+          type = 'radio';
+        } else if ((editable as HTMLInputElement).type === 'checkbox') {
+          value = (editable as HTMLInputElement).checked ? 'Yes' : 'No';
+          type = 'checkbox';
+        } else if (
+          (editable as HTMLInputElement).type === 'date' ||
+          (editable as HTMLInputElement).id?.toLowerCase().includes('date') ||
+          (editable as HTMLInputElement).id?.endsWith('_ui') ||
+          (editable as HTMLInputElement).name?.toLowerCase().includes('date') ||
+          (editable as HTMLInputElement).name?.endsWith('_ui')
+        ) {
+          value = (editable as HTMLInputElement).value;
+          type = 'date';
+        } else {
+          value = (editable as HTMLInputElement).value;
+          type = 'text';
+        }
+
+        return {
+          value,
+          type,
+          id: (editable as HTMLInputElement).id || (editable as HTMLInputElement).name || '',
+          disabled: !!disabled,
+          matchedText: labelCell.textContent?.trim() || '',
+        };
+      }, { label: labelText, controlIndex, controlId });
+
+      if (result) {
+        console.log(`getFieldValueByLabel("${labelText}", ${controlIndex ?? 0}) => ${JSON.stringify(result)}`);
+      }
+      return result;
+    } catch (e) {
+      console.log(`getFieldValueByLabel("${labelText}") failed: ${e}`);
+      return null;
+    }
+  }
+
+  async clearFieldById(id: string): Promise<void> {
+    try {
+      const finwFrame = this.getFinwFrame();
+      const field = finwFrame.locator(`#${id}`);
+      if ((await field.count()) === 0) return;
+      await field.evaluate((el: HTMLInputElement) => {
+        el.value = '';
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      console.log(`Cleared field #${id}`);
+    } catch (e) {
+      console.log(`Could not clear field #${id}: ${e}`);
+    }
+  }
+
+  // Generic field value setter for data-driven modification. Detects select,
+  // radio, checkbox, date and plain text controls from the label text and
+  // attempts to set the value while dispatching the relevant input/change events.
+  async setFieldValueByLabel(
+    labelText: string,
+    value: string,
+    typeHint?: 'text' | 'select' | 'radio' | 'checkbox' | 'date',
+    controlIndex?: number,
+    controlId?: string
+  ): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    try {
+      const result = await finwFrame.evaluate(({ label, val, typeHint, controlIndex, controlId }) => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const labelNorm = norm(label);
+        const cells = Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[];
+        const matches = cells
+          .map((el) => ({ el, t: norm(el.textContent?.trim() || '') }))
+          .filter(({ t }) => t.length > 0 && (t === labelNorm || t.startsWith(labelNorm) || (labelNorm.length > 3 && t.includes(labelNorm))))
+          .sort((a, b) => {
+            if (a.t === labelNorm && b.t !== labelNorm) return -1;
+            if (b.t === labelNorm && a.t !== labelNorm) return 1;
+            const aStarts = a.t.startsWith(labelNorm);
+            const bStarts = b.t.startsWith(labelNorm);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return a.t.length - b.t.length;
+          });
+        const labelCell = matches[0]?.el;
+        if (!labelCell) return { ok: false, reason: 'label not found' };
+
+        const row = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
+
+        const controls: (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[] = [];
+
+        const notHidden = (el: Element) => el.tagName !== 'INPUT' || (el as HTMLInputElement).type !== 'hidden';
+
+        const sameCellInputs = Array.from(labelCell.querySelectorAll('input, select, textarea')).filter(
+          notHidden
+        ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+        controls.push(...sameCellInputs);
+
+        if (controls.length === 0) {
+          let sibling = labelCell.nextElementSibling;
+          while (sibling) {
+            const cellInputs = Array.from(sibling.querySelectorAll('input, select, textarea')).filter(
+              notHidden
+            ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+            if (cellInputs.length > 0) {
+              controls.push(...cellInputs);
+            }
+            if ((sibling.textContent?.trim() || '').length > 2) break;
+            sibling = sibling.nextElementSibling;
+          }
+        }
+
+        if (controls.length === 0 && row !== labelCell) {
+          const labelRect = labelCell.getBoundingClientRect();
+          const rowInputs = Array.from(row.querySelectorAll('input, select, textarea')).filter(
+            notHidden
+          ) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+          const rightInputs = rowInputs
+            .filter((el) => {
+              const r = (el as HTMLElement).getBoundingClientRect();
+              return r.width > 0 && r.height > 0 && r.left > labelRect.right;
+            })
+            .sort((a, b) => {
+              const ar = (a as HTMLElement).getBoundingClientRect();
+              const br = (b as HTMLElement).getBoundingClientRect();
+              return ar.left - br.left;
+            });
+          if (rightInputs.length > 0) controls.push(...rightInputs);
+        }
+
+        const idLower = controlId ? controlId.toLowerCase() : '';
+        let target: (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) | undefined;
+        if (idLower) {
+          const rowInputs = Array.from(row.querySelectorAll('input, select, textarea')).filter(notHidden) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+          target =
+            controls.find((el) => ((el as HTMLInputElement).id || (el as HTMLInputElement).name || '').toLowerCase().includes(idLower)) ||
+            rowInputs.find((el) => ((el as HTMLInputElement).id || (el as HTMLInputElement).name || '').toLowerCase().includes(idLower));
+          if (!target) return { ok: false, reason: `controlId "${controlId}" not found` };
+        }
+
+        if (!target) {
+          target =
+            controlIndex !== undefined && controlIndex >= 0 && controls[controlIndex]
+              ? controls[controlIndex]
+              : controls.find((el) => !(el as HTMLInputElement).disabled && !(el as HTMLInputElement).readOnly) || controls[0];
+        }
+        if (!target) return { ok: false, reason: 'no control found for label' };
+
+        const valLower = val.toLowerCase().trim();
+        const valFirst = val.trim().charAt(0).toUpperCase();
+
+        if (target.tagName === 'SELECT') {
+          const sel = target as HTMLSelectElement;
+          const options = Array.from(sel.options);
+          const firstToken = (text: string) => (text.split(/[^a-z0-9]+/i)[0] || '').toLowerCase();
+          const option =
+            options.find((o) => o.text.toLowerCase() === valLower) ||
+            options.find((o) => o.value.toLowerCase() === valLower) ||
+            options.find((o) => o.text.toLowerCase().startsWith(valLower + ' -')) ||
+            options.find((o) => firstToken(o.text) === valLower) ||
+            options.find((o) => o.text.toLowerCase().startsWith(valLower)) ||
+            options.find((o) => o.text.toLowerCase().includes(valLower));
+          if (!option) return { ok: false, reason: `option not found for "${val}"`, options: options.map((o) => o.text) };
+          sel.value = option.value;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          return { ok: true, id: sel.id, type: 'select', set: option.text };
+        }
+
+        const input = target as HTMLInputElement;
+        if (input.type === 'radio') {
+          const radios = Array.from((row || document).querySelectorAll(`input[type="radio"][name="${input.name}"]`)) as HTMLInputElement[];
+          let choice = radios.find(
+            (r) => r.value.toLowerCase() === valLower || r.value.toUpperCase() === valFirst || r.value.toLowerCase().startsWith(valLower)
+          );
+          if (!choice) {
+            choice = radios.find((r) => {
+              const lbl = (r.nextElementSibling?.textContent || r.parentElement?.textContent || '').toLowerCase().trim();
+              return lbl === valLower || lbl.startsWith(valLower) || lbl.includes(valLower);
+            });
+          }
+          if (!choice) {
+            const yesNo = /^(y|yes|true)$/i.test(val) ? 'y' : /^(n|no|false)$/i.test(val) ? 'n' : '';
+            choice = radios.find((r) => r.value.toLowerCase() === yesNo);
+          }
+          if (!choice) return { ok: false, reason: `radio not found for "${val}"`, values: radios.map((r) => r.value) };
+          choice.checked = true;
+          choice.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          choice.dispatchEvent(new Event('change', { bubbles: true }));
+          return { ok: true, id: choice.id, type: 'radio', value: choice.value };
+        }
+
+        if (input.type === 'checkbox') {
+          const shouldCheck = /^(y|yes|true)$/i.test(val);
+          if (input.checked !== shouldCheck) {
+            input.click();
+          }
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          return { ok: true, id: input.id, type: 'checkbox', checked: input.checked };
+        }
+
+        if (
+          typeHint === 'date' ||
+          input.type === 'date' ||
+          input.id?.endsWith('_ui') ||
+          input.name?.endsWith('_ui') ||
+          input.id?.toLowerCase().includes('date') ||
+          input.name?.toLowerCase().includes('date')
+        ) {
+          input.value = val;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          const baseId = input.id.replace('_ui', '');
+          const hidden = document.querySelector(
+            `input[id="${baseId}"], input[name="${baseId}"], input[name="${baseId}_hdn"]`
+          ) as HTMLInputElement | null;
+          if (hidden) {
+            hidden.value = val;
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          return { ok: true, id: input.id, type: 'date', value: val };
+        }
+
+        input.value = val;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+        if (input.id?.endsWith('_ui') || input.name?.endsWith('_ui')) {
+          const baseId = input.id.replace('_ui', '');
+          const baseName = (input.name || '').replace('_ui', '');
+          const hiddenById = document.querySelector(`input[id="${baseId}"]`) as HTMLInputElement | null;
+          const hiddenByName = document.querySelector(
+            `input[name="${baseName}"], input[name="${baseName}_hdn"]`
+          ) as HTMLInputElement | null;
+          if (hiddenById) {
+            hiddenById.value = val;
+            hiddenById.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          if (hiddenByName) {
+            hiddenByName.value = val;
+            hiddenByName.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+        return { ok: true, id: input.id, type: 'text', value: val };
+      }, { label: labelText, val: value, typeHint, controlIndex, controlId });
+
+      console.log(`setFieldValueByLabel("${labelText}", "${value}") => ${JSON.stringify(result)}`);
+      await this.page.waitForTimeout(600);
+      return (result as any).ok === true;
+    } catch (e) {
+      console.log(`setFieldValueByLabel("${labelText}", "${value}") failed: ${e}`);
+      return false;
     }
   }
 

@@ -123,6 +123,21 @@ export const TRANSFER_DATA = loadSection(process.env.STEP_DATA, [], 'transferDat
 
 export const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer;
 
+// Retail loan data.
+export const RETAIL_LOAN_DATA = loadSection(process.env.STEP_DATA, [], 'retailLoansData', {
+  flowName: 'retailloan',
+  menuOption: 'HOAACLA',
+  function: 'Open',
+  enabled: 'Y',
+});
+
+export const RETAIL_LOAN_MODIFY_DATA = loadSection(process.env.STEP_DATA, [], 'retailLoansModData', {
+  flowName: 'retailloanmodification',
+  menuOption: 'HACMLA',
+  function: 'Modify',
+  enabled: 'Y',
+});
+
 // HPORDM payment order data.
 const hpordmRows = loadSection(process.env.HPORDM_STEP_DATA, DEFAULT_HPORDM_DATA, 'paymentOrderTestData', {
   flowName: 'paymentorder',
