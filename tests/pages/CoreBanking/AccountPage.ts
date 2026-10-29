@@ -1,5 +1,5 @@
 import { Page, Locator, FrameLocator, Frame, Dialog } from '@playwright/test';
-import { captureEvidence } from '../../helpers/evidence';
+import { captureEvidence, gatherPageInputData } from '../../helpers/evidence';
 
 interface AccountData {
   functionOption?: string;
@@ -35,6 +35,21 @@ export class AccountPage {
   constructor(page: Page, lastDialogMessages?: string[]) {
     this.page = page;
     this.loginFrame = page.frameLocator('iframe[name="loginFrame"]');
+  }
+
+  private evidenceCounter = 0;
+  private capturedEvidenceHashes = new Set<string>();
+
+  private async capturePreActionEvidence(step: string): Promise<void> {
+    const fields = await gatherPageInputData(this.page);
+    const hash = JSON.stringify(Object.entries(fields).sort((a, b) => a[0].localeCompare(b[0])));
+    if (this.capturedEvidenceHashes.has(hash)) {
+      console.log(`📸 Skipping duplicate evidence: ${step}`);
+      return;
+    }
+    this.capturedEvidenceHashes.add(hash);
+    this.evidenceCounter++;
+    await captureEvidence(this.page, `${step} [${this.evidenceCounter}]`, fields);
   }
 
   // ============ Frame Helpers ============
@@ -261,6 +276,7 @@ export class AccountPage {
       const textLower = textMatch.toLowerCase();
       const textNorm = textLower.replace(/[^a-z0-9]+/g, '');
       const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
+      await this.capturePreActionEvidence(`Before tab: ${textMatch}`);
       let clicked = false;
 
       // Helper: check if the tab content appears to be loaded by looking for a visible label cell.
@@ -376,7 +392,6 @@ export class AccountPage {
         console.log(`Tab '${textMatch}' not found (it may already be active), skipping`);
       } else {
         await this.page.waitForTimeout(2000);
-        await captureEvidence(this.page, `Tab switched: ${textMatch}`);
       }
     } catch (e) {
       console.log(`Could not navigate to tab '${textMatch}', skipping: ${e}`);
@@ -397,6 +412,7 @@ export class AccountPage {
 
   async visitRelatedPartyTab() {
     try {
+      await this.capturePreActionEvidence('Before tab: Related Party');
       const finwFrame = this.getFinwFrame();
       const switched = await finwFrame.evaluate(() => {
         try {
@@ -415,7 +431,6 @@ export class AccountPage {
         await tab.click();
       }
       await this.page.waitForTimeout(3000);
-      await captureEvidence(this.page, 'Tab switched: Related Party');
       console.log('Switched to Related Party tab');
     } catch (e) {
       console.log(`Could not switch to Related Party tab, falling back: ${e}`);
@@ -440,12 +455,12 @@ export class AccountPage {
   // Navigates to a tab by its anchor id (e.g. 'acmogd', 'relatedpartydetails').
   async visitTabById(id: string) {
     try {
+      await this.capturePreActionEvidence(`Before tab: ${id}`);
       const finwFrame = this.getFinwFrame();
       const tab = finwFrame.locator(`#${id}`).first();
       await tab.waitFor({ state: 'visible', timeout: 15000 });
       await tab.click();
       await this.page.waitForTimeout(2500);
-      await captureEvidence(this.page, `Tab switched by id: ${id}`);
       console.log(`Navigated to tab #${id}`);
     } catch (e) {
       console.log(`Could not navigate to tab #${id}, skipping: ${e}`);
@@ -3284,6 +3299,7 @@ export class AccountPage {
   async createSavingsAccount(accountData: AccountData, _options?: any) {
     await this.fillBasicAccountDetails(accountData);
     await this.selectSchemeCode(accountData.schemeCode ?? undefined);
+    await this.capturePreActionEvidence('Before Accept');
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
@@ -3321,6 +3337,7 @@ export class AccountPage {
   async createCurrentAccount(accountData: AccountData) {
     await this.fillBasicAccountDetails(accountData);
     await this.selectSchemeCode(accountData.schemeCode ?? undefined);
+    await this.capturePreActionEvidence('Before Accept');
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
@@ -4216,6 +4233,7 @@ export class AccountPage {
   // ============ Account Modification Methods ============
   async modifySavingsAccount(dispatchMode: 'email' | 'post' = 'post') {
     // Click Go (Accept) to load the account into the modification screen
+    await this.capturePreActionEvidence('Before Accept');
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
@@ -4236,11 +4254,13 @@ export class AccountPage {
   }
 
   async saveSavingsAccount() {
+    await this.capturePreActionEvidence('Before Accept');
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
   }
 
   async clickSubmit() {
+    await this.capturePreActionEvidence('Before Submit');
     const selector =
       '#Submit, #submit, ' +
       'input[name*="Submit" i], input[name*="submit" i], ' +
@@ -4295,7 +4315,6 @@ export class AccountPage {
         if (await clickFirstVisible(frame)) {
           await this.page.waitForTimeout(5000);
           console.log(`Clicked Submit button in frame '${frame.name() || 'main'}'`);
-          await captureEvidence(this.page, 'Submit button clicked', { frame: frame.name() || 'main' });
           return;
         }
       }
@@ -4325,7 +4344,6 @@ export class AccountPage {
           if (clicked) {
             await this.page.waitForTimeout(5000);
             console.log(`Clicked Submit button via JS in frame '${f.name() || 'main'}'`);
-            await captureEvidence(this.page, 'Submit button clicked (JS fallback)', { frame: f.name() || 'main' });
             return;
           }
         }
@@ -4378,6 +4396,7 @@ export class AccountPage {
         console.log(`Function dropdown not found for '${value}'`);
         return false;
       }
+      await this.capturePreActionEvidence(`Before function: ${value}`);
       await dropdown.waitFor({ state: 'visible', timeout: 15000 });
 
       // Log available options for diagnostics
@@ -4401,7 +4420,6 @@ export class AccountPage {
       }
       await this.page.waitForTimeout(1000);
       console.log(`Selected function: ${value}`);
-      await captureEvidence(this.page, `Function selected: ${value}`, { function: value });
       return true;
     } catch (e) {
       console.log(`Could not select function '${value}': ${e}`);
@@ -4438,6 +4456,7 @@ export class AccountPage {
 
   async clickGo() {
     try {
+      await this.capturePreActionEvidence('Before Go');
       const finwFrame = this.getFinwFrame();
       // The HACM screen uses a "Go" button; fall back to the Accept button id
       const goBtn = finwFrame.locator('#Go, input[value="Go"], button:has-text("Go")').first();
@@ -4449,7 +4468,6 @@ export class AccountPage {
       }
       await this.page.waitForTimeout(3000);
       console.log('Clicked Go button');
-      await captureEvidence(this.page, 'Go button clicked', {});
     } catch (e) {
       console.log(`Could not click Go button: ${e}`);
     }
@@ -4521,6 +4539,7 @@ export class AccountPage {
   // Clicks the Accept button shown after the loan A/c ID is generated to
   // finalise creation. Searches all frames in case it renders outside FINW.
   async clickAccept() {
+    await this.capturePreActionEvidence('Before Accept');
     const buttonSelector =
       'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
       'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
@@ -4547,7 +4566,6 @@ export class AccountPage {
     if (clicked) {
       await this.page.waitForTimeout(3000);
       console.log('Clicked Accept button in FINW frame');
-      await captureEvidence(this.page, 'Accept button clicked', {});
       return;
     }
 
@@ -4575,7 +4593,6 @@ export class AccountPage {
           await btn.click({ timeout: 15000, force: true });
           await this.page.waitForTimeout(3000);
           console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
-          await captureEvidence(this.page, 'Accept control clicked', { frame: frame.name() || 'main' });
           return;
         }
       } catch (e) {
@@ -4588,6 +4605,7 @@ export class AccountPage {
   // Clicks the last Accept button in the FINW frame (e.g. the bottom Accept
   // shown after charges in HLADISB verification).
   async clickLastAccept() {
+    await this.capturePreActionEvidence('Before Last Accept');
     const buttonSelector =
       'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
       'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
@@ -4624,6 +4642,7 @@ export class AccountPage {
   // usually the bottom action button on verification screens (e.g. HLADISB),
   // which may be labelled Submit, Verify, Authorize, Authorise, Approve, OK or Confirm.
   async clickLastAction() {
+    await this.capturePreActionEvidence('Before Last Action');
     const actionLabels = ['Submit', 'Verify', 'Authorize', 'Authorise', 'Approve', 'Confirm', 'OK'];
     const buildSelector = (label: string) =>
       `input[type="button"][value^="${label}" i], input[type="button"][value*="${label}" i], ` +
@@ -4910,6 +4929,7 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
     await this.selectVerifyFunction();
     await this.enterTemporaryAccountId(data.accountId);
+    await this.capturePreActionEvidence('Before Accept');
     await this.acceptButton.click();
     await this.page.waitForTimeout(5000);
     await this.navigateAllTabs();
@@ -5082,6 +5102,7 @@ export class AccountPage {
   // new related party row.
   async clickRelatedPartyAdd() {
     try {
+      await this.capturePreActionEvidence('Before Related Party Add');
       const finwFrame = this.getFinwFrame();
       const addBtn = finwFrame.locator('#relParty_AddNew, input[value="Add" i], input[value="ADD" i], button:has-text("Add"), a:has-text("Add")').first();
       if (await addBtn.count() > 0 && await addBtn.isVisible().catch(() => false)) {

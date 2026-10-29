@@ -205,20 +205,12 @@ function renderTest(result) {
     dataByStep.set(step, parseDataAttachment(d));
   }
 
-  // Deduplicate screenshots by action name, keeping the last (most recent) one.
-  // This gives the final full-page state after the operation is complete.
-  const imagesByStep = new Map();
-  for (const att of images) {
-    const step = getAttachmentStep(att.name);
-    imagesByStep.set(step, att);
-  }
-  const actions = [...imagesByStep.keys()];
+  const actions = [...new Set(images.map(img => getAttachmentStep(img.name)))];
 
   const mainActionsHtml = actions.length
     ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
     : '';
-  const uniqueImages = [...imagesByStep.values()];
-  const imgHtml = uniqueImages.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
+  const imgHtml = images.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
 
   return `
     <section class="test">
@@ -271,7 +263,7 @@ function detectLatestRun(parsed) {
   return sorted.map(p => p.file);
 }
 
-function renderDashboard(results) {
+function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
   if (!results.length) return '';
   const start = Math.min(...results.map(r => r.start || 0));
   const stop = Math.max(...results.map(r => r.stop || 0));
@@ -283,6 +275,12 @@ function renderDashboard(results) {
   const total = results.length;
   const passed = counts.passed || 0;
   const successRate = total ? Math.round((passed / total) * 100) : 0;
+  const sourceFiles = Array.isArray(specFiles) && specFiles.length
+    ? [...new Set(specFiles)].filter(Boolean).sort()
+    : [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
+  const specListHtml = sourceFiles.length
+    ? `<ul class="spec-list">${sourceFiles.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
+    : '<p class="note">No spec file information available.</p>';
   const statBox = (status, label) => {
     const count = counts[status] || 0;
     return count ? `<div class="dashboard-box stat-${status}"><span class="value">${count}</span><span class="label">${label}</span></div>` : '';
@@ -298,6 +296,11 @@ function renderDashboard(results) {
         <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total</span></div>
         <div class="dashboard-box stat-rate"><span class="value">${successRate}%</span><span class="label">Pass Rate</span></div>
         <div class="dashboard-box stat-duration"><span class="value">${formatDuration(start, stop)}</span><span class="label">Duration</span></div>
+      </div>
+      <div class="spec-files">
+        <h3>Executed Spec Files (Suite: ${escapeHtml(suiteName)})</h3>
+        <p class="note">Total: ${specFiles.length} spec file(s) in this run</p>
+        ${specListHtml}
       </div>
     </section>`;
 }
@@ -336,7 +339,7 @@ async function main() {
       const suiteFiles = new Set(testOrder[manifest.suite]);
       const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
       const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
-      selectedFiles = detectLatestRun(relevant);
+      selectedFiles = relevant.map(p => p.file);
       console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
     } else if (Array.isArray(manifest.files) && manifest.files.length) {
       const manifestMtime = fs.statSync(LAST_RUN_FILE).mtime.getTime();
@@ -386,9 +389,14 @@ async function main() {
   }
 
   const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
-  const testsHtml = results.map(renderTest).join('');
-  const dashboardHtml = renderDashboard(results);
   const suiteName = resolveSuiteName(results, manifest ? manifest.suite : undefined);
+  const specFiles = (() => {
+    if (manifest && Array.isArray(manifest.specFiles) && manifest.specFiles.length) return manifest.specFiles;
+    if (testOrder && Array.isArray(testOrder[suiteName])) return testOrder[suiteName];
+    return [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
+  })();
+  const testsHtml = results.map(renderTest).join('');
+  const dashboardHtml = renderDashboard(results, suiteName, specFiles);
   const pageTitle = `${suiteName} Test Report (PDF)`;
   const htmlTitle = `${suiteName} Test Report - PDF`;
 
@@ -459,6 +467,10 @@ async function main() {
     .stat-skipped .value { color: #aaa; }
     .stat-unknown .value { color: #777; }
     .stat-total .value, .stat-rate .value, .stat-duration .value { color: #333; }
+    .spec-files { margin-top: 16px; }
+    .spec-files h3 { margin-bottom: 6px; text-transform: none; font-size: 12px; }
+    .spec-list { list-style-type: disc; margin: 0 0 0 18px; padding: 0; font-size: 10px; }
+    .spec-list li { margin-bottom: 3px; }
   </style>
 </head>
 <body>
