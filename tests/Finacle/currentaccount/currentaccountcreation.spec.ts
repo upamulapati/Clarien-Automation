@@ -6,120 +6,202 @@ import { CREDENTIALS } from '../../../data/credentials';
 import { writeSharedState, updateSharedState } from '../../helpers/sharedState';
 import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
-import FLOW6_DATA from '../../../data/flow6.json';
-import FLOW9_DATA from '../../../data/flow9.json';
-
-const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
-const FLOW_DATA = IS_FLOW9 ? (FLOW9_DATA as any) : FLOW6_DATA;
-const IS_EXCEL = CURRENT_ACCOUNT_DATA.length > 0;
+import { writeFileSync } from 'fs';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
-// contains ONLY account creation - verification lives in
-// current-account verification specs.
+// is fully data-driven from the CurrentAccountData sheet in test-data.xlsx.
 const USERNAME = 'finacletest5';
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Current account opening (HOAACCA) menu option.
 const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
-const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.map((entry: any, index: number) => {
-  const entryData = entry.data ?? entry;
-  const scheme = entryData.schemeCode ?? 'unknown';
-  const data = {
+const groups: { main: any; related: any[] }[] = [];
+let activeGroup: { main: any; related: any[] } | null = null;
+
+for (const entry of CURRENT_ACCOUNT_DATA) {
+  const row = entry.data ?? entry;
+  const sheet = String(row.Sheet || '').trim().toLowerCase();
+  const isRelated = sheet === 'related party' || sheet === 'relatedparty';
+
+  if (isRelated) {
+    if (activeGroup) {
+      activeGroup.related.push(row);
+    } else {
+      console.warn('Related Party row before first Main row, skipping:', row);
+    }
+    continue;
+  }
+
+  activeGroup = { main: row, related: [] };
+  groups.push(activeGroup);
+}
+
+const SCENARIOS: any[] = [];
+let idx = 0;
+for (const group of groups) {
+  const mainData = group.main;
+  const data: any = {
     ...DEFAULT_CUSTOMER,
-    ...entryData,
-    functionOption: entryData.functionOption ?? DEFAULT_CUSTOMER.functionOption,
-    ccy: entryData.currency ?? entryData.ccy ?? DEFAULT_CUSTOMER.ccy,
-    cifCode: entryData.cifCode ?? entryData.cif ?? DEFAULT_CUSTOMER.cifCode,
-    dispatchMode: entryData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode,
-    schemeCode: entryData.schemeCode,
+    ...mainData,
+    functionOption: mainData.functionOption ?? DEFAULT_CUSTOMER.functionOption,
+    ccy: mainData.currency ?? mainData.ccy ?? DEFAULT_CUSTOMER.ccy,
+    cifCode: mainData.cifCode ?? mainData.cif ?? DEFAULT_CUSTOMER.cifCode,
+    dispatchMode: mainData.dispatchMode ?? DEFAULT_CUSTOMER.dispatchMode,
+    statementFrequency: mainData['Statement Frequency'] ?? mainData.statementFrequency ?? DEFAULT_CUSTOMER.statementFrequency,
+    schemeCode: mainData.schemeCode,
   };
-  return { name: `${scheme}-${data.ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index, data };
-});
+  const scheme = mainData.schemeCode ?? 'unknown';
+  SCENARIOS.push({
+    name: `${scheme}-${data.ccy}-${idx}`,
+    data,
+    relatedParties: group.related,
+    instance: mainData.instance,
+  });
+  idx++;
+}
 
-const LEGACY_SCENARIOS = [
-  {
-    name: FLOW_DATA.currentAccounts[0].schemeCode,
-    data: {
-      ...FLOW_DATA.currentAccounts[0],
-      ccy: FLOW_DATA.currentAccounts[0].currency,
-      cifCode: FLOW_DATA.cifId,
-      schemeCode: FLOW_DATA.currentAccounts[0].schemeCode,
-      dispatchMode: FLOW_DATA.currentAccounts[0].dispatchMode,
-    },
-  },
-];
+if (SCENARIOS.length === 0) {
+  throw new Error('No current account scenarios found in CurrentAccountData sheet. Verify excelTestData.ts is loading the sheet.');
+}
 
-const SCENARIOS = (IS_EXCEL ? EXCEL_SCENARIOS : LEGACY_SCENARIOS) as any[];
+test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
-let homePage: HomePage;
-let currentAccountPage: AccountPage;
+function generateValidationReport(data: any, tabs: any[]): string {
+  const norm = (s: string) =>
+    String(s ?? '')
+      .toLowerCase()
+      .replace(/\s*\/\s*c\.?\s*/g, 'account')
+      .replace(/[^a-z0-9]/g, '');
 
-test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+  const dataKeys = Object.keys(data).filter(
+    (k) => data[k] != null && String(data[k]).trim() !== '' && !['Sheet', 'instance', 'enabled'].includes(k)
+  );
+  const usedKeys = new Set<string>();
+  let report = '# HOAACCA Field Validation Report\n\n';
+  let total = 0, pass = 0, fail = 0, unmapped = 0;
 
-  // Step 1: Login with the maker credentials
-  ({ homePage } = await loginToFinacle(page, USERNAME, PASSWORD));
-  currentAccountPage = new AccountPage(page);
+  for (const tab of tabs) {
+    report += `## ${tab.tab}\n\n`;
+    report += '| Excel Key | Expected | UI Label | UI Value | Status |\n';
+    report += '|-----------|----------|----------|----------|--------|\n';
+    for (const f of tab.fields) {
+      const fNorm = norm(f.label || f.id || f.name);
+      let matchKey: string | undefined;
+      let bestScore = 0;
+      for (const k of dataKeys) {
+        if (usedKeys.has(k)) continue;
+        const kNorm = norm(k);
+        if (!kNorm) continue;
+        if (fNorm.includes(kNorm) || kNorm.includes(fNorm)) {
+          const score = Math.min(fNorm.length, kNorm.length);
+          if (score > bestScore) {
+            bestScore = score;
+            matchKey = k;
+          }
+        }
+      }
+      const expected = matchKey ? String(data[matchKey]).trim() : '';
+      const actual = String(f.value).trim();
+      const code = expected.split('-')[0].trim().toLowerCase();
+      let status = 'unmapped';
+      if (matchKey) {
+        usedKeys.add(matchKey);
+        total++;
+        if (actual === '' || actual.toLowerCase() === 'select') {
+          status = 'not set';
+          fail++;
+        } else if (
+          actual.toLowerCase().includes(expected.toLowerCase()) ||
+          expected.toLowerCase().includes(actual.toLowerCase()) ||
+          actual.toLowerCase().startsWith(code)
+        ) {
+          status = 'pass';
+          pass++;
+        } else {
+          status = 'fail';
+          fail++;
+        }
+      }
+      const label = (f.label || f.id || f.name || '').replace(/\\|/g, '\\\\|');
+      report += `| ${matchKey ?? ''} | ${expected.replace(/\\|/g, '\\\\|')} | ${label} | ${actual.replace(/\\|/g, '\\\\|')} | ${status} |\n`;
+    }
+    report += '\n';
+  }
 
-  // Step 2: Select Core Server from the solution drop down
-  console.log('Selecting Core Server...');
-  await currentAccountPage.selectCoreServer();
+  const missingExcel = dataKeys.filter((k) => !usedKeys.has(k));
+  if (missingExcel.length) {
+    report += '## Unmapped Excel Columns (non-empty)\n\n';
+    report += '| Excel Key | Expected |\n|-----------|----------|\n';
+    for (const k of missingExcel) {
+      report += `| ${k} | ${String(data[k]).trim().replace(/\\|/g, '\\\\|')} |\n`;
+    }
+    unmapped = missingExcel.length;
+    report += '\n';
+  }
 
-  // Step 3: Type menu option HOAACCA in Finacle
-  console.log(`Searching for ${CURRENT_ACCOUNT_MENU}...`);
-  await currentAccountPage.searchMenu(CURRENT_ACCOUNT_MENU);
-});
+  report += `## Summary\n\n- Matched fields: ${total}\n- Passed: ${pass}\n- Failed / Not set: ${fail}\n- Unmapped Excel columns: ${unmapped}\n`;
+  return report;
+}
 
-// Open current account(s) (HOAACCA) and capture the generated A/c ID(s).
 for (const scenario of SCENARIOS) {
-  test(`create current account - scheme ${scenario.name}`, async () => {
-    // Function- Open, Currency- BMD, Sol id 100, CIF Id and scheme code, Go;
-    // visit General/Interest/Scheme/Related Party/MIS/Account Limits tabs;
-    // submit to generate the account number.
-    console.log(`Creating current account with scheme ${scenario.name}...`);
-    const accountData = scenario.data;
+  test(`HOAACCA - create current account (${scenario.name})`, async ({ page }) => {
+    test.setTimeout(900000);
 
-    await currentAccountPage.createCurrentAccount(accountData);
+    try {
+      await loginToFinacle(page, USERNAME, PASSWORD);
+      const homePage = new HomePage(page);
+      const currentAccountPage = new AccountPage(page);
 
-    const statusMessage = await currentAccountPage.getStatusMessage();
-    console.log('Creation status message:', statusMessage);
+      console.log('Selecting Core Server...');
+      await currentAccountPage.selectCoreServer();
 
-    const result = await currentAccountPage.verifyAccountCreated();
-    console.log('Exact result message:', result.message);
+      console.log(`Searching for ${CURRENT_ACCOUNT_MENU}...`);
+      await currentAccountPage.searchMenu(CURRENT_ACCOUNT_MENU);
 
-    if (!result.success) {
-      console.error('Current account creation failed. Exact error message:', result.message);
-      console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
+      console.log(`Creating current account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
+      await currentAccountPage.createCurrentAccount(scenario.data as any);
+
+      const tabReports = await currentAccountPage.getTabReports();
+      const report = generateValidationReport(scenario.data, tabReports);
+      writeFileSync('test-results/hoaacca-validation-report.md', report);
+
+      const result = await currentAccountPage.verifyAccountCreated();
+      console.log('Exact result message:', result.message);
+
+      if (!result.success) {
+        console.error('Current account creation failed. Exact error message:', result.message);
+        console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
+      }
+
+      expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+      expect(result.message).toBeTruthy();
+      console.log('Account created:', result.message);
+      expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
+      console.log('Captured Account ID:', result.accountNumber);
+      expect(result.accountNumber).toBeTruthy();
+
+      const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
+      writeSharedState({ accountId: result.accountNumber });
+      updateSharedState((state) => {
+        state.accountId = result.accountNumber;
+        if (!state.currentAccounts) state.currentAccounts = {};
+        state.currentAccounts[scenario.name] = result.accountNumber ?? '';
+        if (instanceKey) state.currentAccounts[instanceKey] = result.accountNumber ?? '';
+      });
+
+      console.log('Logging out...');
+      await homePage.logout();
+    } catch (err: any) {
+      console.error(`Current account creation test failed for ${scenario.name}:`, err);
+      console.error(`CIF used: ${scenario.data.cifCode}`);
+      throw err;
     }
-
-    expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
-    expect(result.message).toBeTruthy();
-    console.log(`Account created for scheme ${scenario.name}:`, result.message);
-    const accountId = result.accountNumber;
-    if (!accountId) {
-      throw new Error(`Failed to capture account ID for scheme ${scenario.name}`);
-    }
-    console.log(`Captured Account ID (scheme ${scenario.name}): ${accountId}`);
-    writeSharedState({ accountId });
-
-    // Persist the generated current account number(s) so downstream specs can use it.
-    const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
-    updateSharedState((state) => {
-      state.accountId = accountId;
-      if (!state.currentAccounts) state.currentAccounts = {};
-      state.currentAccounts[scenario.name] = accountId;
-      if (instanceKey) state.currentAccounts[instanceKey] = accountId;
-    });
-
-    // Logout the maker
-    console.log('Logging out...');
-    await homePage.logout();
   });
 }
 
 // === STRICT ASSERTIONS INJECTION ===
 test.afterEach(async ({ page }) => {
+  if (page.isClosed()) return;
   const html = (await page.content()).toLowerCase();
   expect(html).not.toMatch(/core dump|internal server error/);
 });

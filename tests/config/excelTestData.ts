@@ -76,6 +76,28 @@ function loadSavingsFromExcel(): any[] | null {
   }
 }
 
+function loadCurrentFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['CurrentAccountData'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    // Trim non-breaking/trailing spaces from string cells to keep codes like CIF intact.
+    for (const row of rows) {
+      for (const [k, v] of Object.entries(row)) {
+        if (typeof v === 'string') {
+          row[k] = v.replace(/\s+/g, ' ').trim();
+        }
+      }
+    }
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
 function loadSection(
   envVar: string | undefined,
   fallback: any,
@@ -103,8 +125,10 @@ const savingsModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
 const savingsModifyVerifyFallback = ((COMMON_DATA.accountVerification as any[]) || [])
   .filter((a: any) => a.type === 'savings');
 
+const currentExcel = loadCurrentFromExcel();
+
 // Current / savings / transfer account data.
-export const CURRENT_ACCOUNT_DATA = loadSection(process.env.STEP_DATA, [], 'currentData', {
+export const CURRENT_ACCOUNT_DATA = loadSection(process.env.STEP_DATA, currentExcel ?? [], 'currentData', {
   flowName: 'currentaccount',
   enabled: 'Y',
 });

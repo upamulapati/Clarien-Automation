@@ -31,6 +31,7 @@ interface AccountData {
 export class AccountPage {
   readonly page: Page;
   readonly loginFrame: FrameLocator;
+  private tabReports: any[] = [];
 
   constructor(page: Page, lastDialogMessages?: string[]) {
     this.page = page;
@@ -290,6 +291,10 @@ export class AccountPage {
           const el = elements.nth(i);
           const txt = ((await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || (await el.getAttribute('title').catch(() => '')) || (await el.getAttribute('aria-label').catch(() => '')) || '').replace(/\s+/g, ' ').trim().toLowerCase();
           const nTxt = txt.replace(/[^a-z0-9]+/g, '');
+          const href = (await el.getAttribute('href') || '').toLowerCase();
+          const onclick = (await el.getAttribute('onclick') || '').toLowerCase();
+          const isHelp = href.includes('help') || onclick.includes('help') || href.includes('helpr') || onclick.includes('helpr') || txt === 'help' || txt.includes('help');
+          if (isHelp) continue;
           if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm) || textNorm.includes(nTxt)) {
             try {
               await el.click({ timeout: 15000, force: true });
@@ -2770,7 +2775,7 @@ export class AccountPage {
     const finwFrame = this.getFinwFrame();
 
     const known = finwFrame.locator('#despatchMode');
-    if (await known.count() > 0) {
+    if (await known.isVisible().catch(() => false)) {
       return known;
     }
 
@@ -3060,8 +3065,8 @@ export class AccountPage {
 
   async fillBasicAccountDetails(data: AccountData) {
     const ccy = data.ccy ?? data.currency ?? '';
-    const cifCode = data.cifCode ?? data.cif ?? '';
-    const solId = data.solId ?? '';
+    const cifCode = String(data.cifCode ?? data.cif ?? '').trim();
+    const solId = String(data.solId ?? '').trim();
     const functionOption = data.functionOption ?? 'O';
 
     await this.functionOption.selectOption(functionOption);
@@ -3313,33 +3318,173 @@ export class AccountPage {
   }
 
   // ============ Current Account Creation Methods ============
-  // Creates a current account via HOAACCA following the manual test steps:
-  // basic details + scheme -> General (dispatch) -> Interest (Cr/Dr account =
-  // S-Original a/c, month-end next interest dates) -> Scheme -> Related Party
-  // -> MIS Codes -> Account Limits (expiry, document date, drawing power EQUAL)
-  // -> Submit.
+  // Creates a current account via HOAACCA strictly from the provided Excel row.
+  // Each tab is visited in order and editable fields are matched by label.
+  // Missing, disabled, or unlocatable fields are logged and skipped.
   async createCurrentAccount(accountData: AccountData) {
+    const data = accountData as any;
+
+    const valueOf = (key: string) =>
+      data[key] == null || data[key] === '' ? undefined : String(data[key]).trim();
+
+    const tryFill = async (key: string, labels: string[]) => {
+      const raw = valueOf(key);
+      if (raw === undefined) return;
+      const token = raw.split('-')[0].trim();
+      for (const label of labels) {
+        if (await this.fillByLabel(label, raw).catch(() => false)) return;
+      }
+      for (const label of labels) {
+        if (await this.selectOptionByLabel(label, token).catch(() => false)) return;
+      }
+    };
+
+    const fillFields = async (fields: { key: string; labels: string[] }[]) => {
+      for (const f of fields) await tryFill(f.key, f.labels);
+    };
+
+    const generalFields = [
+      { key: 'A/c Name', labels: ['A/c. Name', 'A/c Name'] },
+      { key: 'A/c Short Name', labels: ['A/c. Short Name', 'A/c Short Name'] },
+      { key: 'A/c Opening Date', labels: ['A/c. Opening Date', 'A/c Opening Date'] },
+      { key: 'Customer Relationship A/c Manager', labels: ['Customer Relationship A/c. Manager', 'Customer Relationship A/c Manager'] },
+      { key: 'accountManagerId', labels: ['A/c. Manager ID', 'A/c Manager ID'] },
+      { key: 'A/c Report Code', labels: ['A/c. Report Code', 'A/c Report Code'] },
+      { key: 'Collect Charges', labels: ['Collect Charges'] },
+      { key: 'Turnover Details', labels: ['Turnover Details'] },
+      { key: 'Preferential Calendar Base', labels: ['Preferential Calendar Base'] },
+      { key: 'Next Print Date', labels: ['Next Print Date'] },
+      { key: 'statementFrequency', labels: ['Statement Frequency', 'A/c. Statement Frequency'] },
+      { key: 'statementDay', labels: ['Statement Day', 'Statement Day (Date)', 'Day'] },
+    ];
+
+    const interestFields = [
+      { key: 'payInterest', labels: ['Pay Interest'] },
+      { key: 'collectInterest', labels: ['Collect Interest'] },
+      { key: 'interestRateCode', labels: ['Interest Rate Code'] },
+      { key: 'accountPegged', labels: ['Account Pegged', 'A/c. Pegged'] },
+      { key: 'nextInterestCalculationDateCr', labels: ['Next Interest Calculation Date (Cr.)', 'Next Int. Calc. Date (Cr)', 'Next interest calc date (Cr)'] },
+      { key: 'Next Interest Calculation Date (Dr.)', labels: ['Next Interest Calculation Date (Dr.)', 'Next Int. Calc. Date (Dr)', 'Next interest calc date (Dr)'] },
+      { key: 'Interest Compounding Frequency (Dr.)', labels: ['Interest Compounding Frequency (Dr.)', 'Dr. Compounding Frequency'] },
+      { key: 'Credit Interest Compounding Frequency', labels: ['Credit Interest Compounding Frequency', 'Credit Compounding Frequency'] },
+      { key: 'Debit Compounding Rest Indicator', labels: ['Debit Compounding Rest Indicator', 'Dr. Compounding Rest Indicator'] },
+      { key: 'Credit Compounding Rest Indicator', labels: ['Credit Compounding Rest Indicator', 'Cr. Compounding Rest Indicator'] },
+      { key: 'Waive Min. Interest', labels: ['Waive Min. Interest'] },
+      { key: 'Interest Method (Dr.)', labels: ['Interest Method (Dr.)', 'Interest Method Dr'] },
+    ];
+
+    const schemeFields = [
+      { key: 'Cheque Allowed', labels: ['Cheque Allowed'] },
+      { key: 'nomination', labels: ['Nomination'] },
+      { key: 'Cheques Provided by Bank', labels: ['Cheques Provided by Bank'] },
+      { key: 'Recover Fee for Cheque Issue', labels: ['Recover Fee for Cheque Issue'] },
+      { key: 'Return Paid Cheque', labels: ['Return Paid Cheque'] },
+    ];
+
+    const relatedPartyFields = [
+      { key: 'Relation Code', labels: ['Relation Code'] },
+      { key: 'Designation Code', labels: ['Designation Code'] },
+    ];
+
+    const misFields = [
+      { key: 'Occupation Code', labels: ['Occupation Code'] },
+      { key: 'sectorCode', labels: ['Sector Code'] },
+      { key: 'subsectorCode', labels: ['Subsector Code'] },
+      { key: 'externalSystemPricingFor', labels: ['External System Pricing For', 'Ext. System Pricing For'] },
+    ];
+
+    const othersFields = [
+      { key: 'Print Statement', labels: ['Print Statement'] },
+      { key: 'Print Advice for Standing Instruction', labels: ['Print Advice for Standing Instruction'] },
+      { key: 'Print Deposit Notice', labels: ['Print Deposit Notice'] },
+      { key: 'Print Loan Notice', labels: ['Print Loan Notice'] },
+      { key: 'Interest Certificate', labels: ['Interest Certificate'] },
+      { key: 'Interest Rate Change Advice', labels: ['Interest Rate Change Advice'] },
+    ];
+
+    const documentFields = [
+      { key: 'Document Code', labels: ['Document Code'] },
+      { key: 'Due Date', labels: ['Due Date'] },
+      { key: 'scanDetails', labels: ['Scan Details'] },
+      { key: 'receivedDate', labels: ['Received Date'] },
+      { key: 'documentExpiryDate', labels: ['Document Expiry Date', 'Doc. Expiry Date'] },
+    ];
+
+    const limitsFields = [
+      { key: 'debitBalanceLimit', labels: ['Debit Balance Limit'] },
+      { key: 'maxAllowedLimit', labels: ['Max. Allowed Limit', 'Max Allowed Limit'] },
+      { key: 'schemeSanctionLimit', labels: ['Scheme Sanction Limit', 'Sanction Limit'] },
+      { key: 'accountMinBalanceIndicator', labels: ['A/c. Min. Balance Indicator', 'Account Min. Balance Indicator'] },
+      { key: 'accountMinBalance', labels: ['A/c. Minimum Balance', 'Account Min. Balance', 'Minimum Balance'] },
+      { key: 'sweepInMinBalance', labels: ['Sweep In Min. Balance', 'Sweep In Minimum Balance'] },
+      { key: 'Limit Level Interest', labels: ['Limit Level Interest', 'A/c. Level Interest/Limit Level Interest'] },
+      { key: 'Penal Interest Start Date', labels: ['Penal Interest Start Date'] },
+    ];
+
+    this.tabReports = [];
+
     await this.fillBasicAccountDetails(accountData);
+    this.tabReports.push(await this.captureHOAACCATab('Basic Details'));
     await this.selectSchemeCode(accountData.schemeCode ?? undefined);
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
+    this.tabReports.push(await this.captureHOAACCATab('Scheme Selection'));
 
-    // General Details tab - dispatch mode is mandatory
     await this.visitGeneralDetailsTab();
-    await this.selectDispatchMode((accountData.dispatchMode || 'email') as 'email' | 'post' | 'no dispatch');
 
-    // Interest Details tab
+    // 1. A/c. Statement must be selected first: it enables Dispatch Mode and Statement Frequency.
+    if (data.accountStatement) {
+      const acStmt = String(data.accountStatement).trim();
+      const acStmtCode = acStmt.split('-')[0].trim().toUpperCase();
+      const ok = await this.selectDropdownByOptions(acStmtCode, ['Statement', 'Both'], ['A/c. Statement', 'A/c Statement', 'A/cStatement']);
+      if (!ok) {
+        console.log(`Option-scan did not find A/c. Statement; falling back to label lookup`);
+        await this.selectOptionByLabel('A/c. Statement', acStmtCode);
+      }
+    }
+
+    // 2. Dispatch Mode is enabled after A/c. Statement is set.
+    await this.selectDispatchMode((data.dispatchMode || 'email') as 'email' | 'post' | 'no dispatch');
+
+    // 3. Statement Frequency, Statement Day and the remaining General Details fields.
+    await fillFields(generalFields);
+    if (data.statementDay != null && data.statementDay !== '') {
+      await this.selectByIdSafe('pbPsFreqDay', String(data.statementDay));
+    }
+    this.tabReports.push(await this.captureHOAACCATab('General Details'));
+
     await this.visitInterestDetailsTab();
-    await this.fillCurrentAccountInterestDetails();
+    await this.fillCurrentAccountInterestDetails(data);
+    await fillFields(interestFields);
+    this.tabReports.push(await this.captureHOAACCATab('Interest Details'));
 
-    // Remaining detail tabs
     await this.visitSchemeDetailsTab();
-    await this.visitRelatedPartyTab();
-    await this.visitMiscodesTab();
+    await fillFields(schemeFields);
+    this.tabReports.push(await this.captureHOAACCATab('Scheme Details'));
 
-    // Account Limits tab
+    await this.visitRelatedPartyTab();
+    const addRelated = (data['Add related parties'] || '').toString().toLowerCase().startsWith('y');
+    if (addRelated) {
+      await fillFields(relatedPartyFields);
+    }
+    this.tabReports.push(await this.captureHOAACCATab('Related Party'));
+
+    await this.visitMiscodesTab();
+    await fillFields(misFields);
+    this.tabReports.push(await this.captureHOAACCATab('MIS Codes'));
+
+    await this.visitOthersTab();
+    await fillFields(othersFields);
+    this.tabReports.push(await this.captureHOAACCATab('Others'));
+
+    await this.visitDocumentDetailsTab();
+    await fillFields(documentFields);
+    this.tabReports.push(await this.captureHOAACCATab('Document Details'));
+
     await this.visitAccountLimitsTab();
-    await this.fillAccountLimits();
+    await fillFields(limitsFields);
+    await this.fillAccountLimits(data);
+    this.tabReports.push(await this.captureHOAACCATab('Account Limits'));
 
     await this.clickSubmit();
   }
@@ -3439,33 +3584,66 @@ export class AccountPage {
     return false;
   }
 
-  private async fillCurrentAccountInterestDetails() {
-    // Interest credit a/c -> S-Original a/c
+  private async fillCurrentAccountInterestDetails(data: any = {}) {
+    const asCode = (v: any, fallback = 'S') => v ? String(v).split('-')[0].trim().toUpperCase() : fallback;
+    const cr = asCode(data.interestCreditAccount);
+    const dr = asCode(data.interestDebitAccount);
+    const monthEnd = this.monthEndDate();
+    const crDate = data.nextInterestCalculationDateCr || data['Next Interest Calculation Date (Cr.)'] || monthEnd;
+    const drDate = data['Next Interest Calculation Date (Dr.)'] || data.nextInterestCalculationDateDr || monthEnd;
+
+    const creditLabels = ['Credit Interest Account', 'Credit Account', 'Interest Credit Account'];
+    const debitLabels = ['Debit Interest Account', 'Debit Account', 'Interest Debit Account'];
+
+    // Interest credit a/c
     try {
-      await this.interestCreditAccount.selectOption('S');
-      await this.page.waitForTimeout(1000);
-      console.log('Set interest credit account to S-Original a/c');
+      const creditSelect = this.getFinwFrame().locator('#intCrAcctFlg');
+      if (await creditSelect.count() > 0) {
+        await creditSelect.selectOption(cr, { timeout: 3000 });
+        await this.page.waitForTimeout(1000);
+        console.log(`Set interest credit account to ${cr}`);
+      } else {
+        for (const label of creditLabels) {
+          if (await this.selectOptionByLabel(label, cr)) break;
+        }
+      }
     } catch (e) {
       console.log(`Could not set interest credit account, skipping: ${e}`);
     }
 
-    // Interest debit a/c -> S-Original a/c
+    // Interest debit a/c
     try {
-      if (await this.interestDebitAccount.count() > 0) {
-        await this.interestDebitAccount.selectOption('S');
+      const debitSelect = this.getFinwFrame().locator('#intDrAcctFlg');
+      if (await debitSelect.count() > 0) {
+        await debitSelect.selectOption(dr, { timeout: 3000 });
         await this.page.waitForTimeout(1000);
-        console.log('Set interest debit account to S-Original a/c');
+        console.log(`Set interest debit account to ${dr}`);
       } else {
-        await this.selectDropdownContainingOption('Original');
+        for (const label of debitLabels) {
+          if (await this.selectOptionByLabel(label, dr)) break;
+        }
       }
     } catch (e) {
       console.log(`Could not set interest debit account, skipping: ${e}`);
     }
 
-    // Next interest calculation dates (Cr and Dr) -> month-end date
-    const monthEnd = this.monthEndDate();
-    await this.fillDateField(['nextIntCrCalcDt_ui', 'nextIntCalcDt_ui'], monthEnd, 'Next interest calc date (Cr)');
-    await this.fillDateField(['nextIntDrCalcDt_ui'], monthEnd, 'Next interest calc date (Dr)');
+    // Composite Interest Calculation Frequency (Cr. and Dr.) – set each sub-select by code.
+    const crFreqTokens = [data.interestCalcFreqCr, data.interestCalcFreqCrDay, data.interestCalcFreqCrP, data.interestCalcFreqCrG]
+      .filter(Boolean)
+      .map(v => String(v).split('-')[0].trim().toUpperCase());
+    for (const token of crFreqTokens) {
+      await this.selectOptionByLabel('Interest Calculation Frequency (Cr.)', token);
+    }
+    const drFreqTokens = [data.interestCalcFreqDr, data.interestCalcFreqDrDay, data.interestCalcFreqDrP, data.interestCalcFreqDrG]
+      .filter(Boolean)
+      .map(v => String(v).split('-')[0].trim().toUpperCase());
+    for (const token of drFreqTokens) {
+      await this.selectOptionByLabel('Interest Calculation Frequency (Dr.)', token);
+    }
+
+    // Next interest calculation dates (Cr and Dr)
+    await this.fillDateField(['nextIntCrCalcDt_ui', 'nextIntCalcDt_ui'], crDate, 'Next interest calc date (Cr)');
+    await this.fillDateField(['nextIntDrCalcDt_ui'], drDate, 'Next interest calc date (Dr)');
   }
 
   async visitAccountLimitsTab() {
@@ -4165,7 +4343,7 @@ export class AccountPage {
     return false;
   }
 
-  private async fillAccountLimits() {
+  private async fillAccountLimits(data: any = {}) {
     // All Account Limits dates must be <= the BOD shown in the Finacle header.
     const bodStr = await this.getBODDate() || this.todayDate();
     const [dd, mm, yyyy] = bodStr.split('-').map(Number);
@@ -4174,40 +4352,44 @@ export class AccountPage {
     const bodDate = fmt(bod);
     const futureBod = new Date(bod);
     futureBod.setFullYear(bod.getFullYear() + 1);
-    const expiryDate = fmt(futureBod);
-    console.log(`Using BOD ${bodDate} for Account Limits dates`);
+    const fallbackExpiry = fmt(futureBod);
 
-    // Expiry date - one year from BOD
+    const expiryDate = data.accountLimitsExpiryDate || fallbackExpiry;
+    const documentDate = data.documentDate || bodDate;
+    const dpToken = data.drawingPowerIndicator ? String(data.drawingPowerIndicator).split('-')[0].trim() : 'E';
+    console.log(`Using Account Limits expiry: ${expiryDate}, document: ${documentDate}, drawing power: ${dpToken}`);
+
+    // Expiry date
     await this.fillDateField(
       ['expiryDate_ui', 'limitExpiryDt_ui', 'expiryDt_ui', 'limExpiryDt_ui'],
       expiryDate,
       'Account limit expiry date'
     );
 
-    // Document date - BOD
+    // Document date
     await this.fillDateField(
       ['documentDate_ui', 'docDt_ui', 'limitDocDt_ui', 'documentDt_ui'],
-      bodDate,
+      documentDate,
       'Account limit document date'
     );
 
-    // Drawing power indicator -> EQUAL
+    // Drawing power indicator
     const finwFrame = this.getFinwFrame();
     const dpById = finwFrame.locator('#drawingPowerInd, #dpInd, #drawPowerInd').first();
     try {
       if (await dpById.count() > 0) {
         const options = await dpById.locator('option').allTextContents();
-        const match = options.find(o => o.toLowerCase().includes('equal'));
+        const match = options.find(o => o.toLowerCase().includes(dpToken.toLowerCase()));
         if (match) {
           await dpById.selectOption(match.split('-')[0].trim());
         } else {
-          await this.selectDropdownContainingOption('EQUAL');
+          await this.selectDropdownContainingOption(dpToken);
         }
       } else {
-        await this.selectDropdownContainingOption('EQUAL');
+        await this.selectDropdownContainingOption(dpToken);
       }
       await this.page.waitForTimeout(1000);
-      console.log('Set drawing power indicator to EQUAL');
+      console.log(`Set drawing power indicator to ${dpToken}`);
     } catch (e) {
       console.log(`Could not set drawing power indicator, skipping: ${e}`);
     }
@@ -4241,6 +4423,11 @@ export class AccountPage {
   }
 
   async clickSubmit() {
+    // Close any open calendar / lookup popups before clicking Submit so the
+    // click lands on the button and not on an overlay.
+    await this.page.keyboard.press('Escape');
+    await this.page.waitForTimeout(500);
+
     const selector =
       '#Submit, #submit, ' +
       'input[name*="Submit" i], input[name*="submit" i], ' +
@@ -4270,7 +4457,8 @@ export class AccountPage {
 
     const isContentFrame = (frame: Frame): boolean => {
       const name = (frame.name() || '').toLowerCase();
-      return !name.includes('fininfra') && !name.includes('login');
+      const url = (frame.url() || '').toLowerCase();
+      return !name.includes('fininfra') && !name.includes('login') && !url.includes('helprenderer') && !url.includes('/help/');
     };
 
     const deadline = Date.now() + 15000;
@@ -5697,10 +5885,16 @@ export class AccountPage {
         return { id: s.id, disabled: s.disabled, near: (row?.innerText || '').toLowerCase() };
       }).catch(() => null);
       if (!meta || meta.disabled) continue;
+      const visible = await sel.isVisible().catch(() => false);
+      if (!visible) continue;
       if (!meta.near.includes(lblKey) && !(meta.id || '').toLowerCase().includes(lblId)) continue;
 
       const opts = await sel.locator('option').allTextContents();
-      const match = opts.find(o => o.toLowerCase().includes(optionKeyword.toLowerCase()));
+      const kw = optionKeyword.toLowerCase();
+      let match = opts.find(o => o.toLowerCase().startsWith(kw + ' -'));
+      if (!match) {
+        match = opts.find(o => o.toLowerCase().split('-')[0].trim() === kw);
+      }
       if (match) {
         try {
           await sel.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
@@ -5716,6 +5910,10 @@ export class AccountPage {
     return false;
   }
 
+  async getTabReports(): Promise<any[]> {
+    return this.tabReports;
+  }
+
   // Selects an option (by exact visible label, with a value fallback) in the
   // <select> with the given id. Skips silently when the select is missing or
   // disabled so the run never hangs on a read-only/scheme-locked field.
@@ -5724,6 +5922,10 @@ export class AccountPage {
     const el = finwFrame.locator(`#${id}`).first();
     if (await el.count() === 0) {
       console.log(`Select #${id} not found, skipping`);
+      return false;
+    }
+    if (!(await el.isVisible().catch(() => false))) {
+      console.log(`Select #${id} is not visible, skipping`);
       return false;
     }
     if (await el.isDisabled().catch(() => true)) {
@@ -5744,6 +5946,108 @@ export class AccountPage {
         return false;
       }
     }
+  }
+
+  // Finds a visible <select> whose option labels contain one of the identifying
+  // tokens (e.g. 'Statement' / 'Both') and selects the option starting with the
+  // supplied code. This is used when the dropdown label is not in the same row
+  // or the exact id is unknown.
+  private async selectDropdownByOptions(
+    optionKeyword: string,
+    identifyingOptions: string[],
+    labelKeywords?: string[]
+  ): Promise<boolean> {
+    const finwFrame = this.getFinwFrame();
+    const selects = finwFrame.locator('select');
+    const count = await selects.count();
+    const kw = optionKeyword.toLowerCase();
+
+    for (let i = 0; i < count; i++) {
+      const sel = selects.nth(i);
+      if (!(await sel.isVisible().catch(() => false))) continue;
+
+      const opts = await sel.locator('option').allTextContents();
+      const optsLower = opts.map(o => o.toLowerCase());
+
+      const hasIdentifier = identifyingOptions.some(token =>
+        optsLower.some(o => o.includes(token.toLowerCase()))
+      );
+      if (!hasIdentifier) continue;
+
+      if (labelKeywords && labelKeywords.length > 0) {
+        const near = await sel.evaluate(el => {
+          const row = el.closest('tr');
+          return (row?.innerText || el.parentElement?.innerText || '').toLowerCase();
+        }).catch(() => '');
+        const hasLabel = labelKeywords.some(lbl =>
+          near.includes(lbl.toLowerCase()) ||
+          near.includes(lbl.replace(/\s/g, '').toLowerCase())
+        );
+        if (!hasLabel) continue;
+      }
+
+      let match = opts.find(o => o.toLowerCase().startsWith(kw + ' -'));
+      if (!match) {
+        match = opts.find(o => o.toLowerCase().includes(kw));
+      }
+      if (match) {
+        await sel.selectOption({ label: match });
+        console.log(`Selected '${match}' by option scan`);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Returns the visible <input>, <select> and <textarea> fields on the currently
+  // active tab, including their nearest label text and current value. This is used
+  // to produce a field-by-field validation report against the Excel data.
+  private async captureHOAACCATab(tabName: string): Promise<{ tab: string; fields: any[] }> {
+    const finwFrame = this.getFinwFrame();
+    const fields = await finwFrame.evaluate(() => {
+      const result: any[] = [];
+      const seen = new Set<string>();
+      const elements = document.querySelectorAll('input, select, textarea');
+      for (const el of elements) {
+        const s = window.getComputedStyle(el);
+        if (s.display === 'none' || s.visibility === 'hidden') continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) continue;
+        const id = (el as any).id;
+        const name = (el as any).name;
+        const key = `${id || ''}|${name || ''}|${(el as any).value || ''}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const td = el.closest('td');
+        let label = '';
+        if (td) {
+          const prevTd = td.previousElementSibling as HTMLElement | null;
+          if (prevTd) {
+            label = prevTd.innerText.trim();
+          } else {
+            const textNodes = Array.from(td.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+            if (textNodes.length) label = textNodes.map(n => n.textContent).join(' ').trim();
+          }
+        }
+        let value = '';
+        if (el.tagName === 'SELECT') {
+          const sel = el as HTMLSelectElement;
+          value = sel.options[sel.selectedIndex]?.text?.trim() || sel.value;
+        } else if (el.tagName === 'INPUT') {
+          const input = el as HTMLInputElement;
+          if (input.type === 'radio' || input.type === 'checkbox') {
+            value = input.checked ? 'Yes' : 'No';
+          } else {
+            value = input.value;
+          }
+        } else {
+          value = (el as HTMLTextAreaElement).value;
+        }
+        result.push({ id, name, tag: el.tagName.toLowerCase(), label, value });
+      }
+      return result;
+    });
+    return { tab: tabName, fields };
   }
 
   // Step 4: General details - A/c statement (mandatory) -> None.
