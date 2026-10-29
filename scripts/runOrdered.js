@@ -30,6 +30,7 @@ const cwd = path.resolve(__dirname, '..');
 const env = {
   ...process.env,
   NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --require "${patchScript}"`.trim(),
+  PLAYWRIGHT_NO_CLEAR_ALLURE: '1',
 };
 
 if (suiteName === 'flow6' || suiteName === 'flow9') {
@@ -201,7 +202,7 @@ function getFlowFromExcel(suiteName) {
 
   const rows = xlsx.utils.sheet_to_json(wb.Sheets['FlowConfig']);
   const steps = rows.filter(
-    r => r.flowName === suiteName && String(r.enabled).toUpperCase() !== 'N'
+    r => String(r.flowName).toLowerCase() === suiteName.toLowerCase() && String(r.enabled).toUpperCase() !== 'N'
   );
   if (steps.length === 0) return null;
 
@@ -213,7 +214,7 @@ function getFlowFromExcel(suiteName) {
 function resolveFlow(suiteName) {
   const fromExcel = getFlowFromExcel(suiteName);
   if (fromExcel) return fromExcel;
-  if (testOrder[suiteName]) return { files: testOrder[suiteName] };
+  if (testOrder[suiteName.toLowerCase()]) return { files: testOrder[suiteName.toLowerCase()] };
   console.error(`Suite "${suiteName}" not found in FlowConfig or testOrder.json.`);
   process.exit(1);
 }
@@ -223,7 +224,7 @@ function writeLastRunManifest() {
   const allFiles = fs.existsSync(resultsDir)
     ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json'))
     : [];
-  const files = allFiles
+  const resultFiles = allFiles
     .filter(f => {
       try {
         return fs.statSync(path.join(resultsDir, f)).mtime.getTime() >= startTime;
@@ -232,7 +233,7 @@ function writeLastRunManifest() {
       }
     })
     .sort();
-  const manifest = { suite: suiteName, startTime, timestamp: new Date().toISOString(), files };
+  const manifest = { suite: suiteName, startTime, timestamp: new Date().toISOString(), specFiles: files, files: resultFiles };
   fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }
 

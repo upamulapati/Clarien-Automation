@@ -73,6 +73,10 @@ function cleanAllureReports() {
 }
 
 async function globalSetup() {
+  if (process.env.PLAYWRIGHT_NO_CLEAR_ALLURE === '1') {
+    console.log('[cleanAllureReports] skipped because PLAYWRIGHT_NO_CLEAR_ALLURE is set');
+    return;
+  }
   try {
     cleanAllureReports();
   } catch (err) {
