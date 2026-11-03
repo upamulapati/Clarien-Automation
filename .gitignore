@@ -2,6 +2,7 @@
 # Playwright
 # .github
 node_modules/
+docs/
 tests/basePage/
 data/shared-state.json
 reports/

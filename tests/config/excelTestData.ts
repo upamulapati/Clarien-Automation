@@ -134,10 +134,68 @@ export const SAVINGS_MODIFY_VERIFY_DATA = loadSection(process.env.STEP_DATA, sav
   enabled: 'Y',
 });
 
-export const TRANSFER_DATA = loadSection(process.env.STEP_DATA, [], 'transferData', {
+const rawTransferData = loadSection(process.env.STEP_DATA, [], 'transferData', {
   flowName: 'transfermaintenance',
   enabled: 'Y',
 });
+
+export const TRANSFER_DATA = (() => {
+  if (process.env.TOPUP_FUNDING_CREDIT_ACCOUNTS) {
+    const creditAccounts = process.env.TOPUP_FUNDING_CREDIT_ACCOUNTS.split(',').map((s) => s.trim()).filter(Boolean);
+    const fundingAmount = process.env.TOPUP_FUNDING_AMOUNT ?? '1000';
+    const fundingCcy = process.env.TOPUP_FUNDING_CURRENCY ?? 'BMD';
+    const fundingSolId = process.env.TOPUP_FUNDING_SOL_ID ?? '100';
+    const fundingDebit = process.env.TOPUP_FUNDING_DEBIT_ACCOUNT;
+    const templateRow = rawTransferData[0] ?? { data: {} };
+    const templateData: any = templateRow.data ?? {};
+    return creditAccounts.map((creditAccount, i) => {
+      const data: any = JSON.parse(JSON.stringify(templateData));
+      data.testType = 'topUpFunding';
+      data.testLabel = `HTM - top-up deposit funding (${creditAccount})`;
+      if (fundingCcy) data.currency = fundingCcy;
+      if (fundingSolId) data.solId = fundingSolId;
+      data.tranTypeSubType = data.tranTypeSubType ?? 'T/CI';
+      if (!Array.isArray(data.debits) || data.debits.length === 0) {
+        data.debits = [{ accountId: fundingDebit, amount: fundingAmount, credits: [{ accountId: creditAccount, amount: fundingAmount }] }];
+      }
+      const debit = data.debits[0];
+      if (fundingDebit) debit.accountId = fundingDebit;
+      debit.amount = fundingAmount;
+      if (!Array.isArray(debit.credits) || debit.credits.length === 0) {
+        debit.credits = [{ accountId: creditAccount, amount: fundingAmount }];
+      }
+      debit.credits[0].accountId = creditAccount;
+      debit.credits[0].amount = fundingAmount;
+      data.creditAccount = creditAccount;
+      data.amount = fundingAmount;
+      return { ...(templateRow as any), instance: i + 1, data };
+    });
+  }
+
+  if (!process.env.TOPUP_FUNDING_CREDIT_ACCOUNT) {
+    return rawTransferData;
+  }
+  const creditAccount = process.env.TOPUP_FUNDING_CREDIT_ACCOUNT;
+  const fundingAmount = process.env.TOPUP_FUNDING_AMOUNT;
+  const fundingCcy = process.env.TOPUP_FUNDING_CURRENCY;
+  const fundingSolId = process.env.TOPUP_FUNDING_SOL_ID;
+  return rawTransferData.map((row: any) => {
+    const data = { ...(row.data ?? {}) };
+    if (Array.isArray(data.debits) && data.debits[0]) {
+      data.debits[0] = { ...data.debits[0] };
+      data.debits[0].credits = (data.debits[0].credits || []).map((c: any, i: number) =>
+        i === 0 ? { ...c, accountId: creditAccount } : c
+      );
+      if (data.debits[0].credits[0] && fundingAmount) {
+        data.debits[0].credits[0].amount = fundingAmount;
+      }
+    }
+    if (creditAccount) data.creditAccount = creditAccount;
+    if (fundingCcy) data.currency = fundingCcy;
+    if (fundingSolId) data.solId = fundingSolId;
+    return { ...row, data };
+  });
+})();
 
 export const DEFAULT_CUSTOMER = COMMON_DATA.defaultCustomer as any;
 
@@ -180,12 +238,24 @@ export function getTermDepositScenario(flowName: string): any | undefined {
 }
 
 // Top-up deposit data.
-const topUpDepositRows = loadSection(process.env.TOP_UP_DEPOSIT_STEP_DATA, DEFAULT_TOP_UP_DEPOSIT_DATA, 'topUpDepositTestData', {
+const rawTopUpDepositRows = loadSection(process.env.TOP_UP_DEPOSIT_STEP_DATA, DEFAULT_TOP_UP_DEPOSIT_DATA, 'topUpDepositTestData', {
   flowName: 'topupdeposit',
   menuOption: 'HOAACTU',
   function: 'Add',
   enabled: 'Y',
 });
+
+const topUpDepositRows = (() => {
+  if (!process.env.TOPUP_REPAYMENT_ACCOUNT_ID) {
+    return rawTopUpDepositRows;
+  }
+  const repaymentAcctId = process.env.TOPUP_REPAYMENT_ACCOUNT_ID;
+  return rawTopUpDepositRows.map((row: any) => {
+    const data = { ...(row.data ?? {}), repaymentAcctId };
+    return { ...row, data };
+  });
+})();
+
 export const TOP_UP_DEPOSIT_TEST_DATA = { topUpDepositTestData: topUpDepositRows };
 export const TOP_UP_DEPOSIT_DATA = topUpDepositRows[0]?.data ?? {};
 

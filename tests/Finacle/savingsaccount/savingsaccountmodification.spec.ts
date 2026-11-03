@@ -414,7 +414,7 @@ for (const group of SAVINGS_MODIFY_DATA) {
 
     test.beforeEach(async ({ page }) => {
       test.setTimeout(300000);
-      ({ homePage } = await loginToFinacle(page, 'FINACLETEST1', COMMON_DATA.credentials.password));
+      ({ homePage } = await loginToFinacle(page, COMMON_DATA.credentials.username, COMMON_DATA.credentials.password));
       accountPage = new AccountPage(page);
     });
 

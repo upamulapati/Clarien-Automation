@@ -101,10 +101,8 @@ if (fs.promises) {
 // Flow data override.
 // When CIF_MOD_FLOW=flowX, any data/*.json file is merged with the
 // values from data/flowX.json so each flow uses its own data.
-// CLARIEN_MAKER / CLARIEN_CHECKER still swap credentials.
+// Credentials are always read from common-data.json; no environment overrides.
 // -------------------------------------------------------------------
-const CLARIEN_MAKER = process.env.CLARIEN_MAKER;
-const CLARIEN_CHECKER = process.env.CLARIEN_CHECKER;
 const CIF_MOD_FLOW = process.env.CIF_MOD_FLOW;
 const DATA_DIR = path.resolve(__dirname, '../data');
 const DATA_DIR_NORM = normPath(DATA_DIR);
@@ -112,7 +110,6 @@ const FLOW_X_PATH = CIF_MOD_FLOW ? path.resolve(DATA_DIR, `${CIF_MOD_FLOW}.json`
 
 const origReadFileSync = fs.readFileSync;
 const COMMON_DATA_PATH = path.resolve(__dirname, '../data/common-data.json');
-const CRM_TEST_DATA_PATH = path.resolve(__dirname, '../tests/config/crmTestData.json');
 
 let FLOW_X_DATA = null;
 if (FLOW_X_PATH) {
@@ -161,31 +158,9 @@ function applyDataOverride(p, raw) {
       if (savings && savings[0]) {
         merged.savingsAccountSchemes = [savings[0].schemeCode, ...(merged.savingsAccountSchemes || [])];
       }
-      if (CLARIEN_MAKER && CLARIEN_CHECKER) {
-        merged.credentials = merged.credentials || {};
-        merged.credentials.username = CLARIEN_MAKER;
-        merged.secondCredentials = merged.secondCredentials || {};
-        merged.secondCredentials.username = CLARIEN_CHECKER;
-        merged.verifierCredentials = merged.verifierCredentials || {};
-        merged.verifierCredentials.username = CLARIEN_CHECKER;
-        merged.thirdCredentials = merged.thirdCredentials || {};
-        merged.thirdCredentials.username = CLARIEN_MAKER;
-      }
     }
 
     return JSON.stringify(merged);
-  }
-
-  // crmTestData.json credentials are swapped when requested.
-  if (CLARIEN_MAKER && CLARIEN_CHECKER && norm.endsWith(normPath(CRM_TEST_DATA_PATH))) {
-    const obj = JSON.parse(str);
-    obj.common = obj.common || {};
-    obj.common.credentials = obj.common.credentials || {};
-    obj.common.credentials.primary = obj.common.credentials.primary || {};
-    obj.common.credentials.primary.username = CLARIEN_MAKER;
-    obj.common.credentials.verification = obj.common.credentials.verification || {};
-    obj.common.credentials.verification.username = CLARIEN_CHECKER;
-    return JSON.stringify(obj);
   }
 
   return str;
@@ -196,9 +171,7 @@ fs.readFileSync = function (p, options) {
   const result = origReadFileSync.apply(fs, arguments);
   const norm = normPath(file);
   const isFlowDataTarget = FLOW_X_DATA && norm.startsWith(DATA_DIR_NORM) && norm.endsWith('.json') && !norm.endsWith(normPath(FLOW_X_PATH));
-  const isCredentialTarget = (CLARIEN_MAKER && CLARIEN_CHECKER) &&
-    (norm.endsWith(normPath(COMMON_DATA_PATH)) || norm.endsWith(normPath(CRM_TEST_DATA_PATH)));
-  if (isFlowDataTarget || isCredentialTarget) {
+  if (isFlowDataTarget) {
     const overridden = applyDataOverride(file, result);
     if (options === 'utf8' || (options && options.encoding === 'utf8')) {
       return overridden;

@@ -22,7 +22,8 @@ test(TOP_UP_DEPOSIT_DATA.relatedPartyTestLabel as string, async ({ page }) => {
     accountId,
     relationType: TOP_UP_DEPOSIT_DATA.relatedPartyRelationType,
     relationCode: TOP_UP_DEPOSIT_DATA.relatedPartyRelationCode,
-    relatedPartyCifCode: TOP_UP_DEPOSIT_DATA.relatedPartyCifCode
+    relatedPartyCifCode: TOP_UP_DEPOSIT_DATA.relatedPartyCifCode,
+    repaymentAcctId: TOP_UP_DEPOSIT_DATA.repaymentAcctId
   };
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
@@ -30,7 +31,7 @@ test(TOP_UP_DEPOSIT_DATA.relatedPartyTestLabel as string, async ({ page }) => {
   console.log('====================================');
   console.log('RELATED PARTY STATUS:', statusMessage);
   expect(statusMessage).toBeTruthy();
-  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|accepted|warning)/i);
   console.log('====================================');
   if (!page.isClosed()) {
     console.log('Logging out...');

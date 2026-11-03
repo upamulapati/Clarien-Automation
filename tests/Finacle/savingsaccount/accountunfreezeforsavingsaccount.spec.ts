@@ -9,7 +9,7 @@ import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
 // Account unfreeze (HAFSM) is performed by finacletest1.
-const USERNAME = 'finacletest1';
+const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');

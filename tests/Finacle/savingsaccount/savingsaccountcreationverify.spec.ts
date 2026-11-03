@@ -7,7 +7,7 @@ import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
-const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
+const VERIFY_CONFIG = getVerificationConfig();
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const entryData = entry.data ?? entry;

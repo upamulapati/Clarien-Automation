@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 import { CURRENT_MODIFY_VERIFY_DATA } from '../../config/excelTestData';
 
 // Current account modification verification must be performed by a different user.
-const USERNAME = 'finacletest14';
+const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
 
 // HACM (Customer Account Maintenance) screen for current accounts.

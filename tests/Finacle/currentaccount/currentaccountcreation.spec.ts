@@ -16,7 +16,7 @@ const IS_EXCEL = CURRENT_ACCOUNT_DATA.length > 0;
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // contains ONLY account creation - verification lives in
 // current-account verification specs.
-const USERNAME = 'finacletest5';
+const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // Current account opening (HOAACCA) menu option.

@@ -10,7 +10,7 @@ import COMMON_DATA from '../../../data/common-data.json';
 // Verification of a current account opening (HOAACVCA) must be performed by a
 // DIFFERENT user than the maker who created the account in
 // currentaccountcreation.spec.ts.
-const USERNAME = 'finacletest14';
+const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
 const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
 const IS_EXCEL = CURRENT_ACCOUNT_DATA.length > 0;

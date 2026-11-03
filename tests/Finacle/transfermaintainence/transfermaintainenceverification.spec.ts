@@ -4,7 +4,7 @@ import { CRM_TEST_DATA } from '../../config/crmTestData';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue } from '../../helpers/sharedState';
+import { getSharedValue, getTransactionIds } from '../../helpers/sharedState';
 import { getApplicationDate } from '../../helpers/common';
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
@@ -16,9 +16,9 @@ const CONFIG = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 
-// Transaction ID: prefer shared state from the posting spec; must be present.
-const TRANSACTION_ID = getSharedValue<string>('transactionId') ?? '';
-if (TRANSACTION_ID) console.log(`[SharedState] Using Transaction ID from previous run: ${TRANSACTION_ID}`);
+// Transaction IDs: prefer the list of posted transaction IDs; fallback to the last scalar value.
+const TRANSACTION_IDS = getTransactionIds().length ? getTransactionIds() : [getSharedValue<string>('transactionId') ?? ''];
+if (TRANSACTION_IDS.length) console.log(`[SharedState] Using Transaction IDs from previous run: ${TRANSACTION_IDS.join(', ')}`);
 
 
 test.describe('Transfer Maintenance - Verification', () => {
@@ -37,51 +37,53 @@ test.describe('Transfer Maintenance - Verification', () => {
     tmPage = new AccountPage(page);
   });
 
-  // HTM (V - Verify) — Authorise/verify the transfer posted by the maker.
-  test('HTM - transfer maintenance verification', async ({ page }) => {
-    expect(TRANSACTION_ID, 'Transaction ID must be available for verification').toBeTruthy();
+  // HTM (V - Verify) — Authorise/verify each transfer posted by the maker, one by one.
+  for (const [index, TRANSACTION_ID] of TRANSACTION_IDS.entries()) {
+    test(`HTM - transfer maintenance verification (${index + 1})`, async ({ page }) => {
+      expect(TRANSACTION_ID, 'Transaction ID must be available for verification').toBeTruthy();
 
-    console.log(`Verifying transaction: ${TRANSACTION_ID}`);
+      console.log(`Verifying transaction: ${TRANSACTION_ID}`);
 
-    // Step 1: Select "core server" from the solution drop down.
-    console.log('Selecting Core Server...');
-    await tmPage.selectCoreServer();
+      // Step 1: Select "core server" from the solution drop down.
+      console.log('Selecting Core Server...');
+      await tmPage.selectCoreServer();
 
-    // Step 2: Type menu option "HTM" in finacle.
-    console.log('Searching for HTM...');
-    await tmPage.searchTransactionManagement('HTM');
-    await page.waitForTimeout(3000);
+      // Step 2: Type menu option "HTM" in finacle.
+      console.log('Searching for HTM...');
+      await tmPage.searchTransactionManagement('HTM');
+      await page.waitForTimeout(3000);
 
-    // Step 3: Function - V - Verify.
-    console.log('Selecting Verify function...');
-    await tmPage.selectHtmFunction('V');
+      // Step 3: Function - V - Verify.
+      console.log('Selecting Verify function...');
+      await tmPage.selectHtmFunction('V');
 
-    // Step 4: Enter the transaction ID generated during posting.
-    console.log('Entering transaction ID to verify...');
-    await tmPage.enterHtmTransactionId(TRANSACTION_ID);
+      // Step 4: Enter the transaction ID generated during posting.
+      console.log('Entering transaction ID to verify...');
+      await tmPage.enterHtmTransactionId(TRANSACTION_ID);
 
-    // Step 5: Transaction date - today's date (usually defaulted).
-    console.log('Entering transaction date...');
-    await tmPage.enterHtmTransactionDate(await getApplicationDate(page));
+      // Step 5: Transaction date - today's date (usually defaulted).
+      console.log('Entering transaction date...');
+      await tmPage.enterHtmTransactionDate(await getApplicationDate(page));
 
-    // Load the transaction into the verification screen.
-    console.log('Clicking Go button...');
-    await tmPage.clickHtmGo();
-    await page.waitForTimeout(3000);
+      // Load the transaction into the verification screen.
+      console.log('Clicking Go button...');
+      await tmPage.clickHtmGo();
+      await page.waitForTimeout(3000);
 
-    // Step 6: Click Submit - the transaction gets authorised/verified.
-    console.log('Clicking Submit button...');
-    await tmPage.clickHtmSubmit();
+      // Step 6: Click Submit - the transaction gets authorised/verified.
+      console.log('Clicking Submit button...');
+      await tmPage.clickHtmSubmit();
 
-    // Dismiss any Warning & Exception popup raised on submit.
-    await tmPage.acceptWarningPopup();
+      // Dismiss any Warning & Exception popup raised on submit.
+      await tmPage.acceptWarningPopup();
 
-    console.log(`=== VERIFIED TRANSACTION ID: ${TRANSACTION_ID} ===`);
+      console.log(`=== VERIFIED TRANSACTION ID: ${TRANSACTION_ID} ===`);
 
-    // Logout.
-    console.log('Logging out...');
-    await homePage.logout();
-  });
+      // Logout.
+      console.log('Logging out...');
+      await homePage.logout();
+    });
+  }
 });
 
 // === STRICT ASSERTIONS INJECTION ===

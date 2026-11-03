@@ -34,8 +34,6 @@ const env = {
 };
 
 if (suiteName === 'flow6' || suiteName === 'flow9') {
-  env.CLARIEN_MAKER = 'finacletest14';
-  env.CLARIEN_CHECKER = 'finacle-test13';
   env.APPLICATION_DATE = '01-10-2026';
 }
 
@@ -137,6 +135,27 @@ function getFlow10StepEnv(file) {
   if (file.includes('hpordm-remittance.spec.ts')) {
     // Let the spec read FLOW10_DATA directly via the CIF_MOD_FLOW env
     overrides.FLOW10_PAYMENT_ORDER_AMOUNTS = JSON.stringify(FLOW10_DATA.paymentOrderAmounts || {});
+  }
+  return overrides;
+}
+
+function getTopUpStepEnv(file, state) {
+  if (suiteName !== 'topupdeposit') return {};
+  const accounts = state?.topUpDepositAccounts || {};
+  const overrides = {};
+  // Use the shared savings account 7500001515 as the repayment/operative account.
+  // It belongs to the same CIF as the default customer, avoiding the CIF mismatch warning.
+  overrides.TOPUP_REPAYMENT_ACCOUNT_ID = '7500001515';
+  if (file.includes('accountfundingsavingsaccount.spec.ts')) {
+    const acccoAccount = accounts['ACCCO'];
+    const accplAccount = accounts['ACCPL'];
+    if (acccoAccount && accplAccount) {
+      overrides.TOPUP_FUNDING_CREDIT_ACCOUNTS = [acccoAccount, accplAccount].join(',');
+      overrides.TOPUP_FUNDING_DEBIT_ACCOUNT = '6000123165';
+      overrides.TOPUP_FUNDING_AMOUNT = '1000';
+      overrides.TOPUP_FUNDING_CURRENCY = 'BMD';
+      overrides.TOPUP_FUNDING_SOL_ID = '100';
+    }
   }
   return overrides;
 }
@@ -298,7 +317,8 @@ for (let i = 0; i < files.length; i++) {
   const flow6Overrides = getFlow6StepEnv(file, state, flow6HtmOccurrence, flow6ModOccurrence, lastFlow6HtmOverrides);
   const flow9Overrides = getFlow9StepEnv(file, state, flow9HtmOccurrence, flow9ModOccurrence, lastFlow9HtmOverrides);
   const flow10Overrides = getFlow10StepEnv(file);
-  const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides };
+  const topUpOverrides = getTopUpStepEnv(file, state);
+  const stepOverrides = { ...flow7Overrides, ...flow6Overrides, ...flow9Overrides, ...flow10Overrides, ...topUpOverrides };
 
   // Inject step data for Excel-driven flows
   delete stepOverrides.CRM_STEP_DATA;
@@ -312,6 +332,12 @@ for (let i = 0; i < files.length; i++) {
       const stepFile = resolveFlowData(steps[i].dataSheet, steps[i].dataRowId, path.resolve(cwd, 'data', 'flow-step-data.json'));
       stepOverrides.STEP_DATA = stepFile;
     }
+  }
+
+  // Top-up deposit HTM funding reuses the existing savings-funding transfer row.
+  if (suiteName === 'topupdeposit' && file.includes('accountfundingsavingsaccount.spec.ts')) {
+    const stepFile = resolveFlowData('TransferMaintenanceData', 2, path.resolve(cwd, 'data', 'flow-step-data.json'));
+    stepOverrides.STEP_DATA = stepFile;
   }
 
   // Inject HPORDM step data for the payment-order spec (filtered by suite/flowName)

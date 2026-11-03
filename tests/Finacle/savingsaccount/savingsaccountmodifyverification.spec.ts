@@ -7,7 +7,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 import { SAVINGS_MODIFY_VERIFY_DATA } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
 
-const VERIFY_CONFIG = getVerificationConfig({ username: 'finacletest14' });
+const VERIFY_CONFIG = getVerificationConfig();
 
 for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
   const acctData = acct.data ?? acct;

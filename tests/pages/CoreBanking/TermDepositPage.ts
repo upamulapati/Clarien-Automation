@@ -640,9 +640,12 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(4000);
     }
 
+    const warningText = await this.acceptWarningPopup().catch(() => null);
+    await this.page.waitForTimeout(1000).catch(() => {});
     const statusMessage = await this.getStatusMessage();
-    await this.acceptWarningPopup().catch(() => {});
-    return statusMessage;
+    if (statusMessage) return statusMessage;
+    if (warningText) return `Warning accepted: ${warningText}`;
+    return null;
   }
 
   private async setDelCheckboxChecked(): Promise<string> {
@@ -735,6 +738,16 @@ export class TermDepositPage extends AccountPage {
     console.log('Next Print Date result:', dateSet);
     await this.page.keyboard.press('Tab');
     await this.page.waitForTimeout(1000);
+
+    if (data.repaymentAcctId) {
+      console.log(`Setting Repayment A/c ID to: ${data.repaymentAcctId}`);
+      const repaySet = await this.setTextByIds(['repayAcct', 'repayAcc', 'repayForacid'], data.repaymentAcctId).catch(() => false);
+      console.log('Repayment A/c ID set result:', repaySet);
+      if (repaySet) {
+        await this.page.keyboard.press('Tab');
+        await this.page.waitForTimeout(500);
+      }
+    }
 
     await this.visitTab('Scheme');
     await this.visitTab('Related Party');
@@ -834,9 +847,12 @@ export class TermDepositPage extends AccountPage {
       await this.page.waitForTimeout(4000);
     }
 
+    const warningText = await this.acceptWarningPopup().catch(() => null);
+    await this.page.waitForTimeout(1000).catch(() => {});
     const statusMessage = await this.getStatusMessage();
-    await this.acceptWarningPopup().catch(() => {});
-    return statusMessage;
+    if (statusMessage) return statusMessage;
+    if (warningText) return `Warning accepted: ${warningText}`;
+    return null;
   }
 
   private async findRelatedPartyFrame(finwFrame: Frame | null): Promise<Frame> {

@@ -4812,15 +4812,14 @@ export class AccountPage {
 
   // Handles the Finacle "Warning and Exception Dialog" that opens as a separate
   // popup window (excp_popup_screen.jsp) after Submit. Clicks Accept to proceed
-  // past non-blocking warnings/exceptions (e.g. "GL SUB HEAD CODE ... DIFFERENT
-  // FROM DEFAULT VALUE", "CUSTOMER AGE EXCEEDS PERMISSIBLE LIMIT"). Accepts up
-  // to maxAttempts popups that appear in sequence. Returns true if any popup was accepted.
-  async acceptWarningPopup(maxAttempts = 10): Promise<boolean> {
+  // past non-blocking warnings/exceptions. Accepts up to maxAttempts popups in
+  // sequence. Returns the last accepted warning message text, or null if no popup was handled.
+  async acceptWarningPopup(maxAttempts = 10): Promise<string | null> {
     const selector =
       '#Accept, #accept, input[value="Accept" i], ' +
       'input[type="submit"][value*="Accept" i], input[type="button"][value*="Accept" i], ' +
       'button:has-text("Accept")';
-    let acceptedAny = false;
+    let lastWarning: string | null = null;
 
     // Finacle may raise several warning/exception popups in sequence, so keep
     // accepting until none remain (cap the loop to avoid spinning forever).
@@ -4835,12 +4834,12 @@ export class AccountPage {
         if (/excp_popup|excp_|warning|exception/i.test(url) || /warning|exception/i.test(title)) {
           const btn = p.locator(selector).first();
           if (await btn.count().catch(() => 0) > 0) {
-            const desc = (await p.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 200);
-            console.log(`Warning/Exception popup detected: ${desc}`);
+            const fullDesc = (await p.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+            console.log(`Warning/Exception popup detected: ${fullDesc.slice(0, 200)}`);
             await btn.click({ timeout: 15000 }).catch(() => {});
             await this.page.waitForTimeout(2000);
             console.log('Clicked Accept on warning/exception popup');
-            acceptedAny = true;
+            lastWarning = fullDesc;
             acceptedThisRound = true;
             break;
           }
@@ -4850,7 +4849,7 @@ export class AccountPage {
       if (!acceptedThisRound) break;
     }
 
-    return acceptedAny;
+    return lastWarning;
   }
 
   // ============ Verification Methods ============

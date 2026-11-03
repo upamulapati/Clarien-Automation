@@ -1,9 +1,10 @@
+import { CREDENTIALS } from '../../../data/credentials';
 import { test, expect, Frame, Page } from "@playwright/test";
 import * as fs from "fs";
 
 const APP_URL = "https://clrnuat.clarienbank.com/fininfra/ui/SSOLogin.jsp";
-const MAKER_USER = "FINACLETEST13";
-const MAKER_PASS = "clarien@123";
+const MAKER_USER = CREDENTIALS.thirdCredentials.username;
+const MAKER_PASS = CREDENTIALS.thirdCredentials.password;
 const CIF_ID = process.env.CIF_ID || "0001000516";
 
 // Other Bank Details field values (env-overridable).

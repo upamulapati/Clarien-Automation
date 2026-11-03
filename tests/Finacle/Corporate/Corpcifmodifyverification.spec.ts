@@ -1,3 +1,4 @@
+import { CREDENTIALS } from '../../../data/credentials';
 import { test, expect, Frame, Page } from "@playwright/test";
 import {
   login,
@@ -14,10 +15,10 @@ import {
 // SUBMITTED it (status "Submitted For Approval"). Mirrors the retail checker
 // (modifycifchecker.spec.ts) but targets the CIF Corporate menus + a corporate
 // CIF. Kept separate from the maker spec.
-const CHECKER_USER = "FINACLETEST14";
-const CHECKER_PASS = "clarien@123";
-const MAKER_USER = "FINACLETEST13";
-const MAKER_PASS = "clarien@123";
+const CHECKER_USER = CREDENTIALS.verifierCredentials.username;
+const CHECKER_PASS = CREDENTIALS.verifierCredentials.password;
+const MAKER_USER = CREDENTIALS.thirdCredentials.username;
+const MAKER_PASS = CREDENTIALS.thirdCredentials.password;
 const CIF_ID = "0001000516";
 
 test.describe("CIF Corporate Modification Checker", () => {

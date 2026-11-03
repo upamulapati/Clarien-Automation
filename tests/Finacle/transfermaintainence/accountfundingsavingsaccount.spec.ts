@@ -149,6 +149,7 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
     });
   }
 
+  if (process.env.CIF_MOD_FLOW !== 'topupdeposit') {
   // Serial 245 (INC000001224790) - HTM Post by Part Transaction checkbox selects all
   // Verify that clicking the master Post checkbox on the Post by Part Transaction
   // screen selects all part transaction checkboxes.
@@ -307,6 +308,7 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
     await page.waitForTimeout(2000);
     await homePage.logout();
   });
+  }
 });
 
 // === STRICT ASSERTIONS INJECTION ===

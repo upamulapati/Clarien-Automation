@@ -1,5 +1,8 @@
 import { Frame, Page } from '@playwright/test';
-import { saveTopUpDepositAccounts } from '../../helpers/sharedState';
+import {
+  saveTopUpDepositAccount,
+  saveTopUpDepositAccounts,
+} from '../../helpers/sharedState';
 import { TermDepositPage } from './TermDepositPage';
 
 export class TopUpDepositPage extends TermDepositPage {
@@ -17,6 +20,9 @@ export class TopUpDepositPage extends TermDepositPage {
       try {
         const accountId = await this.createTopUpDeposit(schemeCode, acct);
         generatedAccounts[schemeCode] = accountId ?? 'NOT CAPTURED';
+        if (accountId) {
+          saveTopUpDepositAccount(schemeCode, accountId);
+        }
       } catch (err) {
         console.log(`===== SCHEME ${schemeCode} FAILED =====`);
         console.log('Error:', err instanceof Error ? err.message : String(err));
@@ -399,40 +405,82 @@ export class TopUpDepositPage extends TermDepositPage {
     console.log('Auto Renewal set to Unlimited');
   }
 
-  private async scanForResult(): Promise<{ accountId: string | null; status: string | null }> {
+  private async scanForResult(maxWaitMs = 15000, intervalMs = 1500): Promise<{ accountId: string | null; status: string | null }> {
     let accountId: string | null = null;
     let status: string | null = null;
+    const deadline = Date.now() + maxWaitMs;
 
-    for (const p of this.page.context().pages()) {
-      if (p.isClosed()) continue;
-      for (const frame of p.frames()) {
-        const result = await frame.evaluate(() => {
-          const body = document.body?.innerText ?? '';
-          const idMatch = body.match(/(?:New A\/c\.?\s*ID|A\/c\.?\s*Id|Account\s*(?:No|Number|ID)[^:]*)[:\s]+(\d{9,12})/i)
-            ?? body.match(/\b(9[23]\d{8})\b/);
-          const msgSelectors = [
-            '#pageMsg', '#statusMsg', 'tr.alert td', 'td.alert',
-            'td.successtext', 'td.errortext', '.successtext', '.errortext',
-            'font[color="green"]', 'font[color="red"]', 'font[color="#006600"]',
-            'span[id*="msg" i]', 'div[id*="msg" i]',
-          ];
-          let msg: string | null = null;
-          for (const sel of msgSelectors) {
-            const el = document.querySelector(sel);
-            const t = el?.textContent?.replace(/\s+/g, ' ').trim();
-            if (t && t.length > 3) { msg = t; break; }
-          }
-          if (!msg) {
-            const match = body.match(/([^\n.]*(?:successfully|opened successfully|authoris|verified|error|failed)[^\n]*)/i);
-            if (match) msg = match[1].replace(/\s+/g, ' ').trim();
-          }
-          return { accountId: idMatch ? idMatch[1] : null, status: msg };
-        }).catch(() => ({ accountId: null as string | null, status: null as string | null }));
-        if (result.accountId && !accountId) accountId = result.accountId;
-        if (result.status && !status) status = result.status;
-        if (accountId && status) break;
+    const normalize = (s: string) => (s ?? '').replace(/[\s\xa0]+/g, ' ').trim();
+
+    while (Date.now() < deadline) {
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const result = await frame.evaluate(() => {
+            const normalize = (s: string) => (s ?? '').replace(/[\s\xa0]+/g, ' ').trim();
+            const body = normalize(document.body?.innerText ?? '');
+
+            const labelPatterns = [
+              /New\s*A\/c\.?\s*ID[:\s]+(\d{8,20})/i,
+              /A\/c\.?\s*ID[:\s]+(\d{8,20})/i,
+              /A\/c\.?\s*No\.?[:\s]+(\d{8,20})/i,
+              /Account\s*(?:No|Number|ID)\.?[:\s]+(\d{8,20})/i,
+              /(?:New\s*)?Account\s*Id[:\s]+(\d{8,20})/i,
+              /Generated\s*(?:A\/c|Account)[:\s]+(\d{8,20})/i,
+              /A\/c\.?\s*Number[:\s]+(\d{8,20})/i,
+            ];
+
+            for (const pattern of labelPatterns) {
+              const m = body.match(pattern);
+              if (m) return { accountId: m[1].trim(), status: null };
+            }
+
+            const accountLikeId = (id: string) => {
+              const lower = id.toLowerCase();
+              return lower.includes('acid') || lower.includes('account') || lower.includes('acc') ||
+                     lower.includes('acno') || lower.includes('acct') || lower.includes('newacid') ||
+                     lower.includes('accountid') || lower.includes('accountno');
+            };
+
+            const elements = Array.from(document.querySelectorAll('input, textarea, span, td, div, label, font')) as HTMLElement[];
+            for (const el of elements) {
+              const rawValue = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement ? el.value : el.textContent ?? '';
+              const value = normalize(rawValue);
+              const id = (el.id?.toLowerCase() ?? '') + ' ' + (el.getAttribute('name')?.toLowerCase() ?? '');
+              if (accountLikeId(id) && /^\d{8,20}$/.test(value)) {
+                return { accountId: value, status: null };
+              }
+            }
+
+            const allNumbers = body.match(/\b\d{8,20}\b/g) ?? [];
+            const likelyCandidates = allNumbers.filter(n => n.length >= 9 && !/^0/.test(n));
+            const preferred = likelyCandidates[0] ?? null;
+
+            const msgSelectors = [
+              '#pageMsg', '#statusMsg', 'tr.alert td', 'td.alert',
+              'td.successtext', 'td.errortext', '.successtext', '.errortext',
+              'font[color="green"]', 'font[color="red"]', 'font[color="#006600"]',
+              'span[id*="msg" i]', 'div[id*="msg" i]',
+            ];
+            let msg: string | null = null;
+            for (const sel of msgSelectors) {
+              const el = document.querySelector(sel);
+              const t = el?.textContent?.replace(/\s+/g, ' ').trim();
+              if (t && t.length > 3) { msg = t; break; }
+            }
+            if (!msg) {
+              const match = body.match(/([^\n.]*(?:successfully|opened successfully|authoris|verified|error|failed)[^\n]*)/i);
+              if (match) msg = match[1].replace(/\s+/g, ' ').trim();
+            }
+
+            return { accountId: preferred, status: msg };
+          }).catch(() => ({ accountId: null as string | null, status: null as string | null }));
+          if (result.accountId && !accountId) accountId = result.accountId;
+          if (result.status && !status) status = result.status;
+          if (accountId) return { accountId, status };
+        }
       }
-      if (accountId && status) break;
+      await this.page.waitForTimeout(intervalMs).catch(() => {});
     }
 
     return { accountId, status };

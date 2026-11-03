@@ -12,7 +12,7 @@ import FLOW7_DATA from '../../../data/flow7.json';
 const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
-const CONFIG = getPrimaryConfig({ username: 'finacletest5' });
+const CONFIG = getPrimaryConfig();
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
 const groups: { main: any; related: any[] }[] = [];

@@ -8,7 +8,7 @@ import { getSharedValue } from '../../helpers/sharedState';
 import { CURRENT_MODIFY_DATA } from '../../config/excelTestData';
 
 // Current account modification is done by the maker user.
-const USERNAME = 'finacletest5';
+const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
 // HACM (Customer Account Maintenance) screen for current accounts.

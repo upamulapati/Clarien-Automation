@@ -1,5 +1,6 @@
 const PptxGenJS = require('pptxgenjs');
 const path = require('path');
+const COMMON_DATA = require('../data/common-data.json');
 
 const OUTPUT = path.resolve(__dirname, '../docs/automation-proposal.pptx');
 
@@ -200,8 +201,8 @@ addTableSlide(
   'Data Dictionary (More Detail)',
   ['Field / Entity', 'Sheet', 'Example', 'Purpose'],
   [
-    ['credentials.username', 'Common', 'finacletest1', 'Maker login for creation steps'],
-    ['verifierCredentials.username', 'Common', 'finacletest5', 'Checker / verifier login'],
+    ['credentials.username', 'Common', COMMON_DATA.credentials.username, 'Maker login for creation steps'],
+    ['verifierCredentials.username', 'Common', COMMON_DATA.verifierCredentials.username, 'Checker / verifier login'],
     ['cifCode', 'Common', '0005000599', 'Customer to use for existing-CIF flows'],
     ['schemeCode', 'Savings', 'SVREG', 'Scheme selected on savings account creation'],
     ['solId', 'Savings/Current', '100', 'Branch / SOL where account is opened'],

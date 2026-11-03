@@ -15,11 +15,10 @@ const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.prematureClosure;
 const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
 
 function getGeneratedAccount(): string {
-  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
-
   const accounts = getTopUpDepositAccounts();
-  const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
-  if (firstValid) return firstValid;
+  const schemeAccount = accounts['ACCPL'];
+  if (schemeAccount) return schemeAccount;
+  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
   return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 }
 

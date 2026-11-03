@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { CREDENTIALS } from '../../data/credentials';
 
 // =====================================================================
 // Type Definitions
@@ -56,8 +57,8 @@ export const CRM_TEST_DATA = crmTestData;
 export function getPrimaryConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: crmTestData.common.credentials.primary.username,
-    password: crmTestData.common.credentials.primary.password,
+    username: CREDENTIALS.credentials.username,
+    password: CREDENTIALS.credentials.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };
@@ -66,8 +67,8 @@ export function getPrimaryConfig(overrides?: Partial<AppConfig>): AppConfig {
 export function getVerificationConfig(overrides?: Partial<AppConfig>): AppConfig {
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: crmTestData.common.credentials.verification.username,
-    password: crmTestData.common.credentials.verification.password,
+    username: CREDENTIALS.verifierCredentials.username,
+    password: CREDENTIALS.verifierCredentials.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };
@@ -75,12 +76,10 @@ export function getVerificationConfig(overrides?: Partial<AppConfig>): AppConfig
 
 // Maker config — used by the CIF modification maker specs (edits an existing CIF).
 export function getMakerConfig(overrides?: Partial<AppConfig>): AppConfig {
-  const creds = crmTestData.common.credentials as any;
-  const maker = creds.maker ?? crmTestData.common.credentials.primary;
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: maker.username,
-    password: maker.password,
+    username: CREDENTIALS.thirdCredentials.username,
+    password: CREDENTIALS.thirdCredentials.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };
@@ -88,12 +87,10 @@ export function getMakerConfig(overrides?: Partial<AppConfig>): AppConfig {
 
 // Checker config — used by the CIF modification verification (checker) specs.
 export function getCheckerConfig(overrides?: Partial<AppConfig>): AppConfig {
-  const creds = crmTestData.common.credentials as any;
-  const checker = creds.checker ?? crmTestData.common.credentials.verification;
   return {
     baseUrl: crmTestData.common.baseUrl,
-    username: checker.username,
-    password: checker.password,
+    username: CREDENTIALS.verifierCredentials.username,
+    password: CREDENTIALS.verifierCredentials.password,
     timeouts: crmTestData.common.timeouts as TimeoutConfig,
     ...overrides
   };

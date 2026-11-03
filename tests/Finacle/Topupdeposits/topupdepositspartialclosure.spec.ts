@@ -16,10 +16,10 @@ const PARTIAL_WITHDRAWAL_AMT = TOP_UP_DEPOSIT_DATA.partialClosureWithdrawalAmoun
 const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
 
 function getGeneratedAccount(): string {
-  if (TOP_UP_DEPOSIT_DATA.partialClosureAccountId) return TOP_UP_DEPOSIT_DATA.partialClosureAccountId as string;
   const accounts = getTopUpDepositAccounts();
-  const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
-  if (firstValid) return firstValid;
+  const schemeAccount = accounts['ACCCO'];
+  if (schemeAccount) return schemeAccount;
+  if (TOP_UP_DEPOSIT_DATA.partialClosureAccountId) return TOP_UP_DEPOSIT_DATA.partialClosureAccountId as string;
   return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 }
 
