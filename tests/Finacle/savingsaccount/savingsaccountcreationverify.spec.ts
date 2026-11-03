@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { getVerificationConfig } from '../../config/crmTestData';
-import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { loginToFinacle } from '../../helpers/finacleSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import { CREDENTIALS } from '../../../data/credentials';
 
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
-const VERIFY_CONFIG = getVerificationConfig();
+const { username: USERNAME, password: PASSWORD } = CREDENTIALS.verifierCredentials;
 
 const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
   const entryData = entry.data ?? entry;
@@ -28,11 +28,7 @@ test.describe('Savings Account Verification', () => {
       expect(accountId, `Created account ID for ${scenario.name} must be available`).toBeTruthy();
 
       const lastDialogMessages: string[] = [];
-      setupDialogHandlers(page, lastDialogMessages);
-
-      await login(page, VERIFY_CONFIG);
-
-      const homePage = new HomePage(page);
+      const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
       const savingsAccountPage = new AccountPage(page);
 
       // Select Core Server from the solution drop down

@@ -56,8 +56,8 @@ function safeEmptyDir(dir) {
 }
 
 function cleanAllureReports() {
-  const paths = ['reports/allureReports', 'reports/allure-report'];
-  for (const p of paths) {
+  const dirPaths = ['reports/allureReports', 'reports/allure-report', 'reports/htmlReport'];
+  for (const p of dirPaths) {
     if (!fs.existsSync(p)) continue;
 
     if (shellRemove(p)) {
@@ -66,6 +66,21 @@ function cleanAllureReports() {
       console.log(`[cleanAllureReports] ${p} is locked/read-only; removing files individually...`);
       safeEmptyDir(p);
       console.log(`[cleanAllureReports] emptied ${p}`);
+    }
+  }
+
+  const filePaths = ['reports/.last-run.json', 'reports/allure-pdf.html', 'reports/allure-report.pdf'];
+  for (const p of filePaths) {
+    if (!fs.existsSync(p)) continue;
+    try {
+      fs.unlinkSync(p);
+      console.log(`[cleanAllureReports] removed ${p}`);
+    } catch (err) {
+      if (isPermissionError(err)) {
+        console.warn(`[cleanAllureReports] could not remove ${p}: permission denied`);
+      } else {
+        throw err;
+      }
     }
   }
 

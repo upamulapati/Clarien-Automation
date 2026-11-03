@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { getPrimaryConfig } from '../../config/crmTestData';
-import { login, setupDialogHandlers } from '../../config/crmSetup';
+import { loginToFinacle } from '../../helpers/finacleSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import { CREDENTIALS } from '../../../data/credentials';
 import FLOW7_DATA from '../../../data/flow7.json';
 
 // Use CIF ID from shared state (written by CRM E2E) if available,
@@ -12,7 +12,7 @@ import FLOW7_DATA from '../../../data/flow7.json';
 const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
-const CONFIG = getPrimaryConfig();
+const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
 const groups: { main: any; related: any[] }[] = [];
@@ -71,11 +71,8 @@ for (const scenario of SCENARIOS) {
   test(`HOAACSB - create savings account (${scenario.name})`, async ({ page }) => {
     test.setTimeout(900000);
     const lastDialogMessages: string[] = [];
-    setupDialogHandlers(page, lastDialogMessages);
     try {
-      await login(page, CONFIG);
-
-      const homePage = new HomePage(page);
+      const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
       const savingsAccountPage = new AccountPage(page);
 
       // Select Core Server from the solution drop down

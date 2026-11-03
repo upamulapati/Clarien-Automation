@@ -76,6 +76,51 @@ function loadSavingsFromExcel(): any[] | null {
   }
 }
 
+function loadCurrentFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['CurrentAccountData'];
+    if (!ws) return null;
+    // Read the sheet as an array of arrays so duplicate headers can be disambiguated.
+    const raw = xlsx.utils.sheet_to_json(ws, { defval: '', header: 1 }) as any[][];
+    if (raw.length === 0) return [];
+    const rawHeaders = raw[0].map((h) => String(h).trim());
+    const headers: string[] = [];
+    let section = '';
+    for (const h of rawHeaders) {
+      const hl = h.toLowerCase().replace(/\s+/g, '');
+      if (hl.includes('document')) {
+        section = 'Document';
+      }
+      if (hl.includes('occupation') || hl.includes('sectorcode') || hl.includes('subsectorcode') || h.toLowerCase().startsWith('free code')) {
+        section = 'MIS';
+      }
+      // Free Text/Free Code fields exist in multiple tabs, so prefix them by section.
+      // This also supports future Free Text/Free Code 3, 4, etc.
+      const freeFieldMatch = h.match(/^Free (Text|Code)\s+(\d+)$/i);
+      if (freeFieldMatch && section) {
+        headers.push(`${section} ${h}`);
+      } else {
+        headers.push(h);
+      }
+    }
+    const rows = raw.slice(1).map((r) => {
+      const obj: any = {};
+      for (let i = 0; i < headers.length; i++) {
+        let v = r[i] ?? '';
+        if (typeof v === 'string') v = v.replace(/\s+/g, ' ').trim();
+        obj[headers[i]] = v;
+      }
+      return obj;
+    });
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
 function loadSection(
   envVar: string | undefined,
   fallback: any,
@@ -94,8 +139,6 @@ const savingsFallback = process.env.CIF_MOD_FLOW
   ? FLOW7_DATA.savingsAccounts
   : (savingsExcel ?? DEFAULT_SAVINGS_DATA);
 
-const currentModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
-  .filter((a: any) => a.type === 'current');
 const currentModifyVerifyFallback = ((COMMON_DATA.accountVerification as any[]) || [])
   .filter((a: any) => a.type === 'current');
 const savingsModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
@@ -103,19 +146,16 @@ const savingsModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
 const savingsModifyVerifyFallback = ((COMMON_DATA.accountVerification as any[]) || [])
   .filter((a: any) => a.type === 'savings');
 
+const currentExcel = loadCurrentFromExcel();
+
 // Current / savings / transfer account data.
-export const CURRENT_ACCOUNT_DATA = loadSection(process.env.STEP_DATA, [], 'currentData', {
+export const CURRENT_ACCOUNT_DATA = loadSection(process.env.STEP_DATA, currentExcel ?? [], 'currentData', {
   flowName: 'currentaccount',
   enabled: 'Y',
 });
 
 export const SAVINGS_DATA = loadSection(process.env.STEP_DATA, savingsFallback, 'savingsData', {
   flowName: 'savingsaccount',
-  enabled: 'Y',
-});
-
-export const CURRENT_MODIFY_DATA = loadSection(process.env.STEP_DATA, currentModifyFallback, 'currentModifyData', {
-  flowName: 'currentaccountmodify',
   enabled: 'Y',
 });
 
@@ -261,4 +301,43 @@ export const TOP_UP_DEPOSIT_DATA = topUpDepositRows[0]?.data ?? {};
 
 export function getTopUpDepositScenario(flowName: string): any | undefined {
   return topUpDepositRows.find((r) => r.flowName === flowName);
+}
+
+function loadCollateralFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['collaterallodgement'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
+const collateralExcel = loadCollateralFromExcel();
+
+const collateralLodgementRows = loadSection(
+  process.env.COLLATERAL_LODGEMENT_STEP_DATA || process.env.STEP_DATA,
+  collateralExcel ?? [],
+  'collateralLodgementTestData',
+  {
+  flowName: 'collaterallodgement',
+  menuOption: 'HCLM',
+  function: 'Lodge',
+  enabled: 'Y',
+});
+
+export const COLLATERAL_LODGEMENT_DATA = { collateralLodgementTestData: collateralLodgementRows };
+
+export function getCollateralScenario(flowName: string, type?: string): any | undefined {
+  return collateralLodgementRows.find((r) =>
+    r.flowName === flowName &&
+    (type == null ||
+      r.data?.collateralType === type ||
+      r.data?.type === type ||
+      r.name?.includes(type))
+  );
 }

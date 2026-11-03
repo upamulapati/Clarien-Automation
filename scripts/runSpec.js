@@ -22,12 +22,12 @@ function writeLastRunManifest() {
   const files = fs.existsSync(resultsDir)
     ? fs.readdirSync(resultsDir).filter(f => f.endsWith('-result.json')).sort()
     : [];
-  const manifest = { spec: specFile, timestamp: new Date().toISOString(), files };
+  const manifest = { spec: specFile, timestamp: new Date().toISOString(), files, specFiles: [specFile] };
   fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }
 
 // Clean report directories to ensure fresh report for individual spec run
-const htmlReportDir = path.resolve(cwd, '..', 'reports', 'htmlReport');
+const htmlReportDir = path.resolve(cwd, 'reports', 'htmlReport');
 const allureResultsDir = path.resolve(cwd, 'reports', 'allureReports');
 const allureReportDir = path.resolve(cwd, 'reports', 'allure-report');
 if (fs.existsSync(htmlReportDir)) {

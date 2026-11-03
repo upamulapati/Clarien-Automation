@@ -22,4 +22,8 @@ export const CREDENTIALS = {
     username: process.env.VERIFIERUSERNAME ?? COMMON_DATA.verifierCredentials.username,
     password: PASSWORD ?? COMMON_DATA.verifierCredentials.password,
   },
+  savingsModificationCredentials: {
+    username: process.env.SAVINGS_MODIFICATION_USERNAME ?? COMMON_DATA.savingsModificationCredentials.username,
+    password: process.env.SAVINGS_MODIFICATION_PASSWORD ?? COMMON_DATA.savingsModificationCredentials.password,
+  },
 };

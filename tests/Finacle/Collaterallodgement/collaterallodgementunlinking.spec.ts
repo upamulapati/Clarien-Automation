@@ -4,22 +4,27 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId } from '../../helpers/sharedState';
+import { readFirstCollateralId } from '../../helpers/sharedState';
 import { readLatestLoanAccount } from '../../helpers/sharedState';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 
 // Collateral unlinking (HSCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Loan account the collateral was linked to. Use the latest from shared state.
-const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
+// Load the selected Excel scenario. The runner injects the FlowConfig-chosen
+// instance via STEP_DATA; this also works with a direct Excel fallback.
+const scenario = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData[0]?.data ?? {};
 
-// Collateral ID to unlink. Prefer the id persisted by the lodgement spec; fall
-// back to this constant when no persisted id is available.
-const COLLATERAL_ID = readLatestCollateralId() ?? 'RBU3533';
+// Loan account the collateral was linked to. Prefer Excel, then shared state.
+const TD_ACCOUNT_ID = scenario.linkAccountId || readLatestLoanAccount();
 
-// Reason code selected for the unlink (e.g. 001).
-const REASON_CODE = '001';
+// Collateral ID to unlink. Prefer the id persisted by the previous specs;
+// the Excel sheet can also override with an existing id.
+const COLLATERAL_ID = scenario.collateralId || readFirstCollateralId();
+
+// Reason code selected for the unlink.
+const REASON_CODE = scenario.unlinkReasonCode;
 
 let homePage: HomePage;
 let collateralPage: AccountPage;

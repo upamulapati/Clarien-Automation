@@ -18,10 +18,19 @@ export interface LodgeResult {
  * hard assertions and continue with the next collateral type.
  */
 export class CollateralLodgePage extends AccountPage {
+  private scenarioData?: any;
+
   constructor(page: Page) {
     super(page);
   }
 
+  setScenarioData(data: any): void {
+    this.scenarioData = data;
+  }
+
+  private getData(key: string, fallback: string): string {
+    return (this.scenarioData?.[key] ?? fallback) as string;
+  }
 
   private async fillByAnyLabelSafe(labels: string[], value: string): Promise<boolean> {
     for (const label of labels) {
@@ -31,7 +40,47 @@ export class CollateralLodgePage extends AccountPage {
   }
 
   private async selectByLabel(label: string, option: string, nth = 0): Promise<boolean> {
-    return this.selectOptionByLabel(label, option);
+    if (await this.selectOptionByLabel(label, option)) return true;
+
+    const finwFrame = this.getFinwFrame();
+    const selects = finwFrame.locator('select:visible');
+    const count = await selects.count();
+    const lblKey = label.toLowerCase();
+    const matched: any[] = [];
+    for (let i = 0; i < count; i++) {
+      const sel = selects.nth(i);
+      if (await sel.isDisabled().catch(() => true)) continue;
+      const meta = await sel.evaluate(el => {
+        const s = el as HTMLSelectElement;
+        const row = el.closest('tr');
+        return { id: s.id, near: (row?.innerText || '').toLowerCase() };
+      }).catch(() => ({ id: '', near: '' }));
+      if (meta.near.includes(lblKey) || (meta.id || '').toLowerCase().includes(lblKey.replace(/\s/g, ''))) {
+        matched.push(sel);
+      }
+    }
+    if (matched.length === 0) return false;
+    const target = matched[Math.min(nth, matched.length - 1)];
+    const opts = await target.locator('option').allTextContents();
+    const kw = option.toLowerCase();
+    const match =
+      opts.find((o: string) => o.toLowerCase() === kw) ||
+      opts.find((o: string) => o.toLowerCase().startsWith(kw + ' -')) ||
+      opts.find((o: string) => o.toLowerCase().includes(kw));
+    if (!match) return false;
+    try {
+      await target.selectOption({ label: match }, { timeout: 8000 });
+      console.log(`Selected '${match}' for '${label}' via dropdown scan`);
+      return true;
+    } catch {
+      try {
+        await target.selectOption(match.split('-')[0].trim(), { timeout: 8000 });
+        console.log(`Selected '${match}' for '${label}' by option value`);
+        return true;
+      } catch {
+        return false;
+      }
+    }
   }
 
   private async setNatureOfCharge(keyword: string): Promise<void> {
@@ -109,9 +158,13 @@ export class CollateralLodgePage extends AccountPage {
   }
 
   private async hclmStart(type: string) {
+    const typeAliases: Record<string, string> = {
+      'Transactional Accounts': 'Transaction accounts',
+    };
+    const selectedType = typeAliases[type] ?? type;
     await this.invokeHclmMenu();
     await this.selectCollateralDropdown('Lodge');
-    await this.selectCollateralDropdown(type);
+    await this.selectCollateralDropdown(selectedType);
     await this.clickGo();
     await this.page.waitForTimeout(3000);
     await this.visitLoanTab('General', 'general');
@@ -147,8 +200,16 @@ export class CollateralLodgePage extends AccountPage {
   private async captureResult(type: string): Promise<LodgeResult> {
     await this.acceptWarningPopup(2);
     await this.logScreenMessages();
-    const collateralId = await this.getGeneratedCollateralId();
-    const statusMessage = await this.getStatusMessage();
+
+    // submitForm/clickOkButton stores the pre-OK confirmation text; it is the
+    // most reliable source because Finacle removes the message after OK is pressed.
+    const statusMessage = this.capturedPopupMessage ?? await this.getStatusMessage();
+    let collateralId = await this.getGeneratedCollateralId();
+
+    if (!collateralId && statusMessage) {
+      const match = statusMessage.match(/collateral\s*id\s*[-=:]?\s*([A-Z]{2,}\d{2,})/i);
+      if (match) collateralId = match[1].trim();
+    }
 
     if (!collateralId) {
       return {
@@ -176,7 +237,7 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Deposits';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('CBLT1BMD', '500');
+      await this.setGeneralBase(this.getData('collateralCode', 'CBLT1BMD'), this.getData('ceilingLimit', '500'));
       await this.visitLoanTab('Particulars', 'particulars', 'Full Benefit');
       await this.logVisibleFields('Deposit Particulars tab');
       const today = await getApplicationDate(this.page);
@@ -184,8 +245,8 @@ export class CollateralLodgePage extends AccountPage {
         lodgedDate: today,
         reviewDate: today,
         receivedDate: today,
-        depositAccountId: '9200000614',
-        fullBenefit: 'no',
+        depositAccountId: this.getData('depositAccountId', '9200000614'),
+        fullBenefit: this.getData('fullBenefit', 'no'),
       });
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -198,31 +259,33 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Immovable Property';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('DBLD1BMD', '500');
-      await this.fillByAnyLabelSafe(['Margin Pct', 'Margin %', 'Margin Percent'], '100');
+      await this.setGeneralBase(this.getData('collateralCode', 'DBLD1BMD'), this.getData('ceilingLimit', '500'));
+      await this.fillByAnyLabelSafe(['Margin Pct', 'Margin %', 'Margin Percent'], this.getData('marginPct', '100'));
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Immovable Property Particulars tab');
       const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
-      await this.selectByLabel('Nature of Charge', 'Immovable Property');
+      await this.setNatureOfCharge(this.getData('natureOfCharge', 'Immovable Property'));
+      const assessedValue = this.getData('assessedValue', '1000');
       await this.fillCollateralImmovablePropertyParticulars({
-        deriveValue: 'Assessed',
-        assessedValue: '1000',
-        propertyDocumentNo: '1234567890',
-        addressLine1: 'MAPLE AVENUE',
+        deriveValue: this.getData('deriveValue', 'Assessed'),
+        assessedValue,
+        collateralValue: this.getData('collateralValue', assessedValue),
+        propertyDocumentNo: this.getData('propertyDocumentNo', '1234567890'),
+        addressLine1: this.getData('addressLine1', 'MAPLE AVENUE'),
       });
       await this.validateHclm();
 
       await this.visitLoanTab('Insurance', 'insurance', 'Insurance Type');
       await this.logVisibleFields('Immovable Property Insurance tab');
       await this.fillCollateralInsuranceTab({
-        insuranceType: '999',
-        policyNo: 'POL001',
-        policyAmt: '500',
-        premiumAmt: '500',
-        frequency: 'Monthly',
+        insuranceType: this.getData('insuranceType', '999'),
+        policyNo: this.getData('insurancePolicyNo', 'POL001'),
+        policyAmt: this.getData('insurancePolicyAmt', '500'),
+        premiumAmt: this.getData('insurancePremiumAmt', '500'),
+        frequency: this.getData('insuranceFrequency', 'Monthly'),
       });
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -235,30 +298,31 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Vehicle';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('NVEH1BMD', '500');
+      await this.setGeneralBase(this.getData('collateralCode', 'NVEH1BMD'), this.getData('ceilingLimit', '500'));
+      await this.fillByAnyLabelSafe(['Debit Account Fee', 'Debit A/c Fee', 'Debit A/c. for Fees', 'Debit Fee Account'], this.getData('debitAccountFee', '9200000603'));
       await this.validateHclm();
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Vehicle Particulars tab');
       const today = await getApplicationDate(this.page);
-      const vehicleValue = '1000'; // policy amount equals the collateral value
+      const vehicleValue = this.getData('vehicleValue', '1000');
+      const assessedValue = this.getData('assessedValue', vehicleValue);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
-      await this.setNatureOfCharge('Motor Vehicles');
-      // Step 7: From Derive Value = Assessed value before entering assessed/collateral values.
-      await this.selectByLabel('From Derive Value', 'A - Assessed value');
-      await this.fillByAnyLabelSafe(['Assessed Value', 'Assessed Amt', 'Assessed Amount'], vehicleValue);
+      await this.setNatureOfCharge(this.getData('natureOfCharge', 'Motor Vehicles'));
+      await this.selectByLabel('From Derive Value', this.getData('deriveValue', 'A - Assessed value'));
+      await this.setTextByCandidates(['assessedValue', 'clpar.assessedValue', 'clpar.assessedValue_ui', 'assessedValue_ui', 'assessedAmt'], assessedValue, 'Assessed Value');
       await this.setVehicleCollateralValue(vehicleValue);
-      await this.fillByAnyLabelSafe(['Engine Number', 'Engine No', 'Engine No.'], 'ENG123456');
-      await this.fillByAnyLabelSafe(['Chassis Number', 'Chassis No', 'Chassis No.'], 'CHS123456');
+      await this.fillByAnyLabelSafe(['Engine Number', 'Engine No', 'Engine No.'], this.getData('engineNumber', 'ENG123456'));
+      await this.fillByAnyLabelSafe(['Chassis Number', 'Chassis No', 'Chassis No.'], this.getData('chassisNumber', 'CHS123456'));
       await this.validateHclm();
 
       await this.visitLoanTab('Insurance', 'insurance', 'Insurance Type');
       await this.logVisibleFields('Vehicle Insurance tab');
       await this.fillCollateralInsuranceTab({
-        insuranceType: '007',
-        policyNo: '101',
-        policyAmt: vehicleValue,
-        frequency: 'Monthly',
+        insuranceType: this.getData('insuranceType', '007'),
+        policyNo: this.getData('insurancePolicyNo', '101'),
+        policyAmt: this.getData('insurancePolicyAmt', vehicleValue),
+        frequency: this.getData('insuranceFrequency', 'Monthly'),
       });
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -271,13 +335,14 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Others';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('OTH01BMD', '500');
+      await this.setGeneralBase(this.getData('collateralCode', 'OTH01BMD'), this.getData('ceilingLimit', '500'));
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Others Particulars tab');
       const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
-      await this.fillByAnyLabelSafe(['Collateral Value', 'Collateral Amt', 'Collateral Amount', 'Value'], '1000');
+      const othersValue = this.getData('collateralValue', '1000');
+      await this.setTextByCandidates(['coltrlValue', 'clpar.coltrlValue', 'collateralValue', 'clpar.collateralValue'], othersValue, 'Collateral Value');
       await this.validateHclm();
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -290,19 +355,19 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Life Insurance';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('MLPY1BMD', '500');
-      await this.fillByAnyLabelSafe(['Debit Account Fee', 'Debit A/c Fee', 'Debit Fee Account'], '9200000603');
+      await this.setGeneralBase(this.getData('collateralCode', 'MLPY1BMD'), this.getData('ceilingLimit', '500'));
+      await this.fillByAnyLabelSafe(['Debit Account Fee', 'Debit A/c Fee', 'Debit Fee Account'], this.getData('debitAccountFee', '9200000603'));
 
       await this.visitLoanTab('Particulars', 'particulars');
       await this.logVisibleFields('Life Insurance Particulars tab');
       const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
-      await this.fillByAnyLabelSafe(['Last Premium Date', 'Date of Last Premium'], today);
+      await this.setTextByCandidates(['lastPrmPaidDate_ui', 'lastPrmPaidDate', 'clpar.lastPrmPaidDate', 'clpar.lastPrmPaidDate_ui', 'lastPremDate_ui', 'lastPremDate', 'clpar.lastPremDate', 'dateOfLastPremium'], today, 'Last Premium Date');
       await this.fillCollateralLifeInsuranceParticulars({
-        policyNo: '001',
-        policyAmt: '500',
-        frequencyForStatement: 'Monthly',
-        surrenderValue: '10000',
+        policyNo: this.getData('policyNo', '001'),
+        policyAmt: this.getData('policyAmt', '500'),
+        frequencyForStatement: this.getData('frequencyForStatement', 'Monthly'),
+        surrenderValue: this.getData('surrenderValue', '10000'),
       });
       await this.validateHclm();
       return await this.submitAndCapture(type);
@@ -316,19 +381,28 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Guarantee';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('GOVG1BMD', '500');
-      await this.selectByLabel('Collateral Group', 'Oth');
-      await this.fillByAnyLabelSafe(['Debit Account Fee', 'Debit A/c Fee', 'Debit Fee Account'], '9200000603');
+      await this.setGeneralBase(this.getData('collateralCode', 'GOVG1BMD'), this.getData('ceilingLimit', '500'));
+      await this.setTextByCandidates(
+        ['coltrlGroup', 'clgen.coltrlGroup'],
+        this.getData('collateralGroup', 'Oth'),
+        'Collateral Group'
+      );
+      await this.fillByAnyLabelSafe(['Debit Account Fee', 'Debit A/c Fee', 'Debit Fee Account'], this.getData('debitAccountFee', '9200000603'));
 
       await this.visitLoanTab('Particulars', 'particulars', 'Guarantor Name');
       await this.logVisibleFields('Guarantee Particulars tab');
       const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today });
-      await this.setGuaranteeGuarantorTypePersonal();
-      await this.fillByLabel('Guarantor ID', DEFAULT_CUSTOMER.cifCode);
-      await this.selectGuaranteeType('G002');
-      await this.fillByLabel('Collateral Value', '500');
-      await this.fillByAnyLabelSafe(['Address Line 1', 'Address', 'Address1'], 'MAPLE AVENUE');
+      await this.setGuaranteeGuarantorTypePersonal().catch(() => console.log('Guarantor Type Personal selector not available, skipping'));
+      const guarantorId = this.getData('guarantorId', DEFAULT_CUSTOMER.cifCode);
+      const guarantorFilled = await this.fillByAnyLabelSafe(['Guarantor ID', 'Guarantor'], guarantorId);
+      if (!guarantorFilled) {
+        await this.setTextByCandidates(['guarantorId', 'clpar.guarantorId', 'guarantor'], guarantorId, 'Guarantor ID');
+      }
+      await this.selectGuaranteeType(this.getData('guaranteeType', 'G002'));
+      const guaranteeValue = this.getData('collateralValue', '500');
+      await this.setTextByCandidates(['coltrlValue', 'clpar.coltrlValue', 'collateralValue'], guaranteeValue, 'Collateral Value');
+      await this.fillByAnyLabelSafe(['Address Line 1', 'Address', 'Address1'], this.getData('addressLine1', 'MAPLE AVENUE'));
       await this.validateHclm();
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -340,41 +414,32 @@ export class CollateralLodgePage extends AccountPage {
   async lodgeTransactionalAccountsCollateral(): Promise<LodgeResult> {
     const type = 'Transactional Accounts';
     try {
-      // Steps 1-3: Invoke HCLM, select function Lodge, choose Transactional Accounts, click Go.
-      await this.invokeHclmMenu();
-      await this.selectCollateralDropdown('Lodge');
-      await this.selectOptionByLabel('Type', 'Transaction Accounts');
-      await this.clickGo();
-      await this.page.waitForTimeout(3000);
-      await this.visitLoanTab('General', 'general');
-      await this.logVisibleFields(`HCLM General tab - ${type}`);
+      await this.hclmStart(type);
 
-      // Step 4: General tab - Collateral code, Ceiling limit, Status Normal.
-      // Fill directly to avoid the collateral code lookup popup, which closes the page.
-      const code = 'CBLC1BMD';
-      await this.fillByAnyLabelSafe(['Collateral Code', 'Code', 'coltrlCode'], code);
-      await this.setTextByCandidates(['coltrlCodeDesc', 'clgen.coltrlCodeDesc'], code, 'Collateral Code Desc');
-      await this.fillByAnyLabelSafe(['Ceiling Limit', 'Ceiling Limit per Linkage', 'Ceiling Lmt'], '500');
+      // Step 4: General tab
+      await this.setCollateralCode(this.getData('collateralCode', 'CBLC1BMD'));
+      await this.setCeilingLimitPerLinkage(this.getData('ceilingLimit', '500'));
       await this.setCollateralStatus('Normal');
-      // Step 5: Validate and move to Particulars tab.
+      await this.page.waitForTimeout(2000);
+
+      // Step 5: Validate and move to Particulars
       await this.validateHclm();
 
       await this.visitLoanTab('Particulars', 'particulars', 'A/c. ID');
       await this.logVisibleFields('Transactional Accounts Particulars tab');
 
-      // Step 6: Lodged and Review Date.
       const today = await getApplicationDate(this.page);
-      await this.setTextByCandidates(['lodgedDate_ui', 'lodgedDate'], today, 'Lodged Date');
-      await this.setTextByCandidates(['reviewDate_ui', 'reviewDate'], today, 'Review Date');
-
-      // Step 7: Account number with Balance.
-      await this.setTextByCandidates(
-        ['depAcctId', 'acctId', 'acid', 'acId', 'foracid', 'depositForacid', 'depositAccountId', 'depositAcctId', 'depositAcctNo', 'linkedDepositId'],
-        '6000269620',
-        'Account Number with Balance'
+      const accountNumber = this.getData('accountNumberWithBalance', '6000269620');
+      await this.fillCollateralParticulars({ lodgedDate: today, reviewDate: today });
+      const accountFilled = await this.fillByAnyLabelSafe(
+        ['A/c. ID', 'A/c ID', 'A/c. No', 'Account ID', 'Account No', 'Account Number', 'Account Number with Balance'],
+        accountNumber
       );
+      if (!accountFilled) {
+        await this.enterHacmAccountId(accountNumber);
+      }
+      await this.page.waitForTimeout(2000);
 
-      // Step 8: Validate and Submit.
       await this.validateHclm();
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -387,18 +452,15 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Inventory';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('LTSK1BMD', '500');
+      await this.setGeneralBase(this.getData('collateralCode', 'LTSK1BMD'), this.getData('ceilingLimit', '500'));
       // Inventory's Collateral Group is a free-text code field, not a dropdown.
-      await this.setTextByCandidates(['coltrlGroup', 'clgen.coltrlGroup', 'coltrlGroupDesc'], 'DEMAT', 'Collateral Group');
+      await this.setTextByCandidates(['coltrlGroup', 'clgen.coltrlGroup', 'coltrlGroupDesc'], this.getData('collateralGroup', 'DEMAT'), 'Collateral Group');
 
       // Step 5: Validate General tab, then open Net Value tab.
       await this.validateHclm();
       await this.visitLoanTab('Net Value', 'netvalue', 'Gross value');
       await this.logVisibleFields('Inventory Netvalue tab');
-      const grossFilled = await this.fillByAnyLabelSafe(['Gross value', 'Gross Value', 'Gross Amt', 'Gross Amount', 'Gross'], '100');
-      if (!grossFilled) {
-        await this.setTextByCandidates(['grossValue', 'grossAmt', 'grossAmount', 'clpar.grossValue', 'clgen.grossValue'], '100', 'Gross value');
-      }
+      await this.setTextByCandidates(['grossValue', 'grossAmt', 'grossAmount', 'clpar.grossValue', 'clgen.grossValue'], this.getData('grossValue', '100'), 'Gross value');
 
       // Step 6-8: Go to Particulars, enter dates, frequency, then Validate and Submit.
       await this.visitLoanTab('Particulars', 'particulars', 'Frequency for Statement');
@@ -406,11 +468,11 @@ export class CollateralLodgePage extends AccountPage {
       const today = await getApplicationDate(this.page);
       await this.fillCollateralParticulars({ lodgedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
-      await this.selectByLabel('Frequency for Statement', 'Monthly', 0);
-      await this.selectByLabel('Week', 'First Week', 1);
-      await this.selectByLabel('Day', 'Monday', 2);
+      await this.selectByLabel('Frequency for Statement', this.getData('frequencyForStatement', 'Monthly'), 0);
+      await this.selectByLabel('Week', this.getData('week', 'First Week'), 1);
+      await this.selectByLabel('Day', this.getData('day', 'Monday'), 2);
       // Date dropdown must remain on its 'Date' placeholder; do not change it.
-      await this.selectByLabel('Holiday', 'Next Day', 4);
+      await this.selectByLabel('Holiday', this.getData('holiday', 'Next Day'), 4);
       await this.validateHclm();
       return await this.submitAndCapture(type);
     } catch (e: any) {
@@ -423,8 +485,12 @@ export class CollateralLodgePage extends AccountPage {
     const type = 'Mutual Fund';
     try {
       await this.hclmStart(type);
-      await this.setGeneralBase('MUFD1BMD', '500');
-      await this.selectByLabel('Collateral Group', 'OTH');
+      await this.setGeneralBase(this.getData('collateralCode', 'MUFD1BMD'), this.getData('ceilingLimit', '500'));
+      await this.setTextByCandidates(
+        ['coltrlGroup', 'clgen.coltrlGroup'],
+        this.getData('collateralGroup', 'OTH'),
+        'Collateral Group'
+      );
 
       await this.visitLoanTab('Particulars', 'particulars', 'No. of Units');
       await this.logVisibleFields('Mutual Fund Particulars tab');
@@ -432,9 +498,9 @@ export class CollateralLodgePage extends AccountPage {
       await this.fillCollateralParticulars({ lodgedDate: today, receivedDate: today, reviewDate: today });
       await this.setCollateralDueDate(today);
       await this.addCollateralDistinctiveRow({
-        fromDistinctiveNo: '170',
-        toDistinctiveNo: '171',
-        units: '20000',
+        fromDistinctiveNo: this.getData('fromDistinctiveNo', '170'),
+        toDistinctiveNo: this.getData('toDistinctiveNo', '171'),
+        units: this.getData('units', '20000'),
         skipAdd: true,
       });
       await this.validateHclm();

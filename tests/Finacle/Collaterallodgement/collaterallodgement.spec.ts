@@ -3,6 +3,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { CollateralLodgePage } from '../../pages/CoreBanking/CollateralLodgePage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 import { readFirstTermDepositAccount, resetCollateralIds, recordCollateralId } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.credentials.username;
@@ -21,23 +22,32 @@ test('HCLM - lodge all collateral types sequentially and capture all IDs', async
   test.setTimeout(1200000);
   resetCollateralIds();
 
-  const lodgeMethods = [
-    'lodgeMutualFundCollateral',
-    'lodgeVehicleCollateral',
-    'lodgeGuaranteeCollateral',
-    'lodgeDepositsCollateral',
-    'lodgeImmovablePropertyCollateral',
-    'lodgeOthersCollateral',
-    'lodgeLifeInsuranceCollateral',
-    'lodgeTransactionalAccountsCollateral',
-    'lodgeInventoryCollateral',
-   
-  ] as const;
-
   const results: any[] = [];
 
-  for (const method of lodgeMethods) {
-    console.log(`\n>>> Invoking HCLM: ${method}`);
+  // Derive the page method from the collateral type so adding new types in
+  // the workbook does not require a hard-coded map.
+  function getLodgeMethod(type: string): string | undefined {
+    const pascal = String(type)
+      .split(/[\s-]+/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join('');
+    const method = `lodge${pascal}Collateral`;
+    return typeof (collateralPage as any)[method] === 'function' ? method : undefined;
+  }
+
+  const scenarios = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData.filter(
+    (r) => r.flowName === 'collaterallodgement' && String(r.enabled).toUpperCase() !== 'N'
+  );
+
+  for (const scenario of scenarios) {
+    const type = scenario.data?.collateralType || scenario.name;
+    const method = getLodgeMethod(type);
+    if (!method) {
+      console.log(`No lodge method for collateral type '${type}' — skipping`);
+      continue;
+    }
+    collateralPage.setScenarioData(scenario.data ?? {});
+    console.log(`\n>>> Invoking HCLM: ${method} (scenario: ${scenario.name ?? 'defaults'})`);
     const result = await (collateralPage as any)[method]();
     results.push(result);
 
@@ -68,6 +78,11 @@ test('HCLM - lodge all collateral types sequentially and capture all IDs', async
     failureDetails,
     `One or more collateral lodgements failed: ${JSON.stringify(failureDetails)}`
   ).toEqual([]);
+
+  // Strict success message assertion for every processed collateral row.
+  for (const r of results) {
+    expect(r.statusMessage, `Expected a success message for ${r.type}`).toMatch(/(record lodged|successfully)/i);
+  }
 
   await homePage.logout();
 });

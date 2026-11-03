@@ -4,7 +4,8 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId } from '../../helpers/sharedState';
+import { readFirstCollateralRecord } from '../../helpers/sharedState';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 
 // Collateral modification verification (HCLM) MUST be performed by a DIFFERENT
 // user than the maker who modified the collateral in
@@ -12,10 +13,15 @@ import { readLatestCollateralId } from '../../helpers/sharedState';
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
-// Collateral ID to verify. Prefer the id persisted by the lodgement spec; fall
-// back to this constant when no persisted id is available.
-const FALLBACK_COLLATERAL_ID = 'RBU3532';
-const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+// Load the selected Excel scenario. The runner injects the FlowConfig-chosen
+// instance via STEP_DATA; this also works with a direct Excel fallback.
+const scenario = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData[0]?.data ?? {};
+
+// Collateral to verify. Prefer the record persisted by the previous specs;
+// the Excel sheet can also override with an existing id and type.
+const latestRecord = readFirstCollateralRecord();
+const COLLATERAL_ID = latestRecord?.id ?? scenario.collateralId;
+const COLLATERAL_TYPE = latestRecord?.type ?? scenario.collateralType;
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -44,9 +50,9 @@ test('HCLM - verify modified collateral', async ({ page }) => {
 
   // Step 3: Function - V-Verify, Type - Deposits, enter the Collateral ID and
   // click the search button so the unverified (modified) record is loaded, Go.
-  console.log('Selecting Function (Verify) and Type (Deposits)...');
+  console.log(`Selecting Function (Verify) and Type (${COLLATERAL_TYPE})...`);
   await collateralPage.selectCollateralDropdown('Verify');
-  await collateralPage.selectCollateralDropdown('Deposits');
+  await collateralPage.selectCollateralDropdown(COLLATERAL_TYPE);
 
   console.log(`Entering Collateral ID: ${COLLATERAL_ID}...`);
   await collateralPage.setCollateralId(COLLATERAL_ID);
@@ -55,35 +61,48 @@ test('HCLM - verify modified collateral', async ({ page }) => {
   await collateralPage.clickGo();
   await page.waitForTimeout(3000);
 
-  // Step 4: Verify General details tab.
-  console.log('Visiting General details tab...');
-  await collateralPage.visitLoanTab('General', 'general');
-
-  // Step 4: Verify Particulars tab.
-  console.log('Visiting Particulars tab...');
-  await collateralPage.visitLoanTab('Particulars', 'particulars');
-
-  // Step 5: Click Submit - "Record verified successfully".
+  // Step 4: Submit, then react to any "Visit <tab> information" prompt by
+  // opening the requested tab and re-submitting.
   console.log('Clicking Submit button...');
   await collateralPage.submitForm();
 
-  // Dismiss any Warning & Exception popup raised on submit.
-  await collateralPage.acceptWarningPopup();
+  let successText = '';
+  let statusMessage: string | null = '';
+  const visitedTabs = new Set<string>();
 
-  // Surface the on-screen verification message.
-  await collateralPage.logScreenMessages();
-  const statusMessage = await collateralPage.getStatusMessage();
-  console.log('Exact status message:', statusMessage);
-  expect(statusMessage).toBeTruthy();
-  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
-  console.log('Verification status message:', statusMessage);
-  expect(statusMessage).toBeTruthy();
-  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+  for (let attempt = 0; attempt < 8; attempt++) {
+    // Dismiss any warning/exception popup raised on submit.
+    await collateralPage.acceptWarningPopup(2);
 
-  // Assert the collateral modification was verified successfully.
-  // getStatusMessage() can be null on this screen, so fall back to scanning
-  // every frame's body text for the Finacle success message before dismissal.
-  let successText = statusMessage ?? '';
+    // Surface the on-screen verification message.
+    await collateralPage.logScreenMessages();
+    statusMessage = await collateralPage.getStatusMessage();
+    console.log('Verification status message:', statusMessage);
+    successText = statusMessage ?? '';
+
+    const visitPattern = /visit\s+([\w\s]+?)\s+(?:information|tab|details|section)/gi;
+    const requestedTabs: string[] = [];
+    for (const match of successText.matchAll(visitPattern)) {
+      const tab = match[1].trim().replace(/\b\w/g, (c) => c.toUpperCase());
+      if (!visitedTabs.has(tab.toLowerCase())) {
+        requestedTabs.push(tab);
+      }
+    }
+    if (requestedTabs.length > 0) {
+      for (const requestedTab of requestedTabs) {
+        visitedTabs.add(requestedTab.toLowerCase());
+        console.log(`System requested tab: ${requestedTab}. Visiting...`);
+        const tabId = requestedTab.toLowerCase().replace(/\s+/g, '');
+        await collateralPage.visitLoanTab(requestedTab, tabId);
+        await collateralPage.validateHclmTab();
+      }
+
+      console.log('Re-submitting after visiting requested tabs...');
+      await collateralPage.submitForm();
+      continue;
+    }
+    break;
+  }
   if (!/verified successfully/i.test(successText)) {
     for (const frame of page.frames()) {
       const body = (await frame.locator('body').innerText().catch(() => ''))

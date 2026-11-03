@@ -8,11 +8,6 @@ const onlyFilter = onlyIndex !== -1 ? args[onlyIndex + 1] : '';
 
 const RESULTS_DIR = path.resolve('reports', 'allureReports');
 const OUTPUT_DIR = path.resolve('reports');
-const outputName = onlyFilter
-  ? `${onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()} instance 1`
-  : 'currentaccountcreationandmodification';
-const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
-const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
 const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
 const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 
@@ -52,27 +47,9 @@ function getPackageFile(result) {
   return '';
 }
 
-function resolveSuiteName(results, preferredSuite) {
-  let testOrder;
-  try {
-    testOrder = require(TEST_ORDER_FILE);
-  } catch (e) {
-    return preferredSuite || 'Allure';
-  }
-  if (preferredSuite && testOrder[preferredSuite]) return preferredSuite;
-  const resultFiles = new Set(results.map(getPackageFile).filter(Boolean));
-  if (!resultFiles.size) return 'Allure';
-  let best = 'Allure';
-  let bestLen = Infinity;
-  for (const [suiteName, files] of Object.entries(testOrder)) {
-    if (Array.isArray(files) && [...resultFiles].every(f => files.includes(f))) {
-      if (files.length < bestLen) {
-        best = suiteName;
-        bestLen = files.length;
-      }
-    }
-  }
-  if (best !== 'Allure') return best;
+function resolveSuiteName(results) {
+  const resultFiles = [...new Set(results.map(getPackageFile).filter(Boolean))];
+  if (!resultFiles.length) return 'Allure';
   const counts = {};
   for (const f of resultFiles) {
     const pathParts = f.split('/');
@@ -389,12 +366,23 @@ async function main() {
   }
 
   const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
-  const suiteName = resolveSuiteName(results, manifest ? manifest.suite : undefined);
+  const suiteName = resolveSuiteName(results);
+  const resultPackageFiles = [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
+  const resultFileSet = new Set(resultPackageFiles);
   const specFiles = (() => {
-    if (manifest && Array.isArray(manifest.specFiles) && manifest.specFiles.length) return manifest.specFiles;
-    if (testOrder && Array.isArray(testOrder[suiteName])) return testOrder[suiteName];
-    return [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
+    if (manifest && Array.isArray(manifest.specFiles) && manifest.specFiles.length) {
+      const manifestSet = new Set(manifest.specFiles);
+      if (manifestSet.size === resultFileSet.size && [...manifestSet].every(f => resultFileSet.has(f))) {
+        return manifest.specFiles;
+      }
+    }
+    return resultPackageFiles;
   })();
+  const outputName = onlyFilter
+    ? `${onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()} instance 1`
+    : suiteName;
+  const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
+  const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
   const testsHtml = results.map(renderTest).join('');
   const dashboardHtml = renderDashboard(results, suiteName, specFiles);
   const pageTitle = `${suiteName} Test Report (PDF)`;

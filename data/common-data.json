@@ -8,11 +8,15 @@
     "password": "Infy@123"
   },
   "thirdCredentials": {
-    "username": "FINACLETEST1",
+    "username": "FINACLE-TEST13",
     "password": "Infy@123"
   },
   "verifierCredentials": {
     "username": "finacletest14",
+    "password": "Infy@123"
+  },
+  "savingsModificationCredentials": {
+    "username": "finacletest5",
     "password": "Infy@123"
   },
   "defaultCustomer": {
