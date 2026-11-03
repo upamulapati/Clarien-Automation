@@ -1,19 +1,23 @@
 {
   "credentials": {
     "username": "finacletest13",
-    "password": "clarien@1234"
+    "password": "Infy@123"
   },
   "secondCredentials": {
     "username": "finacletest14",
-    "password": "clarien@1234"
+    "password": "Infy@123"
   },
   "thirdCredentials": {
     "username": "FINACLE-TEST13",
-    "password": "clarien@1234"
+    "password": "Infy@123"
   },
   "verifierCredentials": {
     "username": "finacletest14",
-    "password": "clarien@1234"
+    "password": "Infy@123"
+  },
+  "savingsModificationCredentials": {
+    "username": "finacletest5",
+    "password": "Infy@123"
   },
   "defaultCustomer": {
     "functionOption": "O",

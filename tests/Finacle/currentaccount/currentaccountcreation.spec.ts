@@ -10,8 +10,7 @@ import { writeFileSync } from 'fs';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // is fully data-driven from the CurrentAccountData sheet in test-data.xlsx.
-const USERNAME = 'finacletest5';
-const PASSWORD = CREDENTIALS.credentials.password;
+const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
 
 const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
@@ -20,7 +19,8 @@ let activeGroup: { main: any; related: any[] } | null = null;
 
 for (const entry of CURRENT_ACCOUNT_DATA) {
   const row = entry.data ?? entry;
-  const sheet = String(row.Sheet || '').trim().toLowerCase();
+  const sheetVal = row['Sheet Type'] ?? row.Sheet ?? '';
+  const sheet = String(sheetVal).trim().toLowerCase();
   const isRelated = sheet === 'related party' || sheet === 'relatedparty';
 
   if (isRelated) {
@@ -74,7 +74,7 @@ function generateValidationReport(data: any, tabs: any[]): string {
       .replace(/[^a-z0-9]/g, '');
 
   const dataKeys = Object.keys(data).filter(
-    (k) => data[k] != null && String(data[k]).trim() !== '' && !['Sheet', 'instance', 'enabled'].includes(k)
+    (k) => data[k] != null && String(data[k]).trim() !== '' && !['Sheet', 'Sheet Type', 'instance', 'enabled', 'Add related parties', 'Add Related Parties'].includes(k)
   );
   const usedKeys = new Set<string>();
   let report = '# HOAACCA Field Validation Report\n\n';
@@ -159,7 +159,8 @@ for (const scenario of SCENARIOS) {
       await currentAccountPage.searchMenu(CURRENT_ACCOUNT_MENU);
 
       console.log(`Creating current account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
-      await currentAccountPage.createCurrentAccount(scenario.data as any);
+      console.log(`Related party rows for this account: ${scenario.relatedParties?.length || 0}`);
+      await currentAccountPage.createCurrentAccount(scenario.data as any, scenario.relatedParties || []);
 
       const tabReports = await currentAccountPage.getTabReports();
       const report = generateValidationReport(scenario.data, tabReports);
@@ -181,9 +182,9 @@ for (const scenario of SCENARIOS) {
       expect(result.accountNumber).toBeTruthy();
 
       const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
-      writeSharedState({ accountId: result.accountNumber });
+      writeSharedState({ accountId: result.accountNumber || undefined });
       updateSharedState((state) => {
-        state.accountId = result.accountNumber;
+        state.accountId = result.accountNumber || undefined;
         if (!state.currentAccounts) state.currentAccounts = {};
         state.currentAccounts[scenario.name] = result.accountNumber ?? '';
         if (instanceKey) state.currentAccounts[instanceKey] = result.accountNumber ?? '';

@@ -195,6 +195,18 @@ export function readCollateralRecords(): { type: string; id: string }[] {
   return state.collateralRecords ?? [];
 }
 
+// The collateral records are pushed in worksheet order, but each new record is
+// unshifted to the front, so the first-created (worksheet row 1) record is at
+// the end of the array.
+export function readFirstCollateralRecord(): { type: string; id: string } | undefined {
+  const records = readCollateralRecords();
+  return records[records.length - 1];
+}
+
+export function readFirstCollateralId(): string | undefined {
+  return readFirstCollateralRecord()?.id;
+}
+
 // ----------------------------------------------------------------------
 // Transaction ID helpers
 // ----------------------------------------------------------------------

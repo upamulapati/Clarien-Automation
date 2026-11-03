@@ -4,20 +4,28 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId } from '../../helpers/sharedState';
+import { readFirstCollateralId, readFirstCollateralRecord } from '../../helpers/sharedState';
 import { getApplicationDateOffset } from '../../helpers/common';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 
 // Collateral modification (HCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Collateral ID to modify. Prefer the id persisted by collaterallodgment.spec.ts;
-// fall back to this constant when no persisted id is available.
-const FALLBACK_COLLATERAL_ID = 'RBU3532';
-const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+// Load the selected Excel scenario. The runner injects the FlowConfig-chosen
+// instance via STEP_DATA; this also works with a direct Excel fallback.
+const scenario = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData[0]?.data ?? {};
+
+// Collateral ID to modify. Prefer the id persisted by previous specs;
+// the Excel sheet can also override with an existing id.
+const COLLATERAL_ID = scenario.collateralId || readFirstCollateralId();
+
+// Collateral type to modify. Prefer the Excel scenario, then the first record.
+const firstRecord = readFirstCollateralRecord();
+const COLLATERAL_TYPE = scenario.collateralType || firstRecord?.type || 'Deposits';
 
 // New Ceiling Limit per Linkage value applied on the General tab.
-const NEW_CEILING_LIMIT = '600';
+const NEW_CEILING_LIMIT = scenario.newCeilingLimit;
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -47,7 +55,7 @@ test('HCLM - modify lodged collateral', async ({ page }) => {
   // Step 3: Function - Modify, Type - Deposits, enter the Collateral ID, then Go.
   console.log('Selecting Function (Modify) and Type (Deposits)...');
   await collateralPage.selectCollateralDropdown('Modify');
-  await collateralPage.selectCollateralDropdown('Deposits');
+  await collateralPage.selectCollateralDropdown(COLLATERAL_TYPE);
 
   console.log(`Entering Collateral ID: ${COLLATERAL_ID}...`);
   await collateralPage.setCollateralId(COLLATERAL_ID);

@@ -7,6 +7,7 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { getSharedValue } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
+import { CREDENTIALS } from '../../../data/credentials';
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');
 const SHEET_NAME = 'SavingsAccountModifyData';
@@ -181,14 +182,13 @@ const FIELD_OVERRIDES: Record<string, string> = {
   externalSystemPricingFor: 'Others',
   'Relation Code': 'Related Party',
   'Designation Code': 'Related Party',
-  'Print Statement': 'Related Party',
-  'Print Advice for Standing Instruction': 'Related Party',
-  'Print Deposit Notice': 'Related Party',
-  'Print Loan Notice': 'Related Party',
-  'Interest Certificate': 'Related Party',
-  'Interest Rate Change Advice': 'Related Party',
-  'Limit Level Interest': 'Account Limits',
-};
+  'Print Statement': 'Others',
+  'Print Advice for Standing Instruction': 'Others',
+  'Print Deposit Notice': 'Others',
+  'Print Loan Notice': 'Others',
+  'Interest Certificate': 'Others',
+  'Interest Rate Change Advice': 'Others',
+  };
 
 const FIELD_LABEL_ALIASES: Record<string, string[]> = {
   'A/c Name': ['A/c. Name', 'Account Name', 'A/c. Short Name'],
@@ -223,6 +223,9 @@ const FIELD_LABEL_ALIASES: Record<string, string[]> = {
   debitCompoundingRestIndicator: ['Debit Compounding Rest Indicator'],
   creditCompoundingRestIndicator: ['Credit Compounding Rest Indicator'],
   interestMethodDr: ['Interest Method (Dr.)'],
+  accountMinBalanceIndicator: ['A/c. Min. Balance Indicator', 'Account Min. Balance Indicator', 'A/c Min. Balance Indicator', 'Min. Balance Indicator', 'MinBalanceIndicator'],
+  accountMinBalance: ['A/c. Min. Balance', 'A/c. Minimum Balance', 'Account Min. Balance', 'Minimum Balance'],
+  schemeExpiryDate: ['Expiry Date', 'Account Expiry Date', 'A/c. Expiry Date'],
 };
 
 const FIELD_CONTROL_INDEX: Record<string, number> = {
@@ -403,7 +406,10 @@ for (const group of SAVINGS_MODIFY_DATA) {
   const createdAccountId = getSharedValue(
     (state) => state.savingsAccounts?.[String(group.main.instance)] ?? state.accountId
   ) as string | undefined;
-  const effectiveAccountId = createdAccountId || group.main.accountId;
+  const effectiveAccountId = (group.main.accountId?.trim() || createdAccountId || '').trim();
+  if (!effectiveAccountId) {
+    throw new Error(`No accountId found for instance ${group.main.instance} in SavingsAccountModifyData or shared state.`);
+  }
   const row = group.main;
   const relatedPartyRows = group.related;
   test.describe(`Savings Account Modification - ${effectiveAccountId}`, () => {
@@ -414,7 +420,7 @@ for (const group of SAVINGS_MODIFY_DATA) {
 
     test.beforeEach(async ({ page }) => {
       test.setTimeout(300000);
-      ({ homePage } = await loginToFinacle(page, 'FINACLETEST1', COMMON_DATA.credentials.password));
+      ({ homePage } = await loginToFinacle(page, CREDENTIALS.credentials.username, CREDENTIALS.credentials.password));
       accountPage = new AccountPage(page);
     });
 
@@ -467,8 +473,22 @@ for (const group of SAVINGS_MODIFY_DATA) {
         }
 
         console.log(`[Tab] ${tab} - ${tabFields.length} field(s)`);
-        if (tab === 'Related Party') {
+        if (tab === 'General Details') {
+          await accountPage.visitGeneralDetailsTab();
+        } else if (tab === 'Interest & Tax') {
+          await accountPage.visitInterestDetailsTab();
+        } else if (tab === 'Scheme') {
+          await accountPage.visitSchemeDetailsTab();
+        } else if (tab === 'Related Party') {
           await accountPage.visitRelatedPartyTab();
+        } else if (tab === 'MIS Codes') {
+          await accountPage.visitMiscodesTab();
+        } else if (tab === 'Addl. Info.') {
+          await accountPage.visitAdditionalInfoTab();
+        } else if (tab === 'Others') {
+          await accountPage.visitOthersTab();
+        } else if (tab === 'Documents') {
+          await accountPage.visitTabById('documentdetails');
         } else {
           await accountPage.visitTab(tab);
         }

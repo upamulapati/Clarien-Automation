@@ -14,9 +14,10 @@ import { captureEvidence } from './evidence';
 export async function loginToFinacle(
   page: Page,
   username: string,
-  password: string
+  password: string,
+  lastDialogMessages?: string[]
 ): Promise<{ loginPage: LoginPage; homePage: HomePage }> {
-  setupDialogHandlers(page);
+  setupDialogHandlers(page, lastDialogMessages);
 
   const loginPage = new LoginPage(page);
   const homePage = new HomePage(page);

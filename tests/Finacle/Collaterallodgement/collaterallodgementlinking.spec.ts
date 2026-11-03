@@ -4,26 +4,28 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId, readLatestLoanAccount } from '../../helpers/sharedState';
+import { readFirstCollateralId, readLatestLoanAccount } from '../../helpers/sharedState';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 
 // Collateral linking (HSCLM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Loan account the collateral is linked to. Use the latest loan account from
-// shared state and fall back to the one created by the retail loan flow.
-const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
+// Load the selected Excel scenario. The runner injects the FlowConfig-chosen
+// instance via STEP_DATA; this also works with a direct Excel fallback.
+const scenario = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData[0]?.data ?? {};
 
-// Collateral ID to link. Prefer the id persisted by the Life Insurance flow in
-// collaterallodgementspvalidations.spec.ts; fall back to this constant when no
-// persisted id is available.
-const FALLBACK_COLLATERAL_ID = 'RBU3533';
-const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+// Loan account the collateral is linked to. Prefer Excel, then shared state.
+const TD_ACCOUNT_ID = scenario.linkAccountId || readLatestLoanAccount();
 
-// Loan To Value percent. Apportioned value is computed at runtime as 10% of
-// the collateral value shown on the linkage screen (fallback below).
-const APPORTIONED_VALUE_FALLBACK = '1100';
-const LOAN_TO_VALUE_PERCENT = '100';
+// Collateral ID to link. Prefer the id persisted by the previous specs;
+// the Excel sheet can also override with an existing id.
+const COLLATERAL_ID = scenario.collateralId || readFirstCollateralId();
+
+// Apportioned value, loan-to-value percent and margin percent are now driven by the same Excel sheet.
+// The Apportioned Value must equal the desired value in Excel; the LTV% is derived from it.
+const APPORTIONED_VALUE = scenario.apportionedValue;
+const LOAN_TO_VALUE_PERCENT = scenario.loanToValuePercent;
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
@@ -73,21 +75,23 @@ test('HSCLM - link collateral to account', async ({ page }) => {
   // Diagnostic: surface the linkage-detail field ids loaded after Accept.
   await collateralPage.logVisibleFields('HSCLM linkage details');
 
-  // Step 4: Apportioned value (10% of collateral value), Nature - Primary,
-  // Loan To Value percent - 100.
+  // Step 4: Enter the Excel-driven Apportioned Value and Nature.
+  // Finacle uses the #apprtndValue input for the amount; Margin% and Loan-To-Value%
+  // are derived by the application from this value on validation.
   const collateralValueText = await collateralPage.getCollateralValue();
   const collateralValue = parseFloat((collateralValueText ?? '').replace(/,/g, ''));
-  const apportionedValue = !isNaN(collateralValue) && collateralValue > 0
-    ? Math.round(collateralValue * 0.1).toString()
-    : APPORTIONED_VALUE_FALLBACK;
-  console.log(`Collateral value: ${collateralValueText}, entering Apportioned Value (10%): ${apportionedValue}...`);
-  await collateralPage.setCollateralApportionedValue(apportionedValue);
+  const apportionedValue = Number(APPORTIONED_VALUE) || collateralValue;
+  const marginPct = !isNaN(collateralValue) && collateralValue > 0
+    ? Math.max(0, Math.min(100, Math.round((apportionedValue / collateralValue) * 100))).toString()
+    : '100';
+  const ltvPercent = (100 - Number(marginPct)).toString();
+  console.log(`Collateral value: ${collateralValueText}, Apportioned value: ${apportionedValue}, derived Margin%: ${marginPct}, derived LTV%: ${ltvPercent}...`);
 
-  console.log('Selecting Nature (Primary)...');
-  await collateralPage.setCollateralNaturePrimary();
+  console.log(`Entering Apportioned Value: ${apportionedValue}...`);
+  await collateralPage.setCollateralApportionedValue(String(apportionedValue));
 
-  console.log(`Entering Loan To Value percent: ${LOAN_TO_VALUE_PERCENT}...`);
-  await collateralPage.setCollateralLoanToValuePercent(LOAN_TO_VALUE_PERCENT);
+  console.log(`Selecting Nature (${scenario.linkageNature})...`);
+  await collateralPage.setCollateralNature(scenario.linkageNature);
 
   // Step 5: Click Validate and Submit; accept any exception popups.
   console.log('Clicking Validate button...');

@@ -63,9 +63,8 @@ test('HCLM - verify all lodged collaterals sequentially', async ({ page }) => {
     await collateralPage.clickGo();
     await page.waitForTimeout(3000);
 
-    // Step 4: Verify General and Particulars tabs.
-    await collateralPage.visitLoanTab('General', 'general');
-    await collateralPage.visitLoanTab('Particulars', 'particulars');
+    // Step 4: Submit the verification. The application will prompt for any required tab visits.
+    console.log('Submitting verification; will respond to any required tab prompts.');
 
     // Step 5: Submit, then react to any "Visit <tab> information" prompt by
     // opening the requested tab and re-submitting. Different collateral types
@@ -103,6 +102,7 @@ test('HCLM - verify all lodged collaterals sequentially', async ({ page }) => {
           console.log(`System requested tab: ${requestedTab}. Visiting...`);
           const tabId = requestedTab.toLowerCase().replace(/\s+/g, '');
           await collateralPage.visitLoanTab(requestedTab, tabId);
+          await collateralPage.validateHclmTab();
         }
 
         console.log('Re-submitting after visiting requested tabs...');

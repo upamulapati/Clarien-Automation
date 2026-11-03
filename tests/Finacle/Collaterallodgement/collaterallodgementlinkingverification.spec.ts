@@ -4,21 +4,25 @@ import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { readLatestCollateralId } from '../../helpers/sharedState';
+import { readFirstCollateralId } from '../../helpers/sharedState';
 import { readLatestLoanAccount } from '../../helpers/sharedState';
+import { COLLATERAL_LODGEMENT_DATA } from '../../config/excelTestData';
 
 // Collateral linking verification (HSCLM) MUST be performed by a DIFFERENT user
 // than the maker who linked the collateral in collaterallodgementlinking.spec.ts.
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.verifierCredentials.password;
 
-// Loan account the collateral was linked to. Use the latest from shared state.
-const TD_ACCOUNT_ID = readLatestLoanAccount() ?? '3200000041';
+// Load the selected Excel scenario. The runner injects the FlowConfig-chosen
+// instance via STEP_DATA; this also works with a direct Excel fallback.
+const scenario = COLLATERAL_LODGEMENT_DATA.collateralLodgementTestData[0]?.data ?? {};
 
-// Collateral ID to verify. Prefer the id persisted by the lodgement spec; fall
-// back to this constant when no persisted id is available.
-const FALLBACK_COLLATERAL_ID = 'RBU3533';
-const COLLATERAL_ID = readLatestCollateralId() ?? FALLBACK_COLLATERAL_ID;
+// Loan account the collateral was linked to. Prefer Excel, then shared state.
+const TD_ACCOUNT_ID = scenario.linkAccountId || readLatestLoanAccount();
+
+// Collateral ID to verify. Prefer the id persisted by the previous specs;
+// the Excel sheet can also override with an existing id.
+const COLLATERAL_ID = scenario.collateralId || readFirstCollateralId();
 
 let homePage: HomePage;
 let collateralPage: AccountPage;
