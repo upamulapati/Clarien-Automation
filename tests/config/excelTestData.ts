@@ -7,6 +7,7 @@ import FLOW7_DATA from '../../data/flow7.json';
 import DEFAULT_HPORDM_DATA from './hpordmTestData.json';
 import DEFAULT_TERM_DEPOSIT_DATA from './termDepositTestData.json';
 import DEFAULT_TOP_UP_DEPOSIT_DATA from './topUpDepositTestData.json';
+import DEFAULT_DEMAND_DRAFT_DATA from './demandDraftTestData.json';
 
 const ROW_KEYS = ['instance', 'flowName', 'name', 'sharedKey', 'menuOption', 'function', 'enabled'];
 
@@ -27,8 +28,10 @@ function extractList(content: any, key: string): any[] {
   if (content == null) return [];
   if (Array.isArray(content)) return content;
   if (content[key] && Array.isArray(content[key])) return content[key];
-  const arr = Object.values(content).find((v: any) => Array.isArray(v));
-  return arr ? (arr as any[]) : [];
+  // Do not fall back to an arbitrary array from the object; that risks
+  // loading the wrong sheet (e.g. a stale flow-step-data.json) when the
+  // requested key is missing.
+  return [];
 }
 
 function normalizeRow(row: any, defaults: Record<string, any> = {}): any {
@@ -129,7 +132,8 @@ function loadSection(
 ): any[] {
   if (envVar && fs.existsSync(envVar)) {
     const content = JSON.parse(fs.readFileSync(envVar, 'utf8'));
-    return normalizeRows(extractList(content, sheetKey), defaults);
+    const envRows = normalizeRows(extractList(content, sheetKey), defaults);
+    if (envRows.length > 0) return envRows;
   }
   return normalizeRows(extractList(fallback, sheetKey), defaults);
 }
@@ -146,7 +150,49 @@ const savingsModifyFallback = ((COMMON_DATA.accountModification as any[]) || [])
 const savingsModifyVerifyFallback = ((COMMON_DATA.accountVerification as any[]) || [])
   .filter((a: any) => a.type === 'savings');
 
+function loadStandingInstructionsFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['standinginstructions'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
+function loadInventoryMaintenanceFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['inventorymaintainence'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    const mappedRows = rows.map((r) => {
+      const row = { ...r };
+      if ('InventoryAlpha' in row && !('inventoryAlpha' in row)) {
+        row.inventoryAlpha = row.InventoryAlpha;
+        delete row.InventoryAlpha;
+      }
+      return row;
+    });
+    return normalizeRows(mappedRows, {
+      flowName: 'inventorymaintenance',
+      menuOption: 'HIMC',
+      enabled: 'Y',
+    }).filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
 const currentExcel = loadCurrentFromExcel();
+const standingInstructionExcel = loadStandingInstructionsFromExcel();
+const inventoryMaintenanceExcel = loadInventoryMaintenanceFromExcel();
 
 // Current / savings / transfer account data.
 export const CURRENT_ACCOUNT_DATA = loadSection(process.env.STEP_DATA, currentExcel ?? [], 'currentData', {
@@ -299,6 +345,16 @@ const topUpDepositRows = (() => {
 export const TOP_UP_DEPOSIT_TEST_DATA = { topUpDepositTestData: topUpDepositRows };
 export const TOP_UP_DEPOSIT_DATA = topUpDepositRows[0]?.data ?? {};
 
+// Demand draft data.
+const demandDraftRows = loadSection(process.env.DD_STEP_DATA, DEFAULT_DEMAND_DRAFT_DATA, 'demandDraftTestData', {
+  flowName: 'demanddraft',
+  menuOption: 'HDDMI',
+  function: 'Add',
+  enabled: 'Y',
+});
+export const DEMAND_DRAFT_TEST_DATA = { demandDraftTestData: demandDraftRows };
+export const DD_DATA = demandDraftRows[0]?.data ?? {};
+
 export function getTopUpDepositScenario(flowName: string): any | undefined {
   return topUpDepositRows.find((r) => r.flowName === flowName);
 }
@@ -339,5 +395,36 @@ export function getCollateralScenario(flowName: string, type?: string): any | un
       r.data?.collateralType === type ||
       r.data?.type === type ||
       r.name?.includes(type))
+  );
+}
+
+const standingInstructionRows = loadSection(process.env.STEP_DATA, standingInstructionExcel ?? [], 'data', {
+  flowName: 'standinginstructions',
+  menuOption: 'HSSIM',
+  function: 'Add',
+  enabled: 'Y',
+});
+
+export const STANDING_INSTRUCTION_TEST_DATA = { standingInstructionTestData: standingInstructionRows };
+export const STANDING_INSTRUCTION_DATA = standingInstructionRows[0]?.data ?? {};
+
+const inventoryMaintenanceRows = inventoryMaintenanceExcel ?? [];
+export const INVENTORY_MAINTENANCE_TEST_DATA = { inventoryMaintenanceTestData: inventoryMaintenanceRows };
+
+export function getInventoryMaintenanceScenario(functionOrName?: string): any | undefined {
+  if (!functionOrName) return inventoryMaintenanceRows[0];
+  return inventoryMaintenanceRows.find((r) =>
+    r.function === functionOrName ||
+    r.name?.includes(functionOrName) ||
+    r.data?.testType === functionOrName
+  );
+}
+
+export function getStandingInstructionScenario(functionOrName?: string): any | undefined {
+  if (!functionOrName) return standingInstructionRows[0];
+  return standingInstructionRows.find((r) =>
+    r.function === functionOrName ||
+    r.name?.includes(functionOrName) ||
+    r.data?.testType === functionOrName
   );
 }

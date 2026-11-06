@@ -6,15 +6,9 @@ import { CREDENTIALS } from '../../../data/credentials';
 import { recordTransactionId, getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { TRANSFER_DATA } from '../../config/excelTestData';
 
-const STEP: any = TRANSFER_DATA[0]?.data ?? {};
-
 // Transfer maintenance (HTM) is performed by the maker user.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
-
-// Transfer header inputs.
-const SOL_ID = STEP.solId ?? '100';
-const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'T/CI';
 
 // Pre/post HACLINQ checks and HTM posting use the resolved part transactions (debits/credits).
 
@@ -30,85 +24,98 @@ test.beforeEach(async ({ page }) => {
   tmPage = new AccountPage(page);
 });
 
-// HTM - Post a transfer (debit one account, credit another) by part
-// transaction and capture the generated transaction ID for verification.
-test('HTM - transfer maintenance (post by part transaction)', async ({ page }) => {
-  // Step 1: Select "core server" from the solution drop down.
-  console.log('Selecting Core Server...');
-  await tmPage.selectCoreServer();
+for (const [index, stepDef] of TRANSFER_DATA.entries()) {
+  const STEP: any = stepDef.data ?? {};
 
-  // Step 2: Type menu option "HTM" in finacle.
-  // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
-  const preHtmAccounts = Array.from(new Set(tmPage.getHtmPartTransactions(STEP).map(e => e.accountId)));
-  for (const accountId of preHtmAccounts) {
-    console.log(`Pre-HTM HACLINQ: capturing account ${accountId}...`);
-    await tmPage.searchAccountInquiry('HACLINQ');
-    await tmPage.enterHaclinqAccountId(accountId);
-    await tmPage.clickHaclinqGo();
-    const preHtmFrame = page.frame({ name: 'FINW' });
-    if (!preHtmFrame) throw new Error(`FINW frame not found for pre-HTM HACLINQ account ${accountId}`);
-    const preHtmBody = await preHtmFrame.locator('body').innerText();
-    expect(preHtmBody, `Pre-HTM HACLINQ account ${accountId} not loaded`).toContain(accountId);
-  }
+  // Transfer header inputs.
+  const SOL_ID = STEP.solId ?? '100';
+  const TRAN_TYPE_SUBTYPE = STEP.tranTypeSubType ?? 'T/CI';
 
-  console.log('Searching for HTM...');
-  await tmPage.searchTransactionManagement('HTM');
-  await page.waitForTimeout(3000);
+  // HTM - Post a transfer (debit one account, credit another) by part
+  // transaction and capture the generated transaction ID for verification.
+  test(`HTM - transfer maintenance (post by part transaction) (${index + 1})`, async ({ page }) => {
+    // Step 1: Select "core server" from the solution drop down.
+    console.log('Selecting Core Server...');
+    await tmPage.selectCoreServer();
 
-  // Step 3: Function - A - Add, Sol id 100, transaction date today (defaulted),
-  // Transaction type/subtype T/CI - customer induced, then Go.
-  console.log('Selecting Add function...');
-  await tmPage.selectHtmFunction('A');
+    // Step 2: Type menu option "HTM" in finacle.
+    // Pre-HTM HACLINQ verification: capture both account ledgers before the transfer.
+    const preHtmAccounts = Array.from(new Set(tmPage.getHtmPartTransactions(STEP).map(e => e.accountId)));
+    for (const accountId of preHtmAccounts) {
+      console.log(`Pre-HTM HACLINQ: capturing account ${accountId}...`);
+      await tmPage.searchAccountInquiry('HACLINQ');
+      await tmPage.enterHaclinqAccountId(accountId);
+      await tmPage.clickHaclinqGo();
+      const preHtmFrame = page.frame({ name: 'FINW' });
+      if (!preHtmFrame) throw new Error(`FINW frame not found for pre-HTM HACLINQ account ${accountId}`);
+      const preHtmBody = await preHtmFrame.locator('body').innerText();
+      expect(preHtmBody, `Pre-HTM HACLINQ account ${accountId} not loaded`).toContain(accountId);
+    }
 
-  console.log('Entering Sol id...');
-  await tmPage.enterHtmSolId(SOL_ID);
+    console.log('Searching for HTM...');
+    await tmPage.searchTransactionManagement('HTM');
+    await page.waitForTimeout(3000);
 
-  console.log('Selecting transaction type/subtype...');
-  await tmPage.selectHtmTranTypeSubType(TRAN_TYPE_SUBTYPE);
+    // Step 3: Function - A - Add, Sol id 100, transaction date today (defaulted),
+    // Transaction type/subtype T/CI - customer induced, then Go.
+    console.log('Selecting Add function...');
+    await tmPage.selectHtmFunction('A');
 
-  console.log('Clicking Go button...');
-  await tmPage.clickHtmGo();
-  await page.waitForTimeout(5000);
+    console.log('Entering Sol id...');
+    await tmPage.enterHtmSolId(SOL_ID);
 
-  // Diagnostic: surface the part-transaction field ids on the posting screen.
-  await tmPage.logVisibleFields('HTM posting screen');
+    console.log('Selecting transaction type/subtype...');
+    await tmPage.selectHtmTranTypeSubType(TRAN_TYPE_SUBTYPE);
 
-  // Step 4: Enter all part transactions (one-to-one, one-to-many or many-to-many)
-  // and post. The helper clicks Add for all entries except the last one, which
-  // Post commits.
-  console.log('Entering part transactions and posting...');
-  const transactionId = await tmPage.postHtmTransfer(STEP);
+    console.log('Clicking Go button...');
+    await tmPage.clickHtmGo();
+    await page.waitForTimeout(5000);
 
-  // Step 5: Transaction must have generated an ID.
-  expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
-  console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
+    // Diagnostic: surface the part-transaction field ids on the posting screen.
+    await tmPage.logVisibleFields('HTM posting screen');
 
-  // Persist the transaction ID so the verification spec can authorise it.
-  if (transactionId) {
-    recordTransactionId(transactionId);
-    updateSharedState((state: any) => { state.transactionId = transactionId; });
-  }
+    // Step 4: Enter all part transactions (one-to-one, one-to-many or many-to-many)
+    // and post. The helper clicks Add for all entries except the last one, which
+    // Post commits.
+    console.log('Entering part transactions and posting...');
+    const transactionId = await tmPage.postHtmTransfer(STEP);
 
-  // Acknowledge the confirmation screen.
-  console.log('Clicking OK on confirmation...');
-  await tmPage.clickHtmOk();
+    // Step 5: Transaction must have generated an ID.
+    expect(transactionId, 'HTM transaction ID was not generated').toBeTruthy();
+    console.log(`=== GENERATED TRANSACTION ID: ${transactionId} ===`);
 
-  // Verification - HACLINQ (Account Ledger Inquiry): confirm each part transaction.
-  const entries = tmPage.getHtmPartTransactions(STEP);
-  for (const entry of entries) {
-    console.log(`Verifying ${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} account in HACLINQ...`);
-    await tmPage.searchAccountInquiry('HACLINQ');
-    await tmPage.enterHaclinqAccountId(entry.accountId);
-    await tmPage.clickHaclinqGo();
-    const ok = await tmPage.verifyHaclinqDebitCredit(entry.amount, entry.type === 'D' ? 'Debit' : 'Credit', transactionId ?? undefined);
-    expect(ok, `Post-HTM HACLINQ ${entry.type} verification failed for ${entry.accountId}. Expected amount ${entry.amount} with transaction ${transactionId}`).toBe(true);
-    console.log(`${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} verification (${entry.accountId}): ${ok ? 'PASS' : 'NOT CONFIRMED'}`);
-  }
+    // Persist the transaction ID so the verification spec can authorise it.
+    if (transactionId) {
+      recordTransactionId(transactionId);
+      updateSharedState((state: any) => {
+        state.transactionId = transactionId;
+        const instance = String(stepDef.instance ?? stepDef.data?.instance ?? index + 1);
+        if (!state.transactionByInstance) state.transactionByInstance = {};
+        state.transactionByInstance[instance] = transactionId;
+      });
+    }
 
-  // Logout.
-  console.log('Logging out...');
-  await homePage.logout();
-});
+    // Acknowledge the confirmation screen.
+    console.log('Clicking OK on confirmation...');
+    await tmPage.clickHtmOk();
+
+    // Verification - HACLINQ (Account Ledger Inquiry): confirm each part transaction.
+    const entries = tmPage.getHtmPartTransactions(STEP);
+    for (const entry of entries) {
+      console.log(`Verifying ${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} account in HACLINQ...`);
+      await tmPage.searchAccountInquiry('HACLINQ');
+      await tmPage.enterHaclinqAccountId(entry.accountId);
+      await tmPage.clickHaclinqGo();
+      const ok = await tmPage.verifyHaclinqDebitCredit(entry.amount, entry.type === 'D' ? 'Debit' : 'Credit', transactionId ?? undefined);
+      expect(ok, `Post-HTM HACLINQ ${entry.type} verification failed for ${entry.accountId}. Expected amount ${entry.amount} with transaction ${transactionId}`).toBe(true);
+      console.log(`${entry.type === 'D' ? 'DEBIT' : 'CREDIT'} verification (${entry.accountId}): ${ok ? 'PASS' : 'NOT CONFIRMED'}`);
+    }
+
+    // Logout.
+    console.log('Logging out...');
+    await homePage.logout();
+  });
+}
 
 // === STRICT ASSERTIONS INJECTION ===
 test.afterEach(async ({ page }) => {

@@ -5,6 +5,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import COMMON_DATA from '../../../data/common-data.json';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, getTransactionIds } from '../../helpers/sharedState';
+import { TRANSFER_DATA } from '../../config/excelTestData';
 import { getApplicationDate } from '../../helpers/common';
 
 // Verification must be performed by a DIFFERENT user than the maker who posted
@@ -16,9 +17,18 @@ const CONFIG = {
   timeouts: CRM_TEST_DATA.common.timeouts,
 };
 
-// Transaction IDs: prefer the list of posted transaction IDs; fallback to the last scalar value.
-const TRANSACTION_IDS = getTransactionIds().length ? getTransactionIds() : [getSharedValue<string>('transactionId') ?? ''];
-if (TRANSACTION_IDS.length) console.log(`[SharedState] Using Transaction IDs from previous run: ${TRANSACTION_IDS.join(', ')}`);
+// Transaction IDs: verify the transactions for the configured transfer instance(s).
+const byInstance = (getSharedValue<any>('transactionByInstance') ?? {}) as Record<string, string>;
+const fallbackId = getSharedValue<string>('transactionId') ??
+  (getTransactionIds().length ? getTransactionIds()[getTransactionIds().length - 1] : '');
+const VERIFICATION_ITEMS = TRANSFER_DATA.length
+  ? TRANSFER_DATA.map((stepDef: any, i: number) => {
+      const instance = String(stepDef.instance ?? stepDef.data?.instance ?? i + 1);
+      const id = byInstance[instance] || fallbackId || '';
+      return { instance, id };
+    }).filter((item: any) => item.id)
+  : [{ instance: '1', id: fallbackId || '' }];
+if (VERIFICATION_ITEMS.length) console.log(`[SharedState] Verifying transaction IDs: ${VERIFICATION_ITEMS.map((i: any) => `${i.instance}=${i.id}`).join(', ')}`);
 
 
 test.describe('Transfer Maintenance - Verification', () => {
@@ -38,8 +48,9 @@ test.describe('Transfer Maintenance - Verification', () => {
   });
 
   // HTM (V - Verify) — Authorise/verify each transfer posted by the maker, one by one.
-  for (const [index, TRANSACTION_ID] of TRANSACTION_IDS.entries()) {
-    test(`HTM - transfer maintenance verification (${index + 1})`, async ({ page }) => {
+  for (const [index, item] of VERIFICATION_ITEMS.entries()) {
+    const TRANSACTION_ID = item.id;
+    test(`HTM - transfer maintenance verification (${item.instance ?? index + 1})`, async ({ page }) => {
       expect(TRANSACTION_ID, 'Transaction ID must be available for verification').toBeTruthy();
 
       console.log(`Verifying transaction: ${TRANSACTION_ID}`);

@@ -443,7 +443,25 @@ export class AccountPage {
   }
 
   async visitInterestDetailsTab() {
-    await this.clickTab('Interest Details', 'generaldetails2');
+    await this.clickTab('Interest Details', 'generaldetails2', 'Interest Rate Code');
+  }
+
+  async clickVisitAccountInterestInformation(): Promise<void> {
+    try {
+      const link = this.getFinwFrame()
+        .locator('a, button, input[type="button"], input[type="submit"]')
+        .filter({ hasText: /Visit account interest information/i })
+        .first();
+      if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
+        await link.click({ timeout: 10000, force: true });
+        await this.page.waitForTimeout(2000);
+        console.log('Clicked "Visit account interest information" link/section');
+      } else {
+        console.log('"Visit account interest information" link/section not found');
+      }
+    } catch (e) {
+      console.log('Could not click "Visit account interest information":', e);
+    }
   }
 
   async visitSchemeDetailsTab() {
@@ -4108,6 +4126,18 @@ export class AccountPage {
       { key: 'Print Loan Notice', labels: ['Print Loan Notice'] },
       { key: 'Interest Certificate', labels: ['Interest Certificate'] },
       { key: 'Interest Rate Change Advice', labels: ['Interest Rate Change Advice'] },
+      { key: 'Free Text 1_1', labels: ['Free Text 1'] },
+      { key: 'Free Text 2_1', labels: ['Free Text 2'] },
+      { key: 'Payment System Statements', labels: ['Payment System Statements'] },
+      { key: 'Collect Fee', labels: ['Collect Fee'] },
+      { key: 'Round Off Indicator', labels: ['Round Off Indicator'] },
+      { key: 'Round Off Amount', labels: ['Round Off Amount'] },
+      { key: 'Rate Code', labels: ['Rate Code'] },
+      { key: 'Master Account No.', labels: ['Master Account No.', 'Master Account Number'] },
+      { key: 'linkToOperativeAccount', labels: ['Link to Operative A/c.', 'Link to Operative Account'] },
+      { key: 'relationshipPricingId', labels: ['Relationship Pricing ID', 'Relationship Pricing Id'] },
+      { key: 'pricingEffectiveDate', labels: ['Pricing Effective Date'] },
+      { key: 'pricingReviewDate', labels: ['Pricing Review Date'] },
     ];
 
     const documentFields = [
@@ -4116,11 +4146,9 @@ export class AccountPage {
       { key: 'scanDetails', labels: ['Scan Details'] },
       { key: 'receivedDate', labels: ['Received Date'] },
       { key: 'documentExpiryDate', labels: ['Document Expiry Date', 'Doc. Expiry Date'] },
-    ];
-
-    const limitsFields = [
-      { key: 'Limit Level Interest', labels: ['Limit Level Interest', 'A/c. Level Interest/Limit Level Interest'] },
-      { key: 'Penal Interest Start Date', labels: ['Penal Interest Start Date'] },
+      { key: 'documentDate', labels: ['Document Date'] },
+      { key: 'Free Text 1', labels: ['Free Text 1'] },
+      { key: 'Free Text 2', labels: ['Free Text 2'] },
     ];
 
     this.tabReports = [];
@@ -4155,6 +4183,7 @@ export class AccountPage {
     this.tabReports.push(await this.captureHOAACCATab('General Details'));
 
     await this.visitInterestDetailsTab();
+    await this.clickVisitAccountInterestInformation();
     await this.fillCurrentAccountInterestDetails(data);
     await fillFields(interestFields);
     this.tabReports.push(await this.captureHOAACCATab('Interest Details'));
@@ -4229,13 +4258,17 @@ export class AccountPage {
 
     await this.visitDocumentDetailsTab();
     await fillFields(documentFields);
+    // Ensure Document Details date fields update the hidden date values.
+    const fillDocDate = async (key: string, label: string) => {
+      const v = valueOf(key);
+      if (v) await this.setFieldValueByLabel(label, v, 'date');
+    };
+    await fillDocDate('documentDate', 'Document Date');
+    await fillDocDate('Due Date', 'Due Date');
+    await fillDocDate('receivedDate', 'Received Date');
+    await fillDocDate('documentExpiryDate', 'Document Expiry Date');
     await this.fillDynamicFreeFields(data, 'Document');
     this.tabReports.push(await this.captureHOAACCATab('Document Details'));
-
-    await this.visitAccountLimitsTab();
-    await fillFields(limitsFields);
-    await this.fillAccountLimits(data);
-    this.tabReports.push(await this.captureHOAACCATab('Account Limits'));
 
     await this.clickSubmit();
   }
@@ -4388,18 +4421,15 @@ export class AccountPage {
       console.log(`Could not set interest debit account, skipping: ${e}`);
     }
 
-    // Composite Interest Calculation Frequency (Cr. and Dr.) – set each sub-select by code.
-    const crFreqTokens = [data.interestCalcFreqCr, data.interestCalcFreqCrDay, data.interestCalcFreqCrP, data.interestCalcFreqCrG]
-      .filter(Boolean)
-      .map(v => String(v).split('-')[0].trim().toUpperCase());
-    for (const token of crFreqTokens) {
-      await this.selectOptionByLabel('Interest Calculation Frequency (Cr.)', token);
+    // Interest Calculation Frequency (Cr. and Dr.) – set the main frequency
+    // dropdown only. Do not re-use the Day/P/G qualifiers as dropdown values
+    // because they would overwrite the frequency and trigger Finacle's
+    // "Invalid Freq type combination" validation.
+    if (data.interestCalcFreqCr) {
+      await this.selectOptionByLabel('Interest Calculation Frequency (Cr.)', asCode(data.interestCalcFreqCr));
     }
-    const drFreqTokens = [data.interestCalcFreqDr, data.interestCalcFreqDrDay, data.interestCalcFreqDrP, data.interestCalcFreqDrG]
-      .filter(Boolean)
-      .map(v => String(v).split('-')[0].trim().toUpperCase());
-    for (const token of drFreqTokens) {
-      await this.selectOptionByLabel('Interest Calculation Frequency (Dr.)', token);
+    if (data.interestCalcFreqDr) {
+      await this.selectOptionByLabel('Interest Calculation Frequency (Dr.)', asCode(data.interestCalcFreqDr));
     }
 
     // Next interest calculation dates (Cr and Dr)
@@ -5905,7 +5935,7 @@ export class AccountPage {
             await btn.click({ timeout: 15000 }).catch(() => {});
             await this.page.waitForTimeout(2000);
             console.log('Clicked Accept on warning/exception popup');
-            lastWarning = fullDesc;
+            lastWarning = desc;
             acceptedThisRound = true;
             break;
           }

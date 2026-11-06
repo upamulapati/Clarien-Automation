@@ -3,7 +3,80 @@ const path = require('path');
 const xlsx = require('xlsx');
 
 const EXCEL = path.resolve(__dirname, '../data/test-data.xlsx');
+const SHARED_STATE_FILE = path.resolve(__dirname, '../data/shared-state.json');
 const ROW_KEYS = ['instance', 'flowName', 'name', 'sharedKey', 'menuOption', 'function', 'enabled'];
+
+function readSharedStateJson() {
+  try {
+    if (!fs.existsSync(SHARED_STATE_FILE)) return {};
+    return JSON.parse(fs.readFileSync(SHARED_STATE_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function getSharedValue(state, keyPath) {
+  if (!state || !keyPath) return undefined;
+  const parts = String(keyPath).split('.');
+  let cur = state;
+  for (const part of parts) {
+    if (cur == null || typeof cur !== 'object') return undefined;
+    cur = cur[part];
+  }
+  return cur;
+}
+
+function resolveTokens(value, state) {
+  if (typeof value !== 'string' || !value.includes('{{')) return value;
+  return value.replace(/\{\{\s*([\w.\-]+)\s*\}\}/g, (match, token) => {
+    const v = getSharedValue(state, token);
+    return v != null ? String(v) : match;
+  });
+}
+
+function createAccountIterator(state) {
+  const ids = [];
+  if (state) {
+    if (state.currentAccounts && typeof state.currentAccounts === 'object') {
+      const seen = new Set();
+      for (const v of Object.values(state.currentAccounts)) {
+        const s = String(v).trim();
+        if (s && !seen.has(s)) {
+          ids.push(s);
+          seen.add(s);
+        }
+      }
+    }
+    if (ids.length === 0 && state.accountId) {
+      ids.push(String(state.accountId).trim());
+    }
+  }
+  return { ids, index: 0, next() { return this.ids[this.index++] || ''; } };
+}
+
+function prepareTransferRows(rows, state, accountIter) {
+  for (const row of rows) {
+    for (const key of Object.keys(row)) {
+      const v = row[key];
+      if (typeof v === 'string') {
+        row[key] = resolveTokens(v, state);
+      }
+    }
+  }
+
+  // Only auto-fill one-to-one groups (single row) to avoid inserting extra
+  // credits/debits into multi-row one-to-many / many-to-many groups.
+  if (rows.length === 1) {
+    const row = rows[0];
+    if (!row.debitAccount && row.partTranType !== 'C') {
+      row.debitAccount = accountIter.next();
+    }
+    if (!row.creditAccount && row.partTranType !== 'D') {
+      row.creditAccount = accountIter.next();
+    }
+  }
+  return rows;
+}
 
 function tryParse(v) {
   if (typeof v !== 'string') return v;
@@ -143,14 +216,17 @@ function resolve(dataSheet, dataRowId, outputPath) {
   }
 
   const selected = [];
+  const sharedState = readSharedStateJson();
   if (dataSheet === 'TransferMaintenanceData') {
     const allGroups = new Map(buildTransferGroups(rows).map(g => [g.key, g]));
+    const accountIter = createAccountIterator(sharedState);
     for (const id of ids) {
       const sId = String(id);
       const group = allGroups.get(sId);
       if (!group) {
         throw new Error(`No row or group with instance=${id} in sheet "${dataSheet}"`);
       }
+      prepareTransferRows(group.rows, sharedState, accountIter);
       const product = toProductRow(group.base);
       product.data.debits = buildDebitsFromRows(group.rows);
       buildTransferDebits(product.data);
@@ -221,7 +297,10 @@ function resolveProduct(sheet, flowName, outputPath, dataKey, defaults = {}) {
   let list;
   if (dataKey === 'transferData') {
     const groups = buildTransferGroups(selected);
+    const sharedState = readSharedStateJson();
+    const accountIter = createAccountIterator(sharedState);
     list = groups.map(g => {
+      prepareTransferRows(g.rows, sharedState, accountIter);
       const base = {};
       const data = {};
       for (const [k, v] of Object.entries(g.base)) {

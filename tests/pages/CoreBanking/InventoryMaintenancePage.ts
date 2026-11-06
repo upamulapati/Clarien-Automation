@@ -675,9 +675,60 @@ export class InventoryMaintenancePage {
     }
   }
 
-  async enterStartNumber(value: string) {
+  private async setInputValue(label: string, selectors: string[], value: string | number) {
     const finw = this.getFinwFrame();
-    const selectors = [
+    const textValue = String(value ?? '');
+    for (const sel of selectors) {
+      const el = finw.locator(sel).first();
+      try {
+        const count = await el.count();
+        if (count === 0) continue;
+        await el.scrollIntoViewIfNeeded();
+        await el.fill('');
+        await el.fill(textValue);
+        await this.page.waitForTimeout(300);
+        const after = await el.inputValue().catch(() => '');
+        if (after === textValue) {
+          console.log(`Filled ${label} with selector '${sel}' (value: '${after}')`);
+          return;
+        }
+        console.log(`Selector '${sel}' for ${label} did not retain value (after: '${after}')`);
+      } catch (e) {
+        console.log(`Error filling ${label} with selector '${sel}': ${e}`);
+      }
+    }
+
+    // JS fallback to bypass custom onchange/onblur handlers when Playwright fill fails.
+    try {
+      const usedSelector = await finw.evaluate(
+        (args) => {
+          const val = args.value;
+          for (const s of args.selectors) {
+            const el = document.querySelector(s) as HTMLInputElement | null;
+            if (el) {
+              el.value = val;
+              el.dispatchEvent(new Event('input', { bubbles: true }));
+              el.dispatchEvent(new Event('change', { bubbles: true }));
+              el.dispatchEvent(new Event('blur', { bubbles: false }));
+              return s;
+            }
+          }
+          return '';
+        },
+        { value: textValue, selectors }
+      );
+      if (usedSelector) {
+        console.log(`Set ${label} via JS fallback using selector '${usedSelector}'`);
+        return;
+      }
+    } catch (e) {
+      console.log(`JS fallback for ${label} failed: ${e}`);
+    }
+    console.log(`Could not fill ${label} with any selector`);
+  }
+
+  async enterStartNumber(value: string | number) {
+    await this.setInputValue('start number', [
       'input#invtBeginSrlNum',
       'input[name="imc.invtBeginSrlNum"]',
       'input#invtBeginSrlNum_ui',
@@ -688,28 +739,11 @@ export class InventoryMaintenancePage {
       'input[name="startNo_ui"]',
       'input#invtStartNo',
       'input[name="invtStartNo"]',
-    ];
-    for (const sel of selectors) {
-      try {
-        const el = finw.locator(sel).first();
-        if (await el.count() > 0) {
-          await el.fill('');
-          await el.fill(value);
-          await this.page.waitForTimeout(500);
-          const after = await el.inputValue().catch(() => '');
-          console.log(`Filled start number with selector '${sel}' (after: '${after}')`);
-          return;
-        }
-      } catch (_) {}
-    }
-    await this.fillByLabel('Start no', value);
-    await this.fillByLabel('Start No', value);
-    await this.fillByLabel('start no', value);
+    ], value);
   }
 
-  async enterEndNumber(value: string) {
-    const finw = this.getFinwFrame();
-    const selectors = [
+  async enterEndNumber(value: string | number) {
+    await this.setInputValue('end number', [
       'input#invtEndSrlNum',
       'input[name="imc.invtEndSrlNum"]',
       'input#invtEndSrlNum_ui',
@@ -720,46 +754,24 @@ export class InventoryMaintenancePage {
       'input[name="endNo_ui"]',
       'input#invtEndNo',
       'input[name="invtEndNo"]',
-    ];
-    for (const sel of selectors) {
-      try {
-        const el = finw.locator(sel).first();
-        if (await el.count() > 0) {
-          await el.fill('');
-          await el.fill(value);
-          await this.page.waitForTimeout(500);
-          const after = await el.inputValue().catch(() => '');
-          console.log(`Filled end number with selector '${sel}' (after: '${after}')`);
-          return;
-        }
-      } catch (_) {}
-    }
-    await this.fillByLabel('End no', value);
-    await this.fillByLabel('End No', value);
-    await this.fillByLabel('end no', value);
+    ], value);
+  }
+
+  async enterInventoryAlpha(value: string | number) {
+    await this.setInputValue('inventory alpha', [
+      'input#invtSrlAlpha',
+      'input[name="imc.invtSrlAlpha"]',
+      'input#invtSrlAlpha_ui',
+      'input[name="imc.invtSrlAlpha_ui"]',
+    ], value);
   }
 
   async enterTransferParticulars(value: string) {
-    const finw = this.getFinwFrame();
-    const selectors = [
+    await this.setInputValue('transfer particulars', [
       'input[name="imc.invtXferPartcls"]',
       'input[name="invtXferPartcls"]',
       'input#invtXferPartcls',
-    ];
-    for (const sel of selectors) {
-      try {
-        const el = finw.locator(sel).first();
-        if (await el.count() > 0) {
-          await el.fill('');
-          await el.fill(value);
-          await this.page.waitForTimeout(300);
-          console.log(`Filled transfer particulars with selector '${sel}'`);
-          return;
-        }
-      } catch (_) {}
-    }
-    await this.fillByLabel('Transfer Particulars', value);
-    await this.fillByLabel('Transfer particulars', value);
+    ], value);
   }
 
   async enterTransactionId(transactionId: string) {
@@ -800,7 +812,20 @@ export class InventoryMaintenancePage {
     } catch (e) {
       console.log(`Could not click submit: ${e}`);
     }
-    await this.page.waitForTimeout(3000);
+  }
+
+  async clickOk() {
+    try {
+      const finw = this.getFinwFrame();
+      const okBtn = finw.locator(
+        'button:has-text("OK"), input[type="button"][value="OK" i], input[type="submit"][value="OK" i], ' +
+        'button:has-text("Ok"), input[type="button"][value="Ok" i], #OK, .ok'
+      ).first();
+      await okBtn.click({ timeout: 2000 });
+      console.log('Clicked OK button');
+    } catch (e) {
+      console.log(`Could not click OK: ${e}`);
+    }
   }
 
   async clickValidate() {
@@ -990,7 +1015,6 @@ export class InventoryMaintenancePage {
       await this.clickGo();
       await this.page.waitForTimeout(3000);
       await this.clickSubmit();
-      await this.page.waitForTimeout(5000);
 
       const verifiedId = await this.getTransactionId();
       const status = await this.getStatusMessage();
@@ -1006,39 +1030,56 @@ export class InventoryMaintenancePage {
   async getTransactionId(): Promise<string | null> {
     try {
       const finwFrame = this.getFinwFrame();
+      const maxAttempts = 6;
+      const delayMs = 400;
+      const successRegex = /transaction\s*(?:id|#)?[:\s]+(?:<)?([A-Z0-9]+)(?:\s*[\/V]\s*\d{2}-\d{2}-\d{4})?(?:>)?\s+added\s+successfully/i;
+      const errorRegex = /error\s+occurred|fatal\s+error|sys\s+error|internal\s+server/i;
 
-      // Prefer the dedicated transaction ID input field.
-      const idInput = finwFrame.locator(
-        'input#invtTranId, input[name="imc.invtTranId"], input[name="invtTranId"]'
-      ).first();
-      const inputVal = (await idInput.inputValue().catch(() => '')).trim();
-      if (inputVal && !/^\d{2}-\d{2}-\d{4}$/.test(inputVal) && !/^Select$/i.test(inputVal)) {
-        console.log(`Extracted Inventory Transaction ID from input: ${inputVal}`);
-        return inputVal;
-      }
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (attempt > 0) {
+          await this.page.waitForTimeout(delayMs);
+        }
 
-      // Fall back to strict ID-like patterns in the page body.
-      const body = await finwFrame.locator('body').innerText().catch(() => '');
-      const patterns = [
-        /\b(Ex\d+)\b/i,
-        /\b(S\d{10,})\b/,
-        /\b(CB\d+)\b/,
-        /\b(I\d{6,})\b/i,
-        /\b([A-Z]{2}\d{4,8})\b/,
-        /\b(\d{6,})\b/,
-      ];
-      for (const pat of patterns) {
-        const m = body.match(pat);
-        if (m && m[1]) {
-          const v = m[1].trim();
-          if (/^\d{2}-\d{2}-\d{4}$/.test(v) || /^Select$/i.test(v)) continue;
-          console.log(`Extracted Inventory Transaction ID from body: ${v}`);
+        const idInput = finwFrame.locator(
+          'input#invtTranId, input[name="imc.invtTranId"], input[name="invtTranId"]'
+        ).first();
+
+        // Check the input field and the FINW body text in parallel.
+        const [inputVal, bodyText] = await Promise.all([
+          idInput.inputValue({ timeout: 1000 }).catch(() => ''),
+          finwFrame.locator('body').textContent({ timeout: 1000 }).catch(() => '')
+        ]);
+        // Finacle sometimes emits the success banner inside a JS string with
+        // escaped brackets/slash (\<, \>, \\). Strip those backslashes before matching.
+        const normalizedBody = bodyText
+          .replace(/\\+(?=[<>/])/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (errorRegex.test(normalizedBody)) {
+          const errorMatch = normalizedBody.match(/(error\s+occurred|fatal\s+error|sys\s+error|internal\s+server)[^.]{0,200}/i);
+          console.log('Detected error while extracting transaction ID:', errorMatch?.[0] ?? normalizedBody.substring(0, 200));
+          return null;
+        }
+
+        const inputValue = inputVal.trim();
+        if (inputValue && !/^\d{2}-\d{2}-\d{4}$/.test(inputValue) && !/^Select$/i.test(inputValue)) {
+          console.log(`Extracted Inventory Transaction ID from input: ${inputValue}`);
+          return inputValue;
+        }
+
+        const successMatch = normalizedBody.match(successRegex);
+        if (successMatch) {
+          const v = successMatch[1].trim();
+          console.log(`Extracted Inventory Transaction ID from success banner: ${v}`);
           return v;
         }
       }
 
-      const sample = body.replace(/\s+/g, ' ').substring(0, 2000);
-      console.log('Could not extract Inventory Transaction ID. Body text sample:', sample);
+      const body = await finwFrame.locator('body').textContent({ timeout: 1000 }).catch(() => '');
+      const sample = body.replace(/\\+(?=[<>/])/g, '').replace(/\s+/g, ' ').substring(0, 2000);
+      const finalStatus = await this.getStatusMessage();
+      console.log('Could not extract Inventory Transaction ID. status:', finalStatus?.substring(0, 200), 'Body text sample:', sample);
       try {
         const html = await finwFrame.content().catch(() => '');
         fs.writeFileSync(path.join(process.cwd(), 'data', 'himc-submit-page.html'), html, 'utf-8');
@@ -1055,7 +1096,7 @@ export class InventoryMaintenancePage {
   async getPageText(): Promise<string> {
     try {
       const finwFrame = this.getFinwFrame();
-      return await finwFrame.locator('body').innerText().catch(() => '');
+      return await finwFrame.locator('body').textContent({ timeout: 3000 }).catch(() => '');
     } catch (e) {
       console.log(`Could not read page text: ${e}`);
       return '';
@@ -1064,25 +1105,53 @@ export class InventoryMaintenancePage {
 
   async getStatusMessage(): Promise<string | null> {
     try {
+      const finwFrame = this.getFinwFrame();
       const candidates = [
+        'tr.success',
+        'td.success',
+        '.success',
+        '#pageMsg',
         'tr.alert',
         'td.alert',
-        '#pageMsg',
         '.errortext',
         '.message',
+        '.successText',
+        '#errorMessage',
+        '#successMessage',
         'span[id*="msg" i]',
         'div[id*="msg" i]',
+        '[class*="success" i]',
+        '[class*="message" i]',
+        '[id*="Message" i]',
       ];
-      for (const frame of this.page.frames()) {
-        for (const sel of candidates) {
-          const loc = frame.locator(sel);
-          if (await loc.count().catch(() => 0) > 0) {
-            const text = (await loc.first().textContent().catch(() => ''))?.replace(/\s+/g, ' ').trim();
-            if (text) return text;
+
+      // 1. Fast candidate selectors in the FINW frame.
+      for (const sel of candidates) {
+        const loc = finwFrame.locator(sel);
+        if (await loc.count().catch(() => 0) > 0) {
+          const text = (await loc.first().textContent({ timeout: 1000 }).catch(() => ''))?.replace(/\s+/g, ' ').trim();
+          if (text) {
+            return text;
           }
         }
       }
-      return null;
+
+      // 2. Single FINW body scan for success / error banners.
+      const bodyText = (await finwFrame.locator('body').textContent({ timeout: 3000 }).catch(() => ''))
+        ?.replace(/\\+(?=[<>/])/g, '')
+        ?.replace(/\s+/g, ' ')
+        ?.trim() || '';
+      const successRegex = /transaction\s*(?:id|#)?[:\s]+(?:<)?([A-Z0-9]+)(?:\s*[\/V]\s*\d{2}-\d{2}-\d{4})?(?:>)?\s+added\s+successfully/i;
+      const successMatch = bodyText.match(successRegex);
+      if (successMatch) {
+        return successMatch[0];
+      }
+      const errorRegex = /(error\s+occurred|fatal\s+error|sys\s+error|internal\s+server)[^.]{0,200}/i;
+      const errorMatch = bodyText.match(errorRegex);
+      if (errorMatch) {
+        return errorMatch[0];
+      }
+      return bodyText.substring(0, 300) || null;
     } catch (e) {
       console.log(`Could not read status message: ${e}`);
       return null;

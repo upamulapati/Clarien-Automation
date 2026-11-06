@@ -676,7 +676,46 @@ export class DemandDraftPage {
   }
 
   // ============ Transaction ID Capture ============
+  private async getTransactionIdRowInput(index: number): Promise<Locator | null> {
+    try {
+      const finw = this.getFinwFrame();
+      const found = await finw.evaluate((idx: number) => {
+        const normalize = (s: string) => s.toLowerCase().replace(/[*.\\/]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const isLabel = (text: string) => {
+          const t = normalize(text);
+          return t.includes('transaction') && (t.includes('id') || t.includes('#')) && !t.includes('type') && !t.includes('date');
+        };
+        const labels = Array.from(document.querySelectorAll('td, th')).filter(td => !td.querySelector('td') && !td.querySelector('th') && isLabel((td as HTMLElement).innerText || ''));
+        for (const label of labels) {
+          const tr = (label as any).closest('tr') as HTMLTableRowElement | null;
+          if (!tr) continue;
+          const inputs = Array.from(tr.querySelectorAll('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([disabled]), textarea:not([disabled])')).filter((el: any) => (el as HTMLElement).offsetParent !== null);
+          if (inputs.length > idx) {
+            const el = inputs[idx] as any;
+            return { tag: el.tagName.toLowerCase(), id: el.id, name: el.name };
+          }
+        }
+        return null;
+      }, index);
+      if (!found) return null;
+      if (found.name) return finw.locator(`${found.tag}[name="${found.name}"]`).first();
+      if (found.id) return finw.locator(`${found.tag}[id="${found.id}"]`).first();
+      return null;
+    } catch (e) {
+      console.log(`Could not locate transaction row input at index ${index}: ${e}`);
+      return null;
+    }
+  }
+
   async enterTransactionId(transactionId: string) {
+    const first = await this.getTransactionIdRowInput(0);
+    if (first) {
+      await first.fill('');
+      await first.fill(transactionId);
+      const after = await first.inputValue().catch(() => '');
+      console.log(`Filled Transaction ID in first field: ${after}`);
+      return;
+    }
     await this.fillByLabel('Transaction id', transactionId);
     await this.fillByLabel('Transaction Id', transactionId);
     await this.fillByLabel('Transaction ID', transactionId);
@@ -785,6 +824,186 @@ export class DemandDraftPage {
     } catch (e) {
       console.log(`Could not read page text: ${e}`);
       return '';
+    }
+  }
+
+  async getStatusMessage(): Promise<string> {
+    try {
+      const finw = this.getFinwFrame();
+      const raw = (await finw.locator('body').textContent({ timeout: 3000 }).catch(() => '')) || '';
+      const normalized = raw
+        .replace(/\\+(?=[<>/])/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const successRegex = /(added|verified|cancelled|posted|deleted|completed|successfully)/i;
+      const match = normalized.match(successRegex);
+      if (match && match.index !== undefined) {
+        const start = Math.max(0, match.index - 60);
+        const end = Math.min(normalized.length, match.index + 120);
+        return normalized.substring(start, end).trim();
+      }
+      return normalized;
+    } catch (e) {
+      console.log(`Could not get status message: ${e}`);
+      return '';
+    }
+  }
+
+  private async getSrlInput(): Promise<Locator | null> {
+    try {
+      const first = await this.getTransactionIdRowInput(0);
+      const firstVal = first ? (await first.inputValue().catch(() => '')).trim() : '';
+      if (firstVal) {
+        const finw = this.getFinwFrame();
+        const found = await finw.evaluate((txn: string) => {
+          const inputs = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([disabled])')) as HTMLInputElement[];
+          for (let i = 0; i < inputs.length; i++) {
+            const el = inputs[i];
+            if (el.offsetParent === null) continue;
+            if (el.value.trim() === txn) {
+              let parent = el.parentElement as HTMLElement | null;
+              while (parent && parent.tagName !== 'TD' && parent.tagName !== 'TH') parent = parent.parentElement as HTMLElement | null;
+              if (parent) {
+                const siblings = Array.from(parent.querySelectorAll('input:not([type="hidden"]):not([type="radio"]):not([type="checkbox"]):not([type="button"]):not([type="submit"]):not([disabled])')) as HTMLInputElement[];
+                const idx = siblings.indexOf(el);
+                if (idx >= 0 && siblings[idx + 1]) {
+                  const s = siblings[idx + 1];
+                  return { tag: s.tagName.toLowerCase(), id: s.id, name: s.name };
+                }
+              }
+              for (let j = i + 1; j < inputs.length; j++) {
+                if (inputs[j].offsetParent !== null) {
+                  return { tag: inputs[j].tagName.toLowerCase(), id: inputs[j].id, name: inputs[j].name };
+                }
+              }
+            }
+          }
+          return null;
+        }, firstVal);
+        if (found) {
+          console.log(`Located SRL input after Transaction ID field: ${JSON.stringify(found)}`);
+          if (found.name) return finw.locator(`${found.tag}[name="${found.name}"]`).first();
+          if (found.id) return finw.locator(`${found.tag}[id="${found.id}"]`).first();
+        }
+      }
+      return this.getTransactionIdRowInput(1);
+    } catch (e) {
+      console.log(`Could not locate SRL input: ${e}`);
+      return this.getTransactionIdRowInput(1);
+    }
+  }
+
+  async getDemandDraftSrlNo(): Promise<string | null> {
+    try {
+      const srlInput = await this.getSrlInput();
+      if (srlInput) {
+        const val = (await srlInput.inputValue().catch(() => '')).trim();
+        if (val && /^\d+$/.test(val)) {
+          console.log(`Extracted DD Srl No from Transaction ID row: ${val}`);
+          return val;
+        }
+      }
+
+      const finw = this.getFinwFrame();
+      const candidates = [
+        'input[name="ddc.pTranSrlNum"]',
+        'input[id="pTranSrlNum"]',
+        'input[name="ddmi.demandDraftSlNo"]',
+        'input[name="ddmi.ddSrlNo"]',
+        'input[name="ddSrlNo"]',
+        'input[id="ddSrlNo"]',
+        'input[name*="srlNo" i]',
+        'input[id*="srlNo" i]',
+        'input[name*="pTranSrl" i]',
+        'input[id*="pTranSrl" i]',
+        'input[name*="demandDraftSrl" i]',
+        'input[id*="demandDraftSrl" i]',
+      ];
+      for (const sel of candidates) {
+        const el = finw.locator(sel).first();
+        if (await el.count().catch(() => 0) > 0) {
+          const val = (await el.inputValue().catch(() => '')).trim();
+          if (val && /^\d+$/.test(val)) {
+            console.log(`Extracted DD Srl No from field ${sel}: ${val}`);
+            return val;
+          }
+        }
+      }
+      const bodyText = ((await finw.locator('body').textContent().catch(() => '')) || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const labelMatch = bodyText.match(/Demand\s+Draft\s+Srl\.?\s*No\.?\s*[:\-]?\s*(\d+)/i);
+      if (labelMatch && labelMatch[1]) {
+        console.log(`Extracted DD Srl No from label: ${labelMatch[1]}`);
+        return labelMatch[1];
+      }
+      const tableMatch = bodyText.match(/\bSrl\.?\s*No\.?\s*[:\-]?\s*(\d+)\b/i);
+      if (tableMatch && tableMatch[1]) {
+        console.log(`Extracted DD Srl No from table: ${tableMatch[1]}`);
+        return tableMatch[1];
+      }
+      console.log('Could not extract DD Srl No');
+      return null;
+    } catch (e) {
+      console.log(`Could not get DD Srl No: ${e}`);
+      return null;
+    }
+  }
+
+  async enterDemandDraftSrlNo(value: string) {
+    if (!value) return;
+    try {
+      const srlInput = await this.getSrlInput();
+      if (srlInput) {
+        await srlInput.scrollIntoViewIfNeeded();
+        await srlInput.fill('');
+        await srlInput.fill(value);
+        const after = await srlInput.inputValue().catch(() => '');
+        console.log(`Filled DD Srl No in second Transaction ID field: ${after}`);
+        return;
+      }
+
+      const finw = this.getFinwFrame();
+      const candidates = [
+        'input[name="ddc.pTranSrlNum"]',
+        'input[id="pTranSrlNum"]',
+        'input[name="ddmi.demandDraftSlNo"]',
+        'input[name="ddmi.ddSrlNo"]',
+        'input[name="ddSrlNo"]',
+        'input[id="ddSrlNo"]',
+        'input[name*="srlNo" i]',
+        'input[id*="srlNo" i]',
+        'input[name*="pTranSrl" i]',
+        'input[id*="pTranSrl" i]',
+        'input[name*="demandDraftSrl" i]',
+        'input[id*="demandDraftSrl" i]',
+      ];
+      for (const sel of candidates) {
+        const el = finw.locator(sel).first();
+        if (await el.count().catch(() => 0) > 0) {
+          await el.scrollIntoViewIfNeeded();
+          await el.fill('');
+          await el.fill(value);
+          const after = await el.inputValue().catch(() => '');
+          console.log(`Filled DD Srl No with selector ${sel}: ${after}`);
+          return;
+        }
+      }
+      const labelInput =
+        (await this.getFieldLocator('Demand Draft Srl No', 'input', 0, 'srl')) ??
+        (await this.getFieldLocator('Demand Draft Serial No', 'input', 0, 'srl')) ??
+        (await this.getFieldLocator('Transaction id', 'input', 0, 'srl'));
+      if (labelInput) {
+        await labelInput.scrollIntoViewIfNeeded();
+        await labelInput.fill('');
+        await labelInput.fill(value);
+        const after = await labelInput.inputValue().catch(() => '');
+        console.log(`Filled DD Srl No by label: ${after}`);
+        return;
+      }
+      console.log(`Could not locate DD Srl No input for value ${value}`);
+    } catch (e) {
+      console.log(`Could not enter DD Srl No: ${e}`);
     }
   }
 }
