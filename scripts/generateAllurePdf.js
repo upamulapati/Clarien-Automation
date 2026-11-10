@@ -312,28 +312,33 @@ async function main() {
   let selectedFiles;
   if (fs.existsSync(LAST_RUN_FILE)) {
     manifest = JSON.parse(fs.readFileSync(LAST_RUN_FILE, 'utf8'));
-    if (manifest && manifest.suite && Array.isArray(testOrder[manifest.suite])) {
-      const suiteFiles = new Set(testOrder[manifest.suite]);
-      const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
-      const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
-      selectedFiles = relevant.map(p => p.file);
-      console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
-    } else if (Array.isArray(manifest.files) && manifest.files.length) {
+    if (Array.isArray(manifest.files) && manifest.files.length) {
       const manifestMtime = fs.statSync(LAST_RUN_FILE).mtime.getTime();
       const newestResultMtime = Math.max(...parsed.map(p => p.mtime));
       const allManifestFilesExist = manifest.files.every(f => allFiles.includes(f));
       if (allManifestFilesExist && manifestMtime >= newestResultMtime) {
         selectedFiles = manifest.files;
         console.log(`Using run manifest: ${selectedFiles.length} result(s)`);
-      } else {
-        selectedFiles = detectLatestRun(parsed);
-        console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
       }
-    } else {
-      selectedFiles = detectLatestRun(parsed);
-      console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
     }
-  } else {
+
+    if (!selectedFiles && manifest && manifest.suite) {
+      const sourceSpecs = Array.isArray(manifest.specFiles) && manifest.specFiles.length
+        ? manifest.specFiles
+        : testOrder[manifest.suite];
+      if (Array.isArray(sourceSpecs) && sourceSpecs.length) {
+        const suiteFiles = new Set(sourceSpecs);
+        const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
+        const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
+        selectedFiles = relevant.map(p => p.file);
+        if (selectedFiles.length > 0) {
+          console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
+        }
+      }
+    }
+  }
+
+  if (!selectedFiles || selectedFiles.length === 0) {
     selectedFiles = detectLatestRun(parsed);
     console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
   }
