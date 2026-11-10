@@ -29,6 +29,8 @@
     "test-flow10": "node scripts/runOrdered.js flow10 && npm run allure:generate",
     "test-menu": "node scripts/runFlowMenu.js",
     "test-topupdeposit": "node scripts/runOrdered.js topupdeposit && npm run allure:generate",
+    "test-termdeposit": "node scripts/runOrdered.js termdeposit && npm run allure:generate",
+    "test-transfermaintenance": "node scripts/runOrdered.js transfermaintenance && npm run allure:generate",
     "allure:generate": "npx allure generate ./reports/allureReports --clean -o ./reports/allure-report && node scripts/generateAllurePdf.js",
     "pdf:generate": "node scripts/generateAllurePdf.js",
     "allure:open": "npx allure open ./reports/allure-report",

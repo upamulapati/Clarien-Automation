@@ -31,6 +31,19 @@ function toProductRow(raw) {
   return { ...base, data };
 }
 
+function pickExtraFields(row, prefix, excluded) {
+  const out = {};
+  if (!row) return out;
+  for (const [k, v] of Object.entries(row)) {
+    const kl = String(k).toLowerCase();
+    if (kl.startsWith(prefix) && !excluded.includes(kl) && v != null) {
+      const s = String(v).trim();
+      if (s !== '') out[k] = v;
+    }
+  }
+  return out;
+}
+
 function buildTransferDebits(data) {
   if (data == null) return;
   if (Array.isArray(data.debits)) return;
@@ -46,11 +59,15 @@ function buildTransferDebits(data) {
   const debitAmount = data.debitAmount || data.amount || data.refAmount;
   const creditAmount = data.creditAmount || data.amount || data.refAmount;
   if (!debitAccount || !debitAmount) return;
+  const debitExcludes = ['debitaccount', 'debitacctid', 'debitamount', 'amount', 'refamount'];
+  const creditExcludes = ['creditaccount', 'creditacctid', 'creditamount', 'amount', 'refamount'];
+  const debitFields = pickExtraFields(data, 'debit', debitExcludes);
+  const creditFields = pickExtraFields(data, 'credit', creditExcludes);
   const credits = [];
   if (creditAccount && creditAmount) {
-    credits.push({ accountId: creditAccount, amount: creditAmount });
+    credits.push({ accountId: creditAccount, amount: creditAmount, ...creditFields });
   }
-  data.debits = [{ accountId: debitAccount, amount: debitAmount, credits }];
+  data.debits = [{ accountId: debitAccount, amount: debitAmount, ...debitFields, credits }];
 }
 
 function buildTransferGroups(rows) {
@@ -69,6 +86,9 @@ function buildTransferGroups(rows) {
   return groups;
 }
 
+const DEBIT_EXCLUDES = ['debitaccount', 'debitacctid', 'debitamount', 'amount', 'refamount'];
+const CREDIT_EXCLUDES = ['creditaccount', 'creditacctid', 'creditamount', 'amount', 'refamount'];
+
 function buildDebitsFromRows(rows) {
   const debits = [];
   for (const r of rows) {
@@ -77,11 +97,13 @@ function buildDebitsFromRows(rows) {
     const debitAmount = r.debitAmount || r.amount || r.refAmount;
     const creditAmount = r.creditAmount || r.amount || r.refAmount;
     if (debitAccount && debitAmount != null && String(debitAmount).trim() !== '') {
-      debits.push({ accountId: debitAccount, amount: String(debitAmount), credits: [] });
+      const debitFields = pickExtraFields(r, 'debit', DEBIT_EXCLUDES);
+      debits.push({ accountId: debitAccount, amount: String(debitAmount), ...debitFields, credits: [] });
     }
     if (creditAccount && creditAmount != null && String(creditAmount).trim() !== '') {
       if (debits.length === 0) continue;
-      debits[debits.length - 1].credits.push({ accountId: creditAccount, amount: String(creditAmount) });
+      const creditFields = pickExtraFields(r, 'credit', CREDIT_EXCLUDES);
+      debits[debits.length - 1].credits.push({ accountId: creditAccount, amount: String(creditAmount), ...creditFields });
     }
   }
   return debits;
@@ -124,12 +146,19 @@ function resolve(dataSheet, dataRowId, outputPath) {
   }
 
   const wb = xlsx.readFile(EXCEL);
-  if (!wb.Sheets[dataSheet]) {
+  const actualSheet = wb.Sheets[dataSheet]
+    ? dataSheet
+    : Object.keys(wb.Sheets).find(s => s.toLowerCase() === String(dataSheet).toLowerCase());
+  if (!actualSheet) {
     throw new Error(`data/test-data.xlsx does not contain a "${dataSheet}" sheet`);
   }
+  if (actualSheet !== dataSheet) {
+    console.log(`[flowDataResolver] Using sheet "${actualSheet}" for requested "${dataSheet}"`);
+  }
 
-  const ws = wb.Sheets[dataSheet];
+  const ws = wb.Sheets[actualSheet];
   const rows = xlsx.utils.sheet_to_json(ws, { defval: '' });
+  normalizeDates(ws, rows);
 
   const ids = String(dataRowId)
     .split(/[,\s;|]+/)
@@ -177,7 +206,9 @@ function resolve(dataSheet, dataRowId, outputPath) {
     dataSheet === 'SavingsAccountModifyVerifyData' ? 'savingsModifyVerifyData' :
     dataSheet === 'TransferMaintenanceData' ? 'transferData' :
     dataSheet === 'retail_loans' ? 'retailLoansData' :
-    dataSheet === 'retail_loans_mod' ? 'retailLoansModData' : 'data';
+    dataSheet === 'retail_loans_mod' ? 'retailLoansModData' :
+    dataSheet === 'topup_deposits' ? 'topUpDepositTestData' :
+    dataSheet === 'HPORDM' ? 'paymentOrderTestData' : 'data';
   const content = { [dataKey]: selected };
 
   fs.writeFileSync(outputPath, JSON.stringify(content, null, 2), 'utf8');

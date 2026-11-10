@@ -4,7 +4,6 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
-  getTopUpDepositAccounts,
   saveClosedAccountId,
 } from '../../helpers/sharedState';
 
@@ -13,21 +12,17 @@ const PASSWORD = CREDENTIALS.credentials.password;
 
 const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.prematureClosure;
 const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
-
-function getGeneratedAccount(): string {
-  const accounts = getTopUpDepositAccounts();
-  const schemeAccount = accounts['ACCPL'];
-  if (schemeAccount) return schemeAccount;
-  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
-  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
-}
+const ACCOUNT_ID = String(TOP_UP_DEPOSIT_DATA.prematureClosureAccountId ?? '');
 
 test('HCAACTU - top-up deposit premature closure', async ({ page }) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
-  const accountId = getGeneratedAccount();
+  const accountId = ACCOUNT_ID;
   console.log(`Performing premature closure for TU account: ${accountId}`);
+  if (!accountId) {
+    throw new Error('prematureClosureAccountId is not configured in the topup_deposits sheet');
+  }
   const statusMessage = await tdPage.prematureClosure(
     SCREEN_CODE,
     accountId,

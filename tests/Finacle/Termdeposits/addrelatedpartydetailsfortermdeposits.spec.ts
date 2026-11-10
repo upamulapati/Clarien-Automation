@@ -8,17 +8,15 @@ import { getTermDepositAccounts, readSharedState } from '../../helpers/sharedSta
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-function getCreatedAccount(): string {
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  const state = readSharedState();
-  return firstAccountId || state.accountId || TERM_DEPOSIT_DATA.relatedPartyAccountId || '9200000618';
-}
+const RELATED_PARTY_ACCOUNT_ID = String(TERM_DEPOSIT_DATA.relatedPartyAccountId ?? '').trim();
 
 test(TERM_DEPOSIT_DATA.relatedPartyTestLabel, async ({ page }) => {
   test.setTimeout(180000);
+  if (!RELATED_PARTY_ACCOUNT_ID) {
+    throw new Error('relatedPartyAccountId is not configured in the term_deposits sheet');
+  }
   const relatedPartyData = {
-    accountId: getCreatedAccount(),
+    accountId: RELATED_PARTY_ACCOUNT_ID,
     relationType: TERM_DEPOSIT_DATA.relatedPartyRelationType,
     relationCode: TERM_DEPOSIT_DATA.relatedPartyRelationCode,
     relatedPartyCifCode: TERM_DEPOSIT_DATA.relatedPartyCifCode

@@ -14,20 +14,19 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const SCREEN_CODE = TERM_DEPOSIT_DATA.partialClosureScreenCode;
 const PARTIAL_WITHDRAWAL_AMT = TERM_DEPOSIT_DATA.partialClosureWithdrawalAmount;
 
-function getGeneratedAccount(): string {
-  if (TERM_DEPOSIT_DATA.partialClosureAccountId) return TERM_DEPOSIT_DATA.partialClosureAccountId;
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string;
-  if (firstAccountId) return firstAccountId;
-  return TERM_DEPOSIT_DATA.relatedPartyAccountId;
-}
+// partialClosureAccountId is read directly from the term_deposits sheet
 
 test(`${SCREEN_CODE} - term deposit partial closure`, async ({ page }, testInfo) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
 
-  const ACCOUNT_ID = getGeneratedAccount();
+  const ACCOUNT_ID = String(TERM_DEPOSIT_DATA.partialClosureAccountId ?? '').trim();
+  const EXPECTED_PARTIAL_CLOSURE_ACCOUNT = String(TERM_DEPOSIT_DATA.partialClosureAccountId ?? '').trim();
+  if (!ACCOUNT_ID) {
+    throw new Error('partialClosureAccountId is not configured in the term_deposits sheet');
+  }
+  expect(ACCOUNT_ID).toBe(EXPECTED_PARTIAL_CLOSURE_ACCOUNT);
   console.log(`Performing partial closure for TD account: ${ACCOUNT_ID}`);
 
   const status = await tdPage.partialClosure(SCREEN_CODE, ACCOUNT_ID, {

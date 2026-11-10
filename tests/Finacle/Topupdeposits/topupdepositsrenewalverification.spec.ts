@@ -6,7 +6,7 @@ import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.renewalAccountId || '9200000593';
+const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.renewalAccountId as string;
 const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.renewalVerify;
 
 test('HTDREN - top-up deposit renewal verification', async ({ page }) => {

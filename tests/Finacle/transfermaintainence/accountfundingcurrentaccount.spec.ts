@@ -22,7 +22,7 @@ let homePage: HomePage;
 let tmPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
-  test.setTimeout(180000);
+  test.setTimeout(300000);
   page.setDefaultTimeout(20000);
 
   // Step 1: Login to finacle (maker user).

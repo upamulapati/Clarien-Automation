@@ -8,19 +8,15 @@ import { getTermDepositAccounts, readSharedState } from '../../helpers/sharedSta
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-function getCreatedAccount(): string {
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  const state = readSharedState();
-  return process.env.TD_MOD_ACCOUNT || firstAccountId || state.accountId || TERM_DEPOSIT_DATA.modificationAccountId || '9200000614';
-}
-
-const MOD_ACCOUNT_NUMBER = getCreatedAccount();
+const MOD_ACCOUNT_NUMBER = String(TERM_DEPOSIT_DATA.modificationAccountId ?? '').trim();
 const NEW_DEPOSIT_PERIOD_MONTHS = TERM_DEPOSIT_DATA.newDepositPeriodMonths || '24';
 const NEW_DEPOSIT_PERIOD_DAYS = TERM_DEPOSIT_DATA.newDepositPeriodDays || '0';
 
 test(`${TERM_DEPOSIT_DATA.screens.modify} - modify term deposit account`, async ({ page }) => {
   test.setTimeout(300000);
+  if (!MOD_ACCOUNT_NUMBER) {
+    throw new Error('modificationAccountId is not configured in the term_deposits sheet');
+  }
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
 

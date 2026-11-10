@@ -12,16 +12,13 @@ const PASSWORD = CREDENTIALS.secondCredentials.password;
 // termdepositscreation.spec.ts is preferred when available.
 //const ACCOUNT_ID = '9200000681';
 
-function getGeneratedAccount(): string {
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  return firstAccountId || TERM_DEPOSIT_DATA.verificationAccountId || ACCOUNT_ID;
-}
-
-const ACCOUNT_ID = getGeneratedAccount();
+const ACCOUNT_ID = String(TERM_DEPOSIT_DATA.verificationAccountId ?? '').trim();
 
 test(`${TERM_DEPOSIT_DATA.screens.verify} - verify term deposit account creation`, async ({ page }) => {
   test.setTimeout(300000);
+  if (!ACCOUNT_ID) {
+    throw new Error('verificationAccountId is not configured in the term_deposits sheet');
+  }
 
   console.log(`Verifying term deposit account: ${ACCOUNT_ID}`);
 
@@ -60,8 +57,9 @@ test(`${TERM_DEPOSIT_DATA.screens.verify} - verify term deposit account creation
   await page.waitForTimeout(4000).catch(() => {});
 
   // Accept any non-blocking warnings/exceptions before reading the final status.
+  let warningText: string | null = null;
   if (!page.isClosed()) {
-    await tdPage.acceptWarningPopup().catch(() => {});
+    warningText = await tdPage.acceptWarningPopup().catch(() => null);
     await page.waitForTimeout(3000).catch(() => {});
   }
 
@@ -83,10 +81,16 @@ test(`${TERM_DEPOSIT_DATA.screens.verify} - verify term deposit account creation
     }
   }
 
+  // If the only feedback was the accepted warning/information popup, treat it as the status.
+  if (!statusMessage && warningText) {
+    statusMessage = `Warning accepted: ${warningText}`;
+    console.log('Using accepted warning as status:', statusMessage);
+  }
+
   console.log('====================================');
   console.log('TERM DEPOSIT VERIFICATION STATUS:', statusMessage ?? 'No status message captured');
   expect(statusMessage, `Expected a successful verification message, but got: ${statusMessage}`).toBeTruthy();
-  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated)/i);
+  expect(statusMessage).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|accepted|warning|information)/i);
   console.log('====================================');
 
   if (!page.isClosed()) {

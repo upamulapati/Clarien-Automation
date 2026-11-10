@@ -5,9 +5,10 @@ import * as fs from 'fs';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { getSharedValue } from '../../helpers/sharedState';
+import { getSharedValue, setSharedValue } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
+import { SAVINGS_MODIFY_DATA as SAVINGS_MODIFY_STEP_DATA } from '../../config/excelTestData';
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');
 const SHEET_NAME = 'SavingsAccountModifyData';
@@ -38,7 +39,29 @@ function loadSavingsModifyData(): Record<string, string>[] {
       }
       return normalized;
     })
-    .filter((row) => row.Sheet && row.Sheet.trim() !== '');
+    .filter((row) => (row.Sheet && row.Sheet.trim() !== '') || (row.instance && String(row.instance).trim() !== ''));
+}
+
+function getFlowConfigDataRowIds(sheetName: string): number[] {
+  const workbook = XLSX.readFile(EXCEL_PATH);
+  const worksheet = workbook.Sheets['FlowConfig'];
+  if (!worksheet) return [];
+
+  const rows = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: '' }) as Record<string, any>[];
+  for (const row of rows) {
+    if (String(row.dataSheet ?? '').trim() !== sheetName) continue;
+    if (String(row.enabled ?? 'Y').toUpperCase() === 'N') continue;
+
+    const raw = String(row.dataRowId ?? '');
+    if (!raw.trim()) continue;
+    return raw
+      .split(/[,\s;|]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n > 0);
+  }
+  return [];
 }
 
 function prettyLabel(header: string): string {
@@ -385,7 +408,10 @@ function groupSavingsModifyData(rows: Record<string, string>[]): { main: Record<
   let current: { main: Record<string, string> | null; related: Record<string, string>[] } = { main: null, related: [] };
   for (const row of rows) {
     const sheet = (row.Sheet ?? '').trim().toLowerCase();
-    if (sheet === 'main') {
+    const accountId = (row.accountId ?? '').trim();
+    const instance = (row.instance ?? '').trim();
+    const isMain = sheet === 'main' || (sheet !== 'related party' && accountId !== '' && instance !== '');
+    if (isMain) {
       if (current.main) {
         groups.push({ main: current.main, related: current.related });
       }
@@ -400,9 +426,15 @@ function groupSavingsModifyData(rows: Record<string, string>[]): { main: Record<
   return groups;
 }
 
-const SAVINGS_MODIFY_DATA = groupSavingsModifyData(loadSavingsModifyData());
+const SAVINGS_MODIFY_GROUPS = groupSavingsModifyData(loadSavingsModifyData());
+const stepInstances = process.env.STEP_DATA
+  ? SAVINGS_MODIFY_STEP_DATA.map((p: any) => Number(p.instance)).filter((n: number) => Number.isInteger(n) && n > 0)
+  : getFlowConfigDataRowIds('SavingsAccountModifyData');
+const activeGroups = stepInstances.length > 0
+  ? SAVINGS_MODIFY_GROUPS.filter((g) => stepInstances.includes(Number(g.main.instance)))
+  : SAVINGS_MODIFY_GROUPS;
 
-for (const group of SAVINGS_MODIFY_DATA) {
+for (const group of activeGroups) {
   const createdAccountId = getSharedValue(
     (state) => state.savingsAccounts?.[String(group.main.instance)] ?? state.accountId
   ) as string | undefined;
@@ -717,6 +749,16 @@ for (const group of SAVINGS_MODIFY_DATA) {
       } else {
         console.log('No fields required modification; skipping submit.');
       }
+
+      // Persist the account used for modification so the verification spec can find it
+      setSharedValue(
+        (state, value) => {
+          if (!state.savingsAccounts) state.savingsAccounts = {};
+          state.savingsAccounts[String(group.main.instance)] = value;
+        },
+        effectiveAccountId
+      );
+      console.log(`[Modification] Saved account ID for instance ${group.main.instance}: ${effectiveAccountId}`);
 
       await homePage.logout();
     });

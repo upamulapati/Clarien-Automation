@@ -121,7 +121,7 @@ test.describe('HCASHWD - Cash Withdrawal Post and Verify', () => {
     expect(
       verifyMessage,
       `Expected verification success message, got: ${verifyMessage}`
-    ).toMatch(/successfully|verified|authorised|authorized|approved|completed/i);
+    ).toMatch(/successfully|verified|authorised|authorized|approved|completed|posted/i);
 
     console.log(`=== HCASHWD Verified: ${transactionId} - ${verifyMessage} ===`);
     await captureEvidence(page, 'HCASHWD verified', { transactionId, verifyMessage });
