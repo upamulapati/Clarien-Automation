@@ -365,7 +365,20 @@ async function main() {
     process.exit(1);
   }
 
-  const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
+  const generated = (() => {
+  const s = new Date().toLocaleString('en-US', {
+    timeZone: 'Atlantic/Bermuda',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/);
+  return m ? `${m[3]}-${m[1]}-${m[2]} ${m[4]}` : s;
+})();
   const suiteName = resolveSuiteName(results);
   const resultPackageFiles = [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
   const resultFileSet = new Set(resultPackageFiles);
@@ -379,7 +392,7 @@ async function main() {
     return resultPackageFiles;
   })();
   const outputName = onlyFilter
-    ? `${onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()} instance 1`
+    ? onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()
     : suiteName;
   const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
   const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
@@ -464,7 +477,7 @@ async function main() {
 <body>
   <div class="header">
     <h1>${escapeHtml(pageTitle)}</h1>
-    <div>Generated: ${generated} | Tests: ${results.length}</div>
+    <div>Generated (Bermuda time): ${generated} | Tests: ${results.length}</div>
   </div>
   ${dashboardHtml}
   ${testsHtml}

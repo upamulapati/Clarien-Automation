@@ -5,7 +5,7 @@ import * as fs from 'fs';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { getSharedValue } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
@@ -38,7 +38,11 @@ function loadSavingsModifyData(): Record<string, string>[] {
       }
       return normalized;
     })
-    .filter((row) => row.Sheet && row.Sheet.trim() !== '');
+    .filter((row) =>
+      (row.Sheet && row.Sheet.trim() !== '') ||
+      (row.instance && String(row.instance).trim() !== '') ||
+      (row.accountId && String(row.accountId).trim() !== '')
+    );
 }
 
 function prettyLabel(header: string): string {
@@ -385,7 +389,10 @@ function groupSavingsModifyData(rows: Record<string, string>[]): { main: Record<
   let current: { main: Record<string, string> | null; related: Record<string, string>[] } = { main: null, related: [] };
   for (const row of rows) {
     const sheet = (row.Sheet ?? '').trim().toLowerCase();
-    if (sheet === 'main') {
+    const hasInstance = row.instance && String(row.instance).trim() !== '';
+    const hasAccountId = row.accountId && String(row.accountId).trim() !== '';
+    const isMain = sheet === 'main' || (sheet !== 'related party' && (hasInstance || hasAccountId));
+    if (isMain) {
       if (current.main) {
         groups.push({ main: current.main, related: current.related });
       }
@@ -401,10 +408,15 @@ function groupSavingsModifyData(rows: Record<string, string>[]): { main: Record<
 }
 
 const SAVINGS_MODIFY_DATA = groupSavingsModifyData(loadSavingsModifyData());
+const TARGET_INSTANCE = process.env.INSTANCE ? String(process.env.INSTANCE).trim() : '';
 
-for (const group of SAVINGS_MODIFY_DATA) {
+const groupsToRun = TARGET_INSTANCE
+  ? SAVINGS_MODIFY_DATA.filter((g) => String(g.main.instance) === TARGET_INSTANCE)
+  : SAVINGS_MODIFY_DATA;
+
+for (const group of groupsToRun) {
   const createdAccountId = getSharedValue(
-    (state) => state.savingsAccounts?.[String(group.main.instance)] ?? state.accountId
+    (state) => state.savingsAccounts?.[String(group.main.instance)]
   ) as string | undefined;
   const effectiveAccountId = (group.main.accountId?.trim() || createdAccountId || '').trim();
   if (!effectiveAccountId) {
@@ -412,7 +424,8 @@ for (const group of SAVINGS_MODIFY_DATA) {
   }
   const row = group.main;
   const relatedPartyRows = group.related;
-  test.describe(`Savings Account Modification - ${effectiveAccountId}`, () => {
+  const instanceLabel = group.main.instance?.trim() || 'default';
+  test.describe(`Savings Account Modification - Instance ${instanceLabel} - ${effectiveAccountId}`, () => {
     test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
     let homePage: HomePage;
@@ -424,7 +437,7 @@ for (const group of SAVINGS_MODIFY_DATA) {
       accountPage = new AccountPage(page);
     });
 
-    test(`HACM - data-driven savings account modification - ${effectiveAccountId}`, async ({ page }) => {
+    test(`HACM - data-driven savings account modification - Instance ${instanceLabel} - ${effectiveAccountId}`, async ({ page }) => {
       console.log(`[Modification] Using Account ID: ${effectiveAccountId}`);
 
       await accountPage.selectCoreServer();
@@ -716,6 +729,15 @@ for (const group of SAVINGS_MODIFY_DATA) {
         );
       } else {
         console.log('No fields required modification; skipping submit.');
+      }
+
+      if (effectiveAccountId) {
+        updateSharedState((state) => {
+          if (!state.savingsAccounts) state.savingsAccounts = {};
+          state.savingsAccounts[instanceLabel] = effectiveAccountId;
+          state.accountId = effectiveAccountId;
+        });
+        console.log(`[SharedState] Saved account ${effectiveAccountId} under instance ${instanceLabel}`);
       }
 
       await homePage.logout();

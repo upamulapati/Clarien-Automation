@@ -334,6 +334,11 @@ for (let i = 0; i < files.length; i++) {
     }
   }
 
+  const dataRowId = steps[i]?.dataRowId != null ? String(steps[i].dataRowId).trim() : '';
+  if (dataRowId && !dataRowId.includes(',')) {
+    stepOverrides.INSTANCE = dataRowId;
+  }
+
   // Top-up deposit HTM funding reuses the existing savings-funding transfer row.
   if (suiteName === 'topupdeposit' && file.includes('accountfundingsavingsaccount.spec.ts')) {
     const stepFile = resolveFlowData('TransferMaintenanceData', 2, path.resolve(cwd, 'data', 'flow-step-data.json'));
