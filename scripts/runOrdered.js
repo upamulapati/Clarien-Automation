@@ -390,6 +390,24 @@ for (let i = 0; i < files.length; i++) {
     delete stepOverrides.TOP_UP_DEPOSIT_STEP_DATA;
   }
 
+  // Inject demand draft step data for any demand-draft spec.
+  if (file.includes('demanddraft')) {
+    try {
+      const stepFile = resolveProduct(
+        'demanddraft',
+        'demanddraft',
+        path.resolve(cwd, 'data', 'demand-draft-step-data.json'),
+        'demandDraftTestData',
+        { flowName: 'demanddraft', menuOption: 'HDDMI', function: 'Add', enabled: 'Y' }
+      );
+      stepOverrides.DD_STEP_DATA = stepFile;
+    } catch (e) {
+      console.log(`[runOrdered] Could not resolve demand draft step data: ${e.message}`);
+    }
+  } else {
+    delete stepOverrides.DD_STEP_DATA;
+  }
+
   const childEnv = { ...env, ...stepOverrides };
 
   try {

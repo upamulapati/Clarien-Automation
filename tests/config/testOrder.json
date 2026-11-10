@@ -190,4 +190,12 @@
   
 
  
+,
+
+"demanddraft": [
+  "tests/Finacle/demanddraft/dd-issuance.spec.ts",
+  "tests/Finacle/demanddraft/dd-verification.spec.ts",
+  "tests/Finacle/demanddraft/dd-cancellation.spec.ts",
+  "tests/Finacle/demanddraft/dd-cancellation-verification.spec.ts"
+]
 }

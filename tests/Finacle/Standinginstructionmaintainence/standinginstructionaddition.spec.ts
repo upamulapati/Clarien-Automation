@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { DEFAULT_CUSTOMER } from '../../config/testData';
+import { STANDING_INSTRUCTION_TEST_DATA } from '../../config/excelTestData';
+import { writeSharedState } from '../../helpers/sharedState';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { SavingsBankAccountPage } from '../../pages/SavingsBankAccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
@@ -9,18 +10,9 @@ import { CREDENTIALS } from '../../../data/credentials';
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-// Header inputs.
-const SOL_ID = DEFAULT_CUSTOMER.solId;
-const DEBIT_CIF_ID = DEFAULT_CUSTOMER.cifCode;        // CIF id (Debit)
-const NEXT_EXECUTION_DATE = '03-08-2026';  // start date of the SI (from screenshot)
-const ACCEPTANCE_EVENT = 'SET_UP SI';      // Fee details - acceptance event
-//const HEADER_DEBIT_ACCOUNT = '7500001482'; // Debit a/c id on the header
-
-// Instruction (part transaction) inputs.
-const CURRENCY = DEFAULT_CUSTOMER.ccy;
-const DEBIT_ACCOUNT = '7500001482';   // debit leg account
-const CREDIT_ACCOUNT = '7500001474';  // credit leg account (different from debit)
-const AMOUNT = '500';
+const SCENARIOS = STANDING_INSTRUCTION_TEST_DATA.standingInstructionTestData;
+const scenario = SCENARIOS.find((s: any) => String(s.function).toLowerCase() === 'add') ?? SCENARIOS[0] ?? { data: {} };
+const data = scenario.data ?? {};
 
 let homePage: HomePage;
 let siPage: SavingsBankAccountPage;
@@ -43,12 +35,12 @@ test('HSSIM - add standing instruction', async ({ page }) => {
 
   // Step 2: Type menu option "HSSIM" in finacle.
   console.log('Searching for HSSIM...');
-  await siPage.searchMenu('HSSIM');
+  await siPage.searchMenu(scenario.menuOption || 'HSSIM');
   await page.waitForTimeout(3000);
 
   // Step 3: Function - Add, then click Go.
   console.log('Selecting Function (Add)...');
-  await siPage.selectSiDropdown('Add');
+  await siPage.selectSiDropdown(scenario.function || 'Add');
   console.log('Clicking Go button...');
   await siPage.clickGo();
   await page.waitForTimeout(3000);
@@ -60,110 +52,105 @@ test('HSSIM - add standing instruction', async ({ page }) => {
 
   // Step 4: Standing instruction type - Customer induced (radio button), Sol Id 100.
   console.log('Selecting SI type (Customer induced)...');
-  await siPage.setSiType('customer');
+  await siPage.setSiType(data.siType || 'customer');
   console.log('Entering Sol Id...');
-  await siPage.setSiText(['solID', 'solId', 'soleId'], SOL_ID, 'Sol Id');
+  await siPage.setSiSolId(data.solId);
 
   // Step 5: CIF id (Debit).
   console.log('Entering Debit CIF id...');
-  await siPage.setSiText(
-    ['cifID', 'cifId', 'debitCifId', 'drCifId', 'cifIdDr'], DEBIT_CIF_ID, 'Debit CIF id'
-  );
+  await siPage.setSiCifId(data.cifCode);
 
   // Step 6: SI frequency - Monthly. Monthly requires a start day-of-month
   // (siFreqStartDD); without it Finacle raises "Invalid Freq type combination".
   console.log('Selecting SI frequency (Monthly)...');
-  await siPage.selectSiOptionById('siFreqType', 'Monthly');
+  await siPage.selectSiOptionById('siFreqType', data.siFreqType || 'Monthly');
   // Date -> day 01 (siFreqStartDD). Interval and Calendar base are left at
   // their defaults to match the required header state.
   console.log('Selecting SI frequency start day (01)...');
-  await siPage.selectSiOptionById('siFreqStartDD', '01');
+  await siPage.selectSiOptionById('siFreqStartDD', data.siFreqStartDD || '01');
   // Holiday handling -> S - Skip (as shown in the screenshot).
   console.log('Selecting SI frequency holiday handling (Skip)...');
-  await siPage.selectSiOptionById('siFreqHldyStat', 'S - Skip');
+  await siPage.selectSiOptionById('siFreqHldyStat', data.siFreqHldyStat || 'S - Skip');
 
   // Step 6b: Calendar base (required for Monthly).
   console.log('Selecting SI frequency calendar base (Gregorian)...');
-  await siPage.selectSiOptionById('siFreqCalBase', 'Gregorian');
+  await siPage.selectSiOptionById('siFreqCalBase', data.siFreqCalBase || 'Gregorian');
 
   // Step 7: Execution time - Before Change of Date.
   console.log('Selecting Execution time (Before Change of Date)...');
-  await siPage.selectSiDropdown('Before Change');
+  await siPage.selectSiDropdown(data.executionTime || 'Before Change');
 
   // Step 8: Next execution date - start date of the SI.
   console.log('Entering Next execution date...');
-  await siPage.fillSiDate(
-    ['nextExecDate_ui', 'nextExecnDate_ui', 'nextExecutionDate_ui', 'startDate_ui'],
-    NEXT_EXECUTION_DATE, 'Next execution date'
-  );
+  await siPage.setSiNextExecutionDate(data.nextExecutionDate);
 
   // Step 9: Validate CCY Holiday - No.
   console.log('Setting Validate CCY Holiday = No...');
-  await siPage.setSiFlag('holiday', 'No');
+  await siPage.setSiFlag('holiday', data.validateCcyHoliday || 'No');
 
   // Step 10: Autopost - Yes.
   console.log('Setting Autopost = Yes...');
-  await siPage.setSiFlag('autopost', 'Yes');
+  await siPage.setSiFlag('autopost', data.autopost || 'Yes');
 
   // Step 11: Carry forward if failed - Yes.
   console.log('Setting Carry forward if failed = Yes...');
-  await siPage.setSiFlag('carry forward', 'Yes');
+  await siPage.setSiFlag('carry forward', data.carryFrwdIfFailed || 'Yes');
 
   // Step 12: Fee details - Acceptance event -> SET_UP SI (typed into the field).
   console.log('Setting Acceptance event (SET_UP SI)...');
-  await siPage.setSiText(
-    ['acceptanceEvt', 'acceptanceEvent', 'accptEvent', 'feeAcceptEvent'],
-    ACCEPTANCE_EVENT, 'Acceptance event'
-  );
+  await siPage.setSiAcceptanceEvent(data.acceptanceEvent);
+
+  // Step 12.5: Collect Charges for Modification -> No.
+  console.log('Setting Collect Charges for Modification = No...');
+  await siPage.setSiFlag('collect charges for modification', data.collectChargesForModification || 'No');
 
   // Step 13: Debit a/c id (header).
+  // The source data may label this as either headerDebitAccountId or debitAccount.
   console.log('Entering header Debit a/c id...');
-  await siPage.setSiText(
-    ['drAcctID', 'drAcctId', 'debitAcctId', 'feeDrAcctId'], DEBIT_ACCOUNT, 'Header debit a/c id'
-  );
+  await siPage.setSiHeaderDebitAccountId(data.headerDebitAccountId || data.debitAccount);
 
-  // Diagnostic: dump the exact frequency combination before switching tabs.
+  // Step 13.25: Leave Execution Condition (A/c. ID, A/c. Balance Indicator, A/c. Balance)
+  // empty per the requirement; do not populate them.
+  console.log('Skipping Execution Condition fields per requirement...');
+
+  // Diagnostic: dump the exact frequency combination.
   await siPage.logSiFreqState();
 
-  // Step 13.5: Visit Instruction details tab.
-  console.log('Visiting Instruction details tab...');
-  await siPage.visitLoanTab('Instruction Details', 'instruction', 'Debit/Credit');
-  await siPage.logVisibleFields('HSSIM Instruction details');
+  // Step 13.5: Open the Instruction Details tab.
+  console.log('Opening Instruction Details tab...');
+  await siPage.visitSiInstructionDetails();
+  await page.waitForTimeout(3000);
+  await siPage.logVisibleFields('HSSIM Instruction Details');
 
-  // Set the default for the memo pad entry radio before adding any part.
+  // Step 14: Set Create Memo Pad Entry = No.
   console.log('Setting Create Memo Pad Entry = No...');
-  await siPage.setSiFlag('create memo pad entry', 'No');
+  await siPage.setSiFlag('create memo pad entry', data.createMemoPadEntry || 'No');
 
-  // Steps 14-19: Add the DEBIT part transaction.
+  // Step 15: Add debit part transaction.
   console.log('Adding debit part transaction...');
-  await siPage.setSiText(['acctID'], DEBIT_ACCOUNT, 'A/c. ID');
-  await siPage.setSiCurrency(CURRENCY);
+  await siPage.setSiPartAccountId(data.debitAccount);
+  await siPage.setSiCurrency(data.currency);
   await siPage.setSiPartTranType('debit');
-  await siPage.selectSiDropdown('Fixed');
-  await siPage.setSiAmount(AMOUNT);
-  await siPage.setSiFlag('collect fees', 'yes');
-  await siPage.logSiButtons();
+  await siPage.selectSiOptionById('mAmtType', data.amountType || 'F');
+  await siPage.setSiAmount(data.amount);
+  await siPage.setSiCollectFees(data.debitCollectFees || 'yes');
   await siPage.clickSiAddPartTran();
+  await page.waitForTimeout(2000);
 
-  // Steps 20-25: Add the CREDIT part transaction.
+  // Step 16: Add credit part transaction.
   console.log('Adding credit part transaction...');
-  await siPage.setSiText(['acctID'], CREDIT_ACCOUNT, 'A/c. ID');
-  await siPage.setSiCurrency(CURRENCY);
+  await siPage.setSiPartAccountId(data.creditAccount);
+  await siPage.setSiCurrency(data.currency);
   await siPage.setSiPartTranType('credit');
-  await siPage.selectSiDropdown('Fixed');
-  await siPage.setSiAmount(AMOUNT);
-  await siPage.setSiFlag('collect fees', 'no');
-  // Credit part is submitted directly from the current entry row.
-  await siPage.logSiPartTranState();
+  await siPage.selectSiOptionById('mAmtType', data.amountType || 'F');
+  await siPage.setSiAmount(data.amount);
+  await siPage.setSiCollectFees(data.creditCollectFees || 'no');
 
-  // Step 26: Validate - both debit and credit part transactions are displayed.
-  // Remove HTML required attributes from the empty entry row so the existing
-  // grid rows can be validated and submitted without re-filling the blank form.
-  console.log('Removing HTML5 required validation before Validate...');
-  await siPage.removeSiRequiredValidation();
-  console.log('Clicking Validate button...');
-  await siPage.clickButtonByText('Validate');
-  await siPage.logScreenMessages();
+  // Do not click Add for the credit row. The credit part transaction remains in the
+  // input form and is submitted together with the already added debit grid row.
+
+  // The filled credit part transaction is in the input form; proceed directly to Submit.
+  // No intermediate Validate is needed because the same validation runs on Submit.
 
   // Step 27: Submit - "Standing Instruction# NU#### added successfully".
   console.log('Clicking Submit button...');
@@ -178,6 +165,9 @@ test('HSSIM - add standing instruction', async ({ page }) => {
   console.log('Status after Submit:', statusMessage);
 
   const siNumber = await siPage.getGeneratedSiNumber();
+  if (siNumber && scenario.sharedKey) {
+    writeSharedState({ [scenario.sharedKey]: siNumber });
+  }
   console.log(`=== GENERATED STANDING INSTRUCTION NUMBER: ${siNumber} ===`);
   expect(siNumber, 'Expected a generated SI number (NU...)').toBeTruthy();
 

@@ -43,6 +43,10 @@ export class SavingsBankAccountPage extends AccountPage {
   }
 
   async setSiText(candidates: string[], value: string, label: string): Promise<void> {
+    if (value === undefined || value === null || value === '') {
+      console.log(`No value provided for ${label}, skipping`);
+      return;
+    }
     const finwFrame = this.getSiFinwFrame();
     for (const id of candidates) {
       const locators = [
@@ -53,12 +57,23 @@ export class SavingsBankAccountPage extends AccountPage {
       ];
       for (const loc of locators) {
         try {
-          if (await loc.count() > 0 && await loc.isVisible().catch(() => false) && await loc.isEnabled().catch(() => false)) {
+          if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
+            // Unlock protected fields before filling.
+            const realId = await loc.evaluate(el => (el as HTMLElement).id || (el as HTMLElement).getAttribute('name') || '');
+            await finwFrame.evaluate((targetId: string) => {
+              const el = document.getElementById(targetId) || document.querySelector(`[name="${targetId}"]`) as HTMLInputElement | null;
+              if (el) {
+                el.removeAttribute('readonly');
+                el.removeAttribute('disabled');
+                (el as HTMLElement).style.display = '';
+                (el as HTMLElement).style.visibility = 'visible';
+              }
+            }, realId);
             await loc.click({ clickCount: 3 });
             await loc.fill(value);
             await loc.press('Tab').catch(() => {});
             await this.page.waitForTimeout(800);
-            console.log(`Set ${label} (${id}) = ${value}`);
+            console.log(`Set ${label} (${realId}) = ${value}`);
             return;
           }
         } catch {}
@@ -303,7 +318,7 @@ export class SavingsBankAccountPage extends AccountPage {
   }
 
   async setSiAmount(value: string): Promise<void> {
-    return this.setSiText(['mAmount','issim.mAmount','amount','amt','siAmt','partTranAmount'], value, 'Amt.');
+    return this.setSiText(['mAmount','issim.mAmount','amount','amt','siAmt','partTranAmount','acctBal','balAmt'], value, 'Amt.');
   }
 
   async setSiCurrency(value: string): Promise<void> {
@@ -316,32 +331,65 @@ export class SavingsBankAccountPage extends AccountPage {
 
   async visitSiInstructionDetails(): Promise<void> {
     const finwFrame = this.getSiFinwFrame();
-    const result = await finwFrame.evaluate(() => {
-      const tags = ['a', 'span', 'td', 'div', 'li', 'label'];
-      for (const tag of tags) {
-        const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
-        const el = elements.find(e => (e.textContent || '').toLowerCase().includes('instruction details'));
-        if (el) {
-          const clickable = el.closest('td, li, [onclick], a') as HTMLElement || el;
-          ['mousedown', 'click', 'mouseup'].forEach(type => {
-            clickable.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
-          });
-          clickable.click();
-          // Also click the inner anchor if present.
-          const inner = clickable.querySelector('a');
-          if (inner) {
-            inner.click();
-            ['mousedown', 'click', 'mouseup'].forEach(type => {
-              inner.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
-            });
-          }
-          return `Clicked Instruction Details tab via <${clickable.tagName}> text=${clickable.textContent?.trim().slice(0, 40)}`;
+
+    // Try Playwright-visible tab labels, ignoring obvious help/top-nav links.
+    const candidates = finwFrame.locator('a:visible, span:visible, td:visible, div:visible, li:visible, label:visible')
+      .filter({ hasText: /Instruction Details/i });
+    const count = await candidates.count();
+    for (let i = 0; i < count; i++) {
+      const el = candidates.nth(i);
+      const text = ((await el.textContent()) || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      if (!text.includes('instructiondetails')) continue;
+      const href = ((await el.getAttribute('href')) || '').toLowerCase();
+      const onclick = ((await el.getAttribute('onclick')) || '').toLowerCase();
+      if (href.includes('help') || onclick.includes('help') || href.includes('logout') || onclick.includes('logout')) continue;
+
+      try {
+        await el.click({ timeout: 10000, force: true });
+      } catch {
+        await el.dispatchEvent('click');
+      }
+      await this.page.waitForTimeout(1500);
+
+      const memoPad = finwFrame.locator('input[name="issim.mMemoPadReqd"], #mMemoPadReqd, input[name="mMemoPadReqd"], input[id="mMemoPadReqd"]').first();
+      if (await memoPad.count() > 0 && await memoPad.isVisible().catch(() => false)) {
+        console.log(`visitSiInstructionDetails: clicked tab #${i} and mMemoPadReqd is visible`);
+        return;
+      }
+
+      const parent = el.locator('xpath=..');
+      if (await parent.count() > 0) {
+        try {
+          await parent.first().click({ timeout: 10000, force: true });
+        } catch {
+          await parent.first().dispatchEvent('click');
+        }
+        await this.page.waitForTimeout(1500);
+        if (await memoPad.count() > 0 && await memoPad.isVisible().catch(() => false)) {
+          console.log(`visitSiInstructionDetails: clicked parent tab #${i} and mMemoPadReqd is visible`);
+          return;
         }
       }
-      return 'Instruction Details tab not found';
+    }
+
+    // JS fallback for older/non-standard tab markup.
+    const result = await finwFrame.evaluate(() => {
+      const all = Array.from(document.querySelectorAll('a, span, td, div, li, label')) as HTMLElement[];
+      const el = all.find(e => (e.textContent || '').toLowerCase().includes('instruction details'));
+      if (!el) return 'Instruction Details tab not found';
+      const clickable = el.closest('td, li, [onclick], a') as HTMLElement || el;
+      ['mousedown', 'click', 'mouseup'].forEach(type => {
+        clickable.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+      });
+      clickable.click();
+      if (clickable !== el) {
+        el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        el.click();
+      }
+      return `JS fallback clicked Instruction Details via <${clickable.tagName}>`;
     });
     console.log('visitSiInstructionDetails:', result);
-    await this.page.waitForTimeout(2000);
+    await this.page.waitForTimeout(3000);
   }
 
   async logSiFreqState(): Promise<void> {
@@ -425,7 +473,19 @@ export class SavingsBankAccountPage extends AccountPage {
 
   async clickSiAddPartTran(): Promise<void> {
     const finwFrame = this.getSiFinwFrame();
-    const add = finwFrame.locator('#subsim_AddNew, input[name="subsim_AddNew"], input[type="button"][value="Add"]').first();
+
+    // HSIM/HSSIM part transactions are entered by clicking the "Click here" link.
+    const clickHere = finwFrame.locator('a:visible').filter({ hasText: /click here/i });
+    try {
+      if (await clickHere.count() > 0) {
+        await clickHere.first().click();
+        console.log('clickSiAddPartTran: Clicked "Click here" link');
+        await this.page.waitForTimeout(2000);
+        return;
+      }
+    } catch (e) { console.log('clickSiAddPartTran "Click here" failed:', e); }
+
+    const add = finwFrame.locator('#subsim_AddNew, input[name="subsim_AddNew"], input[type="button"][value="Add"], input[type="button"][value="Add New"], input[type="button"][value*="Add" i], input[type="image"][alt*="Add" i], input[type="image"][title*="Add" i], input[type="image"][src*="Add" i], button:has-text("Add")').first();
     try {
       if (await add.count() > 0 && await add.isVisible().catch(() => false)) {
         await add.click({ timeout: 15000 });
@@ -482,14 +542,32 @@ export class SavingsBankAccountPage extends AccountPage {
   async removeSiRequiredValidation(): Promise<void> {
     const finwFrame = this.getSiFinwFrame();
     const result = await finwFrame.evaluate(() => {
-      const inputs = Array.from(document.querySelectorAll('input, select, textarea')) as HTMLElement[];
       let count = 0;
+
+      // Strip HTML5/ARIA required flags from every visible form field.
+      const inputs = Array.from(document.querySelectorAll('input, select, textarea')) as HTMLElement[];
       inputs.forEach(el => {
         const input = el as HTMLInputElement;
         if (input.hasAttribute('required')) { input.removeAttribute('required'); count++; }
         if (el.getAttribute('aria-required') === 'true') { el.removeAttribute('aria-required'); count++; }
       });
-      return `Removed required from ${count} element(s)`;
+
+      // Remove the blank part-transaction entry row (it contains mAmtType etc.).
+      // Only remove it when the row has no account/amount data, so a filled current
+      // record that has not yet been added is not accidentally discarded.
+      const amtType = document.querySelector('select[name*="mAmtType" i], #mAmtType, select[name="issim.mAmtType"]') as HTMLSelectElement | null;
+      let rowRemoved = 0;
+      if (amtType) {
+        const row = amtType.closest('tr');
+        if (row) {
+          const acctId = row.querySelector('input[name*="mAcctID" i], #mAcctID, input[name="issim.mAcctID"]') as HTMLInputElement | null;
+          const amount = row.querySelector('input[name*="mAmount" i], #mAmount, input[name="issim.mAmount"]') as HTMLInputElement | null;
+          const isEmpty = (!acctId || !acctId.value.trim()) && (!amount || !amount.value.trim());
+          if (isEmpty) { row.remove(); rowRemoved = 1; }
+        }
+      }
+
+      return `Removed required from ${count} element(s); removed ${rowRemoved} empty part-tran row`;
     });
     console.log('removeSiRequiredValidation:', result);
     await this.page.waitForTimeout(500);
@@ -518,6 +596,64 @@ export class SavingsBankAccountPage extends AccountPage {
       }
     }
     return null;
+  }
+
+  async setSiSolId(value: string): Promise<void> {
+    return this.setSiText(['solID', 'solId', 'soleId'], value, 'Sol Id');
+  }
+
+  async setSiCifId(value: string): Promise<void> {
+    return this.setSiText(['cifID', 'cifId', 'debitCifId', 'drCifId', 'cifIdDr'], value, 'Debit CIF id');
+  }
+
+  async setSiNextExecutionDate(value: string): Promise<void> {
+    return this.fillSiDate(['nextExecDate_ui', 'nextExecnDate_ui', 'nextExecutionDate_ui', 'startDate_ui'], value, 'Next execution date');
+  }
+
+  async setSiAcceptanceEvent(value: string): Promise<void> {
+    return this.setSiText(['acceptanceEvt', 'acceptanceEvent', 'accptEvent', 'feeAcceptEvent'], value, 'Acceptance event');
+  }
+
+  async setSiHeaderDebitAccountId(value: string): Promise<void> {
+    // The visible label cell is "Debit A/c. ID"; use the exact text so fillByLabel can find it.
+    return this.setSiText(['drAcctID', 'drAcctId', 'debitAcctId', 'feeDrAcctId'], value, 'Debit A/c. ID');
+  }
+
+  async setSiPartAccountId(value: string): Promise<void> {
+    const finwFrame = this.getSiFinwFrame();
+    const candidates = ['mAcctID', 'issim.mAcctID', 'mVarAcctNum', 'issim.mVarAcctNum', 'mVarAcctId', 'varAcctId', 'mAcctId', 'acctID', 'accountId', 'partTranAccountId'];
+    for (const id of candidates) {
+      const locators = [
+        finwFrame.locator(`#${id}`).first(),
+        finwFrame.locator(`[name="${id}"]`).first(),
+        finwFrame.locator(`input[name*="${id}" i]`).first(),
+        finwFrame.locator(`input[id*="${id}" i]`).first(),
+      ];
+      for (const loc of locators) {
+        try {
+          if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
+            // Some part-tran account inputs are protected; enable them before filling.
+            const realId = await loc.evaluate(el => (el as HTMLElement).id || (el as HTMLElement).getAttribute('name') || '');
+            await finwFrame.evaluate((targetId: string) => {
+              const el = document.getElementById(targetId) || document.querySelector(`[name="${targetId}"]`) as HTMLInputElement | null;
+              if (el) {
+                el.removeAttribute('readonly');
+                el.removeAttribute('disabled');
+                (el as HTMLElement).style.display = '';
+                (el as HTMLElement).style.visibility = 'visible';
+              }
+            }, realId);
+            await loc.click({ clickCount: 3 });
+            await loc.fill(value);
+            await loc.press('Tab').catch(() => {});
+            await this.page.waitForTimeout(1000);
+            console.log(`Set part-tran A/c. ID (${realId}) = ${value}`);
+            return;
+          }
+        } catch (e) { /* try next candidate */ }
+      }
+    }
+    console.log(`Could not set part-tran A/c. ID = ${value}`);
   }
 
 }

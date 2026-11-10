@@ -1,0 +1,48 @@
+{
+  "demandDraftTestData": [
+    {
+      "instance": 1,
+      "flowName": "demanddraft",
+      "name": "HDDMI - demand draft issuance",
+      "sharedKey": "demandDraftId",
+      "menuOption": "HDDMI",
+      "function": "Add",
+      "enabled": "Y",
+      "demandDraftCurrency": "BMD",
+      "demandDraftAccount": "100BMD2003000",
+      "transactionType": "Transfer-Customer Induced",
+      "purchaserAccountType": "SB",
+      "purchaserAccount": "7500001517",
+      "amount": "100",
+      "payee": "ABC enterprises"
+    },
+    {
+      "instance": 2,
+      "flowName": "demanddraft",
+      "name": "HDDMI - demand draft verification",
+      "sharedKey": "demandDraftId",
+      "menuOption": "HDDMI",
+      "function": "Post",
+      "enabled": "Y"
+    },
+    {
+      "instance": 3,
+      "flowName": "demanddraft",
+      "name": "HDDC - demand draft cancellation",
+      "sharedKey": "demandDraftCancellationId",
+      "menuOption": "HDDC",
+      "function": "Cancel",
+      "enabled": "Y",
+      "transactionType": "Transfer-Customer Induced"
+    },
+    {
+      "instance": 4,
+      "flowName": "demanddraft",
+      "name": "HDDC - demand draft cancellation verification",
+      "sharedKey": "demandDraftCancellationId",
+      "menuOption": "HDDC",
+      "function": "Post",
+      "enabled": "Y"
+    }
+  ]
+}
