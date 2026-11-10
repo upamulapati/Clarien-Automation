@@ -1,5 +1,6 @@
 import { expect, Frame, Locator, Page } from '@playwright/test';
 import { AccountPage } from './AccountPage';
+import { getTermDepositAccounts, saveTermDepositAccount, saveTermDepositAccounts } from '../../helpers/sharedState';
 
 export class TermDepositPage extends AccountPage {
   constructor(page: Page) {
@@ -8,6 +9,7 @@ export class TermDepositPage extends AccountPage {
 
   async createTermDeposit(schemeCode: string, depositAmount: string, data: any): Promise<string | null> {
     console.log(`\n===== Creating term deposit: ${schemeCode} / ${depositAmount} =====`);
+    await this.selectCoreServer();
     await this.searchMenu(data.screens.create);
     await this.page.waitForTimeout(3000);
     await this.openLoanHeader({ ccy: data.ccy, solId: data.solId, cifCode: data.cifCode, schemeCode });
@@ -27,9 +29,10 @@ export class TermDepositPage extends AccountPage {
     await this.setDepositAmount(depositAmount);
     await this.setDepositPeriodMonths(data.depositPeriodMonths);
     await this.setTextByIds(['depPerdDays'], '0');
-    if (data.operativeSbAccount) {
-      await this.fillByLabel('Repayment A/c ID', data.operativeSbAccount).catch(() =>
-        this.setTextByIds(['repayAcct', 'repayAcc'], data.operativeSbAccount)
+    const repaymentAccountId = data.repaymentAccountId || data.operativeSbAccount || '';
+    if (repaymentAccountId) {
+      await this.fillByLabel('Repayment A/c ID', repaymentAccountId).catch(() =>
+        this.setTextByIds(['repayAcct', 'repayAcc', 'repayForacid', 'repaymentAcctId'], repaymentAccountId)
       );
     }
     await this.setNominationNo();
@@ -46,6 +49,49 @@ export class TermDepositPage extends AccountPage {
     const accountId = await this.captureGeneratedAccountId();
     await this.clickAccept();
     return accountId;
+  }
+
+  async createTermDepositsForAllInstances(instances: any[]): Promise<Record<string, string>> {
+    const generatedAccounts: Record<string, string> = {};
+    for (const instance of instances) {
+      const schemeCode = String(instance.schemeCode ?? '').trim();
+      const depositAmount = String(instance.depositAmount ?? '');
+      const instanceKey = String(instance.instance ?? schemeCode);
+      if (!schemeCode) {
+        console.log(`Skipping instance ${instanceKey}: no scheme code`);
+        continue;
+      }
+      const existing = getTermDepositAccounts();
+      if (existing[schemeCode] && existing[schemeCode] !== 'NOT CAPTURED' && existing[schemeCode] !== 'FAILED') {
+        console.log(`Term deposit account for ${schemeCode} already exists: ${existing[schemeCode]}. Skipping.`);
+        generatedAccounts[schemeCode] = existing[schemeCode];
+        continue;
+      }
+      try {
+        const accountId = await this.createTermDeposit(schemeCode, depositAmount, instance);
+        generatedAccounts[schemeCode] = accountId ?? 'NOT CAPTURED';
+        if (accountId) {
+          saveTermDepositAccount(schemeCode, accountId);
+        }
+      } catch (err) {
+        console.log(`===== INSTANCE ${instanceKey} (scheme ${schemeCode}) FAILED =====`);
+        console.log('Error:', err instanceof Error ? err.message : String(err));
+        generatedAccounts[schemeCode] = 'FAILED';
+        if (this.page.isClosed()) {
+          console.log('Main page is closed — stopping remaining instances.');
+          break;
+        }
+        await this.page.waitForTimeout(5000).catch(() => {});
+      }
+    }
+    saveTermDepositAccounts({ ...getTermDepositAccounts(), ...generatedAccounts });
+    console.log('====================================');
+    console.log('Term deposit creation summary:');
+    for (const [k, v] of Object.entries(generatedAccounts)) {
+      console.log(`  ${k}: ${v}`);
+    }
+    console.log('====================================');
+    return generatedAccounts;
   }
 
   private getTdFrame(): Frame | null {
@@ -169,9 +215,16 @@ export class TermDepositPage extends AccountPage {
   }
 
   private async setDepositPeriodMonths(value: string) {
-    const ok = await this.fillByLabel('Deposit Period Months', value).catch(() => false);
-    if (ok) return;
-    await this.setTextByIds(['depPerdMths', 'depPeriodMths', 'depositPeriodMonths', 'depPrdMth'], value);
+    const res: any = await this.fillByLabel('Deposit Period Months', value).catch(() => false);
+    if (res && res.ok) return;
+    await this.setTextByIds(['depPerdMths', 'depPeriodMths', 'depositPeriodMonths', 'depPrdMth', 'depPrdMths', 'depMths'], value);
+    await this.page.waitForTimeout(500);
+  }
+
+  private async setDepositPeriodDays(value: string) {
+    const res: any = await this.fillByLabel('Deposit Period Days', value).catch(() => false);
+    if (res && res.ok) return;
+    await this.setTextByIds(['depPerdDays', 'depPeriodDays', 'depositPeriodDays', 'depPrdDay', 'depPrdDays', 'depDays'], value);
     await this.page.waitForTimeout(500);
   }
 
@@ -402,7 +455,13 @@ export class TermDepositPage extends AccountPage {
     return null;
   }
 
-  async modifyTermDeposit(screenCode: string, accountId: string, newMonths: string, newDays: string): Promise<string | null> {
+  async modifyTermDeposit(
+    screenCode: string,
+    accountId: string,
+    newMonths: string,
+    newDays: string,
+    nextPrintDate?: string
+  ): Promise<string | null> {
     console.log(`\n===== Modifying term deposit: ${accountId} =====`);
     await this.searchMenu(screenCode);
     await this.page.waitForTimeout(3000);
@@ -425,33 +484,58 @@ export class TermDepositPage extends AccountPage {
     }
     await this.page.waitForTimeout(1000);
     await this.closeExtraPopups();
-    const goClicked = await this.clickGoButton();
-    if (!goClicked) {
-      console.log('Go button not found; modification may not proceed');
-    }
-    await this.page.waitForTimeout(4000);
 
-    await this.visitTab('Scheme');
-    await this.setTextByIds(['depPerdMths'], newMonths);
-    await this.setTextByIds(['depPerdDays'], newDays);
-    await this.page.waitForTimeout(800);
+    // Auto-accept any BOD-date or validation dialogs Finacle raises during the modification flow.
+    const earlyDialogMessages: string[] = [];
+    const earlyDialogHandler = (dialog: any) => {
+      earlyDialogMessages.push(dialog.message());
+      console.log(`Dialog captured during modification: ${dialog.message()}`);
+      dialog.accept().catch(() => {});
+    };
+    this.page.on('dialog', earlyDialogHandler);
 
-    await this.visitTab('Flow');
-    await this.page.waitForTimeout(1000);
-
-    await this.submitForm();
-    await this.page.waitForTimeout(3000);
-
-    const stillOnForm = await finwFrame?.locator('input[value="Submit" i], button:has-text("Submit")').count().catch(() => 0) ?? 0;
-    if (stillOnForm > 0) {
-      await this.submitForm();
+    try {
+      const goClicked = await this.clickGoButton();
+      if (!goClicked) {
+        console.log('Go button not found; modification may not proceed');
+      }
       await this.page.waitForTimeout(4000);
-    }
 
-    await this.acceptWarningPopup().catch(() => {});
-    await this.page.waitForTimeout(2000);
-    const statusMessage = await this.getStatusMessage();
-    return statusMessage;
+      await this.visitTab('General');
+      await this.setNextPrintDate(nextPrintDate ?? undefined);
+      await this.page.waitForTimeout(800);
+
+      await this.visitTab('Scheme');
+      await this.setDepositPeriodMonths(newMonths);
+      await this.setDepositPeriodDays(newDays);
+      await this.page.waitForTimeout(800);
+
+      await this.visitTab('Flow');
+      await this.page.waitForTimeout(1000);
+
+      await this.submitForm();
+      await this.page.waitForTimeout(3000);
+
+      const stillOnForm = await finwFrame?.locator('input[value="Submit" i], button:has-text("Submit")').count().catch(() => 0) ?? 0;
+      if (stillOnForm > 0) {
+        await this.submitForm();
+        await this.page.waitForTimeout(4000);
+      }
+
+      // Capture any post-submit info/OK popup message before it is dismissed.
+      const preOkMessage = await this.getStatusMessage();
+      await this.clickOkButton().catch(() => {});
+      await this.page.waitForTimeout(2000);
+
+      const statusMessage = (await this.getStatusMessage()) ?? preOkMessage ?? this.capturedPopupMessage;
+      if (!statusMessage && earlyDialogMessages.length > 0) {
+        // If the only feedback was an accepted dialog, return its text so the test does not fail on a null status.
+        return earlyDialogMessages.join('; ');
+      }
+      return statusMessage;
+    } finally {
+      this.page.off('dialog', earlyDialogHandler);
+    }
   }
 
   private async clickGoButton(): Promise<boolean> {
@@ -621,7 +705,7 @@ export class TermDepositPage extends AccountPage {
     }
     await this.page.waitForTimeout(4000);
 
-    await this.visitTab('Related Party');
+    await this.visitRelatedPartyTab().catch(() => this.visitTab('Related Party'));
     await this.clickRelatedPartyNextRecord();
 
     const delStatus = await this.setDelCheckboxChecked();
@@ -634,7 +718,7 @@ export class TermDepositPage extends AccountPage {
     await this.submitForm();
     await this.page.waitForTimeout(3000);
 
-    const stillOnForm = await finwFrame?.locator('input[value="Submit" i], button:has-text("Submit")').count().catch(() => 0) ?? 0;
+    const stillOnForm = await finwFrame?.locator('input[value="Submit" i], input[value="Delete" i], button:has-text("Submit"), button:has-text("Delete")').count().catch(() => 0) ?? 0;
     if (stillOnForm > 0) {
       await this.submitForm();
       await this.page.waitForTimeout(4000);

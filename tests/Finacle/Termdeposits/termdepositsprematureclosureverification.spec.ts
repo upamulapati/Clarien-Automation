@@ -12,23 +12,19 @@ const PASSWORD = CREDENTIALS.verifierCredentials.password;
 // Read generated TD account from creation spec
 const SCREEN_CODE = TERM_DEPOSIT_DATA.partialClosureVerificationScreenCode;
 
-function getGeneratedAccount(): string {
-  const closed = getClosedAccountId('termDepositPremature');
-  if (closed) return closed;
-  if (TERM_DEPOSIT_DATA.prematureClosureAccountId) return TERM_DEPOSIT_DATA.prematureClosureAccountId;
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string;
-  if (firstAccountId) return firstAccountId;
-  // Fallback to Excel-driven data if no generated account found
-  return TERM_DEPOSIT_DATA.relatedPartyAccountId;
-}
+// prematureClosureAccountId is read directly from the term_deposits sheet
 
 test(`${SCREEN_CODE} - term deposit premature closure verification`, async ({ page }) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
 
-  const ACCOUNT_ID = getGeneratedAccount();
+  const ACCOUNT_ID = String(TERM_DEPOSIT_DATA.prematureClosureAccountId ?? '').trim();
+  const EXPECTED_PREMATURE_CLOSURE_ACCOUNT = String(TERM_DEPOSIT_DATA.prematureClosureAccountId ?? '').trim();
+  if (!ACCOUNT_ID) {
+    throw new Error('prematureClosureAccountId is not configured in the term_deposits sheet');
+  }
+  expect(ACCOUNT_ID).toBe(EXPECTED_PREMATURE_CLOSURE_ACCOUNT);
   const status = await tdPage.verifyClosure(SCREEN_CODE, ACCOUNT_ID);
 
   console.log('====================================');

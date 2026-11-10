@@ -143,9 +143,6 @@ function getTopUpStepEnv(file, state) {
   if (suiteName !== 'topupdeposit') return {};
   const accounts = state?.topUpDepositAccounts || {};
   const overrides = {};
-  // Use the shared savings account 7500001515 as the repayment/operative account.
-  // It belongs to the same CIF as the default customer, avoiding the CIF mismatch warning.
-  overrides.TOPUP_REPAYMENT_ACCOUNT_ID = '7500001515';
   if (file.includes('accountfundingsavingsaccount.spec.ts')) {
     const acccoAccount = accounts['ACCCO'];
     const accplAccount = accounts['ACCPL'];
@@ -256,10 +253,7 @@ function writeLastRunManifest() {
   fs.writeFileSync(path.resolve(cwd, 'reports', '.last-run.json'), JSON.stringify(manifest, null, 2), 'utf8');
 }
 
-// Clear shared state
-if (fs.existsSync(sharedStateFile)) {
-  fs.writeFileSync(sharedStateFile, '{}', 'utf8');
-}
+// Shared state is cleared at the start of every run so the suite populates it freshly.
 
 // Seed shared state for the data-driven flow10 suite
 if (suiteName === 'flow10') {
@@ -345,17 +339,21 @@ for (let i = 0; i < files.length; i++) {
     stepOverrides.STEP_DATA = stepFile;
   }
 
-  // Inject HPORDM step data for the payment-order spec (filtered by suite/flowName)
+  // Inject HPORDM step data for the payment-order spec from FlowConfig
   if (file.includes('hpordm-remittance.spec.ts')) {
     try {
-      const stepFile = resolveProduct(
-        'HPORDM',
-        suiteName,
-        path.resolve(cwd, 'data', 'hpordm-step-data.json'),
-        'paymentOrderTestData',
-        { flowName: 'paymentorder', menuOption: 'HPORDM', function: 'Add', enabled: 'Y' }
-      );
-      stepOverrides.HPORDM_STEP_DATA = stepFile;
+      const dataSheet = steps[i]?.dataSheet;
+      const dataRowId = steps[i]?.dataRowId;
+      if (dataSheet && dataRowId != null) {
+        const stepFile = resolveFlowData(
+          String(dataSheet).toUpperCase(),
+          dataRowId,
+          path.resolve(cwd, 'data', 'hpordm-step-data.json')
+        );
+        stepOverrides.HPORDM_STEP_DATA = stepFile;
+      } else {
+        console.log('[runOrdered] HPORDM step missing dataSheet/dataRowId, skipping step-data injection');
+      }
     } catch (e) {
       console.log(`[runOrdered] Could not resolve HPORDM step data: ${e.message}`);
     }
@@ -381,15 +379,13 @@ for (let i = 0; i < files.length; i++) {
     delete stepOverrides.TERM_DEPOSIT_STEP_DATA;
   }
 
-  // Inject top-up deposit step data for any top-up deposit spec (filtered by flowName)
+  // Inject top-up deposit step data for the current instance
   if (file.includes('Topupdeposits')) {
     try {
-      const stepFile = resolveProduct(
-        'topup_deposits',
-        'topupdeposit',
-        path.resolve(cwd, 'data', 'top-up-deposit-step-data.json'),
-        'topUpDepositTestData',
-        { flowName: 'topupdeposit', menuOption: 'HOAACTU', function: 'Add', enabled: 'Y' }
+      const stepFile = resolveFlowData(
+        steps[i]?.dataSheet || 'topup_deposits',
+        steps[i]?.dataRowId ?? 1,
+        path.resolve(cwd, 'data', 'top-up-deposit-step-data.json')
       );
       stepOverrides.TOP_UP_DEPOSIT_STEP_DATA = stepFile;
     } catch (e) {

@@ -5,23 +5,17 @@ import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
   getClosedAccountId,
-  getTopUpDepositAccounts,
 } from '../../helpers/sharedState';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
 
 function getClosedAccount(): string {
+  const excel = String(TOP_UP_DEPOSIT_DATA.prematureClosureAccountId ?? '');
+  if (excel) return excel;
   const closed = getClosedAccountId('topUpDeposit');
   if (closed) return closed;
-
-  if (TOP_UP_DEPOSIT_DATA.prematureClosureAccountId) return TOP_UP_DEPOSIT_DATA.prematureClosureAccountId as string;
-
-  const accounts = getTopUpDepositAccounts();
-  const firstValid = Object.values(accounts).find((v) => v && v.length > 0) as string | undefined;
-  if (firstValid) return firstValid;
-
-  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
+  throw new Error('No top-up deposit premature closure account ID configured');
 }
 
 test('HCAACVTU - top-up deposit premature closure verification', async ({ page }) => {

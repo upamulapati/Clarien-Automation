@@ -11,20 +11,19 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const SCREEN_CODE = TERM_DEPOSIT_DATA.partialClosureScreenCode;
 const FUNCTION_OPTION = TERM_DEPOSIT_DATA.partialClosureFunctionOption;
 
-function getGeneratedAccount(): string {
-  if (TERM_DEPOSIT_DATA.prematureClosureAccountId) return TERM_DEPOSIT_DATA.prematureClosureAccountId;
-  const accounts = getTermDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string;
-  if (firstAccountId) return firstAccountId;
-  return TERM_DEPOSIT_DATA.relatedPartyAccountId;
-}
+// prematureClosureAccountId is read directly from the term_deposits sheet
 
 test(`${SCREEN_CODE} - term deposit premature closure`, async ({ page }) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
 
-  const ACCOUNT_ID = getGeneratedAccount();
+  const ACCOUNT_ID = String(TERM_DEPOSIT_DATA.prematureClosureAccountId ?? '').trim();
+  const EXPECTED_PREMATURE_CLOSURE_ACCOUNT = String(TERM_DEPOSIT_DATA.prematureClosureAccountId ?? '').trim();
+  if (!ACCOUNT_ID) {
+    throw new Error('prematureClosureAccountId is not configured in the term_deposits sheet');
+  }
+  expect(ACCOUNT_ID).toBe(EXPECTED_PREMATURE_CLOSURE_ACCOUNT);
   try {
     saveClosedAccountId('termDepositPremature', ACCOUNT_ID);
     console.log('Saved premature closure account ID to shared-state');

@@ -32,7 +32,11 @@ const CREDIT_ACCOUNT = SAVINGS_FUNDING_CREDIT?.accountId ?? '';
 const INITIAL_FUNDING_AMOUNT = SAVINGS_FUNDING_DEBIT?.amount ?? '100';
 
 const SERIAL_245_DEBIT = SERIAL_245_ROW.debits?.[0];
+const SERIAL_261_DEBIT = SERIAL_261_ROW.debits?.[0];
 const SECONDARY_AMOUNT = SERIAL_245_DEBIT?.amount ?? '100';
+const SERIAL_245_CHARGE_EVENT = SERIAL_245_DEBIT?.debitChargeEventId ?? '';
+const SERIAL_261_CHARGE_EVENT = SERIAL_261_DEBIT?.debitChargeEventId ?? '';
+
 
 test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savings Account', () => {
   
@@ -53,7 +57,9 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
   // Generates one Playwright test per resolved transfer row.
   for (const [index, raw] of TRANSFER_DATA.entries()) {
     const STEP: any = raw.data ?? {};
-    const label = STEP.testLabel ?? `transfer instance ${raw.instance ?? index + 1}`;
+    const label = STEP.testLabel
+      ? `${STEP.testLabel} - ${raw.instance ?? index + 1}`
+      : `transfer instance ${raw.instance ?? index + 1}`;
     const STEP_SOL_ID = STEP.solId ?? SOL_ID;
     const STEP_TRAN_TYPE = STEP.tranTypeSubType ?? TRAN_TYPE_SUBTYPE;
 
@@ -184,6 +190,7 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
     await tmPage.selectHtmDebit();
     await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
     await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
+    await tmPage.enterHtmChargeEventId(SERIAL_245_CHARGE_EVENT);
     await tmPage.clickHtmAdd();
 
     // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id
@@ -252,6 +259,7 @@ test.describe(SAVINGS_FUNDING_ROW.testLabel ?? 'Transfer Maintenance - Fund Savi
     await tmPage.selectHtmDebit();
     await tmPage.enterHtmAccountId(DEBIT_ACCOUNT);
     await tmPage.enterHtmAmount(SECONDARY_AMOUNT, true);
+    await tmPage.enterHtmChargeEventId(SERIAL_261_CHARGE_EVENT);
     await tmPage.clickHtmAdd();
 
     // Step 8-10: Credit part transaction - switch to Credit, enter credit a/c id

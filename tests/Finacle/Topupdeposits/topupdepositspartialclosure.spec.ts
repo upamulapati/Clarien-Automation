@@ -4,7 +4,6 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
-  getTopUpDepositAccounts,
   saveClosedAccountId,
 } from '../../helpers/sharedState';
 
@@ -14,21 +13,17 @@ const PASSWORD = CREDENTIALS.credentials.password;
 const SCREEN_CODE = TOP_UP_DEPOSIT_DATA.screens.partialClosure;
 const PARTIAL_WITHDRAWAL_AMT = TOP_UP_DEPOSIT_DATA.partialClosureWithdrawalAmount;
 const REPAYMENT_ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.repaymentAcctId;
-
-function getGeneratedAccount(): string {
-  const accounts = getTopUpDepositAccounts();
-  const schemeAccount = accounts['ACCCO'];
-  if (schemeAccount) return schemeAccount;
-  if (TOP_UP_DEPOSIT_DATA.partialClosureAccountId) return TOP_UP_DEPOSIT_DATA.partialClosureAccountId as string;
-  return TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
-}
+const ACCOUNT_ID = String(TOP_UP_DEPOSIT_DATA.partialClosureAccountId ?? '');
 
 test('HCAACTU - top-up deposit partial closure', async ({ page }) => {
   test.setTimeout(300000);
   const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD);
   const tdPage = new TermDepositPage(page);
-  const accountId = getGeneratedAccount();
+  const accountId = ACCOUNT_ID;
   console.log(`Performing partial closure for TU account: ${accountId}`);
+  if (!accountId) {
+    throw new Error('partialClosureAccountId is not configured in the topup_deposits sheet');
+  }
   const statusMessage = await tdPage.partialClosure(SCREEN_CODE, accountId, {
     withdrawalAmount: PARTIAL_WITHDRAWAL_AMT,
     repaymentAccountId: REPAYMENT_ACCOUNT_ID,

@@ -2,19 +2,11 @@ import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
-import { getTopUpDepositAccounts, readSharedState } from '../../helpers/sharedState';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.secondCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
-function getCreatedAccount(): string {
-  const accounts = getTopUpDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  const state = readSharedState();
-  return firstAccountId || state.accountId || TOP_UP_DEPOSIT_DATA.relatedPartyAccountId || '9200000632';
-}
-
-const ACCOUNT_ID = getCreatedAccount();
+const ACCOUNT_ID = TOP_UP_DEPOSIT_DATA.relatedPartyAccountId as string;
 
 test('HOAACVTU - verify related party details for top-up deposit account', async ({ page }) => {
   test.setTimeout(300000);

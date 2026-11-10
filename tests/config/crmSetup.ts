@@ -65,7 +65,10 @@ export function setupDialogHandlers(page: Page, lastDialogMessages?: string[]) {
     const msg = d.message();
     lastDialogMessages?.push(msg);
     console.log(`Dialog message: ${msg.substring(0, 150)}`);
-    if (d.type() === 'prompt') {
+    if (d.type() === 'beforeunload') {
+      // Dismissing a beforeunload dialog lets Finacle navigate to the next screen.
+      await d.dismiss().catch(() => {});
+    } else if (d.type() === 'prompt') {
       await d.accept(d.defaultValue()).catch(() => {});
     } else {
       await d.accept().catch(() => {});

@@ -19,9 +19,9 @@ for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
     });
 
     test(acctData.testLabel, async ({ page }) => {
-      const verifyAccountId = (acctData.accountId?.trim() || getSharedValue((state) => state.savingsAccounts?.[String(acctData.instance)] ?? state.accountId)) as string | undefined;
-      if (!verifyAccountId) {
-        throw new Error(`No accountId found for instance ${acctData.instance} in SavingsAccountModifyVerifyData or shared state.`);
+      const verifyAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acctData.instance)] ?? state.accountId) ?? acctData.accountId;
+      if (!verifyAccountId?.trim()) {
+        throw new Error(`No accountId found for instance ${acctData.instance} in shared state or verify data.`);
       }
       console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
 

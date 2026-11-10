@@ -11,6 +11,20 @@ import DEFAULT_DEMAND_DRAFT_DATA from './demandDraftTestData.json';
 
 const ROW_KEYS = ['instance', 'flowName', 'name', 'sharedKey', 'menuOption', 'function', 'enabled'];
 
+// Default Finacle screen codes for the Top-Up Deposit flow. These are used when
+// the topup_deposits worksheet does not contain a screens column.
+const DEFAULT_TOP_UP_SCREENS = {
+  create: 'HOAACTU',
+  modify: 'HOAACMTU',
+  verify: 'HOAACVTU',
+  partialClosure: 'HCAACTD',
+  partialClosureVerify: 'HCAACVTD',
+  prematureClosure: 'HCAACTD',
+  prematureClosureVerify: 'HCAACVTD',
+  renewal: 'HTDREN',
+  renewalVerify: 'HTDREN',
+};
+
 function tryParse(v: any): any {
   if (typeof v !== 'string') return v;
   const s = v.trim();
@@ -118,6 +132,48 @@ function loadCurrentFromExcel(): any[] | null {
       }
       return obj;
     });
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
+function loadTopUpDepositFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['topup_deposits'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
+function loadTermDepositsFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['term_deposits'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
+  } catch {
+    return null;
+  }
+}
+
+function loadHpordmFromExcel(): any[] | null {
+  try {
+    const excelPath = path.resolve(__dirname, '../../data/test-data.xlsx');
+    if (!fs.existsSync(excelPath)) return null;
+    const wb = xlsx.readFile(excelPath);
+    const ws = wb.Sheets['HPORDM'];
+    if (!ws) return null;
+    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
     return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
   } catch {
     return null;
@@ -301,7 +357,8 @@ export const RETAIL_LOAN_MODIFY_DATA = loadSection(process.env.STEP_DATA, [], 'r
 });
 
 // HPORDM payment order data.
-const hpordmRows = loadSection(process.env.HPORDM_STEP_DATA, DEFAULT_HPORDM_DATA, 'paymentOrderTestData', {
+const hpordmExcel = loadHpordmFromExcel();
+const hpordmRows = loadSection(process.env.HPORDM_STEP_DATA, hpordmExcel ?? DEFAULT_HPORDM_DATA, 'paymentOrderTestData', {
   flowName: 'paymentorder',
   menuOption: 'HPORDM',
   function: 'Add',
@@ -309,27 +366,79 @@ const hpordmRows = loadSection(process.env.HPORDM_STEP_DATA, DEFAULT_HPORDM_DATA
 });
 export const HPORDM_TEST_DATA = { paymentOrderTestData: hpordmRows };
 
+function normalizeTermDepositData(data: any): any {
+  if (!data) return data;
+
+  // Ensure a singular schemeCode is available from a legacy array column
+  if (!data.schemeCode && data.schemeCodes) {
+    const codes = Array.isArray(data.schemeCodes) ? data.schemeCodes : [data.schemeCodes];
+    data.schemeCode = String(codes[0] ?? '');
+  }
+
+  // Rebuild the screens object from flattened scalar columns if present
+  if (data.screenCreate !== undefined || data.screenModify !== undefined || data.screenVerify !== undefined) {
+    data.screens = {
+      create: data.screenCreate || data.menuOption || data.screens?.create,
+      modify: data.screenModify || data.spflowModifyScreen || data.screens?.modify,
+      verify: data.screenVerify || data.spflowVerifyScreen || data.screens?.verify,
+      inquiry: data.spflowInquiryScreen || data.screenInquiry || data.screens?.inquiry,
+      partialClosure: data.partialClosureScreenCode || data.screens?.partialClosure,
+      partialClosureVerify: data.partialClosureVerificationScreenCode || data.screens?.partialClosureVerify,
+    };
+  }
+
+  if (!data.depositAmountOverrides) {
+    data.depositAmountOverrides = {};
+  }
+
+  // Rebuild the renewal details object from flattened scalar columns if present
+  if (data.renewalPeriodMonths !== undefined || data.renewalPeriodDays !== undefined || data.printRenewalConfirmation !== undefined) {
+    data.renewalDetails = {
+      renewalPeriodMonths: String(data.renewalPeriodMonths ?? ''),
+      renewalPeriodDays: String(data.renewalPeriodDays ?? ''),
+      printRenewalConfirmation: String(data.printRenewalConfirmation ?? ''),
+    };
+  }
+
+  return data;
+}
+
 // Term deposit data.
-const termDepositRows = loadSection(process.env.TERM_DEPOSIT_STEP_DATA, DEFAULT_TERM_DEPOSIT_DATA, 'termDepositTestData', {
+const termDepositExcel = loadTermDepositsFromExcel();
+const termDepositRows = loadSection(process.env.TERM_DEPOSIT_STEP_DATA, termDepositExcel ?? DEFAULT_TERM_DEPOSIT_DATA, 'termDepositTestData', {
   flowName: 'termdeposit',
   menuOption: 'HOAACTD',
   function: 'Add',
   enabled: 'Y',
 });
 export const TERM_DEPOSIT_TEST_DATA = { termDepositTestData: termDepositRows };
-export const TERM_DEPOSIT_DATA = termDepositRows[0]?.data ?? {};
+export const TERM_DEPOSIT_DATA = normalizeTermDepositData(termDepositRows[0]?.data ?? {});
+export const TERM_DEPOSIT_INSTANCES = termDepositRows.map((r: any) => normalizeTermDepositData(r.data ?? {}));
 
 export function getTermDepositScenario(flowName: string): any | undefined {
   return termDepositRows.find((r) => r.flowName === flowName);
 }
 
-// Top-up deposit data.
-const rawTopUpDepositRows = loadSection(process.env.TOP_UP_DEPOSIT_STEP_DATA, DEFAULT_TOP_UP_DEPOSIT_DATA, 'topUpDepositTestData', {
+// Top-up deposit data — the topup_deposits worksheet is the primary source.
+const topUpDepositExcel = loadTopUpDepositFromExcel();
+
+const rawTopUpDepositRows = loadSection(process.env.TOP_UP_DEPOSIT_STEP_DATA, topUpDepositExcel ?? DEFAULT_TOP_UP_DEPOSIT_DATA, 'topUpDepositTestData', {
   flowName: 'topupdeposit',
   menuOption: 'HOAACTU',
   function: 'Add',
   enabled: 'Y',
+  screens: DEFAULT_TOP_UP_SCREENS,
 });
+
+// Derive a single-scheme list from the worksheet's schemeCode and ensure the
+// default screen map is present for every row. Always prefer the singular
+// schemeCode from the topup_deposits worksheet over any stale default array.
+for (const row of rawTopUpDepositRows) {
+  const data = row.data ?? {};
+  if (data.schemeCode != null) {
+    data.schemeCodes = [data.schemeCode];
+  }
+}
 
 const topUpDepositRows = (() => {
   if (!process.env.TOPUP_REPAYMENT_ACCOUNT_ID) {
@@ -337,7 +446,11 @@ const topUpDepositRows = (() => {
   }
   const repaymentAcctId = process.env.TOPUP_REPAYMENT_ACCOUNT_ID;
   return rawTopUpDepositRows.map((row: any) => {
-    const data = { ...(row.data ?? {}), repaymentAcctId };
+    const data = { ...(row.data ?? {}) };
+    // Only use the environment override as a fallback when the Excel row has no value.
+    if (!data.repaymentAcctId && repaymentAcctId) {
+      data.repaymentAcctId = repaymentAcctId;
+    }
     return { ...row, data };
   });
 })();

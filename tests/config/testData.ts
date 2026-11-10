@@ -1,5 +1,5 @@
 import COMMON_DATA from '../../data/common-data.json';
-import { TERM_DEPOSIT_DATA, TOP_UP_DEPOSIT_DATA } from './excelTestData';
+import { TERM_DEPOSIT_DATA, TERM_DEPOSIT_INSTANCES, TOP_UP_DEPOSIT_DATA } from './excelTestData';
 
 // Single source of truth for the shared customer/branch defaults.
 // Product test data below is built by merging these defaults with product-specific
@@ -20,7 +20,7 @@ export const CURRENT_ACCOUNT_DATA = {
   dispatchMode: DEFAULT_CUSTOMER.dispatchMode as 'email' | 'post' | 'no dispatch',
 };
 
-export { TERM_DEPOSIT_DATA, TOP_UP_DEPOSIT_DATA };
+export { TERM_DEPOSIT_DATA, TERM_DEPOSIT_INSTANCES, TOP_UP_DEPOSIT_DATA };
 
 export const SERVICE_PACK_NOMINATION_DATA = {
   ...CUSTOMER_DEFAULTS,

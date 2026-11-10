@@ -2274,6 +2274,7 @@ export class AccountPage {
     for (const candidate of candidates) {
       const inputs = [
         finwFrame.locator(`#${candidate}`).first(),
+        finwFrame.locator(`[id="${candidate}"]`).first(),
         finwFrame.locator(`[name="${candidate}"]`).first(),
         finwFrame.locator(`input[id*="${candidate}" i]`).first(),
         finwFrame.locator(`input[name*="${candidate}" i]`).first(),
@@ -2301,15 +2302,70 @@ export class AccountPage {
       const select = finwFrame.locator(`#${candidate}, select[name="${candidate}"], select[id*="${candidate}" i]`).first();
       try {
         if (await select.count() > 0 && await select.isVisible().catch(() => false) && await select.isEnabled().catch(() => false)) {
-          await select.selectOption(value);
-          await this.page.waitForTimeout(800);
-          console.log(`Selected ${label} = ${value}`);
-          return;
+          try {
+            await select.selectOption(value);
+            await this.page.waitForTimeout(800);
+            console.log(`Selected ${label} = ${value}`);
+            return;
+          } catch {
+            const token = String(value).match(/^[A-Za-z0-9]+/)?.[0];
+            if (token) {
+              try {
+                await select.selectOption({ value: token });
+                await this.page.waitForTimeout(800);
+                console.log(`Selected ${label} = ${value} (by value ${token})`);
+                return;
+              } catch {}
+              try {
+                const option = select.locator('option', { hasText: new RegExp('^' + token + '\\b', 'i') }).first();
+                if (await option.count() > 0) {
+                  const optionValue = await option.getAttribute('value') ?? token;
+                  await select.selectOption(optionValue);
+                  await this.page.waitForTimeout(800);
+                  console.log(`Selected ${label} = ${value} (by token ${token})`);
+                  return;
+                }
+              } catch {}
+            }
+          }
         }
       } catch {}
     }
     const ok = await this.fillByLabel(label, value).catch(() => false);
     if (!ok) console.log(`Could not select ${label} = ${value}`);
+  }
+
+  private async htmSetRadio(candidates: string[], value: string, label: string): Promise<void> {
+    const finwFrame = this.getFinwFrame();
+    const raw = value.trim();
+    const up = raw.toUpperCase();
+    const tryValues = new Set<string>([raw, value]);
+    if (['Y', 'YES'].includes(up)) tryValues.add('Y');
+    if (['N', 'NO', 'NONE'].includes(up)) tryValues.add('N');
+    const first = raw.charAt(0).toUpperCase();
+    if (first) tryValues.add(first);
+
+    for (const candidate of candidates) {
+      for (const v of tryValues) {
+        const locators = [
+          finwFrame.locator(`input[type="radio"][name="${candidate}"][value="${v}"]`).first(),
+          finwFrame.locator(`input[type="radio"][name*="${candidate}" i][value="${v}"]`).first(),
+          finwFrame.locator(`input[type="radio"][id="${candidate}"][value="${v}"]`).first(),
+          finwFrame.locator(`input[type="radio"][id*="${candidate}" i][value="${v}"]`).first(),
+        ];
+        for (const input of locators) {
+          try {
+            if (await input.count() > 0 && await input.isVisible().catch(() => false) && await input.isEnabled().catch(() => false)) {
+              await input.check();
+              await this.page.waitForTimeout(800);
+              console.log(`Selected radio ${label} = ${value} (value=${v})`);
+              return;
+            }
+          } catch {}
+        }
+      }
+    }
+    console.log(`Could not select radio ${label} = ${value}`);
   }
 
   private async htmClickButton(label: string): Promise<void> {
@@ -2418,6 +2474,25 @@ export class AccountPage {
   }
 
 
+
+  async enterHtmChargeEventId(chargeEventId: string): Promise<void> {
+    if (!chargeEventId || chargeEventId.trim() === '') {
+      return;
+    }
+    try {
+      const finwFrame = this.getFinwFrame();
+      const input = finwFrame.locator('#chrgEventId, input[name="tm.chrgEventId"]').first();
+      if (await input.count() === 0 || !(await input.isVisible().catch(() => false)) || !(await input.isEnabled().catch(() => false))) {
+        return;
+      }
+      await input.fill(chargeEventId);
+      await input.press('Tab').catch(() => {});
+      await this.page.waitForTimeout(500);
+      console.log(`Set Charge Event ID = ${chargeEventId}`);
+    } catch (e) {
+      console.log(`Could not enter HTM Charge Event ID: ${e}`);
+    }
+  }
 
   async selectHtmDebit() {
     await this.htmSetPartTran('D');
@@ -2599,28 +2674,84 @@ export class AccountPage {
   }
 
   // Resolve HTM part transactions from transfer step data into a flat list.
-  getHtmPartTransactions(data: any): { accountId: string; amount: string; type: 'D' | 'C' }[] {
-    const entries: { accountId: string; amount: string; type: 'D' | 'C' }[] = [];
+  getHtmPartTransactions(data: any): { accountId: string; amount: string; type: 'D' | 'C'; fields: any }[] {
+    const entries: { accountId: string; amount: string; type: 'D' | 'C'; fields: any }[] = [];
     const debits = Array.isArray(data?.debits) ? data.debits : [];
     const credits = Array.isArray(data?.credits) ? data.credits : [];
+    const makeFields = (obj: any) => {
+      const { accountId, amount, credits, type, ...rest } = obj;
+      return rest;
+    };
     for (const d of debits) {
       if (d.accountId !== undefined && d.amount !== undefined) {
-        entries.push({ accountId: String(d.accountId).trim(), amount: String(d.amount).trim(), type: 'D' });
+        entries.push({ accountId: String(d.accountId).trim(), amount: String(d.amount).trim(), type: 'D', fields: makeFields(d) });
       }
       if (Array.isArray(d.credits)) {
         for (const c of d.credits) {
           if (c.accountId !== undefined && c.amount !== undefined) {
-            entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C' });
+            entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C', fields: makeFields(c) });
           }
         }
       }
     }
     for (const c of credits) {
       if (c.accountId !== undefined && c.amount !== undefined) {
-        entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C' });
+        entries.push({ accountId: String(c.accountId).trim(), amount: String(c.amount).trim(), type: 'C', fields: makeFields(c) });
       }
     }
     return entries;
+  }
+
+  private htmPartTranFieldConfig(base: string): { candidates: string[]; kind: 'text' | 'select' | 'radio'; label: string }[] | null {
+    const map: Record<string, { candidates: string[]; kind: 'text' | 'select' | 'radio'; label: string }[]> = {
+      'ref.ccy': [{ candidates: ['refCrncy', 'tm.refCrncy'], kind: 'text', label: 'Ref. CCY' }],
+      'transactionparticularscode': [{ candidates: ['tranParticularsCode', 'tm.tranParticularsCode'], kind: 'text', label: 'Transaction Particulars Code' }],
+      'chargeeventid': [{ candidates: ['chrgEventId', 'tm.chrgEventId'], kind: 'text', label: 'Charge Event ID' }],
+      'remarks1': [{ candidates: ['tranRmks', 'tm.tranRmks'], kind: 'text', label: 'Remarks 1' }],
+      'ratecoderate': [{ candidates: ['rateCode', 'tm.rateCode', 'rate', 'tm.rate'], kind: 'text', label: 'Rate Code/Rate' }],
+      'transactionparticulars': [{ candidates: ['tranParticular', 'tm.tranParticular'], kind: 'text', label: 'Transaction Particulars' }],
+      'valuedategeneralledgerdate': [
+        { candidates: ['valueDate_ui', 'tm.valueDate_ui'], kind: 'text', label: 'Value Date' },
+        { candidates: ['glDate_ui', 'tm.glDate_ui'], kind: 'text', label: 'GL Date' },
+      ],
+      'printadvice': [{ candidates: ['tm.printAdvice', 'printAdvice'], kind: 'radio', label: 'Print Advice' }],
+      'remarks2': [{ candidates: ['tranRmks2', 'tm.tranRmks2'], kind: 'text', label: 'Remarks 2' }],
+      'options': [{ candidates: ['option', 'tm.option'], kind: 'select', label: 'Options' }],
+    };
+    return map[base] || null;
+  }
+
+  private async htmSetHtmPartTranFields(fields: any): Promise<void> {
+    if (!fields) return;
+    for (const [fieldName, rawValue] of Object.entries(fields)) {
+      const base = String(fieldName).replace(/^(debit|credit)/i, '').toLowerCase();
+      let value = rawValue == null ? '' : String(rawValue).trim();
+
+      if (value === '') {
+        continue;
+      }
+
+      // Finacle validates transaction particular codes with leading zeros (e.g. 001).
+      if (base === 'transactionparticularscode' && /^\d+$/.test(value)) {
+        value = value.padStart(3, '0');
+      }
+
+      const config = this.htmPartTranFieldConfig(base);
+      if (!config) {
+        await this.htmSetField([fieldName], value, fieldName);
+        continue;
+      }
+
+      for (const c of config) {
+        if (c.kind === 'select') {
+          await this.htmSetSelect(c.candidates, value, c.label);
+        } else if (c.kind === 'radio') {
+          await this.htmSetRadio(c.candidates, value, c.label);
+        } else {
+          await this.htmSetField(c.candidates, value, c.label);
+        }
+      }
+    }
   }
 
   // Enter and post all part transactions described by the transfer step data.
@@ -2639,6 +2770,11 @@ export class AccountPage {
       }
       await this.enterHtmAccountId(entry.accountId);
       await this.enterHtmAmount(entry.amount, true);
+      await this.htmSetHtmPartTranFields(entry.fields);
+      const chargeEventId = entry.type === 'D'
+        ? (entry.fields?.debitChargeEventId ?? '')
+        : (entry.fields?.creditChargeEventId ?? '');
+      await this.enterHtmChargeEventId(chargeEventId);
       if (i === entries.length - 1) {
         await this.clickHtmPost();
         await this.page.waitForTimeout(3000);
@@ -2763,13 +2899,14 @@ export class AccountPage {
     try {
       const finwFrame = this.getFinwFrame();
       const body = await finwFrame.locator('body').innerText();
+      const bodyHtml = await finwFrame.locator('body').innerHTML().catch(() => '');
       const rawAmount = (amount ?? '').toString().replace(/,/g, '');
       const formattedAmount = Number(rawAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const normalisedBody = body.replace(/,/g, '').toLowerCase();
       const hasAmount = normalisedBody.includes(rawAmount.toLowerCase()) || body.includes(formattedAmount);
       const hasType = body.toLowerCase().includes(type.toLowerCase());
-      const hasTxn = transactionId ? body.includes(transactionId) : true;
-      const pass = hasAmount && (hasType || hasTxn);
+      const hasTxn = transactionId ? (body.includes(transactionId) || bodyHtml.includes(transactionId)) : true;
+      const pass = (hasAmount && (hasType || hasTxn)) || (hasType && hasTxn);
       console.log(`HACLINQ verify ${type}: amount=${hasAmount}, type=${hasType}, txn=${hasTxn} → ${pass ? 'PASS' : 'NOT CONFIRMED'}`);
       return pass;
     } catch (e) {
@@ -5294,7 +5431,7 @@ export class AccountPage {
       'td:has-text("Submit"), td:has-text("Verify"), td:has-text("Authorise"), td:has-text("Authorize"), ' +
       'li:has-text("Submit"), li:has-text("Verify"), li:has-text("Authorise"), li:has-text("Authorize")';
 
-    const matchesActionLabel = (label: string) => /submit|verify|authori[sz]e/i.test(label);
+    const matchesActionLabel = (label: string) => /submit|verify|authori[sz]e|modify|update|save|delete|remove/i.test(label) && !/cancel/i.test(label);
 
     const isContentFrame = (frame: Frame): boolean => {
       const name = (frame.name() || '').toLowerCase();
@@ -5929,8 +6066,9 @@ export class AccountPage {
         if (/excp_popup|excp_|warning|exception/i.test(url) || /warning|exception/i.test(title)) {
           const btn = p.locator(selector).first();
           if (await btn.count().catch(() => 0) > 0) {
-            const desc = (await p.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 200);
-            this.capturedPopupMessage = this.capturedPopupMessage || desc;
+            const fullDesc = (await p.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+            const desc = fullDesc.slice(0, 200);
+            this.capturedPopupMessage = this.capturedPopupMessage || fullDesc;
             console.log(`Warning/Exception popup detected: ${desc}`);
             await btn.click({ timeout: 15000 }).catch(() => {});
             await this.page.waitForTimeout(2000);

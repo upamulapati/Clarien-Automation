@@ -2,22 +2,16 @@ import { test, expect } from '@playwright/test';
 import { TermDepositPage } from '../../pages/CoreBanking/TermDepositPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { TOP_UP_DEPOSIT_DATA } from '../../config/testData';
-import { getTopUpDepositAccounts, readSharedState } from '../../helpers/sharedState';
 import { CREDENTIALS } from '../../../data/credentials';
 
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 
-function getCreatedAccount(): string {
-  const accounts = getTopUpDepositAccounts();
-  const firstAccountId = Object.values(accounts)[0] as string | undefined;
-  const state = readSharedState();
-  return firstAccountId || state.accountId || TOP_UP_DEPOSIT_DATA.relatedPartyAccountId || '9200000632';
-}
+const ACCOUNT_ID = String(TOP_UP_DEPOSIT_DATA.relatedPartyAccountId ?? '');
 
-test(TOP_UP_DEPOSIT_DATA.relatedPartyTestLabel as string, async ({ page }) => {
+test(String(TOP_UP_DEPOSIT_DATA.relatedPartyTestLabel ?? 'Add related party details for top-up deposit'), async ({ page }) => {
   test.setTimeout(180000);
-  const accountId = getCreatedAccount();
+  const accountId = ACCOUNT_ID;
   const data = {
     accountId,
     relationType: TOP_UP_DEPOSIT_DATA.relatedPartyRelationType,

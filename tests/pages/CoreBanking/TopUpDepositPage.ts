@@ -43,7 +43,7 @@ export class TopUpDepositPage extends TermDepositPage {
   async createTopUpDeposit(schemeCode: string, data: any): Promise<string | null> {
     console.log(`\n===== Creating top-up deposit: ${schemeCode} =====`);
     await this.selectCoreServer();
-    await this.searchMenu(data.screens.create);
+    await this.searchMenu(data.screens?.create ?? data.menuOption ?? 'HOAACTU');
     await this.page.waitForTimeout(5000);
 
     await this.waitForHeaderInputs();
@@ -507,7 +507,7 @@ export class TopUpDepositPage extends TermDepositPage {
   public async servicePackFlowEndDateValidation(schemeCode: string, data: any): Promise<{ flowEndDateModified: boolean; message: string; screenshot: Buffer }> {
     console.log(`\n===== Service Pack Flow End Date validation: ${schemeCode} =====`);
     await this.selectCoreServer();
-    await this.searchMenu(data.screens?.create ?? 'HOAACTU');
+    await this.searchMenu(data.screens?.create ?? data.menuOption ?? 'HOAACTU');
     await this.page.waitForTimeout(5000);
 
     await this.waitForHeaderInputs();

@@ -5,9 +5,10 @@ import * as fs from 'fs';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState, setSharedValue } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
+import { SAVINGS_MODIFY_DATA as SAVINGS_MODIFY_STEP_DATA } from '../../config/excelTestData';
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');
 const SHEET_NAME = 'SavingsAccountModifyData';
