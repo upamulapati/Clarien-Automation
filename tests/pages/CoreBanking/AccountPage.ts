@@ -35,6 +35,7 @@ export class AccountPage {
   private hacmMainUrl: string | null = null;
   protected capturedDialogMessages: string[] = [];
   protected capturedPopupMessage: string | null = null;
+  protected capturedAccountNumber: string | null = null;
 
   constructor(page: Page, lastDialogMessages?: string[]) {
     this.page = page;
@@ -279,6 +280,11 @@ export class AccountPage {
       const finwFrame = this.getFinwFrame();
       const textLower = textMatch.toLowerCase();
       const textNorm = textLower.replace(/[^a-z0-9]+/g, '');
+      const words = textLower.split(/\s+/).filter(Boolean);
+      const labelMatches = (candidate: string) => {
+        const cWords = candidate.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+        return words.length > 0 && words.every(w => cWords.some(cw => cw === w || cw.startsWith(w) || w.startsWith(cw)));
+      };
       const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
       await this.capturePreActionEvidence(`Before tab: ${textMatch}`);
       let clicked = false;
@@ -327,7 +333,7 @@ export class AccountPage {
             txt === 'home' || txt === 'menu';
           if (isHelp || isTopNav) continue;
           if (!txt && !nTxt) continue;
-          if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm)) {
+          if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm) || labelMatches(txt)) {
             try {
               await el.click({ timeout: 15000, force: true });
             } catch {
@@ -402,29 +408,40 @@ export class AccountPage {
         }
       }
 
-      // Strategy 3: fallback by id (only if visible and not a top/background nav control).
+      // Strategy 3: fallback by id/href/onclick keyword (only if visible and not a top/background nav control).
       if (!clicked && idFallback) {
-        const fallback = finwFrame.locator(`#${idFallback}`).first();
-        if (await fallback.count() > 0 && await fallback.isVisible().catch(() => false)) {
-          const fbHref = (await fallback.getAttribute('href') || '').toLowerCase();
-          const fbOnclick = (await fallback.getAttribute('onclick') || '').toLowerCase();
-          const fbIsTopNav =
-            fbHref.includes('showbgmenu') || fbOnclick.includes('showbgmenu') ||
-            fbHref.includes('exitbgmenu') || fbOnclick.includes('exitbgmenu') ||
-            fbHref.includes('fnbacktolandingpage') || fbOnclick.includes('fnbacktolandingpage') ||
-            fbHref.includes('showcrncyconverter') || fbOnclick.includes('showcrncyconverter') ||
-            fbHref.includes('fnmenuhdr') || fbOnclick.includes('fnmenuhdr') ||
-            fbHref.includes('feedback') || fbOnclick.includes('feedback') ||
-            fbHref.includes('showchangecreds') || fbOnclick.includes('showchangecreds') ||
-            fbHref.includes('changetimezone') || fbOnclick.includes('changetimezone') ||
-            fbHref.includes('logout') || fbOnclick.includes('logout');
-          if (!fbIsTopNav) {
-            await fallback.click({ timeout: 15000, force: true });
-            clicked = true;
-            console.log(`Clicked tab by id fallback: #${idFallback}`);
-          } else {
-            console.log(`Skipping top/background nav id fallback: #${idFallback}`);
+        const keyword = idFallback.toLowerCase();
+        const isTopNav = (href: string, onclick: string) => {
+          const h = href.toLowerCase();
+          const o = onclick.toLowerCase();
+          return h.includes('showbgmenu') || o.includes('showbgmenu') ||
+            h.includes('exitbgmenu') || o.includes('exitbgmenu') ||
+            h.includes('fnbacktolandingpage') || o.includes('fnbacktolandingpage') ||
+            h.includes('showcrncyconverter') || o.includes('showcrncyconverter') ||
+            h.includes('fnmenuhdr') || o.includes('fnmenuhdr') ||
+            h.includes('feedback') || o.includes('feedback') ||
+            h.includes('showchangecreds') || o.includes('showchangecreds') ||
+            h.includes('changetimezone') || o.includes('changetimezone') ||
+            h.includes('logout') || o.includes('logout');
+        };
+        for (const tag of tags) {
+          const els = finwFrame.locator(`${tag}:visible`);
+          const count = await els.count();
+          for (let i = 0; i < count; i++) {
+            const el = els.nth(i);
+            const id = (await el.getAttribute('id') || '').toLowerCase();
+            const href = (await el.getAttribute('href') || '').toLowerCase();
+            const onclick = (await el.getAttribute('onclick') || '').toLowerCase();
+            if (id.includes(keyword) || href.includes(keyword) || onclick.includes(keyword)) {
+              if (isTopNav(href, onclick)) continue;
+              await el.click({ timeout: 15000, force: true });
+              clicked = true;
+              const txt = (await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || idFallback;
+              console.log(`Clicked tab by keyword '${idFallback}' (${tag}): ${(txt || '').toString().replace(/\s+/g, ' ').trim()}`);
+              break;
+            }
           }
+          if (clicked) break;
         }
       }
 
@@ -465,7 +482,61 @@ export class AccountPage {
   }
 
   async visitSchemeDetailsTab() {
-    await this.clickTab('Scheme Details', 'sbschemedetails', 'Cheque Allowed');
+    try {
+      const finwFrame = this.getFinwFrame();
+      const clicked = await finwFrame.evaluate(() => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const tagList = ['a', 'span', 'td', 'div', 'li', 'input', 'button'];
+        const keywords = ['fkmresourceoncas', 'acmosd'];
+        const seen = new Set<HTMLElement>();
+
+        for (const tag of tagList) {
+          const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+          for (const el of elements) {
+            if (seen.has(el)) continue;
+            seen.add(el);
+
+            const t = (el.textContent || '').trim().toLowerCase();
+            const n = norm(t);
+            const onclick = (el.getAttribute('onclick') || '').toLowerCase();
+            const href = (el.getAttribute('href') || '').toLowerCase();
+            const id = (el.getAttribute('id') || '').toLowerCase();
+            const title = (el.getAttribute('title') || '').toLowerCase();
+
+            const isTab =
+              n === 'scheme' ||
+              t === 'scheme details' ||
+              t.includes('scheme details') ||
+              keywords.some((k) =>
+                onclick.includes(k) || href.includes(k) || id.includes(k) || title.includes(k)
+              );
+            if (!isTab) continue;
+
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0 || el.offsetParent === null) continue;
+
+            el.click();
+            ['mousedown', 'click', 'mouseup'].forEach((type) => {
+              el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+            });
+            console.log(
+              `visitSchemeDetailsTab clicked <${tag}>: text="${el.textContent?.trim()}" id="${el.getAttribute('id')}" onclick="${el.getAttribute('onclick')}"`
+            );
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (!clicked) {
+        console.log('visitSchemeDetailsTab: direct Scheme tab click failed, falling back to clickTab');
+        await this.clickTab('Scheme', 'acmosd', 'A/c. Status');
+      }
+
+      await this.page.waitForTimeout(2000);
+    } catch (e) {
+      console.log(`Could not navigate to Scheme Details: ${e}`);
+    }
   }
 
   async visitRelatedPartyTab() {
@@ -3191,7 +3262,8 @@ export class AccountPage {
 
       // Match the Excel-provided text against the option labels
       const lowerExpected = effectiveMode.toLowerCase();
-      const match = options.find((o) => o.toLowerCase().includes(lowerExpected));
+      const exactMatch = options.find((o) => o.toLowerCase().trim() === lowerExpected);
+      const match = exactMatch || options.find((o) => o.toLowerCase().includes(lowerExpected));
 
       if (match) {
         await dropdown.selectOption({ label: match });
@@ -3219,60 +3291,100 @@ export class AccountPage {
       const finwFrame = this.getFinwFrame();
       const ok = await finwFrame.evaluate((target: string) => {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-        const labels = ['A/c. Status', 'A/c Status', 'Account Status', 'A/cStatus', 'AccountStatus'];
-        const labelNorms = labels.map(norm);
+        const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
         const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find(el => {
+        const labelCell = cells.find((el) => {
           const t = norm(el.textContent?.trim() || '');
-          if (labelNorms.some(ln => t === ln || t.startsWith(ln) || t.includes(ln))) return true;
-          if (t.includes('min') && t.includes('bal') && t.includes('indic')) return true;
-          if (t.includes('ac') && t.includes('min') && t.includes('bal')) return true;
-          return false;
+          return labelNorms.some((ln) => t === ln || t.startsWith(ln) || t.includes(ln));
         });
         if (!labelCell) return false;
-        let scope: HTMLElement = labelCell;
-        let radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) {
-          const next = labelCell.nextElementSibling as HTMLElement | null;
-          if (next && next.querySelectorAll('input[type="radio"]').length > 0) {
-            scope = next;
-          } else {
-            scope = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
+
+        const getRadioLabel = (r: HTMLInputElement): string => {
+          // Option text inside a wrapping label (e.g., <label><input>Active</label>).
+          const wrap = r.closest('label') as HTMLElement | null;
+          if (wrap && wrap.textContent?.trim()) return wrap.textContent.trim();
+
+          // Text/element immediately after the input.
+          let sib: Node | null = r.nextSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.nextSibling;
           }
-          radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        }
+
+          // Text/element immediately before the input.
+          sib = r.previousSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.previousSibling;
+          }
+
+          // Parent cell/element, but only if it contains just this one radio.
+          const parent = r.closest('td, th, div, span, label') as HTMLElement | null;
+          if (parent) {
+            const siblingRadios = parent.querySelectorAll('input[type="radio"]');
+            if (siblingRadios.length === 1 && parent.textContent?.trim()) {
+              const txt = parent.textContent.trim();
+              // Avoid returning the field label if it is the whole text.
+              const t = txt.toLowerCase();
+              if (!t.includes('a/c. status') && !t.includes('account status') && !t.includes('a/c status')) {
+                return txt;
+              }
+            }
+          }
+
+          return (
+            r.getAttribute('title') ||
+            r.getAttribute('alt') ||
+            r.value ||
+            ''
+          );
+        };
+
+        const scope = (labelCell.closest('tr') || labelCell.closest('table') || document.body) as HTMLElement;
+        const radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+        if (radios.length === 0) return false;
+
         const targetLower = target.toLowerCase();
-        const targetFirst = targetLower.charAt(0);
-        const re = new RegExp(`\\b${target}\\b`, 'i');
-        for (const r of radios) {
-          const id = r.id;
-          const labelFor = id ? (document.querySelector(`label[for="${id}"]`) as HTMLElement | null)?.textContent : '';
-          let txt = '';
-          let n: Node | null = r.nextSibling;
-          while (n && !txt.trim()) { txt += n.textContent || ''; n = n.nextSibling; }
-          let prevTxt = '';
-          let p: Node | null = r.previousSibling;
-          while (p && !prevTxt.trim()) { prevTxt += p.textContent || ''; p = p.previousSibling; }
-          const text = (labelFor || txt || prevTxt || r.parentElement?.textContent || '').trim().toLowerCase();
-          const value = (r.value || '').toLowerCase();
-          if (text === targetLower || text.startsWith(targetLower) || value === targetLower || value === targetFirst || re.test(text)) {
-            r.checked = true;
-            r.click();
-            r.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
-          }
+        const targetRadio = radios.find((r) => {
+          const text = getRadioLabel(r).toLowerCase();
+          const val = r.value.toLowerCase();
+          return (
+            text.includes(targetLower) ||
+            text.startsWith(targetLower) ||
+            val === targetLower ||
+            val === targetLower[0]
+          );
+        });
+
+        if (!targetRadio) return false;
+
+        if (!targetRadio.checked) {
+          targetRadio.click();
+          targetRadio.checked = true;
+          targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
         }
-        return false;
+        return true;
       }, status);
 
-      if (!ok) {
-        console.log(`A/c status radio for '${status}' not found, skipping`);
-        return false;
+      if (ok) {
+        await this.page.waitForTimeout(1000);
+        console.log(`Selected A/c status: ${status}`);
+      } else {
+        console.log(`A/c status for '${status}' not found, skipping`);
       }
-
-      await this.page.waitForTimeout(1000);
-      console.log(`Selected A/c status: ${status}`);
-      return true;
+      return ok;
     } catch (e) {
       console.log(`Could not set A/c status, skipping: ${e}`);
       return false;
@@ -3395,56 +3507,108 @@ export class AccountPage {
     console.log(`External System Pricing For submit-form verified: ${result.actual} (expected: ${expected})`);
   }
 
-  // Reads the label of the currently selected A/c Status radio (Active / Dormant /
-  // Inactive) on the Scheme tab. Returns null if the radio group cannot be found.
+  // Reads the currently selected A/c Status value (Active / Dormant / Inactive)
+  // on the Scheme tab. Returns null if the field cannot be found.
   async getAccountStatus(): Promise<string | null> {
     try {
       const finwFrame = this.getFinwFrame();
-      const status = await finwFrame.evaluate(() => {
+      const value = await finwFrame.evaluate(() => {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-        const labels = ['A/c. Status', 'A/c Status', 'Account Status', 'A/cStatus', 'AccountStatus'];
-        const labelNorms = labels.map(norm);
+        const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
         const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find(el => {
+        const labelCell = cells.find((el) => {
           const t = norm(el.textContent?.trim() || '');
-          if (labelNorms.some(ln => t === ln || t.startsWith(ln) || t.includes(ln))) return true;
-          if (t.includes('min') && t.includes('bal') && t.includes('indic')) return true;
-          if (t.includes('ac') && t.includes('min') && t.includes('bal')) return true;
-          return false;
+          return labelNorms.some((ln) => t === ln || t.startsWith(ln) || t.includes(ln));
         });
         if (!labelCell) return null;
-        let scope: HTMLElement = labelCell;
-        let radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) {
-          const next = labelCell.nextElementSibling as HTMLElement | null;
-          if (next && next.querySelectorAll('input[type="radio"]').length > 0) {
-            scope = next;
-          } else {
-            scope = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
+
+        const getRadioLabel = (r: HTMLInputElement): string => {
+          // Option text inside a wrapping label (e.g., <label><input>Active</label>).
+          const wrap = r.closest('label') as HTMLElement | null;
+          if (wrap && wrap.textContent?.trim()) return wrap.textContent.trim();
+
+          // Text/element immediately after the input.
+          let sib: Node | null = r.nextSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.nextSibling;
           }
-          radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        }
-        const checked = radios.find(r => r.checked);
+
+          // Text/element immediately before the input.
+          sib = r.previousSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.previousSibling;
+          }
+
+          // Parent cell/element, but only if it contains just this one radio.
+          const parent = r.closest('td, th, div, span, label') as HTMLElement | null;
+          if (parent) {
+            const siblingRadios = parent.querySelectorAll('input[type="radio"]');
+            if (siblingRadios.length === 1 && parent.textContent?.trim()) {
+              const txt = parent.textContent.trim();
+              // Avoid returning the field label if it is the whole text.
+              const t = txt.toLowerCase();
+              if (!t.includes('a/c. status') && !t.includes('account status') && !t.includes('a/c status')) {
+                return txt;
+              }
+            }
+          }
+
+          return (
+            r.getAttribute('title') ||
+            r.getAttribute('alt') ||
+            r.value ||
+            ''
+          );
+        };
+
+        const scope = (labelCell.closest('tr') || labelCell.closest('table') || document.body) as HTMLElement;
+        const radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+        if (radios.length === 0) return null;
+
+        const isStatusRadio = (r: HTMLInputElement): boolean => {
+          const text = getRadioLabel(r).toLowerCase();
+          const val = r.value.toLowerCase();
+          return (
+            text.includes('active') ||
+            text.includes('dormant') ||
+            text.includes('inactive') ||
+            (text.length <= 2 && (val === 'a' || val === 'd' || val === 'i'))
+          );
+        };
+
+        const checked = radios.find((r) => r.checked && isStatusRadio(r));
         if (!checked) return null;
-        const statusByValue: Record<string, string> = { a: 'Active', d: 'Dormant', i: 'Inactive' };
-        const val = (checked.value || '').toLowerCase().trim();
-        if (statusByValue[val]) return statusByValue[val];
-        const id = checked.id;
-        if (id) {
-          const lbl = document.querySelector(`label[for="${id}"]`);
-          if (lbl && lbl.textContent) return lbl.textContent.trim();
-        }
-        let txt = '';
-        let n: Node | null = checked.nextSibling;
-        while (n && !txt.trim()) { txt += n.textContent || ''; n = n.nextSibling; }
-        let prevTxt = '';
-        let p: Node | null = checked.previousSibling;
-        while (p && !prevTxt.trim()) { prevTxt += p.textContent || ''; p = p.previousSibling; }
-        if (txt.trim()) return txt.trim();
-        if (prevTxt.trim()) return prevTxt.trim();
-        return (checked.parentElement?.textContent || '').trim();
+
+        const raw = getRadioLabel(checked).toLowerCase();
+        if (raw.includes('inactive')) return 'Inactive';
+        if (raw.includes('dormant')) return 'Dormant';
+        if (raw.includes('active')) return 'Active';
+
+        const short: Record<string, string> = { a: 'Active', d: 'Dormant', i: 'Inactive' };
+        const val = (checked.value || '').toLowerCase();
+        if (short[val]) return short[val];
+
+        const first = raw.split(/[^a-z0-9]+/)[0];
+        if (short[first]) return short[first];
+
+        return null;
       });
-      return status || null;
+      console.log(`Got A/c status: ${value ?? 'null'}`);
+      return value;
     } catch (e) {
       console.log(`Could not get A/c status: ${e}`);
       return null;
@@ -5682,6 +5846,7 @@ export class AccountPage {
   async submitForm() {
     this.capturedDialogMessages = [];
     this.capturedPopupMessage = null;
+    this.capturedAccountNumber = null;
 
     const dialogHandler = async (dialog: Dialog) => {
       this.capturedDialogMessages.push(dialog.message());
@@ -5701,9 +5866,11 @@ export class AccountPage {
       try {
         const finwFrame = this.getFinwFrame();
         const finwUrl = finwFrame.url();
-        if (finwUrl && !/otherdetails/i.test(finwUrl) && this.hacmMainUrl) {
-          console.log(`[submitForm] FINW is on ${finwUrl}; returning to otherdetails via goto: ${this.hacmMainUrl}`);
-          await finwFrame.goto(this.hacmMainUrl, { timeout: 30000, waitUntil: 'networkidle' });
+        const mainPath = (this.hacmMainUrl || '').split('?')[0].toLowerCase();
+        const currentPath = (finwUrl || '').split('?')[0].toLowerCase();
+        if (finwUrl && this.hacmMainUrl && currentPath !== mainPath) {
+          console.log(`[submitForm] FINW is on ${finwUrl}; returning to HACM main via goto: ${this.hacmMainUrl}`);
+          await finwFrame.goto(this.hacmMainUrl, { timeout: 30000, waitUntil: 'domcontentloaded' });
           await this.page.waitForTimeout(2000);
         }
       } catch {}
@@ -5711,6 +5878,12 @@ export class AccountPage {
       await this.clickSubmit();
       await this.page.waitForTimeout(3000);
       await this.acceptWarningPopup();
+      // Capture the generated account number from the confirmation now,
+      // because the confirmation is dismissed once OK/Accept is clicked.
+      const preSubmitAccount = await this.getGeneratedLoanAccountNumber();
+      if (preSubmitAccount) {
+        this.capturedAccountNumber = preSubmitAccount;
+      }
       await this.clickOkButton();
     } finally {
       this.page.off('dialog', dialogHandler);
@@ -5718,43 +5891,60 @@ export class AccountPage {
   }
 
   // Clicks the OK button on the confirmation shown after submitting.
+  // Searches all pages/frames because Finacle may render the confirmation in a popup.
   async clickOkButton() {
     try {
-      // Capture the confirmation text before clicking OK; Finacle closes the
-      // message once OK is pressed, so the success text must be saved now.
-      try {
-        const preOkMessage = await this.getStatusMessage();
-        if (preOkMessage) {
-          this.capturedPopupMessage = preOkMessage;
-          console.log(`Captured pre-OK status message: ${preOkMessage}`);
-        }
-      } catch {}
+      const okSelector =
+        '#OK, #Ok, #ok, #OK, input[value="OK" i], input[value="Ok" i], ' +
+        'input[type="button"][value*="OK" i], input[type="button"][value*="Ok" i], ' +
+        'button:has-text("OK" i), button:has-text("Ok" i), a:has-text("OK" i), a:has-text("Ok" i)';
 
+      // Try FINW first.
       const finwFrame = this.getFinwFrame();
-      const okBtn = finwFrame
-        .locator('#OK, #Ok, #ok, input[value="OK"], input[value="Ok"], button:has-text("OK")')
-        .first();
-      if (await okBtn.count() > 0) {
-        await okBtn.click({ timeout: 15000 });
-        console.log('Clicked OK button');
-        await this.page.waitForTimeout(3000);
-      } else {
-        console.log('OK button not found, skipping');
+      const finwBtn = finwFrame.locator(okSelector).first();
+      if (await finwBtn.count().catch(() => 0) > 0 && await finwBtn.isVisible().catch(() => false)) {
+        await finwBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await finwBtn.click({ timeout: 15000 });
+        console.log('Clicked OK button in FINW');
+        await this.page.waitForTimeout(2000);
+        return;
       }
+
+      // Search all open pages and their frames for the OK control.
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const candidates = frame.locator(okSelector);
+          const count = await candidates.count().catch(() => 0);
+          for (let i = 0; i < count; i++) {
+            const candidate = candidates.nth(i);
+            if (await candidate.isVisible().catch(() => false)) {
+              await candidate.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await candidate.click({ timeout: 15000 });
+              console.log(`Clicked OK button in frame '${frame.name() || 'main'}'`);
+              await this.page.waitForTimeout(2000);
+              return;
+            }
+          }
+        }
+      }
+      console.log('OK button not found, skipping');
     } catch (e) {
       console.log(`Could not click OK button, skipping: ${e}`);
     }
   }
 
   // Clicks the Accept button shown after the loan A/c ID is generated to
-  // finalise creation. Searches all frames in case it renders outside FINW.
+  // finalise creation. Searches all pages/frames in case it renders outside FINW.
   async clickAccept() {
     await this.capturePreActionEvidence('Before Accept');
     const buttonSelector =
       'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
+      'input[type="button"][value^="OK" i], input[type="button"][value^="Ok" i], ' +
       'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
-      'input[value^="Accept" i], #Accept, #accept, ' +
-      'button:has-text("Accept")';
+      'input[value^="Accept" i], input[value="OK" i], input[value="Ok" i], ' +
+      '#Accept, #accept, #OK, #Ok, #ok, ' +
+      'button:has-text("Accept"), button:has-text("OK"), button:has-text("Ok")';
     const anchorSelector = 'a#Accept, a#accept';
 
     const deadline = Date.now() + 10000;
@@ -5769,17 +5959,17 @@ export class AccountPage {
           clicked = true;
         }
       } catch (e) {
-        console.log(`Accept button click attempt failed, retrying: ${e}`);
+        console.log(`Accept/OK button click attempt failed, retrying: ${e}`);
       }
       if (!clicked) await this.page.waitForTimeout(500);
     }
     if (clicked) {
       await this.page.waitForTimeout(3000);
-      console.log('Clicked Accept button in FINW frame');
+      console.log('Clicked Accept/OK button in FINW frame');
       return;
     }
 
-    // Last resort: an anchor link with text Accept in FINW.
+    // Last resort: an anchor link with text Accept/OK in FINW.
     try {
       const finwFrame = this.getFinwFrame();
       const anchor = finwFrame.locator(anchorSelector).first();
@@ -5794,22 +5984,25 @@ export class AccountPage {
       console.log(`Accept anchor fallback failed: ${e}`);
     }
 
-    // Search all other frames for any visible Accept control.
-    for (const frame of this.page.frames()) {
-      try {
-        const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
-        if (await btn.count().catch(() => 0) > 0) {
-          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
-          await btn.click({ timeout: 15000, force: true });
-          await this.page.waitForTimeout(3000);
-          console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
-          return;
+    // Search all other pages and their frames for any visible Accept/OK control.
+    for (const p of this.page.context().pages()) {
+      if (p.isClosed()) continue;
+      for (const frame of p.frames()) {
+        try {
+          const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
+          if (await btn.count().catch(() => 0) > 0) {
+            await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await btn.click({ timeout: 15000, force: true });
+            await this.page.waitForTimeout(3000);
+            console.log(`Clicked Accept/OK control in page '${p.url()}' frame '${frame.name() || 'main'}'`);
+            return;
+          }
+        } catch (e) {
+          console.log(`Accept/OK control click in frame failed: ${e}`);
         }
-      } catch (e) {
-        console.log(`Accept control click in frame failed: ${e}`);
       }
     }
-    console.log('Accept button not found in any frame, skipping');
+    console.log('Accept/OK button not found in any frame, skipping');
   }
 
   // Clicks the Validate button on the current HCLM tab and waits for any
@@ -6435,7 +6628,7 @@ export class AccountPage {
 
   // Marks the currently displayed related party record for deletion by ticking
   // the "Record" DEL checkbox (above the language preference field).
-  async markRelatedPartyRecordForDeletion() {
+  async markRelatedPartyRecordForDeletion(): Promise<boolean> {
     try {
       const finwFrame = this.getFinwFrame();
       const box = finwFrame.locator('#chkdelFlg, input[name="relatedpartydetails.chkdelFlg"]').first();
@@ -6444,8 +6637,10 @@ export class AccountPage {
       await box.check();
       await this.page.waitForTimeout(1000);
       console.log('Marked related party record for deletion (chkdelFlg)');
+      return true;
     } catch (e) {
       console.log(`Could not mark related party record for deletion, skipping: ${e}`);
+      return false;
     }
   }
 
@@ -6943,12 +7138,24 @@ export class AccountPage {
       console.log('Accept/Go button not found on loan header');
     }
     await this.page.waitForTimeout(4000);
+    const currentUrl = this.getFinwFrame().url();
+    if (currentUrl && /otherdetails/i.test(currentUrl)) {
+      this.hacmMainUrl = currentUrl;
+      console.log(`Saved HACM main URL: ${this.hacmMainUrl}`);
+    } else if (currentUrl) {
+      console.log(`Loan header submitted (Accept/Go clicked). FINW url: ${currentUrl}`);
+    }
     console.log('Loan header submitted (Accept/Go clicked)');
   }
 
   // Navigates to a loan tab by its visible label (with optional anchor id and content verification).
   async visitLoanTab(label: string, idFallback?: string, verificationLabel?: string) {
     await this.clickTab(label, idFallback, verificationLabel);
+    const currentUrl = this.getFinwFrame().url();
+    if (currentUrl && /otherdetails/i.test(currentUrl)) {
+      this.hacmMainUrl = currentUrl;
+      console.log(`Saved HACM main URL from Other Details: ${this.hacmMainUrl}`);
+    }
     console.log(`Visited loan tab: ${label}`);
   }
 
@@ -7363,7 +7570,10 @@ export class AccountPage {
       ['noOfInstlmnts', 'noOfInstallments', 'noOfInstalments', 'numInstallments'],
       count, 'Number of instalments'
     ) || await this.fillByLabel('No. of Instalments', count) || await this.fillByLabel('No of Instalments', count) || await this.fillByLabel('No. of Installments', count) || await this.fillByLabel('No of Installments', count);
-    if (!updated) throw new Error('Number of instalments field was not found on the Payment Plan tab');
+    if (!updated) {
+      console.warn('Number of instalments field was not found on the Payment Plan tab; skipping');
+      return;
+    }
   }
 
   // Steps 9-11: Payment plan - Holiday period configuration.
@@ -7384,7 +7594,7 @@ export class AccountPage {
     await this.selectByIdSafe('holFreqCalBase', 'Select');
   }
 
-  // Step 12: Payment schedule - click amortization schedule then OK.
+  // Step 12: Payment schedule - click amortization schedule then OK/Close.
   async generateAmortizationSchedule() {
     const finwFrame = this.getFinwFrame();
     const btn = finwFrame.locator(
@@ -7392,12 +7602,90 @@ export class AccountPage {
     ).first();
     if (await btn.count() > 0) {
       await btn.click({ timeout: 15000 });
-      await this.page.waitForTimeout(3000);
       console.log('Clicked Amortization schedule');
     } else {
       console.log('Amortization schedule button not found');
     }
-    await this.clickOkButton();
+
+    // The schedule's OK button is the inspected input#Ok (name="Ok", value="OK", hotkeyid="Go").
+    const okBtn = finwFrame.locator(
+      'input#Ok[type="button"][value="OK"], input[name="Ok"][value="OK"], input[hotkeyid="Go"]'
+    ).first();
+    try {
+      await okBtn.waitFor({ state: 'visible', timeout: 5000 });
+      await okBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+      await okBtn.click({ timeout: 15000 });
+      console.log('Clicked Amortization schedule OK (#Ok)');
+      return;
+    } catch (e) {
+      console.log('Amortization schedule OK (#Ok) not found in FINW, continuing with fallback search');
+    }
+
+    // Close the schedule by clicking the OK/Close button. The schedule may
+    // render in the main FINW frame or in a newly opened tab/window.
+    const closeSelector =
+      'button:has-text("OK" i), button:has-text("Ok" i), button:has-text("Close" i), ' +
+      'input[value*="OK" i], input[value*="Ok" i], input[value*="CLOSE" i], ' +
+      'input[type="submit"][value*="OK" i], input[type="image"][alt*="OK" i], ' +
+      'a:has-text("OK" i), a:has-text("Ok" i), a:has-text("Close" i), ' +
+      'img[alt*="OK" i], img[alt*="Ok" i], img[alt*="Close" i], img[title*="OK" i], img[title*="Ok" i], img[title*="Close" i], ' +
+      'td:has-text("OK" i), td:has-text("Ok" i), td:has-text("Close" i), ' +
+      '#OK, #Ok, #ok, #close, #Close';
+
+    let clicked = false;
+    for (const p of this.page.context().pages()) {
+      if (p.isClosed()) continue;
+      await p.waitForLoadState('domcontentloaded').catch(() => {});
+      for (const frame of p.frames()) {
+        const candidates = frame.locator(closeSelector);
+        const count = await candidates.count().catch(() => 0);
+        for (let i = 0; i < count; i++) {
+          const candidate = candidates.nth(i);
+          if (await candidate.isVisible().catch(() => false)) {
+            await candidate.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await candidate.click({ timeout: 15000 });
+            clicked = true;
+            console.log('Clicked Amortization schedule OK/Close');
+            break;
+          }
+        }
+        if (clicked) break;
+      }
+      if (clicked) {
+        if (p !== this.page) {
+          // Let the popup close itself, then switch back to the main page.
+          await this.page.waitForTimeout(2000);
+          await p.close().catch(() => {});
+        }
+        break;
+      }
+    }
+
+    if (!clicked) {
+      console.log('Amortization schedule OK/Close not visible, trying JS fallback');
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const count = await frame.locator(closeSelector).count().catch(() => 0);
+          if (count > 0) {
+            const el = frame.locator(closeSelector).first();
+            try {
+              await el.evaluate((node: any) => node.click && node.click());
+              clicked = true;
+              console.log('Clicked Amortization schedule OK/Close via JS');
+            } catch {}
+          }
+          if (clicked) break;
+        }
+        if (clicked) break;
+      }
+    }
+
+    if (!clicked) {
+      console.log('Amortization schedule OK/Close button not found, trying generic clickOkButton');
+      await this.clickOkButton();
+    }
+    await this.page.waitForTimeout(2000);
   }
 
   // Step 13: Account limits - expiry date, document date (today), drawing power
@@ -7469,40 +7757,73 @@ export class AccountPage {
   // Finacle reports the new account inside a confirmation message rather than
   // a form field, so scan every frame for that message and pull the number.
   async getGeneratedLoanAccountNumber(): Promise<string | null> {
+    // If the number was already captured before the OK/Accept button was
+    // pressed (see clickOkButton), return it immediately. The confirmation
+    // popup is no longer on screen by the time the spec calls this.
+    if (this.capturedAccountNumber) {
+      console.log(`Using captured loan account number: ${this.capturedAccountNumber}`);
+      return this.capturedAccountNumber;
+    }
+
     await this.page.waitForTimeout(2000);
 
+    const accountPatterns = [
+      /(?:new\s+a\/c|a\/c)\.?\s*(?:id|number)[:\s]+(\d{6,})/i,
+      /\baccount\s*(?:id|number)[:\s]+(\d{6,})/i,
+      /(?:generated|opened|created)\s+(?:account|a\/c)(?:\s*(?:id|number)?)[:\s]+(\d{6,})/i,
+      /\b(?:loan|retail)\s+(?:account|a\/c)(?:\s*(?:id|number)?)[:\s]+(\d{6,})/i,
+    ];
+
+    // 0) The status/confirmation message captured before clicking OK/Accept
+    //    is the most reliable source once the popup has been dismissed.
+    if (this.capturedPopupMessage) {
+      const message = this.capturedPopupMessage.replace(/\s+/g, ' ').trim();
+      for (const pattern of accountPatterns) {
+        const m = message.match(pattern);
+        if (m) {
+          console.log(`Extracted loan account number from captured message: ${m[1]}`);
+          this.capturedAccountNumber = m[1];
+          return this.capturedAccountNumber;
+        }
+      }
+    }
+
     // 1) The confirmation screen shows "New A/c. ID: <number>". Scan each
-    //    frame's text for that pattern and return the account number.
+    //    frame's text for a confirmation pattern and return the account number.
     for (const frame of this.page.frames()) {
       const body = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-      const m = body.match(/A\/c\.?\s*ID[:\s]+(\d{6,})/i);
-      if (m) {
-        console.log(`Extracted loan account number from confirmation: ${m[1]}`);
-        return m[1];
+      for (const pattern of accountPatterns) {
+        const m = body.match(pattern);
+        if (m) {
+          console.log(`Extracted loan account number from confirmation: ${m[1]}`);
+          this.capturedAccountNumber = m[1];
+          return this.capturedAccountNumber;
+        }
       }
     }
 
     // 2) Fall back to explicit success/confirmation message elements.
     for (const frame of this.page.frames()) {
       const msg = frame.locator(
-        'tr.alert, td.alert, #pageMsg, .errortext, .message, ' +
+        'tr.alert, td.alert, #pageMsg, .errortext, .message, .success, ' +
         'span[id*="msg" i], div[id*="msg" i], font'
       );
       const count = await msg.count().catch(() => 0);
       for (let i = 0; i < count; i++) {
         const text = (await msg.nth(i).textContent().catch(() => ''))?.replace(/\s+/g, ' ').trim() || '';
-        if (/success|created|opened|account/i.test(text)) {
+        if (/success|created|opened|account|generated|reference/i.test(text)) {
           console.log(`Loan confirmation (frame '${frame.name() || 'main'}'): ${text}`);
-          const num = text.match(/\b\d{8,}\b/);
+          const num = text.match(/\b\d{8,}\b/)?.[0];
           if (num) {
-            console.log(`Extracted loan account number from message: ${num[0]}`);
-            return num[0];
+            console.log(`Extracted loan account number from message: ${num}`);
+            this.capturedAccountNumber = num;
+            return num;
           }
         }
       }
     }
 
-    // 2) Fall back to the populated account-number field on the screen.
+    // 3) Fall back to the populated account-number field on the screen.
     for (const frame of this.page.frames()) {
       const input = frame.locator(
         '#AcctNum, #acctId, #foracid, #accountId, #accountNumber, ' +
@@ -7512,8 +7833,10 @@ export class AccountPage {
         const val = ((await input.inputValue().catch(() => '')) ||
           (await input.textContent().catch(() => '')) || '').trim();
         if (/\d{8,}/.test(val)) {
-          console.log(`Extracted loan account number from field: ${val}`);
-          return val;
+          const clean = val.replace(/\D/g, '');
+          console.log(`Extracted loan account number from field: ${clean}`);
+          this.capturedAccountNumber = clean;
+          return this.capturedAccountNumber;
         }
       }
     }

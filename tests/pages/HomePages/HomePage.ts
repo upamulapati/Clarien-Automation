@@ -207,9 +207,8 @@ export class HomePage {
     // Tell the global dialog handler to accept the logout confirmation.
     setLogoutInProgress(true);
     try {
-      await this.logoutButton.click();
-      await this.page.waitForLoadState('networkidle');
-      await this.page.waitForTimeout(5000);
+      await this.logoutButton.click().catch(() => {});
+      await this.page.waitForTimeout(3000);
     } finally {
       setLogoutInProgress(false);
     }

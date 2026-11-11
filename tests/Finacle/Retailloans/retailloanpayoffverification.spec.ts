@@ -18,7 +18,8 @@ const LOAN_KEY = STEP.sharedKey ?? 'payoffLoanAccountId';
 const LOAN_ACCOUNT_NUMBER = getSharedValue<string>((state) => (state as any)[String(LOAN_KEY)] as string);
 if (!LOAN_ACCOUNT_NUMBER) throw new Error(`Payoff loan account for shared key '${LOAN_KEY}' must be available from the creation spec`);
 console.log(`[SharedState] Using loan account (key: ${LOAN_KEY}):`, LOAN_ACCOUNT_NUMBER);
-const COLLECT_REFUND_ACCOUNT_ID = STEP['Collect Refund Account Id'] || COMMON_DATA.accountVerification?.[0]?.accountId;
+const PERSISTED_PAYOFF_COLLECT_REFUND_ID = getSharedValue<string>('payoffCollectRefundAccountId');
+const COLLECT_REFUND_ACCOUNT_ID = STEP['Collect Refund Account Id'] || PERSISTED_PAYOFF_COLLECT_REFUND_ID || COMMON_DATA.accountVerification?.[0]?.accountId;
 
 test('HPAYOFF - payoff verification for retail loan', async ({ page }) => {
   test.setTimeout(300000);
@@ -32,6 +33,7 @@ test('HPAYOFF - payoff verification for retail loan', async ({ page }) => {
     const inquiry = await payoffPage.inquiryPayoff({
       loanAccountNumber: LOAN_ACCOUNT_NUMBER,
       transactionType: STEP['Transaction Type'],
+      collectRefundAccountId: COLLECT_REFUND_ACCOUNT_ID,
     });
     console.log('Payoff inquiry reason code:', inquiry.reasonCode);
     expect(inquiry.reasonCode).toBeTruthy();

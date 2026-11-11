@@ -235,6 +235,11 @@ export class RetailLoanPayoffPage extends AccountPage {
     const transactionType = data.transactionType || 'T/CI-Transfer Customer Induced';
     await this.selectOptionByLabel('Transaction Type', transactionType);
 
+    if (data.collectRefundAccountId) {
+      console.log(`Filling Collect/Refund A/c Id: ${data.collectRefundAccountId}`);
+      await this.fillByLabel('Collect/Refund A/c Id', data.collectRefundAccountId);
+    }
+
     console.log('Clicking Go...');
     await this.clickGo();
 
