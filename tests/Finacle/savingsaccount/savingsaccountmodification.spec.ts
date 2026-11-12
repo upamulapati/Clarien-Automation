@@ -5,10 +5,10 @@ import * as fs from 'fs';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
-import { getSharedValue, updateSharedState, setSharedValue } from '../../helpers/sharedState';
+import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import { getSelectedInstances } from '../../helpers/flowStepData';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
-import { SAVINGS_MODIFY_DATA as SAVINGS_MODIFY_STEP_DATA } from '../../config/excelTestData';
 
 const EXCEL_PATH = path.resolve('data', 'test-data.xlsx');
 const SHEET_NAME = 'SavingsAccountModifyData';
@@ -21,28 +21,65 @@ interface FieldResult {
 
 function loadSavingsModifyData(): Record<string, string>[] {
   if (!fs.existsSync(EXCEL_PATH)) {
-    throw new Error(`Excel file not found: ${EXCEL_PATH}`);
+    throw new Error('Excel file not found: ' + EXCEL_PATH);
   }
   const workbook = XLSX.readFile(EXCEL_PATH);
   const worksheet = workbook.Sheets[SHEET_NAME];
   if (!worksheet) {
-    throw new Error(`Sheet "${SHEET_NAME}" not found in ${EXCEL_PATH}`);
+    throw new Error('Sheet "' + SHEET_NAME + '" not found in ' + EXCEL_PATH);
   }
 
-  const rows = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: '' }) as Record<string, any>[];
+  const raw = XLSX.utils.sheet_to_json(worksheet, { defval: '', header: 1 }) as any[][];
+  if (raw.length === 0) return [];
+  const rawHeaders = raw[0].map((h) => String(h).trim());
+  const headers: string[] = [];
+  let section = '';
+  for (const h of rawHeaders) {
+    const hl = h.toLowerCase().replace(/\s+/g, '');
+    if (hl.includes('document')) {
+      section = 'Document';
+    }
+    if (
+      hl.includes('occupation') ||
+      hl.includes('sectorcode') ||
+      hl.includes('subsectorcode') ||
+      h.toLowerCase().startsWith('free code')
+    ) {
+      section = 'MIS';
+    }
+    const freeFieldMatch = h.match(/^Free (Text|Code)\s+(\d+)$/i);
+    if (freeFieldMatch && section) {
+      headers.push(`${section} ${h}`);
+    } else {
+      headers.push(h);
+    }
+  }
+
+  const rows = raw.slice(1).map((r) => {
+    const obj: Record<string, string> = {};
+    for (let i = 0; i < headers.length; i++) {
+      let v = r[i] ?? '';
+      if (typeof v === 'string') v = v.replace(/\s+/g, ' ').trim();
+      obj[headers[i]] = v;
+    }
+    return obj;
+  });
   return rows
     .map((row) => {
       const normalized: Record<string, string> = {};
-      for (const [key, value] of Object.entries(row)) {
-        if (typeof key === 'string' && (key.startsWith('__EMPTY') || key.trim() === '')) continue;
+      for (const [rawKey, value] of Object.entries(row)) {
+        if (typeof rawKey !== 'string') continue;
+        const key = rawKey.trim();
+        if (key === '' || key.startsWith('__EMPTY')) continue;
         normalized[key] = String(value ?? '').trim();
       }
       return normalized;
     })
-    .filter((row) =>
-      (row.Sheet && row.Sheet.trim() !== '') ||
-      (row.instance && String(row.instance).trim() !== '') ||
-      (row.accountId && String(row.accountId).trim() !== '')
+    .filter(
+      (row) =>
+        (row.Sheet && row.Sheet.trim() !== '') ||
+        (row.instance && String(row.instance).trim() !== '') ||
+        (row.accountId && String(row.accountId).trim() !== '')
     );
 }
 
@@ -116,7 +153,8 @@ function valuesMatch(expected: string, actual: string): boolean {
   const c1 = clean(stripCode(expected));
   const c2 = clean(stripCode(actual));
   if (c1 === c2) return true;
-  if (c1.length > 0 && c2.length > 0 && (c2.includes(c1) || c1.includes(c2))) return true;
+  // Removed one-direction substring match to avoid false positives
+  // (e.g. "Active" being treated as matching "Inactive").
 
   const n1 = parseFloat(expected.replace(/,/g, ''));
   const n2 = parseFloat(actual.replace(/,/g, ''));
@@ -382,6 +420,8 @@ function inferTab(fieldName: string): string | null {
 }
 
 function fieldTabMap(fieldName: string): string {
+  if (/^MIS\s+Free\s+(?:Text|Code)\s+\d+$/i.test(fieldName)) return 'MIS Codes';
+  if (/^Document\s+Free\s+(?:Text|Code)\s+\d+$/i.test(fieldName)) return 'Documents';
   return inferTab(fieldName) ?? 'General Details';
 }
 
@@ -408,12 +448,11 @@ function groupSavingsModifyData(rows: Record<string, string>[]): { main: Record<
   return groups;
 }
 
-const SAVINGS_MODIFY_DATA = groupSavingsModifyData(loadSavingsModifyData());
-const TARGET_INSTANCE = process.env.INSTANCE ? String(process.env.INSTANCE).trim() : '';
-
-const groupsToRun = TARGET_INSTANCE
-  ? SAVINGS_MODIFY_DATA.filter((g) => String(g.main.instance) === TARGET_INSTANCE)
-  : SAVINGS_MODIFY_DATA;
+const allGroups = groupSavingsModifyData(loadSavingsModifyData());
+const selectedInstances = getSelectedInstances();
+const groupsToRun = selectedInstances
+  ? allGroups.filter((g) => selectedInstances.includes(String(g.main.instance)))
+  : allGroups;
 
 for (const group of groupsToRun) {
   const createdAccountId = getSharedValue(
@@ -434,7 +473,7 @@ for (const group of groupsToRun) {
 
     test.beforeEach(async ({ page }) => {
       test.setTimeout(300000);
-      ({ homePage } = await loginToFinacle(page, COMMON_DATA.credentials.username, COMMON_DATA.credentials.password));
+      ({ homePage } = await loginToFinacle(page, CREDENTIALS.credentials.username, CREDENTIALS.credentials.password));
       accountPage = new AccountPage(page);
     });
 
@@ -529,16 +568,17 @@ for (const group of groupsToRun) {
             continue;
           }
 
-          if (field.toLowerCase() === 'accountstatus' || field === 'A/c Status') {
+          const normalizedField = field.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (normalizedField === 'acstatus' || field.toLowerCase() === 'accountstatus') {
             const actual = (await accountPage.getAccountStatus()) ?? '';
             if (valuesMatch(expected, actual)) {
               results.push({ field, expected, actual, status: 'Skipped' });
             } else {
-              await accountPage.selectAccountStatus(expected as 'active' | 'dormant' | 'inactive');
+              const ok = await accountPage.selectAccountStatus(expected);
               const actual2 = (await accountPage.getAccountStatus()) ?? '';
-              const ok = valuesMatch(expected, actual2);
-              results.push({ field, expected, actual: actual2, status: ok ? 'Updated' : 'Failed' });
-              if (ok) anyChanges = true;
+              const updated = ok && valuesMatch(expected, actual2);
+              results.push({ field, expected, actual: actual2, status: updated ? 'Updated' : 'Failed' });
+              if (updated) anyChanges = true;
             }
             continue;
           }

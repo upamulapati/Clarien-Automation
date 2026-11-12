@@ -3286,17 +3286,33 @@ export class AccountPage {
   // Sets the "A/c Status" radio button (Active / Dormant / Inactive) on the
   // Scheme tab of the HACM screen. The target radio is found within the
   // A/c. Status row and clicked via JS to avoid matching a different radio group.
-  async selectAccountStatus(status: 'active' | 'dormant' | 'inactive') {
+  async selectAccountStatus(status: string) {
+    const rawNorm = status.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    let target: 'active' | 'dormant' | 'inactive' | null = null;
+    if (rawNorm.includes('inactive')) target = 'inactive';
+    else if (rawNorm.includes('dormant')) target = 'dormant';
+    else if (rawNorm.includes('active')) target = 'active';
+    if (!target) {
+      console.log(`A/c status value '${status}' not recognized; skipping`);
+      return false;
+    }
     try {
       const finwFrame = this.getFinwFrame();
       const ok = await finwFrame.evaluate((target: string) => {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
         const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
-        const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find((el) => {
-          const t = norm(el.textContent?.trim() || '');
-          return labelNorms.some((ln) => t === ln || t.startsWith(ln) || t.includes(ln));
-        });
+        const findLabelCell = (): HTMLElement | null => {
+          for (const el of Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          for (const el of Array.from(document.querySelectorAll('div, span')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          return null;
+        };
+        const labelCell = findLabelCell();
         if (!labelCell) return false;
 
         const getRadioLabel = (r: HTMLInputElement): string => {
@@ -3352,37 +3368,89 @@ export class AccountPage {
           );
         };
 
-        const scope = (labelCell.closest('tr') || labelCell.closest('table') || document.body) as HTMLElement;
-        const radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) return false;
+        const table = labelCell.closest('table') as HTMLTableElement | null;
+        const scope = table ? table : (labelCell.closest('fieldset') as HTMLElement | null) ?? document.body;
+        const allRadios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+
+        // Find the option cell (the td/th that holds the radios) in the same row as the label.
+        const optionCell = ((): HTMLElement | null => {
+          const row = labelCell.closest('tr') as HTMLTableRowElement | null;
+          if (row) {
+            for (const cell of Array.from(row.querySelectorAll('td, th')) as HTMLElement[]) {
+              if (cell === labelCell) continue;
+              if (cell.querySelector('input[type="radio"]')) return cell;
+            }
+          }
+          return (labelCell.nextElementSibling as HTMLElement | null) ?? (labelCell.parentElement as HTMLElement | null);
+        })();
+
+        const radios = optionCell
+          ? (Array.from(optionCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[])
+          : allRadios;
+
+        const statusLabels = ((): string[] => {
+          if (!optionCell) return [];
+          const matches = (optionCell.textContent || '').match(/\b(Active|Dormant|Inactive)\b/gi) ?? [];
+          return matches.map((s) => s.toLowerCase());
+        })();
 
         const targetLower = target.toLowerCase();
-        const targetRadio = radios.find((r) => {
-          const text = getRadioLabel(r).toLowerCase();
-          const val = r.value.toLowerCase();
-          return (
-            text.includes(targetLower) ||
-            text.startsWith(targetLower) ||
-            val === targetLower ||
-            val === targetLower[0]
-          );
-        });
+        const radioStatus = (r: HTMLInputElement): string | null => {
+          const idx = radios.indexOf(r);
+          if (idx >= 0 && statusLabels[idx]) {
+            return statusLabels[idx];
+          }
+          const text = getRadioLabel(r).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          if (text.includes('inactive')) return 'inactive';
+          if (text.includes('dormant')) return 'dormant';
+          if (text.includes('active')) return 'active';
+          const val = (r.value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+          const known: Record<string, string> = {
+            a: 'active', ac: 'active', active: 'active', act: 'active',
+            d: 'dormant', dr: 'dormant', dor: 'dormant', dormant: 'dormant',
+            i: 'inactive', in: 'inactive', inactive: 'inactive'
+          };
+          return known[val] ?? null;
+        };
+
+        const group = radios;
+        if (group.length === 0) return false;
+
+        const targetRadio = group.find((r) => !r.disabled && radioStatus(r) === targetLower);
 
         if (!targetRadio) return false;
 
         if (!targetRadio.checked) {
+          let clickTarget: HTMLElement = targetRadio;
+          const wrap = targetRadio.closest('label') as HTMLElement | null;
+          if (wrap && wrap.textContent?.trim()) {
+            clickTarget = wrap;
+          } else {
+            const id = targetRadio.id;
+            if (id) {
+              const labelFor = scope.querySelector(`label[for="${id}"]`) as HTMLElement | null;
+              if (labelFor) clickTarget = labelFor;
+            }
+            if (clickTarget === targetRadio) {
+              const parent = targetRadio.closest('td, th, div, span') as HTMLElement | null;
+              if (parent) clickTarget = parent;
+            }
+          }
+          clickTarget.scrollIntoView({ block: 'center', inline: 'center' });
+          clickTarget.click();
           targetRadio.click();
           targetRadio.checked = true;
           targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+          targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
         }
         return true;
-      }, status);
+      }, target);
 
       if (ok) {
         await this.page.waitForTimeout(1000);
-        console.log(`Selected A/c status: ${status}`);
+        console.log(`Selected A/c status: ${target}`);
       } else {
-        console.log(`A/c status for '${status}' not found, skipping`);
+        console.log(`A/c status for '${target}' not found, skipping`);
       }
       return ok;
     } catch (e) {
@@ -3515,11 +3583,18 @@ export class AccountPage {
       const value = await finwFrame.evaluate(() => {
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
         const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
-        const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find((el) => {
-          const t = norm(el.textContent?.trim() || '');
-          return labelNorms.some((ln) => t === ln || t.startsWith(ln) || t.includes(ln));
-        });
+        const findLabelCell = (): HTMLElement | null => {
+          for (const el of Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          for (const el of Array.from(document.querySelectorAll('div, span')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          return null;
+        };
+        const labelCell = findLabelCell();
         if (!labelCell) return null;
 
         const getRadioLabel = (r: HTMLInputElement): string => {
@@ -3575,37 +3650,58 @@ export class AccountPage {
           );
         };
 
-        const scope = (labelCell.closest('tr') || labelCell.closest('table') || document.body) as HTMLElement;
-        const radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) return null;
+        const table = labelCell.closest('table') as HTMLTableElement | null;
+        const scope = table ? table : (labelCell.closest('fieldset') as HTMLElement | null) ?? document.body;
+        const allRadios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
 
-        const isStatusRadio = (r: HTMLInputElement): boolean => {
-          const text = getRadioLabel(r).toLowerCase();
-          const val = r.value.toLowerCase();
-          return (
-            text.includes('active') ||
-            text.includes('dormant') ||
-            text.includes('inactive') ||
-            (text.length <= 2 && (val === 'a' || val === 'd' || val === 'i'))
-          );
+        // Find the option cell (the td/th that holds the radios) in the same row as the label.
+        const optionCell = ((): HTMLElement | null => {
+          const row = labelCell.closest('tr') as HTMLTableRowElement | null;
+          if (row) {
+            for (const cell of Array.from(row.querySelectorAll('td, th')) as HTMLElement[]) {
+              if (cell === labelCell) continue;
+              if (cell.querySelector('input[type="radio"]')) return cell;
+            }
+          }
+          return (labelCell.nextElementSibling as HTMLElement | null) ?? (labelCell.parentElement as HTMLElement | null);
+        })();
+
+        const radios = optionCell
+          ? (Array.from(optionCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[])
+          : allRadios;
+
+        const statusLabels = ((): string[] => {
+          if (!optionCell) return [];
+          const matches = (optionCell.textContent || '').match(/\b(Active|Dormant|Inactive)\b/gi) ?? [];
+          return matches.map((s) => s.toLowerCase());
+        })();
+
+        const statusMap: Record<string, string> = { active: 'Active', dormant: 'Dormant', inactive: 'Inactive' };
+        const radioStatus = (r: HTMLInputElement): string | null => {
+          const idx = radios.indexOf(r);
+          if (idx >= 0 && statusLabels[idx]) {
+            return statusMap[statusLabels[idx]] ?? null;
+          }
+          const text = getRadioLabel(r).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          if (text.includes('inactive')) return 'Inactive';
+          if (text.includes('dormant')) return 'Dormant';
+          if (text.includes('active')) return 'Active';
+          const val = (r.value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+          const known: Record<string, string> = {
+            a: 'Active', ac: 'Active', active: 'Active', act: 'Active',
+            d: 'Dormant', dr: 'Dormant', dor: 'Dormant', dormant: 'Dormant',
+            i: 'Inactive', in: 'Inactive', inactive: 'Inactive'
+          };
+          return known[val] ?? null;
         };
 
-        const checked = radios.find((r) => r.checked && isStatusRadio(r));
+        const group = radios;
+        if (group.length === 0) return null;
+
+        const checked = group.find((r) => r.checked && radioStatus(r));
         if (!checked) return null;
 
-        const raw = getRadioLabel(checked).toLowerCase();
-        if (raw.includes('inactive')) return 'Inactive';
-        if (raw.includes('dormant')) return 'Dormant';
-        if (raw.includes('active')) return 'Active';
-
-        const short: Record<string, string> = { a: 'Active', d: 'Dormant', i: 'Inactive' };
-        const val = (checked.value || '').toLowerCase();
-        if (short[val]) return short[val];
-
-        const first = raw.split(/[^a-z0-9]+/)[0];
-        if (short[first]) return short[first];
-
-        return null;
+        return radioStatus(checked);
       });
       console.log(`Got A/c status: ${value ?? 'null'}`);
       return value;

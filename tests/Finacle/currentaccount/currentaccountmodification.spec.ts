@@ -6,6 +6,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { updateSharedState } from '../../helpers/sharedState';
+import { getSelectedInstances } from '../../helpers/flowStepData';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
 
@@ -521,12 +522,11 @@ function groupCurrentModifyData(rows: Record<string, string>[]): { main: Record<
   return groups;
 }
 
-const CURRENT_MODIFY_DATA = groupCurrentModifyData(loadCurrentModifyData());
-const TARGET_INSTANCE = process.env.INSTANCE ? String(process.env.INSTANCE).trim() : '';
-
-const groupsToRun = TARGET_INSTANCE
-  ? CURRENT_MODIFY_DATA.filter((g) => String(g.main.instance) === TARGET_INSTANCE)
-  : CURRENT_MODIFY_DATA;
+const allGroups = groupCurrentModifyData(loadCurrentModifyData());
+const selectedInstances = getSelectedInstances();
+const groupsToRun = selectedInstances
+  ? allGroups.filter((g) => selectedInstances.includes(String(g.main.instance)))
+  : allGroups;
 
 for (const group of groupsToRun) {
   const effectiveAccountId = group.main.accountId;
@@ -534,7 +534,7 @@ for (const group of groupsToRun) {
   const row = group.main;
   const relatedPartyRows = group.related;
 
-  test.describe('Current Account Modification - ' + effectiveAccountId, () => {
+  test.describe('Current Account Modification - Instance ' + instance + ' - ' + effectiveAccountId, () => {
     test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
     let homePage: HomePage;
@@ -550,7 +550,7 @@ for (const group of groupsToRun) {
       accountPage = new AccountPage(page);
     });
 
-    test('HACM - data-driven current account modification - ' + effectiveAccountId, async ({ page }) => {
+    test('HACM - data-driven current account modification - Instance ' + instance + ' - ' + effectiveAccountId, async ({ page }) => {
       console.log('[Modification] Using Account ID: ' + effectiveAccountId);
 
       await accountPage.selectCoreServer();
@@ -672,13 +672,13 @@ for (const group of groupsToRun) {
             continue;
           }
 
-          if (field === 'A/c. Status' || field === 'accountStatus') {
+          const normalizedField = field.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (normalizedField === 'acstatus' || field.toLowerCase() === 'accountstatus') {
             const actual = (await accountPage.getAccountStatus()) ?? '';
             if (valuesMatch(expected, actual)) {
               results.push({ field, expected, actual, status: 'Skipped' });
             } else {
-              const token = expected.split('-')[0].trim().toLowerCase() || 'active';
-              const ok = await accountPage.selectAccountStatus(token as any);
+              const ok = await accountPage.selectAccountStatus(expected);
               const actual2 = (await accountPage.getAccountStatus()) ?? '';
               const updated = ok && valuesMatch(expected, actual2);
               results.push({ field, expected, actual: actual2, status: updated ? 'Updated' : 'Failed' });
