@@ -3299,6 +3299,29 @@ export class AccountPage {
     try {
       const finwFrame = this.getFinwFrame();
       const ok = await finwFrame.evaluate((target: string) => {
+        // Direct, value-based selection for the Finacle A/c. Status radio group
+        // (e.g., name="acmosd.acctStatus" with values A / D / I).
+        const valueMap: Record<string, string> = { active: 'A', dormant: 'D', inactive: 'I' };
+        const expectedValue = valueMap[target];
+        const statusRadios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
+          (r) => (r as HTMLInputElement).name?.toLowerCase().includes('acctstatus')
+        ) as HTMLInputElement[];
+        if (statusRadios.length > 0) {
+          const targetRadio = statusRadios.find(
+            (r) => r.value?.trim().toUpperCase() === expectedValue
+          );
+          if (targetRadio) {
+            statusRadios.forEach((r) => {
+              r.checked = false;
+            });
+            targetRadio.checked = true;
+            targetRadio.click();
+            targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+            targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
+            return true;
+          }
+        }
+
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
         const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
         const findLabelCell = (): HTMLElement | null => {
@@ -3417,32 +3440,37 @@ export class AccountPage {
         if (group.length === 0) return false;
 
         const targetRadio = group.find((r) => !r.disabled && radioStatus(r) === targetLower);
-
         if (!targetRadio) return false;
 
-        if (!targetRadio.checked) {
-          let clickTarget: HTMLElement = targetRadio;
-          const wrap = targetRadio.closest('label') as HTMLElement | null;
-          if (wrap && wrap.textContent?.trim()) {
-            clickTarget = wrap;
-          } else {
-            const id = targetRadio.id;
-            if (id) {
-              const labelFor = scope.querySelector(`label[for="${id}"]`) as HTMLElement | null;
-              if (labelFor) clickTarget = labelFor;
-            }
-            if (clickTarget === targetRadio) {
-              const parent = targetRadio.closest('td, th, div, span') as HTMLElement | null;
-              if (parent) clickTarget = parent;
-            }
+        const idx = radios.indexOf(targetRadio);
+        if (idx < 0) return false;
+
+        // Make only the target radio checked. Setting one radio's `checked`
+        // property alone does not uncheck the rest, so we reset all of them first.
+        radios.forEach((r, i) => {
+          r.checked = i === idx;
+        });
+
+        let clickTarget: HTMLElement = targetRadio;
+        const wrap = targetRadio.closest('label') as HTMLElement | null;
+        if (wrap && wrap.textContent?.trim()) {
+          clickTarget = wrap;
+        } else {
+          const id = targetRadio.id;
+          if (id) {
+            const labelFor = scope.querySelector(`label[for="${id}"]`) as HTMLElement | null;
+            if (labelFor) clickTarget = labelFor;
           }
-          clickTarget.scrollIntoView({ block: 'center', inline: 'center' });
-          clickTarget.click();
-          targetRadio.click();
-          targetRadio.checked = true;
-          targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
-          targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
+          if (clickTarget === targetRadio) {
+            const parent = targetRadio.closest('td, th, div, span') as HTMLElement | null;
+            if (parent) clickTarget = parent;
+          }
         }
+        clickTarget.scrollIntoView({ block: 'center', inline: 'center' });
+        clickTarget.click();
+        targetRadio.click();
+        targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
         return true;
       }, target);
 
@@ -3581,6 +3609,21 @@ export class AccountPage {
     try {
       const finwFrame = this.getFinwFrame();
       const value = await finwFrame.evaluate(() => {
+        // Direct, value-based read for the Finacle A/c. Status radio group
+        // (e.g., name="acmosd.acctStatus" with values A / D / I).
+        const statusValueMap: Record<string, string> = {
+          A: 'Active', a: 'Active',
+          D: 'Dormant', d: 'Dormant',
+          I: 'Inactive', i: 'Inactive'
+        };
+        const statusRadios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
+          (r) => (r as HTMLInputElement).name?.toLowerCase().includes('acctstatus')
+        ) as HTMLInputElement[];
+        const checked = statusRadios.find((r) => r.checked);
+        if (checked && statusValueMap[checked.value.trim()]) {
+          return statusValueMap[checked.value.trim()];
+        }
+
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
         const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
         const findLabelCell = (): HTMLElement | null => {
@@ -3698,10 +3741,10 @@ export class AccountPage {
         const group = radios;
         if (group.length === 0) return null;
 
-        const checked = group.find((r) => r.checked && radioStatus(r));
-        if (!checked) return null;
+        const matched = group.find((r) => r.checked && radioStatus(r));
+        if (!matched) return null;
 
-        return radioStatus(checked);
+        return radioStatus(matched);
       });
       console.log(`Got A/c status: ${value ?? 'null'}`);
       return value;
