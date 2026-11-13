@@ -1,0 +1,576 @@
+{
+  "headers": [
+    "instance",
+    "schemeCode",
+    "currency",
+    "description",
+    "solId",
+    "cifCode",
+    "functionOption",
+    "Location Code",
+    "A/c Name",
+    "A/c Opening Date",
+    "A/c Short Name",
+    "Customer Relationship A/c Manager",
+    "Turnover Details",
+    "Collect Charges",
+    "Preferential Calendar Base",
+    "Mode of Operation",
+    "Next Print Date",
+    "dispatchMode",
+    "relativeToStaff",
+    "relativeStaffId",
+    "chargeLevelCode",
+    "accountManagerId",
+    "accountStatement",
+    "statementFrequency",
+    "statementWeek",
+    "statementDay",
+    "statementP",
+    "statementG",
+    "payInterest",
+    "collectInterest",
+    "interestCreditAccount",
+    "interestCalcFreqCr",
+    "interestCalcFreqCrWeek",
+    "interestCalcFreqCrDay",
+    "interestCalcFreqCrP",
+    "interestCalcFreqCrG",
+    "Credit Interest Pcnt. Min./Max.",
+    "Min./Max. Debit Interest Pcnt.",
+    "Customer Preferential Interest (Cr.)",
+    "Customer Preferential Interest (Dr.)",
+    "A/c. Credit Preferential Interest",
+    "A/c. Debit Preferential Interest",
+    "Channel Preferential Interest (Cr.)",
+    "Channel Preferential Interest (Dr.)",
+    "interestDebitAccount",
+    "interestCalcFreqDr",
+    "interestCalcFreqDrWeek",
+    "interestCalcFreqDrDay",
+    "interestCalcFreqDrP",
+    "interestCalcFreqDrG",
+    "Next Interest Calculation Date (Dr.)",
+    "interestRateCode",
+    "interestCreditAccountId",
+    "interestDebitAccountId",
+    "accountPegged",
+    "peggingReviewDate",
+    "nextInterestCalculationDateCr",
+    "Interest Compounding Frequency (Dr.)",
+    "Credit Interest Compounding Frequency",
+    "Debit Compounding Rest Indicator",
+    "Credit Compounding Rest Indicator",
+    "Waive Min. Interest",
+    "peggingFrequencyMonths",
+    "peggingFrequencyDays",
+    "taxCategory",
+    "withholdingTaxLevel",
+    "withholdingTaxFloorLimit",
+    "withholdingTaxPercent",
+    "withholdingTaxBorneBy",
+    "tdsOperativeAccountId",
+    "Cheque Allowed",
+    "nomination",
+    "Cheques Provided by Bank",
+    "Recover Fee for Cheque Issue",
+    "Return Paid Cheque",
+    "preferredNominationType",
+    "debitBalanceLimit",
+    "maxAllowedLimit",
+    "schemeSanctionLimit",
+    "schemeExpiryDate",
+    "accountMinBalanceIndicator",
+    "accountMinBalance",
+    "sweepInMinBalance",
+    "Interest Method (Dr.)",
+    "externalSystemPricingFor",
+    "relationshipPricingId",
+    "pricingEffectiveDate",
+    "pricingReviewDate",
+    "dsaInformation",
+    "sourcingDealerId",
+    "disbursingDealerId",
+    "accountLimitsSanctionLimit",
+    "Limit Level Interest",
+    "sanctionDate",
+    "Penal Interest Start Date",
+    "accountLimitsReviewDate",
+    "sanctionAuthority",
+    "limitReferenceNo",
+    "accountLimitsExpiryDate",
+    "documentDate",
+    "drawingPowerIndicator",
+    "drawingPowerPercent",
+    "drawingPower",
+    "Document Code",
+    "Due Date",
+    "scanDetails",
+    "receivedDate",
+    "documentExpiryDate",
+    "ffdSchemeCode",
+    "autoSweep",
+    "sweepOutInMultiplesOf",
+    "sweepOutDepositPeriodMonths",
+    "sweepOutDepositPeriodDays",
+    "sweepOutFrequency",
+    "autoRenewal",
+    "maxRenewalAllowed",
+    "autoRenewalPeriodMonths",
+    "autoRenewalPeriodDays",
+    "autoRenewalScheme",
+    "linkToOperativeAccount",
+    "masterAccountNo",
+    "Add related parties",
+    "Sheet",
+    "relationType",
+    "Relation Code",
+    "Designation Code",
+    "relatedPartyCifId",
+    "Print Statement",
+    "Print Advice for Standing Instruction",
+    "Print Deposit Notice",
+    "Print Loan Notice",
+    "Interest Certificate",
+    "Interest Rate Change Advice",
+    "foreignTaxReportable",
+    "taxReportingCountry",
+    "taxReportingStatus",
+    "lastTaxReportingReviewDate",
+    "nextTaxReportingReviewDate",
+    "paymentSystemAccountId",
+    "amountType",
+    "paymentSystemPercent",
+    "paymentSystemAmount",
+    "roundOffIndicator",
+    "roundOffAmount",
+    "collectFee",
+    "rateCode",
+    "reportCode",
+    "Occupation Code",
+    "sectorCode",
+    "subsectorCode"
+  ],
+  "valued": [
+    {
+      "i": 0,
+      "header": "instance",
+      "value": "1"
+    },
+    {
+      "i": 1,
+      "header": "schemeCode",
+      "value": "SVREG"
+    },
+    {
+      "i": 2,
+      "header": "currency",
+      "value": "BMD"
+    },
+    {
+      "i": 3,
+      "header": "description",
+      "value": "SVREG"
+    },
+    {
+      "i": 4,
+      "header": "solId",
+      "value": "100"
+    },
+    {
+      "i": 5,
+      "header": "cifCode",
+      "value": "0005000599"
+    },
+    {
+      "i": 6,
+      "header": "functionOption",
+      "value": "O"
+    },
+    {
+      "i": 7,
+      "header": "Location Code",
+      "value": "CBBDA"
+    },
+    {
+      "i": 8,
+      "header": "A/c Name",
+      "value": "MR ANI"
+    },
+    {
+      "i": 9,
+      "header": "A/c Opening Date",
+      "value": "01-10-2026"
+    },
+    {
+      "i": 10,
+      "header": "A/c Short Name",
+      "value": "FALK"
+    },
+    {
+      "i": 11,
+      "header": "Customer Relationship A/c Manager",
+      "value": "MPRIDHAM"
+    },
+    {
+      "i": 12,
+      "header": "Turnover Details",
+      "value": "Yes"
+    },
+    {
+      "i": 13,
+      "header": "Collect Charges",
+      "value": "Yes"
+    },
+    {
+      "i": 14,
+      "header": "Preferential Calendar Base",
+      "value": "G - Gregorian Calendar"
+    },
+    {
+      "i": 15,
+      "header": "Mode of Operation",
+      "value": "016"
+    },
+    {
+      "i": 16,
+      "header": "Next Print Date",
+      "value": "02-11-2026"
+    },
+    {
+      "i": 17,
+      "header": "dispatchMode",
+      "value": "A - Post and Email"
+    },
+    {
+      "i": 18,
+      "header": "relativeToStaff",
+      "value": "Yes"
+    },
+    {
+      "i": 20,
+      "header": "chargeLevelCode",
+      "value": "ZERO"
+    },
+    {
+      "i": 21,
+      "header": "accountManagerId",
+      "value": "MPRIDHAM"
+    },
+    {
+      "i": 22,
+      "header": "accountStatement",
+      "value": "S - Statement"
+    },
+    {
+      "i": 23,
+      "header": "statementFrequency",
+      "value": "M - Monthly"
+    },
+    {
+      "i": 25,
+      "header": "statementDay",
+      "value": "31"
+    },
+    {
+      "i": 26,
+      "header": "statementP",
+      "value": "P"
+    },
+    {
+      "i": 27,
+      "header": "statementG",
+      "value": "G"
+    },
+    {
+      "i": 28,
+      "header": "payInterest",
+      "value": "Yes"
+    },
+    {
+      "i": 29,
+      "header": "collectInterest",
+      "value": "Yes"
+    },
+    {
+      "i": 30,
+      "header": "interestCreditAccount",
+      "value": "O - Operative A/c."
+    },
+    {
+      "i": 31,
+      "header": "interestCalcFreqCr",
+      "value": "Q - Quarterly"
+    },
+    {
+      "i": 33,
+      "header": "interestCalcFreqCrDay",
+      "value": "31"
+    },
+    {
+      "i": 34,
+      "header": "interestCalcFreqCrP",
+      "value": "P"
+    },
+    {
+      "i": 35,
+      "header": "interestCalcFreqCrG",
+      "value": "G"
+    },
+    {
+      "i": 44,
+      "header": "interestDebitAccount",
+      "value": "O - Operative A/c."
+    },
+    {
+      "i": 45,
+      "header": "interestCalcFreqDr",
+      "value": "Q - Quarterly"
+    },
+    {
+      "i": 47,
+      "header": "interestCalcFreqDrDay",
+      "value": "31"
+    },
+    {
+      "i": 48,
+      "header": "interestCalcFreqDrP",
+      "value": "P"
+    },
+    {
+      "i": 49,
+      "header": "interestCalcFreqDrG",
+      "value": "G"
+    },
+    {
+      "i": 50,
+      "header": "Next Interest Calculation Date (Dr.)",
+      "value": "01-12-2026"
+    },
+    {
+      "i": 51,
+      "header": "interestRateCode",
+      "value": "SVREG"
+    },
+    {
+      "i": 52,
+      "header": "interestCreditAccountId",
+      "value": "7710003367"
+    },
+    {
+      "i": 53,
+      "header": "interestDebitAccountId",
+      "value": "4600000119"
+    },
+    {
+      "i": 54,
+      "header": "accountPegged",
+      "value": "No"
+    },
+    {
+      "i": 56,
+      "header": "nextInterestCalculationDateCr",
+      "value": "01-12-2026"
+    },
+    {
+      "i": 57,
+      "header": "Interest Compounding Frequency (Dr.)",
+      "value": "N - No Compounding"
+    },
+    {
+      "i": 58,
+      "header": "Credit Interest Compounding Frequency",
+      "value": "M - Monthly"
+    },
+    {
+      "i": 59,
+      "header": "Debit Compounding Rest Indicator",
+      "value": "Month End"
+    },
+    {
+      "i": 60,
+      "header": "Credit Compounding Rest Indicator",
+      "value": "Month End"
+    },
+    {
+      "i": 61,
+      "header": "Waive Min. Interest",
+      "value": "Yes"
+    },
+    {
+      "i": 70,
+      "header": "Cheque Allowed",
+      "value": "No"
+    },
+    {
+      "i": 71,
+      "header": "nomination",
+      "value": "No"
+    },
+    {
+      "i": 72,
+      "header": "Cheques Provided by Bank",
+      "value": "No"
+    },
+    {
+      "i": 73,
+      "header": "Recover Fee for Cheque Issue",
+      "value": "No"
+    },
+    {
+      "i": 74,
+      "header": "Return Paid Cheque",
+      "value": "No"
+    },
+    {
+      "i": 76,
+      "header": "debitBalanceLimit",
+      "value": "0.00"
+    },
+    {
+      "i": 77,
+      "header": "maxAllowedLimit",
+      "value": "0.00"
+    },
+    {
+      "i": 78,
+      "header": "schemeSanctionLimit",
+      "value": "0.00"
+    },
+    {
+      "i": 79,
+      "header": "schemeExpiryDate",
+      "value": "01-12-2026"
+    },
+    {
+      "i": 80,
+      "header": "accountMinBalanceIndicator",
+      "value": "Scheme"
+    },
+    {
+      "i": 81,
+      "header": "accountMinBalance",
+      "value": "500.00"
+    },
+    {
+      "i": 83,
+      "header": "Interest Method (Dr.)",
+      "value": "E - EOD Clear Balance"
+    },
+    {
+      "i": 84,
+      "header": "externalSystemPricingFor",
+      "value": "N - None"
+    },
+    {
+      "i": 92,
+      "header": "Limit Level Interest",
+      "value": "A/c. Level Interest/Limit Level Interest"
+    },
+    {
+      "i": 94,
+      "header": "Penal Interest Start Date",
+      "value": "01-12-2026"
+    },
+    {
+      "i": 98,
+      "header": "accountLimitsExpiryDate",
+      "value": "01-12-2026"
+    },
+    {
+      "i": 99,
+      "header": "documentDate",
+      "value": "01-10-2026"
+    },
+    {
+      "i": 100,
+      "header": "drawingPowerIndicator",
+      "value": "E - Equal"
+    },
+    {
+      "i": 103,
+      "header": "Document Code",
+      "value": "023"
+    },
+    {
+      "i": 104,
+      "header": "Due Date",
+      "value": "1/10/2026"
+    },
+    {
+      "i": 105,
+      "header": "scanDetails",
+      "value": "N - Scan not required"
+    },
+    {
+      "i": 106,
+      "header": "receivedDate",
+      "value": "1/10/2026"
+    },
+    {
+      "i": 107,
+      "header": "documentExpiryDate",
+      "value": "2/12/2026"
+    },
+    {
+      "i": 121,
+      "header": "Add related parties",
+      "value": "Yes"
+    },
+    {
+      "i": 122,
+      "header": "Sheet",
+      "value": "Main"
+    },
+    {
+      "i": 125,
+      "header": "Designation Code",
+      "value": "BA"
+    },
+    {
+      "i": 127,
+      "header": "Print Statement",
+      "value": "Yes"
+    },
+    {
+      "i": 128,
+      "header": "Print Advice for Standing Instruction",
+      "value": "Yes"
+    },
+    {
+      "i": 129,
+      "header": "Print Deposit Notice",
+      "value": "No"
+    },
+    {
+      "i": 130,
+      "header": "Print Loan Notice",
+      "value": "No"
+    },
+    {
+      "i": 131,
+      "header": "Interest Certificate",
+      "value": "Yes"
+    },
+    {
+      "i": 132,
+      "header": "Interest Rate Change Advice",
+      "value": "Yes"
+    },
+    {
+      "i": 147,
+      "header": "Occupation Code",
+      "value": "058"
+    },
+    {
+      "i": 148,
+      "header": "sectorCode",
+      "value": "999"
+    },
+    {
+      "i": 149,
+      "header": "subsectorCode",
+      "value": "999"
+    }
+  ]
+}

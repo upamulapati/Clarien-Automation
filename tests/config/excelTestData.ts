@@ -86,7 +86,37 @@ function loadSavingsFromExcel(): any[] | null {
     const wb = xlsx.readFile(excelPath);
     const ws = wb.Sheets['SavingsAccountData'];
     if (!ws) return null;
-    const rows = xlsx.utils.sheet_to_json(ws, { defval: '' }) as any[];
+    // Read as an array of arrays so duplicate headers (Free Text/Free Code etc.) can be
+    // prefixed by the current tab/section. This keeps the suite flexible for future columns.
+    const raw = xlsx.utils.sheet_to_json(ws, { defval: '', header: 1 }) as any[][];
+    if (raw.length === 0) return [];
+    const rawHeaders = raw[0].map((h) => String(h).trim());
+    const headers: string[] = [];
+    let section = '';
+    for (const h of rawHeaders) {
+      const hl = h.toLowerCase().replace(/\s+/g, '');
+      if (hl.includes('document')) {
+        section = 'Document';
+      }
+      if (hl.includes('occupation') || hl.includes('sectorcode') || hl.includes('subsectorcode') || h.toLowerCase().startsWith('free code')) {
+        section = 'MIS';
+      }
+      const freeFieldMatch = h.match(/^Free (Text|Code)\s+(\d+)$/i);
+      if (freeFieldMatch && section) {
+        headers.push(`${section} ${h}`);
+      } else {
+        headers.push(h);
+      }
+    }
+    const rows = raw.slice(1).map((r) => {
+      const obj: any = {};
+      for (let i = 0; i < headers.length; i++) {
+        let v = r[i] ?? '';
+        if (typeof v === 'string') v = v.replace(/\s+/g, ' ').trim();
+        obj[headers[i]] = v;
+      }
+      return obj;
+    });
     return rows.filter((r) => r.enabled == null || String(r.enabled).toUpperCase() !== 'N');
   } catch {
     return null;

@@ -4,12 +4,26 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import { getSelectedInstances } from '../../helpers/flowStepData';
 import { CREDENTIALS } from '../../../data/credentials';
 
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.verifierCredentials;
 
-const SCENARIOS = SAVINGS_DATA.map((entry: any, index: number) => {
+const selectedInstances = getSelectedInstances();
+const selectedSet = selectedInstances ? new Set(selectedInstances) : null;
+
+const SCENARIOS = SAVINGS_DATA.filter((entry: any) => {
+  const entryData = entry.data ?? entry;
+  // Ignore related-party rows; verification runs only against the main account rows.
+  const sheet = String(entryData.Sheet || '').trim().toLowerCase();
+  if (sheet === 'related party' || sheet === 'relatedparty') return false;
+  if (selectedSet) {
+    const instance = String(entryData.instance ?? entry.instance ?? '').trim();
+    return selectedSet.has(instance);
+  }
+  return true;
+}).map((entry: any, index: number) => {
   const entryData = entry.data ?? entry;
   const scheme = entryData.schemeCode ?? 'random';
   const ccy = entryData.currency ?? DEFAULT_CUSTOMER.ccy;
@@ -77,6 +91,17 @@ test.describe('Savings Account Verification', () => {
       // Capture the actual Finacle status message after verification
       const statusMessage = await savingsAccountPage.getStatusMessage();
       console.log('Verification status message:', statusMessage);
+
+      // Verification must produce an explicit success/authorised message.
+      const successKeywords = /\b(successfully|posted|completed|authorised|authorized|verified|approved|modified|deleted|created|added|disbursed|generated)\b/i;
+      const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected|visit)\b/i;
+      const bodyText = await page.locator('body').innerText().catch(() => '');
+      expect(
+        statusMessage,
+        `Expected a verification success message for ${scenario.name}, but got: ${statusMessage}\n\nBody text:\n${bodyText.substring(0, 1500)}`
+      ).toBeTruthy();
+      expect(statusMessage, `Verification status for ${scenario.name} contains an error/visit prompt`).not.toMatch(errorKeywords);
+      expect(statusMessage, `Verification status for ${scenario.name} does not indicate success`).toMatch(successKeywords);
 
       // After verification the permanent account number is shown; persist it.
       const verifiedAccountId = await savingsAccountPage.getAccountId();

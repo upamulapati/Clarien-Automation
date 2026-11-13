@@ -680,6 +680,7 @@ export class AccountPage {
     await this.visitSchemeDetailsTab();
     await this.visitRelatedPartyTab();
     await this.visitMiscodesTab();
+    await this.visitAccountLimitsTab();
   }
 
   // ============ Verification Screen Methods ============
@@ -2017,8 +2018,42 @@ export class AccountPage {
             return t.length > 0 && t.startsWith(labelNorm) && isVisible(el) && hasInputInRow(el);
           });
         }
+
+        // When a single table cell contains multiple field labels (e.g. "A/c. Name * A/c. Short Name *"),
+        // we still want to find the cell and then pick the input that corresponds to the requested label.
+        if (!labelCell) {
+          const matches = cells
+            .map(el => ({ el, t: normalize(el.textContent?.trim() || '') }))
+            .filter(({ el, t }) => t.length > 0 && t.includes(labelNorm) && isVisible(el) && hasInputInRow(el));
+          if (matches.length > 0) {
+            labelCell = matches.sort((a, b) => {
+              const aExact = a.t === labelNorm;
+              const bExact = b.t === labelNorm;
+              if (aExact && !bExact) return -1;
+              if (!aExact && bExact) return 1;
+              const aStarts = a.t.startsWith(labelNorm);
+              const bStarts = b.t.startsWith(labelNorm);
+              if (aStarts && !bStarts) return -1;
+              if (!aStarts && bStarts) return 1;
+              return a.t.length - b.t.length;
+            })[0].el;
+          }
+        }
+
         if (!labelCell) return { ok: false, reason: `label cell not found: ${label}` };
         const row = labelCell.closest('tr');
+
+        const getInputOffset = (labelCellText: string, lNorm: string): number => {
+          const segs = labelCellText
+            .split(/[*?]/)
+            .map(s => normalize(s))
+            .filter(s => s.length > 0);
+          if (segs.length <= 1) return 0;
+          const idx = segs.findIndex(s => s === lNorm || s.startsWith(lNorm));
+          return idx >= 0 ? idx : 0;
+        };
+
+        const inputOffset = getInputOffset(labelCell.textContent?.trim() || '', labelNorm);
 
         const updateBackend = (input: HTMLInputElement) => {
           if (input.id && input.id.endsWith('_ui')) {
@@ -2064,15 +2099,21 @@ export class AccountPage {
           return /crncy|currency/i.test(id + name);
         };
 
+        let candidateIndex = 0;
+
         // First pass: fill the first enabled/editable text/number/textarea that is a direct sibling of the label cell.
         let sibling = labelCell.nextElementSibling;
         while (sibling) {
           const input = isTextInput(sibling) ? (sibling as HTMLInputElement) : sibling.querySelector('input[type="text"], input[type="number"], input:not([type]), textarea') as HTMLInputElement | null;
           if (input && !input.disabled && !input.readOnly && !isCurrencyField(input)) {
-            input.focus();
-            setInput(input);
-            input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'sibling' };
+            if (candidateIndex < inputOffset) {
+              candidateIndex++;
+            } else {
+              input.focus();
+              setInput(input);
+              input.blur();
+              return { ok: true, id: input.id, name: input.name, via: 'sibling' };
+            }
           }
           // Stop at next label cell to avoid spilling into wrong field.
           if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input, textarea') === null) break;
@@ -2085,10 +2126,14 @@ export class AccountPage {
         while (sibling) {
           const input = sibling.querySelector('input[type="text"], input:not([type]), textarea') as HTMLInputElement | null;
           if (input && !isCurrencyField(input)) {
-            input.focus();
-            setInput(input);
-            input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'sibling-disabled' };
+            if (candidateIndex < inputOffset) {
+              candidateIndex++;
+            } else {
+              input.focus();
+              setInput(input);
+              input.blur();
+              return { ok: true, id: input.id, name: input.name, via: 'sibling-disabled' };
+            }
           }
           if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input, textarea') === null) break;
           sibling = sibling.nextElementSibling;
@@ -2100,12 +2145,12 @@ export class AccountPage {
               const r = (el as HTMLElement).getBoundingClientRect();
               return r.left > labelRect.right;
             }) as HTMLInputElement[];
-          if (inputs.length > 0) {
-            const input = inputs.find(i => !isCurrencyField(i)) || inputs[0];
+          if (inputs.length > inputOffset) {
+            const input = inputs[inputOffset];
             input.focus();
             setInput(input);
             input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'row-positional-disabled' };
+            return { ok: true, id: input.id, name: input.name, via: 'row-positional' };
           }
         }
 
@@ -4271,16 +4316,102 @@ export class AccountPage {
 
     // Framed popup (HOAACSB) — use criteria/results frames.
     if (schemeCode) {
-      const schemeInput = criteriaFrame.locator(
-        'input[id*="schm" i], input[id*="scheme" i], input[name*="schm" i], input[type="text"]'
-      ).first();
-      if (await schemeInput.count() > 0) {
-        await schemeInput.fill(schemeCode);
-        console.log(`Typed scheme code "${schemeCode}" into criteria field`);
+      // Locate a visible, editable text-like input for the scheme code. Hidden
+      // elements such as <input name="SchemeCriteriaSubmit" type="Hidden">
+      // must not be matched.
+      const visibleInputs = criteriaFrame.locator('input:visible');
+      const inputCount = await visibleInputs.count().catch(() => 0);
+      let filledInput: string | null = null;
+      let fallbackInput: Locator | null = null;
+      for (let i = 0; i < inputCount; i++) {
+        const input = visibleInputs.nth(i);
+        const typeVal = (await input.getAttribute('type').catch(() => '')) || '';
+        const type = typeVal.toLowerCase();
+        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'image' || type === 'checkbox' || type === 'radio' || type === 'file') {
+          continue;
+        }
+        if (fallbackInput === null) fallbackInput = input;
+        const id = (await input.getAttribute('id').catch(() => '')) || '';
+        const name = (await input.getAttribute('name').catch(() => '')) || '';
+        const aria = (await input.getAttribute('aria-label').catch(() => '')) || '';
+        const title = (await input.getAttribute('title').catch(() => '')) || '';
+        const placeholder = (await input.getAttribute('placeholder').catch(() => '')) || '';
+        const labelText = await input.evaluate((el) => {
+          const id = (el as HTMLInputElement).id;
+          if (id) {
+            const label = document.querySelector(`label[for="${id}"]`);
+            if (label) return (label as HTMLElement).innerText.trim();
+          }
+          const parentLabel = el.closest('label');
+          if (parentLabel) return (parentLabel as HTMLElement).innerText.trim();
+          return '';
+        }).catch(() => '');
+        const hay = `${id} ${name} ${aria} ${title} ${placeholder} ${labelText}`.toLowerCase();
+        if (hay.includes('schm') || hay.includes('scheme') || hay.includes('code')) {
+          await input.fill(schemeCode);
+          await input.dispatchEvent('change').catch(() => {});
+          await input.press('Tab').catch(() => {});
+          await this.page.waitForTimeout(300);
+          filledInput = id || name || `index ${i}`;
+          console.log(`Typed scheme code "${schemeCode}" into criteria field (#${filledInput})`);
+          break;
+        }
+      }
+      if (!filledInput && fallbackInput) {
+        await fallbackInput.fill(schemeCode);
+        console.log(`Typed scheme code "${schemeCode}" into first visible text input`);
       }
     }
 
-    await criteriaFrame.locator('#Submit').click();
+    // Finacle search pages use a visible Go/Submit/Search button to trigger the
+    // grid lookup. Only consider real interactive elements; decorative <img>
+    // icons do not submit the form. Prefer Go, then Search, then Submit/OK.
+    const actionCandidates = criteriaFrame.locator(
+      'input[type="submit"], input[type="button"], input[type="image"], button, a'
+    );
+    const actionCount = await actionCandidates.count().catch(() => 0);
+    let bestBtn: Locator | null = null;
+    let bestScore = Number.MAX_SAFE_INTEGER;
+    let bestLabel = '';
+    for (let i = 0; i < actionCount; i++) {
+      const btn = actionCandidates.nth(i);
+      if (!(await btn.isVisible().catch(() => false))) continue;
+      const value = (await btn.getAttribute('value').catch(() => '')) || '';
+      const alt = (await btn.getAttribute('alt').catch(() => '')) || '';
+      const title = (await btn.getAttribute('title').catch(() => '')) || '';
+      const text = (await btn.textContent().catch(() => '')) || '';
+      const tag = await btn.evaluate(el => (el as HTMLElement).tagName.toLowerCase()).catch(() => '');
+      const label = `${value} ${alt} ${title} ${text}`.replace(/\s+/g, ' ').trim().toLowerCase();
+      let score = Number.MAX_SAFE_INTEGER;
+      if (/\bgo\b/.test(label)) score = 1;
+      else if (/\bsearch\b/.test(label)) score = 2;
+      else if (/\bsubmit\b/.test(label)) score = 3;
+      else if (/\bok\b/.test(label)) score = 4;
+      // For image submit buttons with no text, check the src/alt attributes.
+      if (score === Number.MAX_SAFE_INTEGER && tag === 'input') {
+        const src = (await btn.getAttribute('src').catch(() => '')) || '';
+        const imageLabel = `${alt} ${title} ${src}`.toLowerCase();
+        if (/\bgo\b/.test(imageLabel)) score = 1;
+        else if (/\bsearch\b/.test(imageLabel)) score = 2;
+        else if (/\bsubmit\b/.test(imageLabel)) score = 3;
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        bestBtn = btn;
+        bestLabel = `${value} ${alt} ${title} ${text}`.trim() || tag;
+        if (score === 1) break; // perfect match: Go
+      }
+    }
+    if (bestBtn && bestScore <= 4) {
+      await bestBtn.click();
+      console.log(`Clicked "${bestLabel}" button (score ${bestScore}) in scheme criteria frame`);
+    } else {
+      const fallbackBtn = criteriaFrame.locator('#Submit, #submit, input[type="submit"], input[type="button"]').first();
+      if (await fallbackBtn.count() > 0) {
+        await fallbackBtn.click();
+        console.log('Clicked fallback Submit button in scheme criteria frame');
+      }
+    }
     await popup.waitForTimeout(3000);
 
     const resultsFrame = popup.frames().find(f => f.name() === 'Search_SchemeResults');
@@ -4288,32 +4419,65 @@ export class AccountPage {
       throw new Error('Search_SchemeResults frame not found in popup!');
     }
 
+    // Wait for at least one result table row/link to appear.
+    try {
+      await resultsFrame.locator('table tr, table a').first().waitFor({ state: 'attached', timeout: 10000 });
+    } catch {
+      console.log('Results grid did not attach within 10s, continuing with available state');
+    }
+
     if (schemeCode) {
-      const schemeLink = resultsFrame.locator(`table tr td:first-child a:has-text('${schemeCode}')`).first();
-      const count = await schemeLink.count();
-      if (count === 0) {
-        console.log(`Scheme code ${schemeCode} not found in grid, falling back to random selection`);
-        await this.selectRandomScheme(resultsFrame);
-      } else {
+      // Find the result row whose cells contain the configured scheme code,
+      // then click the first link in that row. This handles grids where the
+      // scheme code is in one cell and the clickable link is in another.
+      const schemeRow = resultsFrame
+        .locator('table tr')
+        .filter({ hasText: new RegExp(schemeCode, 'i') })
+        .first();
+      let schemeLink = schemeRow.locator('a').first();
+      if (
+        (await schemeLink.count() > 0 && await schemeLink.isVisible().catch(() => false))
+      ) {
         await schemeLink.click();
         console.log(`Selecting specific scheme: ${schemeCode}`);
+      } else {
+        // Fallback: look for an anchor whose text contains the scheme code.
+        schemeLink = resultsFrame.locator(`table a:has-text("${schemeCode}")`).first();
+        if (await schemeLink.count() > 0 && await schemeLink.isVisible().catch(() => false)) {
+          await schemeLink.click();
+          console.log(`Selecting specific scheme: ${schemeCode}`);
+        } else {
+          console.log(`Scheme code ${schemeCode} not found in grid, falling back to first/random selection`);
+          await this.selectRandomScheme(resultsFrame);
+        }
       }
     } else {
       await this.selectRandomScheme(resultsFrame);
     }
-    await this.page.waitForTimeout(3000);
+    await this.page.waitForTimeout(2000);
   }
 
   private async selectRandomScheme(resultsFrame: Frame) {
     // Wait for grid to be populated
     await this.page.waitForTimeout(3000);
-    const firstColumnLinks = await resultsFrame.locator('table tr td:first-child a').all();
-    if (firstColumnLinks.length === 0) {
+    let links = await resultsFrame.locator('table tr td:first-child a').all();
+    if (links.length === 0) {
+      links = await resultsFrame.locator('table tr td a').all();
+    }
+    if (links.length === 0) {
+      links = await resultsFrame.locator('table a').all();
+    }
+    if (links.length === 0) {
+      // One final wait in case the grid is still loading.
+      await this.page.waitForTimeout(3000);
+      links = await resultsFrame.locator('table a').all();
+    }
+    if (links.length === 0) {
       throw new Error('No scheme options available in the grid!');
     }
-    const randomIndex = Math.floor(Math.random() * firstColumnLinks.length);
-    console.log(`Selecting random scheme option ${randomIndex + 1} of ${firstColumnLinks.length}`);
-    await firstColumnLinks[randomIndex].click();
+    const randomIndex = Math.floor(Math.random() * links.length);
+    console.log(`Selecting random scheme option ${randomIndex + 1} of ${links.length}`);
+    await links[randomIndex].click();
   }
 
   private async fillInterestDetails(forModification = false) {
@@ -4397,27 +4561,11 @@ export class AccountPage {
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
-    const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
-    await this.fillAllTabs(dispatchMode, false, accountData);
-
-    // Account Limits is a mandatory tab that must be filled before submit.
-    await this.visitAccountLimitsTab();
-    const bodStr = await this.getBODDate() || this.todayDate();
-    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
-    const bod = new Date(yyyy, mm - 1, dd);
-    const future = new Date(bod);
-    future.setFullYear(bod.getFullYear() + 1);
-    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-    const fallbackExpiry = fmt(future);
-    const expiryDate = (accountData.schemeExpiryDate && String(accountData.schemeExpiryDate).trim()) ||
-                       (accountData.accountLimitsExpiryDate && String(accountData.accountLimitsExpiryDate).trim()) ||
-                       fallbackExpiry;
-    console.log(`Using Account Limits expiry date: ${expiryDate}`);
-    await this.fillLoanAccountLimits(expiryDate);
-    await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
-    await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
-    await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
-
+    await this.createCurrentAccount(accountData, _options?.relatedParties || [], {
+      skipBasic: true,
+      includeAccountLimits: true,
+      skipSubmit: true,
+    });
 
     await this.clickSubmit();
   }
@@ -4426,8 +4574,13 @@ export class AccountPage {
   // Creates a current account via HOAACCA strictly from the provided Excel row.
   // Each tab is visited in order and editable fields are matched by label.
   // Missing, disabled, or unlocatable fields are logged and skipped.
-  async createCurrentAccount(accountData: AccountData, relatedParties: any[] = []) {
+  async createCurrentAccount(
+    accountData: AccountData,
+    relatedParties: any[] = [],
+    options?: { skipBasic?: boolean; includeAccountLimits?: boolean; skipSubmit?: boolean }
+  ) {
     const data = accountData as any;
+    const { skipBasic = false, includeAccountLimits = false, skipSubmit = false } = options ?? {};
 
     const valueOf = (key: string, source = data) =>
       source[key] == null || source[key] === '' ? undefined : String(source[key]).trim();
@@ -4591,15 +4744,17 @@ export class AccountPage {
       { key: 'Free Text 2', labels: ['Free Text 2'] },
     ];
 
-    this.tabReports = [];
+    if (!skipBasic) {
+      this.tabReports = [];
 
-    await this.fillBasicAccountDetails(accountData);
-    this.tabReports.push(await this.captureHOAACCATab('Basic Details'));
-    await this.selectSchemeCode(accountData.schemeCode ?? undefined);
-    await this.capturePreActionEvidence('Before Accept');
-    await this.acceptButton.click();
-    await this.page.waitForTimeout(3000);
-    this.tabReports.push(await this.captureHOAACCATab('Scheme Selection'));
+      await this.fillBasicAccountDetails(accountData);
+      this.tabReports.push(await this.captureHOAACCATab('Basic Details'));
+      await this.selectSchemeCode(accountData.schemeCode ?? undefined);
+      await this.capturePreActionEvidence('Before Accept');
+      await this.acceptButton.click();
+      await this.page.waitForTimeout(3000);
+      this.tabReports.push(await this.captureHOAACCATab('Scheme Selection'));
+    }
 
     await this.visitGeneralDetailsTab();
 
@@ -4663,54 +4818,98 @@ export class AccountPage {
     await this.fillDynamicFreeFields(data, 'MIS');
     this.tabReports.push(await this.captureHOAACCATab('MIS Codes'));
 
-    await this.visitOthersTab();
-    const esp = valueOf('externalSystemPricingFor');
-    if (esp) {
-      const espToken = String(esp).split('-')[0].trim().toLowerCase();
-      const checked = await this.setCheckboxByLabel('External System Pricing', 'Yes');
-      if (checked) {
-        console.log('Checked External System Pricing checkbox');
-        await this.page.waitForTimeout(1000);
+    if (includeAccountLimits) {
+      await this.visitAccountLimitsTab();
+      const bodStr = await this.getBODDate() || this.todayDate();
+      const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+      const bod = new Date(yyyy, mm - 1, dd);
+      const future = new Date(bod);
+      future.setFullYear(bod.getFullYear() + 1);
+      const fmt = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      const fallbackExpiry = fmt(future);
+      const expiryDate =
+        (data.schemeExpiryDate && String(data.schemeExpiryDate).trim()) ||
+        (data.accountLimitsExpiryDate && String(data.accountLimitsExpiryDate).trim()) ||
+        fallbackExpiry;
+
+      await this.fillLoanAccountLimits(expiryDate);
+
+      const accountLimitsFields = [
+        { key: 'accountLimitsSanctionLimit', labels: ['Sanction Limit'] },
+        { key: 'drawingPower', labels: ['Drawing Power'] },
+        { key: 'drawingPowerPercent', labels: ['Drawing Power %', 'Drawing Power Pcnt', 'Drawing Power Percent'] },
+        { key: 'drawingPowerPcnt', labels: ['Drawing Power %', 'Drawing Power Pcnt', 'Drawing Power Percent'] },
+        { key: 'Limit Level Interest', labels: ['Limit Level Interest'] },
+        { key: 'limitReferenceNo', labels: ['Limit Reference No.', 'Reference No'] },
+        { key: 'Penal Interest Start Date', labels: ['Penal Interest Start Date'] },
+        { key: 'sanctionAuthority', labels: ['Sanction Authority'] },
+      ];
+      await fillFields(accountLimitsFields);
+
+      // Ensure mandatory numeric fields have values even when not provided in Excel.
+      if (!valueOf('accountLimitsSanctionLimit') && !valueOf('schemeSanctionLimit')) {
+        await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
       }
-      let selected = await this.selectOptionByLabel('External System Pricing For', espToken, this.getFinwFrame());
-      if (!selected) {
-        selected = await this.selectOptionByLabel('Ext. System Pricing For', espToken, this.getFinwFrame());
+      if (!valueOf('drawingPower')) {
+        await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
       }
-      if (!selected) {
-        await this.selectExternalSystemPricingFor(String(esp));
+      if (!valueOf('drawingPowerPercent') && !valueOf('drawingPowerPcnt')) {
+        await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
       }
-      if (espToken === 'c') {
-        if (valueOf('relationshipPricingId')) {
-          await this.fillByLabel('Relationship Pricing ID', String(valueOf('relationshipPricingId')));
+      this.tabReports.push(await this.captureHOAACCATab('Account Limits'));
+    } else {
+      await this.visitOthersTab();
+      const esp = valueOf('externalSystemPricingFor');
+      if (esp) {
+        const espToken = String(esp).split('-')[0].trim().toLowerCase();
+        const checked = await this.setCheckboxByLabel('External System Pricing', 'Yes');
+        if (checked) {
+          console.log('Checked External System Pricing checkbox');
+          await this.page.waitForTimeout(1000);
         }
-        if (valueOf('pricingEffectiveDate')) {
-          await this.fillByLabel('Pricing Effective Date', String(valueOf('pricingEffectiveDate')));
+        let selected = await this.selectOptionByLabel('External System Pricing For', espToken, this.getFinwFrame());
+        if (!selected) {
+          selected = await this.selectOptionByLabel('Ext. System Pricing For', espToken, this.getFinwFrame());
         }
-        if (valueOf('pricingReviewDate')) {
-          await this.fillByLabel('Pricing Review Date', String(valueOf('pricingReviewDate')));
+        if (!selected) {
+          await this.selectExternalSystemPricingFor(String(esp));
         }
-      } else {
-        console.log(`External System Pricing For is not C - Charge; leaving pricing details blank`);
+        if (espToken === 'c') {
+          if (valueOf('relationshipPricingId')) {
+            await this.fillByLabel('Relationship Pricing ID', String(valueOf('relationshipPricingId')));
+          }
+          if (valueOf('pricingEffectiveDate')) {
+            await this.fillByLabel('Pricing Effective Date', String(valueOf('pricingEffectiveDate')));
+          }
+          if (valueOf('pricingReviewDate')) {
+            await this.fillByLabel('Pricing Review Date', String(valueOf('pricingReviewDate')));
+          }
+        } else {
+          console.log(`External System Pricing For is not C - Charge; leaving pricing details blank`);
+        }
       }
+      await fillFields(othersFields);
+      this.tabReports.push(await this.captureHOAACCATab('Others'));
+
+      await this.visitDocumentDetailsTab();
+      await fillFields(documentFields);
+      // Ensure Document Details date fields update the hidden date values.
+      const fillDocDate = async (key: string, label: string) => {
+        const v = valueOf(key);
+        if (v) await this.setFieldValueByLabel(label, v, 'date');
+      };
+      await fillDocDate('documentDate', 'Document Date');
+      await fillDocDate('Due Date', 'Due Date');
+      await fillDocDate('receivedDate', 'Received Date');
+      await fillDocDate('documentExpiryDate', 'Document Expiry Date');
+      await this.fillDynamicFreeFields(data, 'Document');
+      this.tabReports.push(await this.captureHOAACCATab('Document Details'));
     }
-    await fillFields(othersFields);
-    this.tabReports.push(await this.captureHOAACCATab('Others'));
 
-    await this.visitDocumentDetailsTab();
-    await fillFields(documentFields);
-    // Ensure Document Details date fields update the hidden date values.
-    const fillDocDate = async (key: string, label: string) => {
-      const v = valueOf(key);
-      if (v) await this.setFieldValueByLabel(label, v, 'date');
-    };
-    await fillDocDate('documentDate', 'Document Date');
-    await fillDocDate('Due Date', 'Due Date');
-    await fillDocDate('receivedDate', 'Received Date');
-    await fillDocDate('documentExpiryDate', 'Document Expiry Date');
-    await this.fillDynamicFreeFields(data, 'Document');
-    this.tabReports.push(await this.captureHOAACCATab('Document Details'));
-
-    await this.clickSubmit();
+    if (!skipSubmit) {
+      await this.clickSubmit();
+    }
   }
 
   // Returns the last calendar day of the next month as dd-mm-yyyy.
@@ -4793,6 +4992,12 @@ export class AccountPage {
     for (const id of candidateIds) {
       const field = finwFrame.locator(`#${id}`);
       if (await field.count() > 0 && await field.first().isVisible().catch(() => false)) {
+        const enabled = await field.first().isEnabled().catch(() => false);
+        const editable = await field.first().isEditable().catch(() => false);
+        if (!enabled || !editable) {
+          console.log(`Skipping ${label} (#${id}): disabled or read-only`);
+          continue;
+        }
         await field.first().clear();
         await field.first().fill(value);
         await field.first().press('Tab');

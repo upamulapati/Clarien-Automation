@@ -4,6 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import { getSelectedInstances } from '../../helpers/flowStepData';
 import { CREDENTIALS } from '../../../data/credentials';
 import FLOW7_DATA from '../../../data/flow7.json';
 
@@ -15,7 +16,10 @@ if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHA
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
-const groups: { main: any; related: any[] }[] = [];
+const selectedInstances = getSelectedInstances();
+const selectedSet = selectedInstances ? new Set(selectedInstances) : null;
+
+let groups: { main: any; related: any[] }[] = [];
 let activeGroup: { main: any; related: any[] } | null = null;
 
 for (const entry of SAVINGS_DATA) {
@@ -34,6 +38,18 @@ for (const entry of SAVINGS_DATA) {
 
   activeGroup = { main: row, related: [] };
   groups.push(activeGroup);
+}
+
+// When an instance selection is supplied (e.g. INSTANCES env or STEP_DATA from the
+// ordered runner), keep only the requested main instances. Otherwise all enabled
+// rows from the sheet are processed, making the suite flexible for future rows.
+if (selectedSet) {
+  const filtered = groups.filter((g) => selectedSet.has(String(g.main.instance ?? '').trim()));
+  if (filtered.length > 0) {
+    groups = filtered;
+  } else {
+    console.warn('[savingsaccountcreation] No groups matched selected instances, running all groups');
+  }
 }
 
 const SCENARIOS: any[] = [];

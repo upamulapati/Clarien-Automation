@@ -1,0 +1,412 @@
+[
+  {
+    "i": 0,
+    "header": "instance",
+    "value": "8"
+  },
+  {
+    "i": 1,
+    "header": "schemeCode",
+    "value": "OPPRE"
+  },
+  {
+    "i": 2,
+    "header": "currency",
+    "value": "BMD"
+  },
+  {
+    "i": 3,
+    "header": "description",
+    "value": "OPBUS"
+  },
+  {
+    "i": 4,
+    "header": "solId",
+    "value": 102
+  },
+  {
+    "i": 5,
+    "header": "cifCode",
+    "value": "0002042989"
+  },
+  {
+    "i": 6,
+    "header": "functionOption",
+    "value": "O"
+  },
+  {
+    "i": 7,
+    "header": "Location Code",
+    "value": "CBBDA"
+  },
+  {
+    "i": 8,
+    "header": "A/c Name",
+    "value": "TEST"
+  },
+  {
+    "i": 9,
+    "header": "A/c Opening Date",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 10,
+    "header": "A/c Short Name",
+    "value": "MR BLABLU"
+  },
+  {
+    "i": 11,
+    "header": "Customer Relationship A/c Manager",
+    "value": "RNBROWN"
+  },
+  {
+    "i": 12,
+    "header": "Turnover Details",
+    "value": "Yes"
+  },
+  {
+    "i": 13,
+    "header": "Collect Charges",
+    "value": "Yes"
+  },
+  {
+    "i": 14,
+    "header": "Preferential Calendar Base",
+    "value": "G - Gregorian Calendar"
+  },
+  {
+    "i": 15,
+    "header": "Mode of Operation",
+    "value": "016"
+  },
+  {
+    "i": 16,
+    "header": "Next Print Date",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 17,
+    "header": "dispatchMode",
+    "value": "P - Post"
+  },
+  {
+    "i": 18,
+    "header": "relativeToStaff",
+    "value": "No"
+  },
+  {
+    "i": 20,
+    "header": "chargeLevelCode",
+    "value": "ZERO"
+  },
+  {
+    "i": 21,
+    "header": "accountManagerId",
+    "value": "RNBROWN"
+  },
+  {
+    "i": 22,
+    "header": "accountStatement",
+    "value": "S - Statement"
+  },
+  {
+    "i": 23,
+    "header": "statementFrequency",
+    "value": "M - Monthly"
+  },
+  {
+    "i": 25,
+    "header": "statementDay",
+    "value": "31"
+  },
+  {
+    "i": 26,
+    "header": "statementP",
+    "value": "P"
+  },
+  {
+    "i": 27,
+    "header": "statementG",
+    "value": "G"
+  },
+  {
+    "i": 28,
+    "header": "payInterest",
+    "value": "Yes"
+  },
+  {
+    "i": 29,
+    "header": "collectInterest",
+    "value": "No"
+  },
+  {
+    "i": 30,
+    "header": "interestCreditAccount",
+    "value": "S - Original A/c."
+  },
+  {
+    "i": 31,
+    "header": "interestCalcFreqCr",
+    "value": "Q - Quarterly"
+  },
+  {
+    "i": 33,
+    "header": "interestCalcFreqCrDay",
+    "value": "31"
+  },
+  {
+    "i": 34,
+    "header": "interestCalcFreqCrP",
+    "value": "P"
+  },
+  {
+    "i": 35,
+    "header": "interestCalcFreqCrG",
+    "value": "G"
+  },
+  {
+    "i": 44,
+    "header": "interestDebitAccount",
+    "value": "S - Original A/c."
+  },
+  {
+    "i": 45,
+    "header": "interestCalcFreqDr",
+    "value": "Q - Quarterly"
+  },
+  {
+    "i": 47,
+    "header": "interestCalcFreqDrDay",
+    "value": "31"
+  },
+  {
+    "i": 48,
+    "header": "interestCalcFreqDrP",
+    "value": "P"
+  },
+  {
+    "i": 49,
+    "header": "interestCalcFreqDrG",
+    "value": "G"
+  },
+  {
+    "i": 50,
+    "header": "Next Interest Calculation Date (Dr.)",
+    "value": "31-12-2026"
+  },
+  {
+    "i": 51,
+    "header": "interestRateCode",
+    "value": "OPGEN"
+  },
+  {
+    "i": 54,
+    "header": "accountPegged",
+    "value": "No"
+  },
+  {
+    "i": 56,
+    "header": "nextInterestCalculationDateCr",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 57,
+    "header": "Interest Compounding Frequency (Dr.)",
+    "value": "N - No Compounding"
+  },
+  {
+    "i": 58,
+    "header": "Credit Interest Compounding Frequency",
+    "value": "M - Monthly"
+  },
+  {
+    "i": 59,
+    "header": "Debit Compounding Rest Indicator",
+    "value": "None"
+  },
+  {
+    "i": 60,
+    "header": "Credit Compounding Rest Indicator",
+    "value": "Month End"
+  },
+  {
+    "i": 61,
+    "header": "Waive Min. Interest",
+    "value": "No"
+  },
+  {
+    "i": 70,
+    "header": "Cheque Allowed",
+    "value": "No"
+  },
+  {
+    "i": 71,
+    "header": "nomination",
+    "value": "No"
+  },
+  {
+    "i": 72,
+    "header": "Cheques Provided by Bank",
+    "value": "No"
+  },
+  {
+    "i": 73,
+    "header": "Recover Fee for Cheque Issue",
+    "value": "No"
+  },
+  {
+    "i": 74,
+    "header": "Return Paid Cheque",
+    "value": "No"
+  },
+  {
+    "i": 76,
+    "header": "debitBalanceLimit",
+    "value": "0.00"
+  },
+  {
+    "i": 77,
+    "header": "maxAllowedLimit",
+    "value": "0.00"
+  },
+  {
+    "i": 78,
+    "header": "schemeSanctionLimit",
+    "value": "0.00"
+  },
+  {
+    "i": 79,
+    "header": "schemeExpiryDate",
+    "value": "01-12-2026"
+  },
+  {
+    "i": 80,
+    "header": "accountMinBalanceIndicator",
+    "value": "Scheme"
+  },
+  {
+    "i": 81,
+    "header": "accountMinBalance",
+    "value": "5000.00"
+  },
+  {
+    "i": 83,
+    "header": "Interest Method (Dr.)",
+    "value": "E - EOD Clear Balance"
+  },
+  {
+    "i": 84,
+    "header": "externalSystemPricingFor",
+    "value": "N - None"
+  },
+  {
+    "i": 92,
+    "header": "Limit Level Interest",
+    "value": "A/c. Level Interest"
+  },
+  {
+    "i": 93,
+    "header": "sanctionDate",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 94,
+    "header": "Penal Interest Start Date",
+    "value": "01-12-2026"
+  },
+  {
+    "i": 98,
+    "header": "accountLimitsExpiryDate",
+    "value": "01-12-2026"
+  },
+  {
+    "i": 99,
+    "header": "documentDate",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 100,
+    "header": "drawingPowerIndicator",
+    "value": "E - Equal"
+  },
+  {
+    "i": 103,
+    "header": "Document Code",
+    "value": "023"
+  },
+  {
+    "i": 104,
+    "header": "Due Date",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 105,
+    "header": "scanDetails",
+    "value": "N - Scan not required"
+  },
+  {
+    "i": 106,
+    "header": "receivedDate",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 107,
+    "header": "documentExpiryDate",
+    "value": "13-11-2026"
+  },
+  {
+    "i": 122,
+    "header": "Sheet",
+    "value": "Main"
+  },
+  {
+    "i": 125,
+    "header": "Designation Code",
+    "value": "BAPC"
+  },
+  {
+    "i": 127,
+    "header": "Print Statement",
+    "value": "No"
+  },
+  {
+    "i": 128,
+    "header": "Print Advice for Standing Instruction",
+    "value": "No"
+  },
+  {
+    "i": 129,
+    "header": "Print Deposit Notice",
+    "value": "No"
+  },
+  {
+    "i": 130,
+    "header": "Print Loan Notice",
+    "value": "No"
+  },
+  {
+    "i": 131,
+    "header": "Interest Certificate",
+    "value": "No"
+  },
+  {
+    "i": 132,
+    "header": "Interest Rate Change Advice",
+    "value": "No"
+  },
+  {
+    "i": 147,
+    "header": "Occupation Code",
+    "value": "999"
+  },
+  {
+    "i": 148,
+    "header": "sectorCode",
+    "value": 999
+  },
+  {
+    "i": 149,
+    "header": "subsectorCode",
+    "value": "999"
+  }
+]
