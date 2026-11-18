@@ -292,7 +292,7 @@ function renderExecutionSummaryTable(run) {
       <div class="status-banner ${statusClass(overall.status)}">
         <strong>Overall Status:</strong> ${escapeHtml(overall.status || 'N/A')}
       </div>
-      <div class="dashboard-grid">
+      <div class="dashboard-grid summary-stats">
         <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total Instance Executions</span></div>
         <div class="dashboard-box stat-passed"><span class="value">${passed}</span><span class="label">Passed</span></div>
         <div class="dashboard-box stat-failed"><span class="value">${failed}</span><span class="label">Failed</span></div>
@@ -575,6 +575,19 @@ async function main() {
     .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-width: 90px; text-align: center; background: #fafafa; }
     .dashboard-box .value { display: block; font-size: 20px; font-weight: bold; color: #333; }
     .dashboard-box .label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .summary-stats { flex-wrap: nowrap; gap: 4px; }
+    .summary-stats .dashboard-box { flex: 1 1 0; min-width: 0; padding: 6px 2px; overflow-wrap: break-word; border-color: #ccc; }
+    .summary-stats .dashboard-box .value { font-size: 18px; }
+    .summary-stats .dashboard-box .label { font-size: 8px; }
+    .summary-stats .stat-total { background: #e6f2ff; border-color: #b3d7ff; }
+    .summary-stats .stat-passed { background: #d4edda; border-color: #c3e6cb; }
+    .summary-stats .stat-passed .value { color: #155724; }
+    .summary-stats .stat-failed { background: #f8d7da; border-color: #f5c6cb; }
+    .summary-stats .stat-failed .value { color: #721c24; }
+    .summary-stats .stat-skipped { background: #e2e3e5; border-color: #d6d8db; }
+    .summary-stats .stat-skipped .value { color: #383d41; }
+    .summary-stats .stat-rate { background: #fff3cd; border-color: #ffeeba; }
+    .summary-stats .stat-duration { background: #d1ecf1; border-color: #bee5eb; }
     .stat-passed .value { color: #2da94f; }
     .stat-failed .value { color: #d00; }
     .stat-broken .value { color: #f39c12; }

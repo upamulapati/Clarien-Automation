@@ -421,10 +421,19 @@ async function main() {
     .status-partial { background: #fff3cd; color: #856404; }
     .status-skipped { background: #e2e3e5; color: #383d41; }
     .status-unknown { background: #f2f2f2; color: #555; }
-    .dashboard-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-width: 90px; text-align: center; background: #fafafa; }
-    .dashboard-box .value { display: block; font-size: 20px; font-weight: bold; color: #333; }
-    .dashboard-box .label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .dashboard-grid { display: flex; flex-wrap: nowrap; gap: 6px; margin-bottom: 12px; }
+    .dashboard-box { flex: 1 1 0; min-width: 0; border: 1px solid #ccc; border-radius: 4px; padding: 8px 4px; text-align: center; background: #fafafa; overflow-wrap: break-word; }
+    .dashboard-box .value { display: block; font-size: 18px; font-weight: bold; color: #333; }
+    .dashboard-box .label { display: block; font-size: 9px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .stat-total { background: #e6f2ff; border-color: #b3d7ff; }
+    .stat-passed { background: #d4edda; border-color: #c3e6cb; }
+    .stat-passed .value { color: #155724; }
+    .stat-failed { background: #f8d7da; border-color: #f5c6cb; }
+    .stat-failed .value { color: #721c24; }
+    .stat-skipped { background: #e2e3e5; border-color: #d6d8db; }
+    .stat-skipped .value { color: #383d41; }
+    .stat-rate { background: #fff3cd; border-color: #ffeeba; }
+    .stat-duration { background: #d1ecf1; border-color: #bee5eb; }
     .data-table { border-collapse: collapse; width: 100%; font-size: 10px; margin-bottom: 12px; }
     .data-table th, .data-table td { border: 1px solid #ddd; padding: 5px; text-align: left; }
     .data-table th { background: #f5f5f5; font-weight: bold; }

@@ -163,8 +163,9 @@ for (const scenario of SCENARIOS) {
       console.log('Selecting Core Server...');
       await currentAccountPage.selectCoreServer();
 
-      console.log(`Searching for ${CURRENT_ACCOUNT_MENU}...`);
-      await currentAccountPage.searchMenu(CURRENT_ACCOUNT_MENU);
+      // Validate Head SOL ID against Excel SOL ID and switch context if needed
+      console.log(`Ensuring SOL context ${scenario.data.solId} for current account creation...`);
+      await currentAccountPage.ensureSolContext(scenario.data.solId, CURRENT_ACCOUNT_MENU);
 
       console.log(`Creating current account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
       console.log(`Related party rows for this account: ${scenario.relatedParties?.length || 0}`);

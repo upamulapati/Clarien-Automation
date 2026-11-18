@@ -105,9 +105,9 @@ for (const scenario of SCENARIOS) {
       console.log('Selecting Core Server...');
       await savingsAccountPage.selectCoreServer();
 
-      // Navigate to HOAACSB (savings account creation screen)
-      console.log('Searching for HOAACSB...');
-      await savingsAccountPage.searchMenu('HOAACSB');
+      // Validate Head SOL ID against Excel SOL ID and switch context if needed
+      console.log(`Ensuring SOL context ${scenario.data.solId} for savings creation...`);
+      await savingsAccountPage.ensureSolContext(scenario.data.solId, 'HOAACSB');
 
       console.log(`Creating savings account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
       await savingsAccountPage.createSavingsAccount(scenario.data as any, { skipGeneralDetailsRevisit: true, relatedParties: scenario.relatedParties });

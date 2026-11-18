@@ -234,8 +234,18 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
     await this.menuSelect.fill(searchTerm);
     await this.menuSelect.press('Enter');
-    await this.page.waitForTimeout(5000);
-    
+    await this.page.waitForTimeout(3000);
+
+    // Some screens (e.g. HCCS / Change Context SOL) require clicking the Go button explicitly.
+    const goButton = this.loginFrame.locator('input[type="submit"], input[type="button"], button').filter({ hasText: /^go$/i }).first();
+    if (await goButton.count().catch(() => 0) > 0 && await goButton.isVisible().catch(() => false)) {
+      await goButton.click();
+      console.log(`Clicked Go button for menu search: ${searchTerm}`);
+      await this.page.waitForTimeout(3000);
+    }
+
+    await this.page.waitForTimeout(2000);
+
     const searchPattern = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     // Select the option that contains the searched code - try loginFrame first
@@ -267,6 +277,112 @@ export class AccountPage {
       console.log('FINW frame not available after navigation:', e);
     }
     await captureEvidence(this.page, `Menu searched: ${searchTerm}`, { searchTerm });
+  }
+
+  // Captures the Head SOL ID shown in the application header (e.g. "18 November, 2026 100 01").
+  // Prefers the JavaScript variable exposed by Finacle, falling back to a regex over the FINW or page body.
+  async getHeadSolId(): Promise<string | null> {
+    const readVarFromFrame = async (frame: any): Promise<string | null> => {
+      try {
+        const v = await frame.evaluate(() => (window as any).headCtxSol);
+        if (v) return String(v).trim();
+      } catch {}
+      return null;
+    };
+
+    const readFromBodyText = (bodyText: string): string | null => {
+      const headerMatch = bodyText.match(/\d{1,2}\s+[A-Za-z]{3,},?\s*\d{4}\s+(\d{1,})\s+\d{1,2}\b/);
+      return headerMatch ? headerMatch[1].trim() : null;
+    };
+
+    let v = await readVarFromFrame(this.page);
+    if (v) return v;
+
+    try {
+      const finwFrame = this.getFinwFrame();
+      v = await readVarFromFrame(finwFrame);
+      if (v) return v;
+
+      const finwBody = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+      v = readFromBodyText(finwBody);
+      if (v) return v;
+    } catch {}
+
+    const pageBody = (await this.page.locator('body').innerText().catch(() => '')) || '';
+    return readFromBodyText(pageBody);
+  }
+
+  // Switches the application context to the requested SOL via the HCCS (Change Context SOL) screen.
+  private async switchContextSol(solId: string, targetMenu: string): Promise<void> {
+    console.log(`Switching SOL context to ${solId}...`);
+
+    const navigateToHccs = async () => {
+      for (const term of ['HCCS', 'HCCSOL', 'Change Context SOL']) {
+        await this.searchMenu(term);
+        const finwText = await this.getFinwFrame().locator('body').innerText().catch(() => '');
+        if (/Change Context SOL|New Context SOL ID|Context SOL/i.test(finwText)) return true;
+      }
+      return false;
+    };
+
+    const onHccs = await navigateToHccs();
+    if (!onHccs) {
+      throw new Error('Could not navigate to Change Context SOL (HCCS) screen');
+    }
+
+    const filled =
+      (await this.fillByLabel('New Context SOL ID', solId).catch(() => false)) ||
+      (await this.setTextByCandidates(['newContextSolId', 'newContextSOLId', 'newSolId', 'solId'], solId, 'New Context SOL ID'));
+    if (!filled) {
+      throw new Error(`Could not fill New Context SOL ID with ${solId}`);
+    }
+
+    await this.clickButtonByText('Submit');
+
+    let status: string | null = null;
+    for (let i = 0; i < 30; i++) {
+      status = await this.getStatusMessage();
+      if (status && /Context SOL modified successfully/i.test(status)) break;
+      await this.page.waitForTimeout(500);
+    }
+
+    if (!status || !/Context SOL modified successfully/i.test(status)) {
+      throw new Error(`Context SOL switch did not report success. Status: ${status}`);
+    }
+
+    console.log(`Context SOL switched successfully: ${status}`);
+    await this.clickOkButton();
+    await this.page.waitForTimeout(3000);
+
+    // Return to the intended account creation screen.
+    await this.searchMenu(targetMenu);
+  }
+
+  // Ensures the application's Head SOL ID matches the requested SOL before proceeding.
+  // Loads the target screen first so the header SOL is available, switches context if needed,
+  // then returns to the target screen and re-validates.
+  async ensureSolContext(expectedSolId: string | undefined, targetMenu: string): Promise<void> {
+    if (!expectedSolId || String(expectedSolId).trim() === '') {
+      console.log(`No expected SOL ID provided; navigating directly to ${targetMenu}`);
+      await this.searchMenu(targetMenu);
+      return;
+    }
+
+    const expected = String(expectedSolId).trim();
+
+    // Load the target screen so the header (with Head SOL ID) is rendered.
+    await this.searchMenu(targetMenu);
+    let headSol = await this.getHeadSolId();
+    console.log(`Head SOL ID: ${headSol}; expected SOL ID: ${expected}`);
+
+    if (headSol && headSol !== expected) {
+      await this.switchContextSol(expected, targetMenu);
+      headSol = await this.getHeadSolId();
+    }
+
+    if (headSol && headSol !== expected) {
+      throw new Error(`Head SOL ID (${headSol}) still does not match expected SOL ID (${expected}) after context switch`);
+    }
   }
 
   async searchVerificationScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
@@ -465,13 +581,27 @@ export class AccountPage {
 
   async clickVisitAccountInterestInformation(): Promise<void> {
     try {
-      const link = this.getFinwFrame()
-        .locator('a, button, input[type="button"], input[type="submit"]')
-        .filter({ hasText: /Visit account interest information/i })
-        .first();
-      if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
-        await link.click({ timeout: 10000, force: true });
-        await this.page.waitForTimeout(2000);
+      const clicked = await this.getFinwFrame().evaluate(() => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const keywords = ['visitaccountinterestinformation', 'accountinterestinformation', 'interestinformation', 'visitinterest', 'interestdetails'];
+        const tagList = ['a', 'button', 'input', 'span', 'td', 'div', 'img'];
+        for (const tag of tagList) {
+          const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+          for (const el of elements) {
+            if ((el as any).offsetWidth === 0 || (el as any).offsetHeight === 0) continue;
+            const text = norm((el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('alt') || '') + ' ' + (el.getAttribute('value') || ''));
+            const onclick = norm(el.getAttribute('onclick') || '');
+            const href = norm(el.getAttribute('href') || '');
+            if (keywords.some(k => text.includes(k) || onclick.includes(k) || href.includes(k))) {
+              (el as HTMLElement).click();
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+      if (clicked) {
+        await this.page.waitForTimeout(3000);
         console.log('Clicked "Visit account interest information" link/section');
       } else {
         console.log('"Visit account interest information" link/section not found');

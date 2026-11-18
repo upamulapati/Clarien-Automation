@@ -550,7 +550,9 @@ function cleanReports() {
 }
 
 function main() {
-  const excelPath = process.env.FLOW_CONFIG_EXCEL || path.resolve(cwd, 'data', 'test-data.xlsx');
+  const excelPath = process.env.FLOW_CONFIG_EXCEL
+    ? path.resolve(cwd, process.env.FLOW_CONFIG_EXCEL)
+    : path.resolve(cwd, 'data', 'test-data.xlsx');
   const config = readFlowConfig(excelPath);
   const steps = getFlowSteps(config, suiteName);
 
