@@ -240,6 +240,102 @@ function detectLatestRun(parsed) {
   return sorted.map(p => p.file);
 }
 
+function readExecutionResults() {
+  const file = path.join(OUTPUT_DIR, 'execution-results.json');
+  try {
+    if (!fs.existsSync(file)) return null;
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!Array.isArray(data.runs) || !data.runs.length) return null;
+    return data.runs[data.runs.length - 1];
+  } catch (e) {
+    return null;
+  }
+}
+
+function renderExecutionSummaryTable(run) {
+  if (!run) return '';
+  const overall = run.overall || {};
+  const total = overall.totalInstancesExecuted || 0;
+  const passed = overall.passedInstances || 0;
+  const failed = overall.failedInstances || 0;
+  const skipped = overall.skippedInstances || 0;
+  const passRate = total ? ((passed / total) * 100).toFixed(2) : '0.00';
+  const failRate = total ? ((failed / total) * 100).toFixed(2) : '0.00';
+
+  const statusClass = s => {
+    if (s === 'passed' || s === 'Success') return 'status-passed';
+    if (s === 'failed' || s === 'Failure') return 'status-failed';
+    if (s === 'Partial Success') return 'status-broken';
+    if (s === 'skipped') return 'status-skipped';
+    return 'status-unknown';
+  };
+
+  let rows = '';
+  const summary = (run.instanceSummary || []).slice(0, 50);
+  for (const inst of summary) {
+    rows += `<tr class="${statusClass(inst.status)}">
+      <td>${escapeHtml(inst.instanceId)}</td>
+      <td>${escapeHtml(inst.status || 'unknown')}</td>
+      <td>${escapeHtml((inst.error || '-').substring(0, 200))}</td>
+      <td>${formatDate(inst.startTime)}</td>
+      <td>${formatDate(inst.endTime)}</td>
+    </tr>`;
+  }
+
+  const matrix = (run.instanceSummary || []).map(inst =>
+    `<div class="dashboard-box ${statusClass(inst.status)}" style="min-width:55px;padding:6px 4px;font-size:9px">${escapeHtml(inst.instanceId)}<br>${escapeHtml(inst.status || '')}</div>`
+  ).join('');
+
+  return `
+    <section class="dashboard">
+      <h2>Orchestration Summary: ${escapeHtml(run.flowName || 'Flow')}</h2>
+      <div class="status-banner ${statusClass(overall.status)}">
+        <strong>Overall Status:</strong> ${escapeHtml(overall.status || 'N/A')}
+      </div>
+      <div class="dashboard-grid">
+        <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total Instance Executions</span></div>
+        <div class="dashboard-box stat-passed"><span class="value">${passed}</span><span class="label">Passed</span></div>
+        <div class="dashboard-box stat-failed"><span class="value">${failed}</span><span class="label">Failed</span></div>
+        <div class="dashboard-box stat-skipped"><span class="value">${skipped}</span><span class="label">Skipped</span></div>
+        <div class="dashboard-box stat-rate"><span class="value">${passRate}%</span><span class="label">Pass Rate</span></div>
+        <div class="dashboard-box stat-rate"><span class="value">${failRate}%</span><span class="label">Fail Rate</span></div>
+      </div>
+      <h3>Instance Status Matrix</h3>
+      <div class="dashboard-grid">${matrix}</div>
+      <h3>Instance Details</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Instance</th>
+            <th>Status</th>
+            <th>Failure Reason</th>
+            <th>Start</th>
+            <th>End</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="5" class="note">No instance results available</td></tr>'}</tbody>
+      </table>
+    </section>`;
+}
+
+function formatDate(iso) {
+  if (!iso) return 'N/A';
+  try {
+    return new Date(iso).toLocaleString('en-US', {
+      timeZone: 'Atlantic/Bermuda',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch {
+    return iso;
+  }
+}
+
 function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
   if (!results.length) return '';
   const start = Math.min(...results.map(r => r.start || 0));
@@ -401,6 +497,8 @@ async function main() {
     : suiteName;
   const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
   const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
+  const executionRun = readExecutionResults();
+  const executionSummaryHtml = executionRun ? renderExecutionSummaryTable(executionRun) : '';
   const testsHtml = results.map(renderTest).join('');
   const dashboardHtml = renderDashboard(results, suiteName, specFiles);
   const pageTitle = `${suiteName} Test Report (PDF)`;
@@ -448,9 +546,19 @@ async function main() {
     .data-panel { margin-top: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; background: #f9f9f9; }
     .data-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
     .data-table { border-collapse: collapse; width: 100%; font-size: 9px; }
-    .data-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .data-table th, .data-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .data-table th { background: #f5f5f5; font-weight: bold; }
+    .data-table tr.status-passed { background: #d4edda; }
+    .data-table tr.status-failed { background: #f8d7da; }
+    .data-table tr.status-broken { background: #fff3cd; }
+    .data-table tr.status-skipped { background: #e2e3e5; }
     .data-key { font-weight: 600; color: #333; width: 30%; }
     .data-value { color: #222; }
+    .status-banner { padding: 8px 12px; border-radius: 4px; font-weight: bold; margin: 8px 0; }
+    .status-banner.status-passed { background: #d4edda; color: #155724; }
+    .status-banner.status-failed { background: #f8d7da; color: #721c24; }
+    .status-banner.status-broken { background: #fff3cd; color: #856404; }
+    .status-banner.status-skipped { background: #e2e3e5; color: #383d41; }
     .value-ok { background: #d4edda; color: #155724; }
     .value-missing { background: #f8d7da; color: #721c24; }
     .attachment.status-passed img { border: 3px solid #2da94f; }
@@ -484,6 +592,7 @@ async function main() {
     <h1>${escapeHtml(pageTitle)}</h1>
     <div>Generated (Bermuda time): ${generated} | Tests: ${results.length}</div>
   </div>
+  ${executionSummaryHtml}
   ${dashboardHtml}
   ${testsHtml}
 </body>

@@ -3,22 +3,37 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import {
+  getInstanceAccountId,
+  getSharedValue,
+  saveInstanceResult,
+  updateInstanceStatus,
+  getSuiteName,
+  isDownstreamEligible,
+  markInstanceSkipped,
+} from '../../helpers/sharedState';
 import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
+import { tagInstance } from '../../helpers/instance';
 
 // Verification of a current account opening (HOAACVCA) must be performed by a
 // DIFFERENT user than the maker who created the account in
 // currentaccountcreation.spec.ts.
 const USERNAME = CREDENTIALS.verifierCredentials.username;
 const PASSWORD = CREDENTIALS.secondCredentials.password;
+const SUITE_NAME = getSuiteName('currentAccount');
 const IS_FLOW9 = process.env.CIF_MOD_FLOW === 'flow9';
 const IS_EXCEL = CURRENT_ACCOUNT_DATA.length > 0;
 
 // Current account verification (HOAACVCA) menu option.
 const CURRENT_ACCOUNT_VERIFY_MENU = COMMON_DATA.currentAccount.screens.verify;
 
-const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.map((entry: any, index: number) => {
+const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.filter((entry: any) => {
+  const entryData = entry.data ?? entry;
+  const sheet = String(entryData.Sheet || '').trim().toLowerCase();
+  // Verification runs only against the main account rows, not related-party rows.
+  return sheet !== 'related party' && sheet !== 'relatedparty';
+}).map((entry: any, index: number) => {
   const entryData = entry.data ?? entry;
   const scheme = entryData.schemeCode ?? 'unknown';
   const ccy = entryData.currency ?? entryData.ccy ?? DEFAULT_CUSTOMER.ccy;
@@ -27,7 +42,12 @@ const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.map((entry: any, index: number) => 
 
 const LEGACY_SCENARIOS = [{ name: 'flow6/flow9-verify' }];
 
-const SCENARIOS = (IS_EXCEL ? EXCEL_SCENARIOS : LEGACY_SCENARIOS) as any[];
+const RAW_SCENARIOS = (IS_EXCEL ? EXCEL_SCENARIOS : LEGACY_SCENARIOS) as any[];
+
+// Eligibility is checked at test runtime so the spec can be collected before
+// the upstream creation spec has executed. This supports both the orchestrator
+// and a single Playwright run over the whole current account folder.
+const SCENARIOS = RAW_SCENARIOS;
 
 let homePage: HomePage;
 let currentAccountPage: AccountPage;
@@ -42,12 +62,22 @@ test.beforeEach(async ({ page }) => {
 
 // HOAACVCA - Verify/authorise a current account opening.
 for (const scenario of SCENARIOS) {
-  test(`HOAACVCA - verify current account creation (${scenario.name})`, async ({ page }) => {
-    let accountId: string | undefined;
+  test(`HOAACVCA - verify current account creation (${scenario.name}) [instance:${scenario.instance}]`, async ({ page }) => {
+    tagInstance(scenario.instance);
+    const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
 
-    if (IS_EXCEL) {
-      accountId = getSharedValue((state) => state.currentAccounts?.[scenario.name]);
-    } else {
+    // Skip verification when the upstream creation instance did not pass.
+    if (IS_EXCEL && instanceKey && !isDownstreamEligible(scenario.instance, SUITE_NAME)) {
+      markInstanceSkipped(scenario.instance, 'Upstream Flow Failed', SUITE_NAME);
+      test.skip(true, 'Upstream Flow Failed');
+    }
+
+    try {
+      let accountId: string | undefined;
+
+      if (IS_EXCEL) {
+        accountId = getInstanceAccountId(scenario.instance, SUITE_NAME);
+      } else {
       const sharedAccountId = getSharedValue<string>('accountId') ?? process.env.FLOW9_CURRENT_ACCOUNT_ID;
       if (IS_FLOW9 && !sharedAccountId) {
         throw new Error('Flow 9 requires the created current account ID.');
@@ -138,21 +168,29 @@ for (const scenario of SCENARIOS) {
     // Capture the permanent account number after verification and persist it.
     const verifiedAccountId = await currentAccountPage.getAccountId();
     console.log(`Verified Account ID (${scenario.name}):`, verifiedAccountId);
-    if (verifiedAccountId) {
-      const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
-      updateSharedState((state) => {
-        state.accountId = verifiedAccountId;
-        if (IS_EXCEL) {
-          if (!state.currentAccounts) state.currentAccounts = {};
-          state.currentAccounts[scenario.name] = verifiedAccountId;
-          if (instanceKey) state.currentAccounts[instanceKey] = verifiedAccountId;
-        }
-      });
+
+    if (instanceKey && verifiedAccountId) {
+      saveInstanceResult(
+        instanceKey,
+        { status: 'passed', accountId: verifiedAccountId },
+        SUITE_NAME
+      );
     }
 
     // Step 8: Logout
     console.log('Logging out...');
     await homePage.logout();
+    } catch (err: any) {
+      if (instanceKey) {
+        updateInstanceStatus(
+          instanceKey,
+          'failed',
+          err?.message || String(err),
+          SUITE_NAME
+        );
+      }
+      throw err;
+    }
   });
 }
 

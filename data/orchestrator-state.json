@@ -1,0 +1,13 @@
+{
+  "flows": {
+    "currentAccount": {
+      "activeInstances": [
+        "1",
+        "2",
+        "3"
+      ],
+      "successfulInstances": [],
+      "instanceOutputs": {}
+    }
+  }
+}

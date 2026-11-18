@@ -1,0 +1,18 @@
+{
+  "savingsAccount": {
+    "instances": {
+      "6": {
+        "status": "failed",
+        "error": "Submit/Verify/Authorize button not found in any frame"
+      },
+      "7": {
+        "status": "passed",
+        "accountId": "4500000431"
+      },
+      "8": {
+        "status": "passed",
+        "accountId": "4500000432"
+      }
+    }
+  }
+}

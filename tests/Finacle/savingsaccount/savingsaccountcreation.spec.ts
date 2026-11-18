@@ -2,9 +2,16 @@ import { test, expect } from '@playwright/test';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import {
+  getSharedValue,
+  updateSharedState,
+  saveInstanceResult,
+  updateInstanceStatus,
+  getSuiteName,
+} from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 import { getSelectedInstances } from '../../helpers/flowStepData';
+import { tagInstance } from '../../helpers/instance';
 import { CREDENTIALS } from '../../../data/credentials';
 import FLOW7_DATA from '../../../data/flow7.json';
 
@@ -14,6 +21,7 @@ const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
+const SUITE_NAME = getSuiteName('savingsAccount');
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
 const selectedInstances = getSelectedInstances();
@@ -84,9 +92,11 @@ for (const group of groups) {
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
 for (const scenario of SCENARIOS) {
-  test(`HOAACSB - create savings account (${scenario.name})`, async ({ page }) => {
+  test(`HOAACSB - create savings account (${scenario.name}) [instance:${scenario.instance}]`, async ({ page }) => {
+    tagInstance(scenario.instance);
     test.setTimeout(900000);
     const lastDialogMessages: string[] = [];
+    const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
     try {
       const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
       const savingsAccountPage = new AccountPage(page);
@@ -121,20 +131,30 @@ for (const scenario of SCENARIOS) {
         console.log('Related party result:', relatedResult.message);
       }
 
-      // Persist the generated Account ID for downstream verification specs
-      const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
-      updateSharedState((state) => {
-        if (!state.savingsAccounts) state.savingsAccounts = {};
-        state.savingsAccounts[scenario.name] = result.accountNumber ?? '';
-        if (instanceKey) state.savingsAccounts[instanceKey] = result.accountNumber ?? '';
-        state.accountId = result.accountNumber ?? '';
-        if (hasRelatedParties) {
+      // Persist the generated Account ID and status under the per-suite instance key
+      if (instanceKey && result.accountNumber) {
+        saveInstanceResult(
+          instanceKey,
+          { status: 'passed', accountId: result.accountNumber },
+          SUITE_NAME
+        );
+      }
+      if (hasRelatedParties) {
+        updateSharedState((state) => {
           state.relatedPartyAddedForSavings = true;
-        }
-      });
+        });
+      }
 
       await homePage.logout();
     } catch (err: any) {
+      if (instanceKey) {
+        updateInstanceStatus(
+          instanceKey,
+          'failed',
+          err?.message || String(err),
+          SUITE_NAME
+        );
+      }
       console.error(`Savings account creation test failed for ${scenario.name}:`, err);
       console.error(`CIF used: ${scenario.data.cifCode}`);
       if (lastDialogMessages.length > 0) {

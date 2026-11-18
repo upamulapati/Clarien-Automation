@@ -3,14 +3,20 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
-import { writeSharedState, updateSharedState } from '../../helpers/sharedState';
+import {
+  saveInstanceResult,
+  updateInstanceStatus,
+  getSuiteName,
+} from '../../helpers/sharedState';
 import { CURRENT_ACCOUNT_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 import COMMON_DATA from '../../../data/common-data.json';
+import { tagInstance } from '../../helpers/instance';
 import { writeFileSync } from 'fs';
 
 // Current account creation (HOAACCA) is performed by the maker user. This spec
 // is fully data-driven from the CurrentAccountData sheet in test-data.xlsx.
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
+const SUITE_NAME = getSuiteName('currentAccount');
 
 const CURRENT_ACCOUNT_MENU = COMMON_DATA.currentAccount.screens.create;
 
@@ -144,8 +150,10 @@ function generateValidationReport(data: any, tabs: any[]): string {
 }
 
 for (const scenario of SCENARIOS) {
-  test(`HOAACCA - create current account (${scenario.name})`, async ({ page }) => {
+  test(`HOAACCA - create current account (${scenario.name}) [instance:${scenario.instance}]`, async ({ page }) => {
+    tagInstance(scenario.instance);
     test.setTimeout(900000);
+    const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
 
     try {
       await loginToFinacle(page, USERNAME, PASSWORD);
@@ -181,18 +189,25 @@ for (const scenario of SCENARIOS) {
       console.log('Captured Account ID:', result.accountNumber);
       expect(result.accountNumber).toBeTruthy();
 
-      const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
-      writeSharedState({ accountId: result.accountNumber || undefined });
-      updateSharedState((state) => {
-        state.accountId = result.accountNumber || undefined;
-        if (!state.currentAccounts) state.currentAccounts = {};
-        state.currentAccounts[scenario.name] = result.accountNumber ?? '';
-        if (instanceKey) state.currentAccounts[instanceKey] = result.accountNumber ?? '';
-      });
+      if (instanceKey && result.accountNumber) {
+        saveInstanceResult(
+          instanceKey,
+          { status: 'passed', accountId: result.accountNumber },
+          SUITE_NAME
+        );
+      }
 
       console.log('Logging out...');
       await homePage.logout();
     } catch (err: any) {
+      if (instanceKey) {
+        updateInstanceStatus(
+          instanceKey,
+          'failed',
+          err?.message || String(err),
+          SUITE_NAME
+        );
+      }
       console.error(`Current account creation test failed for ${scenario.name}:`, err);
       console.error(`CIF used: ${scenario.data.cifCode}`);
       throw err;

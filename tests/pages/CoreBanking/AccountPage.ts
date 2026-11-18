@@ -2630,6 +2630,14 @@ export class AccountPage {
     await this.htmClickButton('Post');
   }
 
+  async clickHtmPostByPartTransaction() {
+    await this.htmClickButton('Post by Part Transaction');
+  }
+
+  async clickHtmSave() {
+    await this.htmClickButton('Save');
+  }
+
   async clickHtmGo() {
     await this.htmClickButton('Go');
   }
@@ -2837,6 +2845,10 @@ export class AccountPage {
     return map[base] || null;
   }
 
+  async setHtmPartTranFields(fields: any): Promise<void> {
+    await this.htmSetHtmPartTranFields(fields);
+  }
+
   private async htmSetHtmPartTranFields(fields: any): Promise<void> {
     if (!fields) return;
     for (const [fieldName, rawValue] of Object.entries(fields)) {
@@ -2868,6 +2880,38 @@ export class AccountPage {
         }
       }
     }
+  }
+
+  // Enter all part transactions described by the transfer step data and save (unposted).
+  async saveHtmTransfer(data: any): Promise<string | null> {
+    const entries = this.getHtmPartTransactions(data);
+    if (entries.length === 0) {
+      console.log('No HTM part transactions to save');
+      return null;
+    }
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.type === 'D') {
+        await this.selectHtmDebit();
+      } else {
+        await this.selectHtmCredit();
+      }
+      await this.enterHtmAccountId(entry.accountId);
+      await this.enterHtmAmount(entry.amount, true);
+      await this.htmSetHtmPartTranFields(entry.fields);
+      const chargeEventId = entry.type === 'D'
+        ? (entry.fields?.debitChargeEventId ?? '')
+        : (entry.fields?.creditChargeEventId ?? '');
+      await this.enterHtmChargeEventId(chargeEventId);
+      if (i === entries.length - 1) {
+        await this.clickHtmSave();
+        await this.page.waitForTimeout(5000);
+        return this.getHtmTransactionId();
+      } else {
+        await this.clickHtmAdd();
+      }
+    }
+    return null;
   }
 
   // Enter and post all part transactions described by the transfer step data.
@@ -2903,8 +2947,15 @@ export class AccountPage {
   }
 
   async clickHtmNextRecord() {
+    await this.selectHtmRecord(2);
+  }
+
+  async selectHtmRecord(recordNumber: number) {
     try {
       const finwFrame = this.getFinwFrame();
+      const recordLabel = String(recordNumber);
+
+      // Prefer a "Next" button if it is the correct way to move to the next record.
       const nextBtn = finwFrame.locator(
         'input[value*="Next" i], input[value*="next" i], ' +
         '#nextRecord, #next_record, ' +
@@ -2915,19 +2966,42 @@ export class AccountPage {
         await nextBtn.click();
         await this.page.waitForTimeout(2000);
         console.log('Clicked HTM Next Record button');
-      } else {
-        // Fallback: try navigating via record number links
-        const recordLink = finwFrame.locator('a:has-text("2"), td:has-text("Record 2")').first();
-        if (await recordLink.count() > 0) {
-          await recordLink.click();
+        return;
+      }
+
+      // Try to find a clickable element inside the row that contains the record number.
+      const rowLink = finwFrame
+        .locator('table tr')
+        .filter({ hasText: new RegExp(`\\bRecord\\s+${recordLabel}\\b|\\b${recordLabel}\\b`, 'i') })
+        .locator('a, input[type="button"], button')
+        .first();
+      if ((await rowLink.count()) > 0 && (await rowLink.isVisible().catch(() => false))) {
+        await rowLink.click();
+        await this.page.waitForTimeout(2000);
+        console.log(`Selected HTM record ${recordNumber} via row link`);
+        return;
+      }
+
+      // Fallback: standalone record number / text link.
+      const selectors = [
+        `a:has-text("${recordLabel}")`,
+        `td:has-text("Record ${recordLabel}")`,
+        `a:has-text("Record ${recordLabel}")`,
+        `input[type="button"][value*="${recordLabel}" i]`,
+      ];
+      for (const sel of selectors) {
+        const link = finwFrame.locator(sel).first();
+        if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
+          await link.click();
           await this.page.waitForTimeout(2000);
-          console.log('Clicked record 2 link');
-        } else {
-          console.log('HTM Next Record button not found, skipping');
+          console.log(`Selected HTM record ${recordNumber}`);
+          return;
         }
       }
+
+      console.log(`HTM record ${recordNumber} selector not found, skipping`);
     } catch (e) {
-      console.log(`Could not click HTM Next Record, skipping: ${e}`);
+      console.log(`Could not select HTM record ${recordNumber}, skipping: ${e}`);
     }
   }
 

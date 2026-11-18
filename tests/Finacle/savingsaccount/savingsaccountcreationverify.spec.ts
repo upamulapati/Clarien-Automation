@@ -2,18 +2,27 @@ import { test, expect } from '@playwright/test';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import {
+  getInstanceAccountId,
+  saveInstanceResult,
+  updateInstanceStatus,
+  getSuiteName,
+  isDownstreamEligible,
+  markInstanceSkipped,
+} from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
 import { getSelectedInstances } from '../../helpers/flowStepData';
+import { tagInstance } from '../../helpers/instance';
 import { CREDENTIALS } from '../../../data/credentials';
 
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.verifierCredentials;
+const SUITE_NAME = getSuiteName('savingsAccount');
 
 const selectedInstances = getSelectedInstances();
 const selectedSet = selectedInstances ? new Set(selectedInstances) : null;
 
-const SCENARIOS = SAVINGS_DATA.filter((entry: any) => {
+const RAW_SCENARIOS = SAVINGS_DATA.filter((entry: any) => {
   const entryData = entry.data ?? entry;
   // Ignore related-party rows; verification runs only against the main account rows.
   const sheet = String(entryData.Sheet || '').trim().toLowerCase();
@@ -30,20 +39,35 @@ const SCENARIOS = SAVINGS_DATA.filter((entry: any) => {
   return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index };
 });
 
+// Eligibility is checked at test runtime so the spec can be collected before
+// the upstream creation spec has executed. This supports both the orchestrator
+// (which runs specs in separate processes) and a single Playwright run over the
+// whole savings account folder.
+const SCENARIOS = RAW_SCENARIOS;
+
 test.describe('Savings Account Verification', () => {
   test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
   for (const scenario of SCENARIOS) {
-    test(`HOAACVSB - verify savings account (${scenario.name})`, async ({ page }) => {
+    test(`HOAACVSB - verify savings account (${scenario.name}) [instance:${scenario.instance}]`, async ({ page }) => {
+      tagInstance(scenario.instance);
       test.setTimeout(900000);
+      const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
 
-      const accountId = getSharedValue((state) => state.savingsAccounts?.[scenario.name]) ?? '';
-      console.log(`[Verify] Using Account ID: ${accountId} for ${scenario.name}`);
-      expect(accountId, `Created account ID for ${scenario.name} must be available`).toBeTruthy();
+      // Skip verification when the upstream creation instance did not pass.
+      if (!isDownstreamEligible(scenario.instance, SUITE_NAME)) {
+        markInstanceSkipped(scenario.instance, 'Upstream Flow Failed', SUITE_NAME);
+        test.skip(true, 'Upstream Flow Failed');
+      }
 
-      const lastDialogMessages: string[] = [];
-      const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
-      const savingsAccountPage = new AccountPage(page);
+      try {
+        const accountId = getInstanceAccountId(scenario.instance, SUITE_NAME) ?? '';
+        console.log(`[Verify] Using Account ID: ${accountId} for ${scenario.name} (instance:${scenario.instance})`);
+        expect(accountId, `Created account ID for ${scenario.name} must be available`).toBeTruthy();
+
+        const lastDialogMessages: string[] = [];
+        const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
+        const savingsAccountPage = new AccountPage(page);
 
       // Select Core Server from the solution drop down
       console.log('Selecting Core Server...');
@@ -104,22 +128,32 @@ test.describe('Savings Account Verification', () => {
       expect(statusMessage, `Verification status for ${scenario.name} does not indicate success`).toMatch(successKeywords);
 
       // After verification the permanent account number is shown; persist it.
-      const verifiedAccountId = await savingsAccountPage.getAccountId();
-      console.log('Verified Account ID:', verifiedAccountId);
-      expect(verifiedAccountId, `Verified account ID for ${scenario.name} must be a real account number`).toMatch(/^\d{6,}$/);
-      if (verifiedAccountId) {
-        const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
-        updateSharedState((state) => {
-          state.savingsAccounts ??= {};
-          state.savingsAccounts[scenario.name] = verifiedAccountId;
-          if (instanceKey) state.savingsAccounts[instanceKey] = verifiedAccountId;
-          state.accountId = verifiedAccountId;
-        });
-      }
+        const verifiedAccountId = await savingsAccountPage.getAccountId();
+        console.log('Verified Account ID:', verifiedAccountId);
+        expect(verifiedAccountId, `Verified account ID for ${scenario.name} must be a real account number`).toMatch(/^\d{6,}$/);
 
-      // Logout
-      console.log('Logging out...');
-      await homePage.logout();
+        if (instanceKey && verifiedAccountId) {
+          saveInstanceResult(
+            instanceKey,
+            { status: 'passed', accountId: verifiedAccountId },
+            SUITE_NAME
+          );
+        }
+
+        // Logout
+        console.log('Logging out...');
+        await homePage.logout();
+      } catch (err: any) {
+        if (instanceKey) {
+          updateInstanceStatus(
+            instanceKey,
+            'failed',
+            err?.message || String(err),
+            SUITE_NAME
+          );
+        }
+        throw err;
+      }
     });
   }
 });
