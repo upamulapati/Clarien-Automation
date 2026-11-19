@@ -4,6 +4,7 @@ import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import {
   getInstanceAccountId,
+  getInstanceResult,
   saveInstanceResult,
   updateInstanceStatus,
   getSuiteName,
@@ -36,7 +37,8 @@ const RAW_SCENARIOS = SAVINGS_DATA.filter((entry: any) => {
   const entryData = entry.data ?? entry;
   const scheme = entryData.schemeCode ?? 'random';
   const ccy = entryData.currency ?? DEFAULT_CUSTOMER.ccy;
-  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index };
+  const solId = entryData.solId ?? entry.solId ?? DEFAULT_CUSTOMER.solId;
+  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index, solId };
 });
 
 // Eligibility is checked at test runtime so the spec can be collected before
@@ -56,8 +58,10 @@ test.describe('Savings Account Verification', () => {
 
       // Skip verification when the upstream creation instance did not pass.
       if (!isDownstreamEligible(scenario.instance, SUITE_NAME)) {
-        markInstanceSkipped(scenario.instance, 'Upstream Flow Failed', SUITE_NAME);
-        test.skip(true, 'Upstream Flow Failed');
+        const upstreamResult = getInstanceResult(scenario.instance, SUITE_NAME);
+        const skipReason = upstreamResult?.error || 'Upstream Flow Failed';
+        markInstanceSkipped(scenario.instance, skipReason, SUITE_NAME);
+        test.skip(true, skipReason);
       }
 
       try {
@@ -74,9 +78,9 @@ test.describe('Savings Account Verification', () => {
       await savingsAccountPage.selectCoreServer();
       await page.waitForTimeout(5000);
 
-      // Search for HOAACVSB (verification screen)
-      console.log('Searching for HOAACVSB (verification screen)...');
-      await savingsAccountPage.searchVerificationScreen('HOAACVSB');
+      // Ensure the correct SOL context before verifying the account
+      console.log(`Ensuring SOL context ${scenario.solId} for savings verification...`);
+      await savingsAccountPage.ensureSolContext(scenario.solId, 'HOAACVSB');
       await page.waitForTimeout(3000);
 
       // Function - V - Verify
@@ -91,6 +95,17 @@ test.describe('Savings Account Verification', () => {
       console.log('Clicking Go button...');
       await savingsAccountPage.acceptButton.click();
       await page.waitForTimeout(5000);
+
+      // Verify the Head SOL ID matches the account's SOL ID
+      const headSol = await savingsAccountPage.getHeadSolId();
+      if (!headSol) {
+        throw new Error('Head SOL ID could not be captured after loading account on verification screen');
+      }
+      const accountSol = await savingsAccountPage.getAccountSolId(accountId, scenario.solId);
+      console.log(`Verification SOL check - Head SOL ID: ${headSol}, Account SOL ID: ${accountSol}`);
+      if (headSol !== accountSol) {
+        throw new Error(`Head SOL ID (${headSol}) does not match account's SOL ID (${accountSol}) for account ${accountId}`);
+      }
 
       // Navigate through all tabs
       console.log('Navigating through all tabs...');

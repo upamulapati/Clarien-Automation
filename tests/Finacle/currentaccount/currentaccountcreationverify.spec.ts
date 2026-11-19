@@ -5,6 +5,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import { CREDENTIALS } from '../../../data/credentials';
 import {
   getInstanceAccountId,
+  getInstanceResult,
   getSharedValue,
   saveInstanceResult,
   updateInstanceStatus,
@@ -37,7 +38,8 @@ const EXCEL_SCENARIOS = CURRENT_ACCOUNT_DATA.filter((entry: any) => {
   const entryData = entry.data ?? entry;
   const scheme = entryData.schemeCode ?? 'unknown';
   const ccy = entryData.currency ?? entryData.ccy ?? DEFAULT_CUSTOMER.ccy;
-  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index };
+  const solId = entryData.solId ?? entry.solId ?? DEFAULT_CUSTOMER.solId;
+  return { name: `${scheme}-${ccy}-${index}`, instance: entryData.instance ?? entry.instance ?? index, solId };
 });
 
 const LEGACY_SCENARIOS = [{ name: 'flow6/flow9-verify' }];
@@ -68,8 +70,10 @@ for (const scenario of SCENARIOS) {
 
     // Skip verification when the upstream creation instance did not pass.
     if (IS_EXCEL && instanceKey && !isDownstreamEligible(scenario.instance, SUITE_NAME)) {
-      markInstanceSkipped(scenario.instance, 'Upstream Flow Failed', SUITE_NAME);
-      test.skip(true, 'Upstream Flow Failed');
+      const upstreamResult = getInstanceResult(scenario.instance, SUITE_NAME);
+      const skipReason = upstreamResult?.error || 'Upstream Flow Failed';
+      markInstanceSkipped(scenario.instance, skipReason, SUITE_NAME);
+      test.skip(true, skipReason);
     }
 
     try {
@@ -96,9 +100,9 @@ for (const scenario of SCENARIOS) {
     await currentAccountPage.selectCoreServer();
     await page.waitForTimeout(5000);
 
-    // Step 2: Search the verification screen (HOAACVCA)
-    console.log(`Searching for ${CURRENT_ACCOUNT_VERIFY_MENU} (verification screen)...`);
-    await currentAccountPage.searchVerificationScreen(CURRENT_ACCOUNT_VERIFY_MENU);
+    // Step 2: Ensure the correct SOL context before verifying the account
+    console.log(`Ensuring SOL context ${scenario.solId} for current account verification...`);
+    await currentAccountPage.ensureSolContext(scenario.solId, CURRENT_ACCOUNT_VERIFY_MENU);
     await page.waitForTimeout(3000);
 
     // Step 3: Function - V - Verify
@@ -113,6 +117,17 @@ for (const scenario of SCENARIOS) {
     console.log('Clicking Go button...');
     await currentAccountPage.acceptButton.click();
     await page.waitForTimeout(5000);
+
+    // Verify the Head SOL ID matches the account's SOL ID
+    const headSol = await currentAccountPage.getHeadSolId();
+    if (!headSol) {
+      throw new Error('Head SOL ID could not be captured after loading account on verification screen');
+    }
+    const accountSol = await currentAccountPage.getAccountSolId(accountId, scenario.solId);
+    console.log(`Verification SOL check - Head SOL ID: ${headSol}, Account SOL ID: ${accountSol}`);
+    if (headSol !== accountSol) {
+      throw new Error(`Head SOL ID (${headSol}) does not match account's SOL ID (${accountSol}) for account ${accountId}`);
+    }
 
     // Step 6: Navigate through all tabs
     console.log('Navigating through all tabs...');

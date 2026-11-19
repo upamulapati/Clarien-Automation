@@ -181,9 +181,8 @@ for (const scenario of SCENARIOS) {
       if (!result.success) {
         console.error('Current account creation failed. Exact error message:', result.message);
         console.error('Captured fields:', JSON.stringify(result.allFields, null, 2));
+        throw new Error(result.message || 'Account creation failed without a specific message');
       }
-
-      expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
       expect(result.message).toBeTruthy();
       console.log('Account created:', result.message);
       expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
@@ -193,7 +192,7 @@ for (const scenario of SCENARIOS) {
       if (instanceKey && result.accountNumber) {
         saveInstanceResult(
           instanceKey,
-          { status: 'passed', accountId: result.accountNumber },
+          { status: 'passed', accountId: result.accountNumber, solId: scenario.data.solId },
           SUITE_NAME
         );
       }

@@ -134,7 +134,14 @@ function applyInstanceResult(
   if (!state[suite]) state[suite] = {};
   if (!state[suite].instances) state[suite].instances = {};
   const existing = state[suite].instances[String(instance)] || {};
-  state[suite].instances[String(instance)] = { ...existing, ...result };
+  const merged = { ...existing, ...result };
+  if (result.status === 'passed') {
+    delete (merged as any).error;
+    delete (merged as any).reason;
+    delete (merged as any).upstreamError;
+    delete (merged as any).upstreamStatus;
+  }
+  state[suite].instances[String(instance)] = merged;
 }
 
 function normalizeSharedState(state: any): void {
@@ -590,18 +597,19 @@ export function isDownstreamEligible(
 
 export function markInstanceSkipped(
   instance: string | number,
-  reason: string = 'Upstream Flow Failed',
+  reason?: string,
   suiteName?: string
 ): void {
   const existing = getInstanceResult(instance, suiteName);
   const upstreamStatus = existing?.status;
   const upstreamError = existing?.error;
+  const effectiveReason = reason || upstreamError || 'Upstream Flow Failed';
   saveInstanceResult(
     instance,
     {
       status: 'SKIPPED',
-      reason,
-      error: reason,
+      reason: effectiveReason,
+      error: effectiveReason,
       upstreamStatus,
       upstreamError
     },

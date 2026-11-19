@@ -72,7 +72,14 @@ function setInstanceResult(state, suite, inst, result) {
   if (!state[suite]) state[suite] = {};
   if (!state[suite].instances) state[suite].instances = {};
   const existing = state[suite].instances[inst] || {};
-  state[suite].instances[inst] = { ...existing, ...result };
+  const merged = { ...existing, ...result };
+  if (result.status === 'passed') {
+    delete merged.error;
+    delete merged.reason;
+    delete merged.upstreamError;
+    delete merged.upstreamStatus;
+  }
+  state[suite].instances[inst] = merged;
 }
 
 function getNested(obj, keyPath) {
@@ -275,6 +282,7 @@ function determineInstanceResults(spec, activeInstances, sinceTime) {
         allureRes?.error ||
         sharedRes?.reason ||
         sharedRes?.error ||
+        sharedRes?.upstreamError ||
         'Upstream Flow Failed';
       status = 'SKIPPED';
       error = reason;
@@ -283,15 +291,21 @@ function determineInstanceResults(spec, activeInstances, sinceTime) {
       durationMs = allureRes?.durationMs || sharedRes?.durationMs || 0;
       accountId = sharedRes?.accountId;
     } else if (sharedRes?.status === 'passed' || sharedRes?.status === 'failed') {
-      status = sharedRes.status;
-      error = sharedRes.error || allureRes?.error || (status === 'failed' ? 'Unknown failure' : null);
+      // Shared-state can be stale when the same suite runs multiple steps
+      // (e.g. creation writes passed, then a later verification step fails).
+      // Prefer the actual Allure result when it disagrees with the saved state.
+      if (allureRes && allureRes.status !== sharedRes.status) {
+        status = allureRes.status;
+        error = allureRes.error || (status === 'failed' ? 'Unknown failure' : null);
+        console.log(`[runOrchestrator] Reconciled instance ${inst} from Allure (${status}) because shared-state status was ${sharedRes.status}`);
+      } else {
+        status = sharedRes.status;
+        error = sharedRes.error || allureRes?.error || (status === 'failed' ? 'Unknown failure' : null);
+      }
       startTime = allureRes?.startTime || sharedRes.startTime || new Date().toISOString();
       endTime = allureRes?.endTime || sharedRes.endTime || new Date().toISOString();
       durationMs = allureRes?.durationMs || sharedRes.durationMs || 0;
       accountId = sharedRes.accountId;
-      if (allureRes && allureRes.status !== status) {
-        console.log(`[runOrchestrator] Reconciled instance ${inst} from shared-state (${status}) because Allure status was ${allureRes.status}`);
-      }
     } else if (allureRes) {
       status = allureRes.status;
       error = allureRes.error;
@@ -461,7 +475,7 @@ function runSpec(file, childEnv, run, step, activeInstances, flowState) {
       const shouldFailFirstStep = isFirstStep && DRY_FAIL_INSTANCES.includes(inst);
 
       if (upstream?.status === 'failed' || upstream?.status === 'SKIPPED') {
-        const reason = upstream.error || upstream.reason || 'Upstream Flow Failed';
+        const reason = upstream.upstreamError || upstream.error || upstream.reason || 'Upstream Flow Failed';
         instanceResults[inst] = {
           status: 'SKIPPED',
           error: reason,

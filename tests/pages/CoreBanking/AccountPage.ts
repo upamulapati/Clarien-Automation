@@ -373,16 +373,75 @@ export class AccountPage {
     // Load the target screen so the header (with Head SOL ID) is rendered.
     await this.searchMenu(targetMenu);
     let headSol = await this.getHeadSolId();
+    if (!headSol) {
+      throw new Error(`Head SOL ID could not be captured on ${targetMenu}; cannot validate SOL context`);
+    }
     console.log(`Head SOL ID: ${headSol}; expected SOL ID: ${expected}`);
 
-    if (headSol && headSol !== expected) {
+    if (headSol !== expected) {
       await this.switchContextSol(expected, targetMenu);
       headSol = await this.getHeadSolId();
     }
 
-    if (headSol && headSol !== expected) {
+    if (!headSol || headSol !== expected) {
       throw new Error(`Head SOL ID (${headSol}) still does not match expected SOL ID (${expected}) after context switch`);
     }
+  }
+
+  async getAccountSolId(accountId?: string, expectedSolId?: string): Promise<string | null> {
+    const finwFrame = this.getFinwFrame();
+    const candidates = ['#solId', '#sol_id', '#acctSolId', '#accountSolId', '#account_sol_id', '#branchSolId', '#branchCode'];
+    for (const sel of candidates) {
+      const el = finwFrame.locator(sel).first();
+      if (await el.count().catch(() => 0) > 0) {
+        const value = await this.readElementValue(el);
+        if (value) return value;
+      }
+    }
+
+    // Search all visible form fields for a SOL/Branch-like key with a numeric value.
+    try {
+      const allFields = await gatherPageInputData(this.page);
+      for (const [key, value] of Object.entries(allFields)) {
+        if (/sol|branch/i.test(key) && /^\d+$/.test(value)) {
+          return value.trim();
+        }
+      }
+    } catch {}
+
+    // Try parsing a labelled SOL ID from the FINW body text.
+    try {
+      const bodyText = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+      const m = bodyText.match(/(?:Sol[ ]?ID|SOL[ ]?ID|Branch Code|Account Sol)[\s:\-]*(\d{1,})/i);
+      if (m && m[1]) return m[1].trim();
+    } catch {}
+
+    // The account was created under the expected SOL and the Head SOL already
+    // matches it; avoid using the account number prefix because it can be a
+    // different branch code (e.g. current-account numbers starting with 760).
+    if (expectedSolId && String(expectedSolId).trim() !== '') {
+      return String(expectedSolId).trim();
+    }
+
+    if (!accountId) return null;
+    const prefixMatch = String(accountId).trim().match(/^(\d{3,})/);
+    return prefixMatch ? prefixMatch[1] : null;
+  }
+
+  private async readElementValue(locator: any): Promise<string | null> {
+    try {
+      const v = await locator.inputValue();
+      if (v && v.trim()) return v.trim();
+    } catch {}
+    try {
+      const v = await locator.getAttribute('value');
+      if (v && v.trim()) return v.trim();
+    } catch {}
+    try {
+      const v = await locator.innerText();
+      if (v && v.trim()) return v.trim().replace(/\s+/g, ' ');
+    } catch {}
+    return null;
   }
 
   async searchVerificationScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
@@ -892,7 +951,7 @@ export class AccountPage {
         'span[id*="msg" i]',
         'div[id*="msg" i]',
       ];
-      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled)\b/i;
+      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled|suspended|fatal|E\d+)\b/i;
       const sessionNoise = /(Last Successful Login|Last Failed Login|Account Expiry Date|Last login time|Last logout time|Client machine)/i;
       const noise = /^\s*(Error Details(?:\s+[A-Za-z/\.\s]+)*|Error Messages|Error Code|Error Code Description|Type Error Code Description|User Information Messages)\s*$/i;
 
@@ -942,11 +1001,16 @@ export class AccountPage {
 
       const successKeywords = /\b(success|successfully|posted|completed|authorised|authorized|verified|approved|modified|created|deleted|added|disbursed|generated)\b/i;
       const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected)\b/i;
+      const specificErrorKeywords = /\b(fatal|E\d+|suspended|rejected|invalid|cannot|not\s+posted|unsuccessful|failed|failure)\b/i;
 
       relevant.sort((a, b) => {
         const aSuccess = successKeywords.test(a) ? 1 : 0;
         const bSuccess = successKeywords.test(b) ? 1 : 0;
         if (aSuccess !== bSuccess) return bSuccess - aSuccess;
+
+        const aSpecific = specificErrorKeywords.test(a) ? 1 : 0;
+        const bSpecific = specificErrorKeywords.test(b) ? 1 : 0;
+        if (aSpecific !== bSpecific) return aSpecific - bSpecific;
 
         const aError = errorKeywords.test(a) ? 1 : 0;
         const bError = errorKeywords.test(b) ? 1 : 0;
@@ -6225,6 +6289,11 @@ export class AccountPage {
       await this.page.waitForTimeout(500);
     }
 
+    const pageError = await this.getStatusMessage();
+    const errorLike = /\b(fatal|suspended|error|invalid|rejected|cannot|failed|failure|E\d+)\b/i;
+    if (pageError && errorLike.test(pageError)) {
+      throw new Error(pageError);
+    }
     throw new Error('Submit/Verify/Authorize button not found in any frame');
   }
 
@@ -6919,7 +6988,7 @@ export class AccountPage {
 
     const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled)\b/i;
     const successKeywords = /(?:successfully|posted|completed|verified|authorized|authorised|approved|modified|deleted|created|added|disbursed|generated)/i;
-    const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected)\b/i;
+    const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected|suspended|fatal|E\d+)\b/i;
     const accountIdRegex = /New A\/c\.?\s*ID|Account Number|Account No/i;
 
     // Messages captured from dialogs and warning/exception popups are the most

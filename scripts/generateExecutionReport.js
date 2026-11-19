@@ -172,10 +172,11 @@ function renderFlowLevelView(run) {
     const downstreamText = downstream.length > 1
       ? 'Executed in: ' + downstream.slice(1).join(', ')
       : (inst.downstreamStatus === 'pending' ? 'Not reached' : String(inst.downstreamStatus || ''));
+    const failureReason = inst.status === 'passed' ? '' : escapeHtml(inst.error || inst.upstreamError || '-');
     rows += `<tr class="${statusClass(inst.status)}">
       <td>${escapeHtml(inst.instanceId)}</td>
       <td>${statusText(inst.status)}</td>
-      <td>${escapeHtml(inst.error || '-')}</td>
+      <td>${failureReason}</td>
       <td>${formatDate(inst.startTime)}</td>
       <td>${formatDate(inst.endTime)}</td>
       <td>${formatDuration(inst.durationMs)}</td>
@@ -279,7 +280,7 @@ function renderSkippedInstanceDetails(run) {
       <td>${escapeHtml(inst.flowName || run.flowName || 'N/A')}</td>
       <td>${formatDate(inst.startTime)}</td>
       <td>${formatDate(inst.endTime)}</td>
-      <td><pre>${escapeHtml(inst.error || 'Upstream Flow Failed')}</pre></td>
+      <td><pre>${escapeHtml(inst.error || inst.upstreamError || 'No reason recorded')}</pre></td>
     </tr>`;
   }
 
@@ -358,11 +359,12 @@ function renderDetailedExecution(run) {
 
   let rows = '';
   for (const inst of summary) {
+    const failureReason = inst.status === 'passed' ? '' : escapeHtml(inst.error || inst.upstreamError || '-');
     rows += `<tr class="${statusClass(inst.status)}">
       <td>${escapeHtml(inst.flowName || run.flowName || 'N/A')}</td>
       <td>${escapeHtml(inst.instanceId)}</td>
       <td>${statusText(inst.status)}</td>
-      <td>${escapeHtml(inst.error || '-')}</td>
+      <td>${failureReason}</td>
       <td>${formatDate(inst.startTime)}</td>
       <td>${formatDate(inst.endTime)}</td>
       <td>${formatDuration(inst.durationMs)}</td>

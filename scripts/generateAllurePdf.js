@@ -273,10 +273,11 @@ function renderExecutionSummaryTable(run) {
   let rows = '';
   const summary = (run.instanceSummary || []).slice(0, 50);
   for (const inst of summary) {
+    const failureReason = inst.status === 'passed' ? '' : escapeHtml(inst.error || inst.upstreamError || '-');
     rows += `<tr class="${statusClass(inst.status)}">
       <td>${escapeHtml(inst.instanceId)}</td>
       <td>${escapeHtml(inst.status || 'unknown')}</td>
-      <td>${escapeHtml((inst.error || '-').substring(0, 200))}</td>
+      <td>${failureReason}</td>
       <td>${formatDate(inst.startTime)}</td>
       <td>${formatDate(inst.endTime)}</td>
     </tr>`;
