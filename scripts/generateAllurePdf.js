@@ -155,16 +155,14 @@ function renderDataPanel(data) {
   </div>`;
 }
 
-function renderImageAttachment(att, data, status) {
+function renderImageAttachment(att, status) {
   const file = readAttachment(att.source);
   if (!file) return '';
   const b64 = file.toString('base64');
   const action = escapeHtml(getAttachmentStep(att.name));
-  const dataHtml = data ? renderDataPanel(data) : '';
   return `<div class="attachment screenshot status-${status}">
     <img src="data:${att.type};base64,${b64}" alt="${action}" />
     <div class="screenshot-caption">Action: ${action}</div>
-    ${dataHtml}
   </div>`;
 }
 
@@ -174,30 +172,22 @@ function renderTest(result) {
   const duration = formatDuration(result.start, result.stop);
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
   const status = result.status || 'unknown';
-  const { images, data } = collectAttachments(result);
+  const { images } = collectAttachments(result);
 
-  const dataByStep = new Map();
-  for (const d of data) {
-    const step = getAttachmentStep(d.name);
-    dataByStep.set(step, parseDataAttachment(d));
-  }
-
-  const actions = [...new Set(images.map(img => getAttachmentStep(img.name)))];
-
-  const mainActionsHtml = actions.length
-    ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
-    : '';
-  const imgHtml = images.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
+  const imgHtml = images.map(img => renderImageAttachment(img, status)).join('');
 
   return `
     <section class="test">
-      <h2 class="test-title">${title}</h2>
+      <h2 class="test-title">
+        <span class="status-icon status-${status}">${status}</span>
+        ${title}
+      </h2>
       <div class="test-meta">
         <span><strong>Suite:</strong> ${escapeHtml(suite)}</span>
+        <span><strong>Status:</strong> ${escapeHtml(status)}</span>
         <span><strong>Duration:</strong> ${duration}</span>
       </div>
       ${message ? `<div class="message">${message}</div>` : ''}
-      ${mainActionsHtml}
       ${imgHtml ? `<div class="screenshots-section"><h3>Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
     </section>`;
 }
@@ -337,7 +327,7 @@ function formatDate(iso) {
   }
 }
 
-function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
+function renderDashboard(results) {
   if (!results.length) return '';
   const start = Math.min(...results.map(r => r.start || 0));
   const stop = Math.max(...results.map(r => r.stop || 0));
@@ -349,12 +339,6 @@ function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
   const total = results.length;
   const passed = counts.passed || 0;
   const successRate = total ? Math.round((passed / total) * 100) : 0;
-  const sourceFiles = Array.isArray(specFiles) && specFiles.length
-    ? [...new Set(specFiles)].filter(Boolean).sort()
-    : [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
-  const specListHtml = sourceFiles.length
-    ? `<ul class="spec-list">${sourceFiles.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
-    : '<p class="note">No spec file information available.</p>';
   const statBox = (status, label) => {
     const count = counts[status] || 0;
     return count ? `<div class="dashboard-box stat-${status}"><span class="value">${count}</span><span class="label">${label}</span></div>` : '';
@@ -370,11 +354,6 @@ function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
         <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total</span></div>
         <div class="dashboard-box stat-rate"><span class="value">${successRate}%</span><span class="label">Pass Rate</span></div>
         <div class="dashboard-box stat-duration"><span class="value">${formatDuration(start, stop)}</span><span class="label">Duration</span></div>
-      </div>
-      <div class="spec-files">
-        <h3>Executed Spec Files (Suite: ${escapeHtml(suiteName)})</h3>
-        <p class="note">Total: ${specFiles.length} spec file(s) in this run</p>
-        ${specListHtml}
       </div>
     </section>`;
 }
@@ -482,26 +461,13 @@ async function main() {
   return m ? `${m[3]}-${m[1]}-${m[2]} ${m[4]}` : s;
 })();
   const suiteName = resolveSuiteName(results);
-  const resultPackageFiles = [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
-  const resultFileSet = new Set(resultPackageFiles);
-  const specFiles = (() => {
-    if (manifest && Array.isArray(manifest.specFiles) && manifest.specFiles.length) {
-      const manifestSet = new Set(manifest.specFiles);
-      if (manifestSet.size === resultFileSet.size && [...manifestSet].every(f => resultFileSet.has(f))) {
-        return manifest.specFiles;
-      }
-    }
-    return resultPackageFiles;
-  })();
   const outputName = onlyFilter
     ? onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()
     : suiteName;
   const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
   const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
-  const executionRun = readExecutionResults();
-  const executionSummaryHtml = executionRun ? renderExecutionSummaryTable(executionRun) : '';
   const testsHtml = results.map(renderTest).join('');
-  const dashboardHtml = renderDashboard(results, suiteName, specFiles);
+  const dashboardHtml = renderDashboard(results);
   const pageTitle = `${suiteName} Test Report (PDF)`;
   const htmlTitle = `${suiteName} Test Report - PDF`;
 
@@ -572,10 +538,10 @@ async function main() {
     .note { font-style: italic; color: #555; }
     .dashboard { margin-bottom: 16px; }
     .dashboard h2 { margin-bottom: 10px; }
-    .dashboard-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-width: 90px; text-align: center; background: #fafafa; }
-    .dashboard-box .value { display: block; font-size: 20px; font-weight: bold; color: #333; }
-    .dashboard-box .label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .dashboard-grid { display: flex; flex-wrap: nowrap; gap: 8px; }
+    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 8px 4px; flex: 1 1 0; min-width: 0; text-align: center; background: #fafafa; overflow: hidden; }
+    .dashboard-box .value { display: block; font-size: 18px; font-weight: bold; color: #333; }
+    .dashboard-box .label { display: block; font-size: 9px; text-transform: uppercase; color: #666; margin-top: 4px; }
     .summary-stats { flex-wrap: nowrap; gap: 4px; }
     .summary-stats .dashboard-box { flex: 1 1 0; min-width: 0; padding: 6px 2px; overflow-wrap: break-word; border-color: #ccc; }
     .summary-stats .dashboard-box .value { font-size: 18px; }
@@ -606,7 +572,6 @@ async function main() {
     <h1>${escapeHtml(pageTitle)}</h1>
     <div>Generated (Bermuda time): ${generated} | Tests: ${results.length}</div>
   </div>
-  ${executionSummaryHtml}
   ${dashboardHtml}
   ${testsHtml}
 </body>
