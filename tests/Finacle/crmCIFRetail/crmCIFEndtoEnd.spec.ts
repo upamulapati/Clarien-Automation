@@ -4,10 +4,11 @@ import { login, setupDialogHandlers } from '../../config/crmSetup';
 import { CrmRetailEndToEndPage } from '../../pages/CRM/crmRetailEndToEndPage';
 import { CrmVerificationPage } from '../../pages/CRM/crmVerificationPage';
 import { ServicePackPage } from '../../pages/CRM/servicePackPage';
-import { writeSharedState, saveCif, getCif } from '../../helpers/sharedState';
+import { writeSharedState, saveCif, getCif, readSharedState } from '../../helpers/sharedState';
 
 // Shared variable to pass CIF ID from creation test to approval test
-let sharedCifId = getCif('retail') || '';
+const initialSharedState = readSharedState();
+let sharedCifId = initialSharedState.cifId || initialSharedState.cifs?.retail?.cifId || '';
 
 const CONFIG = getPrimaryConfig();
 const VERIFY_CONFIG = getVerificationConfig();
@@ -18,7 +19,7 @@ test.describe('Simple CIF Creation', () => {
   let lastDialogMessages: string[] = [];
 
   test.beforeEach(async ({ page }) => {
-    test.setTimeout(900000);
+    test.setTimeout(CONFIG.timeouts.testTimeout);
     setupDialogHandlers(page, lastDialogMessages);
     await login(page, CONFIG);
   });
@@ -44,22 +45,18 @@ test.describe('Simple CIF Creation', () => {
     await retailPage.fillBasicInfo();
     await servicePackPage.verifyMinorDetailsAfterDobFocus(workingPage);
 
-    // Step 6: Fill Currency Sub-Tab (within General)
-    await retailPage.fillCurrencySubTab();
-    await servicePackPage.verifyCurrencyAutoPopulate(workingPage);
-
-    // Step 7: Fill Contact Tab (Address, Phone, Email)
+    // Step 6: Fill Contact Tab (Address, Phone, Email)
     await retailPage.fillContactTab();
     await servicePackPage.verifyAddressFieldsNotUndefined(workingPage);
 
-    // Step 8: Fill ID Document Tab
+    // Step 7: Fill ID Document Tab
     await retailPage.fillIdDocumentTab();
 
-    // Step 9: Fill Currency Tab
+    // Step 8: Fill Currency Tab
     await retailPage.fillCurrencyTab();
     await servicePackPage.verifyCurrencyAutoPopulate(workingPage);
 
-    // Step 10: Fill Demographic Tab
+    // Step 9: Fill Demographic Tab
     await retailPage.fillDemographicTab();
     await servicePackPage.verifyNationalityDisplayFormat(workingPage);
     await servicePackPage.verifyEmployeeNameSaved(workingPage);
@@ -80,6 +77,10 @@ test.describe('Simple CIF Creation', () => {
       writeSharedState({ cifId: sharedCifId });
       saveCif('retail', sharedCifId);
     }
+
+    // Hard fail if the CIF was not created or Process Selection was not confirmed
+    expect(sharedCifId, 'CIF ID must be captured after a successful submit').toBeTruthy();
+    expect(retailPage.processSaveConfirmed, 'Process Selection save confirmation must be received').toBe(true);
 
     // Summary
     console.log('\n=== Summary of E2E Happy Path ===');
@@ -116,9 +117,13 @@ test.describe('CIF Approval Verification', () => {
   });
 
   test('Approve CIF via Entity Queue', async ({ page }) => {
+    // Re-read the persisted CIF ID in case the creation test ran in a separate worker.
+    const currentSharedState = readSharedState();
+    const cifIdToApprove = sharedCifId || currentSharedState.cifId || currentSharedState.cifs?.retail?.cifId || '';
+    expect(cifIdToApprove, 'No CIF ID available for Entity Queue approval').toBeTruthy();
     const verificationPage = new CrmVerificationPage(page, VERIFY_CONFIG, lastDialogMessages);
     await verificationPage.performVerification({
-      cifId: sharedCifId || '',
+      cifId: cifIdToApprove,
       screenId: CRM_TEST_DATA.retail.screenId,
       menuKeywords: CRM_TEST_DATA.retail.menuKeywords,
       menuFrameName: CRM_TEST_DATA.retail.menuFrameName,

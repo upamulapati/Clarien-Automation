@@ -5,8 +5,107 @@ import { CrmEndToEndPage } from './crmEndToEndPage';
 export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
   private natInfo = { codeName: '', dispName: '', btnName: '' };
 
+  // Cache for resolved LOV code/display values so they can be restored before submit.
+  private lovCache: Record<string, { code: string; display: string }> = {};
+
+  // Known code/display pairs for Corporate lookup fields. Prefer workbook values (cd.*)
+  // when available; these fallbacks are used only when the CRM sheet does not contain a code/display column.
+  private LOOKUP_FALLBACKS: Record<string, { code: string; display: string }> = {
+    'Country of Incorporation': { code: 'BM', display: 'BERMUDA' },
+    'Country of Origin': { code: '', display: '' },
+    'Region': { code: 'CBBDA', display: 'CLARIEN BANK BERMUDA' }
+  };
+
   constructor(page: Page, config: AppConfig, lastDialogMessages: string[]) {
     super(page, config, lastDialogMessages);
+  }
+
+  // Fallback for code/display LOV fields when the lookup popup cannot be used.
+  // Sets the hidden code input and visible category (Cat_) input directly.
+  private async setLovWithFallback(
+    frame: any,
+    codeNames: string[],
+    displayNames: string[],
+    codeValue: string,
+    displayValue: string,
+    label: string
+  ): Promise<void> {
+    await this.setLov(frame, codeNames, displayNames, codeValue, displayValue, label);
+  }
+
+  private async readLovValue(frame: any, codeName: string): Promise<{ code: string; display: string } | null> {
+    return frame.evaluate((name: string) => {
+      const codeEl = document.querySelector(`input[name="${name}"]`) as HTMLInputElement;
+      const catEl = document.querySelector(`input[name="Cat_${name}"]`) as HTMLInputElement;
+      if (!codeEl && !catEl) return null;
+      return { code: codeEl?.value || '', display: catEl?.value || '' };
+    }, codeName).catch(() => null);
+  }
+
+  // Split the single Basic Info phone number from the CRM sheet into country/area/local.
+  // For Bermuda numbers starting with '441' the country code is 1 and the remainder is area+local.
+  private splitBasicInfoPhone(phoneNo: string): { country: string; area: string; local: string } {
+    const raw = String(phoneNo || '').trim();
+    if (!raw) return { country: '', area: '', local: '' };
+    // Bermuda pattern: 441 + 7-digit local (10 digits total)
+    if (raw.startsWith('441') && raw.length === 10) {
+      return { country: '1', area: '441', local: raw.substring(3) };
+    }
+    // Generic fallback: 3-digit area + remaining local with country code 1
+    if (raw.length > 3) {
+      return { country: '1', area: raw.substring(0, 3), local: raw.substring(3) };
+    }
+    return { country: '', area: '', local: raw };
+  }
+
+  // Re-apply critical Corporate country LOV fields using the two-textbox helper so
+  // the CRM has time to auto-populate the hidden code and display values.
+  private async applyCorporateLovs(frame: any, cd: any): Promise<void> {
+    if (!frame) return;
+
+    if (cd.countryOfIncorporation) {
+      await this.setTwoTextboxLovByLabel(frame, 'Country of Incorporation', String(cd.countryOfIncorporation)).catch(() => {});
+    }
+    if (cd.sector) {
+      await this.setGenericFieldByLabel(frame, 'Sector', cd.sectorCode ? String(cd.sectorCode) : String(cd.sector), 'select').catch(() => {});
+    }
+    if (cd.subSector) {
+      await this.setGenericFieldByLabel(frame, 'Sub-sector', cd.subSectorCode ? String(cd.subSectorCode) : String(cd.subSector), 'select').catch(() => {});
+    }
+    if (cd.countryOfOrigin) {
+      await this.setTwoTextboxLovByLabel(frame, 'Country of Origin', String(cd.countryOfOrigin)).catch(() => {});
+    }
+
+    await this.refreshAccountFrame('after Corporate LOVs');
+  }
+
+  // Ensure Corporate Finance code/display LOV pairs are correctly populated before saving.
+  protected async postProcessSection(frame: any, sectionName: string, endToEnd: any): Promise<void> {
+    if (!frame || sectionName !== 'corporateFinanceData') return;
+    const fd = endToEnd?.corporateFinanceData || {};
+    const page = this.workingPage;
+
+    if (fd.noOfEmployees) {
+      const emp = String(fd.noOfEmployees);
+      // The visible integer input and the hidden server input have different names.
+      await this.setField(frame, ['2_FinancialBO.numberOf_Employees'], emp, 'No. of Employees visible').catch(() => {});
+      await this.setField(frame, ['FinancialBO.numberOf_Employees'], emp, 'No. of Employees hidden').catch(() => {});
+    }
+
+    if (fd.ccy) {
+      const ccy = String(fd.ccy);
+      // CCY is a two-textbox category LOV: write the code into the first input and let the CRM auto-populate the display.
+      await this.setField(frame, ['FinancialModBO.crncy_Code', 'FinancialBO.crncy_Code'], ccy, 'CCY code').catch(() => {});
+    }
+
+    if (fd.country) {
+      const countryCode = fd.countryCode || endToEnd?.corporateData?.countryOfIncorporation || '';
+      // Country is a two-textbox category LOV: write the code into the first input and let the CRM auto-populate the display.
+      await this.setField(frame, ['FinancialBO.country'], String(countryCode), 'Corporate Finance Country code').catch(() => {});
+    }
+
+    await this.dumpFrameHtml(frame, 'corporate-finance-final');
+    await this.closeUnexpectedPopups(page);
   }
 
   // ==================== NAVIGATE TO NEW ENTITY ====================
@@ -236,16 +335,31 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
         }
       }
     }
-    if (!lov.isClosed()) await lov.close().catch(() => {});
+    await this.safeClosePopup(lov, 5000);
     await page.waitForTimeout(1000);
     return selected;
   }
 
+  // Set Charge Level Code from the workbook value. This is a two-textbox category LOV:
+  // the workbook value is entered in the visible input and the CRM auto-populates
+  // the hidden code after a short wait; no lookup popup is opened.
+  private async setChargeLevelCode(f: any, cd: any): Promise<void> {
+    const value = String(cd.chargeLevelCode || '').trim();
+    if (!value) return;
+
+    await this.setTwoTextboxLovByLabel(f, 'Charge Level Code', value).catch(() => {});
+    console.log(`✓ Charge Level Code handled with workbook value: ${value}`);
+  }
+
   // ==================== FILL BASIC INFO TAB ====================
-  async fillBasicInfo(): Promise<void> {
+  async fillBasicInfo(skipSave = false, evidencePrefix = 'Corporate Basic Info'): Promise<void> {
     console.log('\n========== BASIC INFO TAB ==========');
+    await this.captureEvidence(`${evidencePrefix} - before`).catch(() => {});
+    // Prefer the cached main Customer form frame.
+    if (!this.accountFrame && this.mainAccountFrame) this.accountFrame = this.mainAccountFrame;
     // Verify accountFrame has CorporateBO fields — re-detect if not
-    const hasCorporateFields = await this.accountFrame.evaluate(() => {
+    const checkFrame = this.mainAccountFrame || this.accountFrame;
+    const hasCorporateFields = await checkFrame.evaluate(() => {
       return !!document.querySelector('input[name="CorporateBO.corporate_Name"]');
     }).catch(() => false);
     if (!hasCorporateFields) {
@@ -253,12 +367,11 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       const page = this.workingPage;
       for (const f of page.frames()) {
         try {
-          const hasFields = await f.evaluate(() => {
-            return !!document.querySelector('input[name="CorporateBO.corporate_Name"]');
-          }).catch(() => false);
+          const hasFields = await f.evaluate(() => !!document.querySelector('input[name="CorporateBO.corporate_Name"]')).catch(() => false);
           if (hasFields) {
             const cnt = await f.evaluate(() => document.querySelectorAll('input').length).catch(() => 0);
             this.accountFrame = f;
+            this.mainAccountFrame = f;
             console.log('  ✓ Re-detected accountFrame: "' + f.name() + '" url=' + f.url().substring(f.url().lastIndexOf('/') + 1).substring(0, 80) + ' inputs=' + cnt);
             break;
           }
@@ -267,123 +380,150 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     }
     const f = this.accountFrame;
     const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
-    const ctd = CRM_TEST_DATA.corporate.endToEnd.contactData;
 
+    // Core identity fields
     await this.setField(f, ['CorporateBO.corporate_Name'], cd.corporateName, 'Corporate Name');
     await this.setField(f, ['CorporateBO.short_Name'], cd.shortName, 'Short Name');
-    await this.setField(f, ['CorporateBO.keyContact_PersonName'], cd.keyContactPerson, 'Key Contact Person');
-    await this.setField(f, ['CorporateBO.phone.cntrycode'], '1', 'Phone Country Code');
-    await this.setField(f, ['CorporateBO.phone.areacode'], '441', 'Phone Area Code');
-    await this.setField(f, ['CorporateBO.phone.localcode'], '1234567', 'Phone Local Code');
+    await this.setField(f, ['CorporateBO.keyContact_PersonName', 'CorporateBO.keyContactPerson'], cd.keyContactPerson, 'Key Contact Person');
 
-    // Business Type
-    {
-      const btResult = await f.evaluate(() => {
-        const selNames = ['CorporateModBO.business_Type', 'CorporateBO.business_Type'];
-        for (const n of selNames) {
-          const sel = document.querySelector(`select[name="${n}"]`) as HTMLSelectElement;
-          if (sel) {
-            const opts = Array.from(sel.options).map(o => ({ value: o.value, text: o.text.trim() }));
-            const target = opts.find(o => o.text.includes('COMMERCIAL')) || opts.find(o => o.value && o.value !== '--Select--' && o.text !== '--Select--');
-            if (target) { sel.value = target.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-            return { type: 'select', selected: target?.text || '' };
-          }
-          const inp = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
-          if (inp) return { type: 'input', selected: '' };
-        }
-        return { type: 'none', selected: '' };
-      }).catch(() => ({ type: 'none', selected: '' }));
-      if (btResult.type === 'input') {
-        const btLov = await this.setLovViaPopup('CorporateModBO.business_Type', 'LOCAL', 'Business Type');
-        if (!btLov) await this.setLov(f, ['CorporateModBO.business_Type'], ['Cat_CorporateModBO.business_Type'], 'LOC', 'LOCAL', 'Business Type');
-      } else if (btResult.type === 'select' && btResult.selected) {
-        console.log('\u2713 Business Type = "' + btResult.selected + '"');
-      }
+    // Basic Info phone from workbook phoneNo split (country/area/local)
+    const phone = this.splitBasicInfoPhone(cd.phoneNo);
+    if (phone.country) await this.setField(f, ['CorporateBO.phone.cntrycode'], phone.country, 'Phone Country Code');
+    if (phone.area) await this.setField(f, ['CorporateBO.phone.areacode'], phone.area, 'Phone Area Code');
+    if (phone.local) await this.setField(f, ['CorporateBO.phone.localcode'], phone.local, 'Phone Local Code');
+
+    // Business Type from CRM sheet
+    if (cd.businessType) {
+      await this.setGenericFieldByLabel(f, 'Business Type', cd.businessType, 'select').catch(() => {});
     }
 
-    await this.setLov(f, ['CorporateBO.CountryOfIncorporation'], ['Cat_CorporateBO.CountryOfIncorporation'], cd.countryOfIncorporation, 'BERMUDA', 'Country of Incorporation');
     await this.setField(f, ['CorporateBO.registration_Number'], cd.registrationNo, 'Registration No');
     await this.setField(f, ['3_CorporateBO.date_Of_Incorporation'], cd.incorporationDate, 'Incorporation Date');
     await this.setField(f, ['3_CorporateBO.date_Of_Commencement'], cd.businessCommencementDate, 'Business Commencement Date');
-    await this.setLov(f, ['CorporateBO.primary_Service_Center'], ['Cat_CorporateBO.primary_Service_Center'], cd.solId, cd.solId, 'Primary Service Center');
-    await this.refreshAccountFrame('after Primary Service Center');
 
-    await this.setLovViaPopup('CorporateModBO.segment', cd.corporateSegment, 'Corporate Segment');
-    await this.refreshAccountFrame('after Corporate Segment');
-    await this.setSelect(f, ['CorporateModBO.subSegment'], cd.subSegment, 'Sub-segment');
+    // Primary SOL / Service Center
+    if (cd.solId) {
+      const solSet = await this.setSelect(f, ['CorporateBO.primary_Service_Center', 'CorporateModBO.primary_Service_Center'], cd.solId, 'Primary Service Center');
+      if (!solSet) await this.setLov(f, ['CorporateBO.primary_Service_Center'], ['Cat_CorporateBO.primary_Service_Center'], cd.solId, cd.solId, 'Primary Service Center');
+    }
+
+    // Segment / Sub-segment: workbook code + display in the two textboxes, no lookup popup.
+    if (cd.segment || cd.segmentDisplay) {
+      await this.setTwoTextboxLovByLabel(f, 'Corporate Segment', cd.segment || '', cd.segmentDisplay || '').catch(() => {});
+    }
+    if (cd.subSegment || cd.subSegmentDisplay) {
+      await this.setTwoTextboxLovByLabel(f, 'Sub-segment', cd.subSegment || '', cd.subSegmentDisplay || '').catch(() => {});
+    }
+
     await this.setField(f, ['CorporateBO.source_Of_Funds'], cd.fundSource, 'Source of Funds');
-    await this.setLov(f, ['CorporateModBO.region'], ['Cat_CorporateModBO.region'], cd.region, 'INTERNATIONAL', 'Region');
-    await this.refreshAccountFrame('after Region');
-    await this.setLovViaPopup('CorporateBO.sector', 'OTHERS', 'Sector');
-    await this.refreshAccountFrame('after Sector');
-    await this.setLovViaPopup('CorporateModBO.subSector', 'OTHERS', 'Sub-sector');
-    await this.refreshAccountFrame('after Sub-sector');
     await this.setField(f, ['CorporateBO.taxID'], cd.taxId, 'Tax ID');
     await this.setSelect(f, ['CorporateModBO.entityClass'], cd.entityClass, 'Entity Class');
     await this.setSelect(f, ['CorporateModBO.legalEntity_Type'], cd.legalEntityType, 'Legal Entity Type');
     await this.setSelect(f, ['CorporateModBO.priority'], cd.assignedPriority, 'Priority');
-    await this.setSelect(f, ['CorporateModBO.relationship_Type'], cd.relationshipType, 'Relationship Type');
-    await this.setLovViaPopup('CorporateBO.principle_PlaceOperation', cd.principalPlaceOfOperation, 'Principal Place of Operation');
-    await this.refreshAccountFrame('after Principal Place');
-    await this.setField(f, ['CorporateBO.website_Address'], cd.website, 'Website Address');
-    await this.setLov(f, ['CorporateBO.ChargeLevelCode'], ['Cat_CorporateBO.ChargeLevelCode'], cd.clientLevelCode, '001', 'Charge Level Code');
-    await this.setLov(f, ['CorporateModBO.Crncy_Code'], ['Cat_CorporateModBO.Crncy_Code'], 'BMD', 'BERMUDIAN DOLLAR', 'Base CCY');
-    await this.refreshAccountFrame('before remaining dropdowns');
 
-    // Remaining dropdown fields via evaluate
-    await this.accountFrame.evaluate((data: any) => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const setSel = (names: string[], match: string) => { for (const name of names) { const sel = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement; if (!sel) continue; for (const opt of Array.from(sel.options)) { if (opt.text.trim().toUpperCase().includes(match.toUpperCase()) || opt.value === match) { sel.value = opt.value; fire(sel); return; } } } };
-      const setInp = (names: string[], v: string) => { for (const n of names) { const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = v; fire(el); return; } } };
-      setSel(['CorporateModBO.Status_Desc'], 'ACTIVE');
-      setSel(['CorporateModBO.riskRating'], '1');
-      setSel(['CorporateModBO.delinquency_Flag'], 'N');
-      setSel(['CorporateBO.NativeLangCode'], 'ENGLISH');
-      setSel(['CorporateModBO.Lang_Desc'], 'ENGLISH');
-      setSel(['CorporateModBO.Health_Desc'], 'GOOD STATUS');
-      setSel(['CorporateModBO.IsEbankingEnabled'], 'N');
-      setSel(['CorporateModBO.islamic_banking_customer'], 'N');
-      setSel(['CorporateModBO.zakat_deduction'], 'N');
-      setSel(['CorporateModBO.asset_classification'], data.assetClassification);
-      setSel(['CorporateModBO.Purge_Allowed_Flag'], 'N');
-      setSel(['CorporateModBO.Cust_Type_Desc'], 'Corporate');
-      setSel(['CorporateModBO.preferredCalendar'], 'GREGORIAN');
-      setSel(['CorporateModBO.Cust_Grp_Desc'], 'GENERAL');
-      setSel(['CorporateModBO.Customer_Level_Provisioning'], 'N');
-      setSel(['CorporateModBO.Is_Swift_Code_of_Bank'], 'N');
-      setSel(['CorporateModBO.trade_Services_Availed'], 'N');
-      setSel(['CorporateModBO.submitForKYC'], 'N');
-      setSel(['Assigned_BackendID'], 'FINACLECORE');
-      setSel(['CorporateBO.accessOwnerGroup'], 'General Banking');
-      setSel(['CorporateBO.accessOwnerSegment'], 'BANKING OPERATIONS');
-      setSel(['BaselProfiling'], 'No');
-      setInp(['CorporateBO.relationship_CreatedBy'], data.createdBy);
-      setInp(['CorporateBO.PrimaryRMLogin_ID'], data.primaryRelationshipManagerId);
-      setInp(['CorporateBO.Email2'], data.email);
-      setInp(['CorporateBO.corporateName_Native'], data.notes);
-      // Notes field is a textarea with lowercase name
-      const fire2 = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-      const notesTa = document.querySelector('textarea[name="CorporateBO.notes"]') as HTMLTextAreaElement;
-      if (notesTa) { notesTa.value = data.notes || 'Corporate CIF test'; fire2(notesTa); }
-      else { const notesTa2 = document.querySelector('textarea[name="CorporateBO.Notes"]') as HTMLTextAreaElement; if (notesTa2) { notesTa2.value = data.notes || 'Corporate CIF test'; fire2(notesTa2); } }
-      setInp(['CorporateBO.short_Name_Native'], data.shortName);
-      setInp(['CorporateBO.CorporateName_Native1'], data.corporateName);
-      setInp(['CorporateBO.Short_Name_Native1'], data.shortName);
-      setInp(['CorporateModBO.Cust_Const'], '');
-      setInp(['3_CorporateBO.average_AnnualIncome'], data.averageAnnualIncome);
-    }, { ...cd, email: ctd.email, notes: ctd.notes }).catch(() => {});
-    console.log('\u2713 Remaining dropdown fields populated');
-    await this.workingPage.screenshot({ path: 'test-results-temp/corp-basic-info-complete.png' }).catch(() => {});
+    // Region from CRM sheet
+    if (cd.region) {
+      await this.setGenericFieldByLabel(f, 'Region', cd.region, 'select').catch(() => {});
+    }
+
+    // Principal Place of Operation (only if the CRM sheet provides a value)
+    if (cd.principalPlaceOfOperation) {
+      await this.setTwoTextboxLovByLabel(f, 'Principal Place of Operation', String(cd.principalPlaceOfOperation)).catch(() => {});
+    }
+
+    await this.setField(f, ['CorporateBO.website_Address'], cd.website, 'Website Address');
+
+    // Base CCY
+    if (cd.baseCcy) {
+      await this.setGenericFieldByLabel(f, 'Base CCY', cd.baseCcy, 'select').catch(() => {});
+    }
+
+    // Access Owner Group / Segment / Business Center (correct known typo in CRM sheet)
+    let accessOwnerGroup = cd.accessOwnerGroup || '';
+    if (accessOwnerGroup.trim().toLowerCase() === 'genral banking') accessOwnerGroup = 'General Banking';
+    if (accessOwnerGroup) await this.setGenericFieldByLabel(f, 'Access Owner Group', accessOwnerGroup, 'select');
+    if (cd.accessOwnerSegment) await this.setGenericFieldByLabel(f, 'Access Owner Segment', cd.accessOwnerSegment, 'select');
+    if (cd.accessOwnerBusinessCenter) await this.setGenericFieldByLabel(f, 'Access Owner Business Center', cd.accessOwnerBusinessCenter, 'text');
+
+    // Relationship Created By and Primary RM
+    if (cd.createdBy) await this.setField(f, ['CorporateBO.relationship_CreatedBy', 'CorporateModBO.relationship_CreatedBy'], cd.createdBy, 'Relationship Created By');
+    if (cd.primaryRelationshipManagerId) await this.setField(f, ['CorporateBO.PrimaryRMLogin_ID', 'CorporateModBO.PrimaryRMLogin_ID'], cd.primaryRelationshipManagerId, 'Primary RM');
+
+    // Notes (textarea) from workbook
+    if (cd.notes) {
+      const notesNames = ['CorporateBO.notes', 'CorporateBO.Notes', 'CorporateModBO.notes', 'CorporateModBO.Notes'];
+      let notesSet = false;
+      for (const nn of notesNames) {
+        if (await this.setField(f, [nn], cd.notes, 'Notes')) { notesSet = true; break; }
+      }
+      if (!notesSet) {
+        await f.evaluate((v: string) => {
+          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+          const ta = document.querySelector('textarea[name="CorporateBO.notes"]') as HTMLTextAreaElement || document.querySelector('textarea[name="CorporateBO.Notes"]') as HTMLTextAreaElement;
+          if (ta) { ta.value = v; fire(ta); }
+        }, cd.notes).catch(() => {});
+      }
+    }
+
+    // Remaining workbook values via metadata-driven filler. Protected fields are skipped
+    // because they are already managed above or by applyCorporateLovs.
+    await this.fillSectionByMeta(f, 'corporateData', cd, CRM_TEST_DATA.corporate.endToEnd._meta, [
+      'corporateName', 'shortName', 'keyContactPerson', 'phoneNo', 'businessType',
+      'registrationNo', 'incorporationDate', 'businessCommencementDate', 'solId',
+      'segment', 'segmentDisplay', 'corporateSegment', 'subSegment', 'subSegmentDisplay', 'fundSource', 'region',
+      'taxId', 'entityClass', 'legalEntityType', 'assignedPriority', 'relationshipType',
+      'principalPlaceOfOperation', 'website', 'baseCcy', 'baseCcyDisplay',
+      'countryOfIncorporation', 'countryOfIncorporationDisplay', 'countryOfOrigin', 'countryOfOriginDisplay',
+      'accessOwnerGroup', 'accessOwnerSegment', 'accessOwnerBusinessCenter',
+      'createdBy', 'primaryRelationshipManagerId', 'notes', 'sector', 'sectorCode', 'subSector', 'subSectorCode',
+      'chargeLevelCode'
+    ]).catch(() => {});
+
+    // Re-apply critical lookups so Sector/Sub-sector and Country values are not cleared.
+    await this.applyCorporateLovs(f, cd);
+    await this.refreshAccountFrame('after apply corporate LOVs');
+
+    // Fallback to ensure key fields that the metadata filler may miss are populated.
+    if (cd.averageAnnualIncome) {
+      await this.setGenericFieldByLabel(f, 'Average Annual Income', String(cd.averageAnnualIncome), 'number').catch(() => {});
+    }
+    if (cd.nativeLanguage) {
+      await this.setGenericFieldByLabel(f, 'Native Language', cd.nativeLanguage, 'select').catch(() => {});
+      await this.setGenericFieldByLabel(f, 'Native Language Code', cd.nativeLanguage, 'select').catch(() => {});
+    }
+    if (cd.preferredLanguage) {
+      await this.setGenericFieldByLabel(f, 'Preferred Language', cd.preferredLanguage, 'select').catch(() => {});
+    }
+    if (cd.baseCcy) {
+      await this.setGenericFieldByLabel(f, 'Base CCY', cd.baseCcy, 'select').catch(() => {});
+    }
+
+    // Charge Level Code is LOV-driven and the workbook value may be invalid.
+    await this.setChargeLevelCode(f, cd);
+    await this.dumpFrameHtml(f, 'basic-info-after-charge');
+
+    // Synchronise hidden native code/display inputs for any <select> values that
+    // were populated via label-based helpers, so backend validation sees both code and text.
+    await this.syncSelectHiddenFields(f).catch(() => {});
+
+    // Do not click the bottom Save button; instead navigate to the next sub-tab
+    // so the application saves via tab navigation and values remain populated.
+    await this.dumpFrameHtml(f, 'basic-info-final');
+    if (!skipSave) {
+      await this.navigateToSectionTab(['Identification Document Details', 'Document', 'ID Document', 'Identification']);
+    }
+    await this.captureEvidence(`${evidencePrefix} complete`).catch(() => {});
   }
 
   // ==================== FILL CONTACT TAB ====================
   async fillContactTab(): Promise<void> {
     console.log('\n========== CONTACT TAB ==========');
+    await this.captureEvidence('Corporate Contact - before').catch(() => {});
     const page = this.workingPage;
     const ctd = CRM_TEST_DATA.corporate.endToEnd.contactData;
-    const addresses = ctd.addresses || [ctd];
-    const phones = ctd.phones || [ctd];
-    const emails = ctd.emails || [ctd];
+    const addresses = Array.isArray(ctd.addresses) && ctd.addresses.length > 0 ? ctd.addresses : [ctd];
+    const phones = Array.isArray(ctd.phones) && ctd.phones.length > 0 ? ctd.phones : [ctd];
+    const emails = Array.isArray(ctd.emails) && ctd.emails.length > 0 ? ctd.emails : [ctd];
 
     await this.refreshAccountFrame('before Contact tab');
     await this.closeUnexpectedPopups(page);
@@ -399,7 +539,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     await page.waitForTimeout(this.timeouts.medium);
     await this.closeUnexpectedPopups(page);
 
-    for (const addr of addresses) { await this.addAddress(addr); }
+    for (const addr of addresses) { if (addr.addressType || addr.addressLine1) await this.addAddress(addr); }
 
     // Phone and E-Mail
     for (const f of page.frames()) { const t = f.getByText('Phone and E-Mail', { exact: false }).first(); if (await t.isVisible({ timeout: 5000 }).catch(() => false)) { await t.click(); console.log('\u2713 Clicked Phone and E-Mail sub-tab'); break; } }
@@ -408,45 +548,130 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     let phoneFrame: any = null;
     for (const f of page.frames()) { if (await f.evaluate(() => Array.from(document.querySelectorAll('input, select')).some(el => (el as HTMLInputElement).name.toLowerCase().includes('phone') || (el as HTMLInputElement).name.toLowerCase().includes('country_code'))).catch(() => false)) { phoneFrame = f; break; } }
     if (phoneFrame) {
-      for (const phone of phones) {
-        await phoneFrame.evaluate((data: any) => {
-          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-          const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { const n = (i as HTMLInputElement).name.toLowerCase(); if (n.includes(p) && !n.includes('email')) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
-          const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
-          const pType = (data.phoneType || 'COMMUNICATION').toUpperCase();
-          setS('contact_no_type', pType); setS('phone_type', pType);
-          setF('country_code', data.countryCode); setF('cntry_code', data.countryCode); setF('area_code', data.areaCode);
-          setF('phone_number', data.phoneNumber); setF('phone_no', data.phoneNumber); setF('contact_no', data.phoneNumber);
-        }, phone).catch(() => {});
-        console.log('\u2713 Phone fields populated');
+      // Set preferred types from the CRM sheet before adding phone/email records.
+      if (ctd.preferredContactNoType) {
+        await this.setSelect(phoneFrame, ['CorporateBO.PhoneEmail.PhoneEmailType'], ctd.preferredContactNoType, 'Preferred Contact No. Type').catch(() => {});
+      }
+      if (ctd.preferredEmailIdType) {
+        await this.setSelect(phoneFrame, ['CorporateBO.PhoneEmail.PhoneEmailType1'], ctd.preferredEmailIdType, 'Preferred E-Mail ID Type').catch(() => {});
       }
 
-      for (const email of emails) {
-        await phoneFrame.evaluate((data: any) => {
-          const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-          const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p)) { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
-          const setS = (p: string, m: string) => { for (const s of Array.from(document.querySelectorAll('select'))) { if ((s as HTMLSelectElement).name.toLowerCase().includes(p)) { for (const o of Array.from((s as HTMLSelectElement).options)) { if (o.text.trim().toUpperCase().includes(m.toUpperCase())) { (s as HTMLSelectElement).value = o.value; fire(s as HTMLElement); return; } } } } };
-          const eType = (data.emailType || 'COMMUNICATION').toUpperCase();
-          setS('email_type', eType); setS('emailid_type', eType);
-          setF('email_id', data.email); setF('email_address', data.email); setF('emailid', data.email);
-        }, email).catch(() => {});
-        console.log('\u2713 Email fields populated');
+      for (const phone of phones) {
+        if (phone.phoneType || phone.phoneNumber) await this.addPhoneEmailRecord(phone, 'Phone');
       }
+      for (const email of emails) {
+        if (email.emailType || email.email) await this.addPhoneEmailRecord(email, 'Email');
+      }
+      await this.dumpFrameHtml(phoneFrame, 'contact-phone-fields');
     }
-    for (const f of page.frames()) { const sb = f.locator('input[value="Save"]').first(); if (await sb.isVisible({ timeout: 3000 }).catch(() => false)) { await sb.click(); console.log('\u2713 Saved Contact tab'); break; } }
     await page.waitForTimeout(this.timeouts.medium);
-    await page.screenshot({ path: 'test-results-temp/corp-contact-complete.png' }).catch(() => {});
+    await this.dumpFrameHtml(this.accountFrame || page, 'contact-main-before-save');
+    await this.fillSectionByMeta(this.accountFrame, 'contactData', CRM_TEST_DATA.corporate.endToEnd.contactData, CRM_TEST_DATA.corporate.endToEnd._meta).catch(() => {});
+
+    // Persist the phone/email records before moving to the next sub-tab.
+    const contactSave = await this.findSectionButton(this.accountFrame || page, ['Phone and E-Mail', 'Phone', 'E-Mail', 'Contact'], ['Save', 'Update'])
+      || await this.findVisibleButton(this.accountFrame || page, 'Save');
+    if (contactSave) {
+      try { await contactSave.click(); } catch (e) { console.log('  ⚠ Contact save click skipped: ' + (e as Error).message?.substring(0, 80)); }
+      await page.waitForTimeout(this.timeouts.short3).catch(() => {});
+      await this.closeUnexpectedPopups(page);
+    }
+
+    await this.captureEvidence('Corporate Contact complete');
   }
 
-  private async addAddress(ctd: any): Promise<void> {
+  private async addPhoneEmailRecord(data: any, type: 'Phone' | 'Email'): Promise<void> {
+    const page = this.workingPage;
+    let phoneFrame: any = null;
+    for (const f of page.frames()) {
+      if (await f.evaluate(() => !!document.querySelector('input[name="ADD_PHONE_EMAIL"], input[value="Add Phone and E-mail"]')).catch(() => false)) { phoneFrame = f; break; }
+    }
+    if (!phoneFrame) { console.log(`⚠ Add Phone and E-mail button not found for ${type}`); return; }
+    const addBtn = phoneFrame.locator('input[name="ADD_PHONE_EMAIL"], input[value="Add Phone and E-mail"]').first();
+    if (!(await addBtn.isVisible({ timeout: 5000 }).catch(() => false))) { console.log(`⚠ Add Phone and E-mail button not visible for ${type}`); return; }
+
+    const popupPromise = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
+    try { await addBtn.click({ timeout: 10000 }); } catch (_) { await addBtn.evaluate((el: HTMLElement) => el.click()).catch(() => {}); }
+    const popup = await popupPromise;
+    if (!popup) { console.log(`⚠ No ${type} popup opened`); return; }
+
+    popup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
+    await this.waitForPopupReady(popup, `${type} popup`);
+    let pt = await this.findPopupTarget(popup);
+    await this.captureEvidence(`${type} popup opened`, undefined, popup).catch(() => {});
+    await this.dumpFrameHtml(pt, `phone-email-popup-initial-${type.toLowerCase()}`);
+
+    const desiredValue = type === 'Phone' ? 'PHONE' : 'EMAIL';
+
+    // The popup's Phone/Email select submits the form and reloads the popup, so we must wait for the reload.
+    const hasModeSelect = await pt.evaluate(() => !!document.querySelector('select[name="CorporateBO.PhoneEmail.PhoneOrEmail"]')).catch(() => false);
+    if (hasModeSelect) {
+      try {
+        const navPromise = popup.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+        await pt.evaluate((mode: string) => {
+          const s = document.querySelector('select[name="CorporateBO.PhoneEmail.PhoneOrEmail"]') as HTMLSelectElement;
+          if (s && s.value !== mode) {
+            s.disabled = false; s.removeAttribute('readonly'); s.value = mode;
+            s.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }, desiredValue).catch(() => {});
+        await navPromise;
+        await popup.waitForTimeout(2000);
+        pt = await this.findPopupTarget(popup);
+        await this.dumpFrameHtml(pt, `phone-email-popup-reloaded-${type.toLowerCase()}`);
+      } catch (e: any) {
+        console.log(`⚠ ${type} popup mode selection failed: ${e.message || e}`);
+      }
+    }
+
+    await this.listVisibleFields(pt, `${type} popup fields after mode selection`).catch(() => []);
+
+    if (type === 'Phone') {
+      const phoneTypeSelect = pt.locator('select[name="CorporateBO.PhoneEmail.PhoneEmailType"]').first();
+      if (await phoneTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await phoneTypeSelect.selectOption({ label: data.phoneType || 'COMMUNICATION PHONE 1' }).catch((e: any) => { console.log(`⚠ Could not select phone type: ${e.message || e}`); });
+      }
+      await pt.locator('input[name="CorporateBO.PhoneEmail.PhoneNo.cntrycode"]').first().fill(data.countryCode || '').catch(() => {});
+      await pt.locator('input[name="CorporateBO.PhoneEmail.PhoneNo.areacode"]').first().fill(data.areaCode || '').catch(() => {});
+      await pt.locator('input[name="CorporateBO.PhoneEmail.PhoneNo.localcode"]').first().fill(data.phoneNumber || '').catch(() => {});
+      console.log(`✓ Phone values filled: +${data.countryCode || ''} ${data.areaCode || ''} ${data.phoneNumber || ''}`);
+    } else {
+      const emailTypeSelect = pt.locator('select[name="CorporateBO.PhoneEmail.PhoneEmailType1"]').first();
+      if (await emailTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await emailTypeSelect.selectOption({ label: data.emailType || 'COMMUNICATION' }).catch((e: any) => { console.log(`⚠ Could not select email type: ${e.message || e}`); });
+      }
+      await pt.locator('input[name="CorporateBO.PhoneEmail.Email"]').first().fill(data.email || '').catch(() => {});
+      console.log(`✓ Email value filled: ${data.email || ''}`);
+    }
+    await this.captureEvidence(`${type} popup filled`, undefined, popup).catch(() => {});
+
+    await this.captureEvidence(`${type} popup before save`, undefined, popup).catch(() => {});
+    const saveBtn = pt.locator('input[type="button"][value="Save"], input[type="submit"][value="Save"], input[name="Save"]').first();
+    if (await saveBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      try {
+        await Promise.all([
+          popup.waitForEvent('close', { timeout: 10000 }).then(() => true).catch(() => false),
+          saveBtn.click()
+        ]);
+      } catch (_) {
+        await this.safeClosePopup(popup, 5000);
+      }
+    } else {
+      console.log('⚠ Save button not visible in Phone/Email popup');
+      await this.safeClosePopup(popup, 5000);
+    }
+    await this.captureEvidence(`${type} popup after save`, undefined, popup).catch(() => {});
+    await page.waitForTimeout(this.timeouts.short);
+    await this.closeUnexpectedPopups(page);
+  }
+
+  private async addAddress(addr: any): Promise<void> {
     const page = this.workingPage;
     let addrAdded = false;
     for (const f of page.frames()) {
-      let addBtn = f.locator('input[name="Add Address Details"]').first();
-      let btnVisible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
-      if (!btnVisible) { addBtn = f.locator('input[value="Add Address Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (!btnVisible) { addBtn = f.locator('input[value="Add"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (btnVisible) {
+      let addBtn = await this.findSectionButton(f, ['Address', 'Mailing', 'Contact'], ['Add', 'Add Address', 'Add Address Details', 'Add Mailing Address'])
+        || await this.findVisibleButton(f, 'Add Address Details');
+      if (addBtn) {
         await this.closeUnexpectedPopups(page);
         const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
         await addBtn.click();
@@ -455,18 +680,25 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           addrPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
           await this.waitForPopupReady(addrPopup, 'Address popup');
           const at = await this.findPopupTarget(addrPopup);
-          await at.evaluate(() => {
+          await this.captureEvidence('Address popup opened', undefined, addrPopup).catch(() => {});
+          // Address Category from workbook (e.g. Mailing)
+          await at.evaluate((addressType: string) => {
             const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
             const s = document.querySelector('select[name="CorporateBO.Address.addressCategory"]') as HTMLSelectElement;
-            if (s) { for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase().includes('MAILING')) { s.value = o.value; fire(s); break; } } }
-          }).catch(() => {});
+            if (s && addressType) { for (const o of Array.from(s.options)) { if (o.text.trim().toUpperCase().includes(addressType.toUpperCase())) { s.value = o.value; fire(s); break; } } }
+          }, addr.addressType || 'Mailing').catch(() => {});
           await addrPopup.waitForTimeout(3000).catch(() => {});
           await at.evaluate((data: any) => {
             const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
             const setExact = (name: string, val: string) => { const el = document.querySelector(`input[name="${name}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = val; fire(el); } };
-            setExact('CorporateBO.Address.street_no', data.streetNo);
-            setExact('CorporateBO.Address.street_name', data.streetName);
-            setExact('CorporateBO.Address.house_no', data.houseNo);
+            const rawAddr = String(data.addressLine1 || '');
+            const m = rawAddr.match(/^(\d+)\b/);
+            const streetNo = data.streetNo || data.houseNo || (m ? m[1] : '');
+            const streetName = data.streetName || (m ? rawAddr.replace(/^\d+\s*/, '') : rawAddr);
+            const houseNo = data.houseNo || streetNo;
+            setExact('CorporateBO.Address.street_no', streetNo);
+            setExact('CorporateBO.Address.street_name', streetName);
+            setExact('CorporateBO.Address.house_no', houseNo);
             setExact('CorporateBO.Address.premise_name', data.premiseName);
             setExact('CorporateBO.Address.building_level', data.buildingLevel);
             setExact('CorporateBO.Address.suburb', data.suburb);
@@ -476,11 +708,12 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
             setExact('3_CorporateBO.Address.Start_Date', data.startDate);
             setExact('CorporateBO.Address.FreeTextLabel', data.addressLabel);
             setExact('CorporateBO.Address.address_Line1', data.addressLine1);
-          }, ctd).catch(() => {});
+          }, addr).catch(() => {});
           console.log('  \u2713 Address fields filled');
-          await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.country', 'Bermuda', 'Country');
-          await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.city', ctd.city, 'City');
-          await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.state', ctd.state, 'State');
+          await this.captureEvidence('Address popup filled', undefined, addrPopup).catch(() => {});
+          if (addr.country) await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.country', addr.country, 'Country');
+          if (addr.city) await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.city', addr.city, 'City');
+          if (addr.state) await this.selectAddrLov(addrPopup, at, 'btnone_CorporateBO.Address.state', addr.state, 'State');
           const findAddrSave = async (t: number) => {
             for (const pf of addrPopup.frames()) {
               for (const bv of ['Save', 'OK', 'Submit']) {
@@ -491,28 +724,30 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
             return null;
           };
           let addrSaveBtn = await findAddrSave(3000);
+          await this.captureEvidence('Address popup before save', undefined, addrPopup).catch(() => {});
           if (addrSaveBtn) { await addrSaveBtn.click(); console.log('  \u2713 Clicked Save in address popup'); }
           await addrPopup.waitForTimeout(3000).catch(() => {});
           if (!addrPopup.isClosed()) {
             addrSaveBtn = await findAddrSave(2000);
             if (addrSaveBtn) await addrSaveBtn.click();
           }
-          if (!addrPopup.isClosed()) await addrPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!addrPopup.isClosed()) addrPopup.close().catch(() => {}); });
+          try { await addrPopup.waitForEvent('close', { timeout: 5000 }); } catch (_) {}
+          await this.safeClosePopup(addrPopup, 5000);
+          await this.captureEvidence('Address popup after save', undefined, addrPopup).catch(() => {});
           addrAdded = true; console.log('\u2713 Address added');
         }
         break;
       }
     }
     if (!addrAdded) console.log('\u26a0 Could not add address');
-    await page.waitForTimeout(this.timeouts.short3);
-    await this.closeUnexpectedPopups(page);
   }
 
   // ==================== FILL ID DOCUMENT TAB ====================
   async fillIdDocumentTab(): Promise<void> {
     console.log('\n========== ID DOCUMENT TAB ==========');
+    await this.captureEvidence('Corporate ID Document - before').catch(() => {});
     const page = this.workingPage;
-    const docs = CRM_TEST_DATA.corporate.endToEnd.documents || [CRM_TEST_DATA.corporate.endToEnd.validDocData];
+    const docs = CRM_TEST_DATA.corporate.endToEnd.documents || [];
     await this.closeUnexpectedPopups(page);
     let idDocTabClicked = false;
     for (const tabText of ['Identification Document Details', 'Document', 'ID Document', 'Identification']) {
@@ -543,93 +778,99 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     await this.closeUnexpectedPopups(page);
 
     for (const docData of docs) {
-    let idAdded = false;
-    for (const f of page.frames()) {
-      let addBtn = f.locator('input[name="AddIdentificationDetails"]').first();
-      let btnVisible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
-      if (!btnVisible) { addBtn = f.locator('input[value="Add Identification Document Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (!btnVisible) { addBtn = f.locator('input[name="Add Document Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (!btnVisible) { addBtn = f.locator('input[value="Add"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-      if (btnVisible) {
-        const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
-        await addBtn.click();
-        const idPopup = await pp;
-        if (idPopup) {
-          idPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
-          await this.waitForPopupReady(idPopup, 'ID Document popup');
-          const idt = await this.findPopupTarget(idPopup);
-          // Select Document Type
-          const docTypeSelect = idt.locator('select[name="EntityDocumentBO.DocTypeCode"]');
-          if (await docTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
-            const docTypeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocTypeCode"]');
-            const targetType = docTypeOptions.find((o: string) => o === docData.documentType) || docTypeOptions.find((o: string) => o.includes(docData.documentType)) || docTypeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
-            if (targetType) {
-              await docTypeSelect.selectOption({ label: targetType });
-              console.log('  \u2713 Set Document Type: ' + targetType);
-              await docTypeSelect.evaluate((el: HTMLSelectElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); });
-              for (let i = 0; i < 5; i++) {
-                await idPopup.waitForTimeout(2000);
-                const docCodeOpts = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocCode"]');
-                if (docCodeOpts.some((o: string) => o !== '--Select--' && o.length > 0)) break;
+      let idAdded = false;
+      for (const f of page.frames()) {
+        let addBtn = await this.findSectionButton(f, ['Identification Document', 'ID Document', 'Document'], ['Add', 'Add Document', 'Add Identification Document Details', 'Add ID Document'])
+          || await this.findVisibleButton(f, 'Add Identification Document Details');
+        if (addBtn) {
+          const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
+          await addBtn.click();
+          const idPopup = await pp;
+          if (idPopup) {
+            idPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
+            await this.waitForPopupReady(idPopup, 'ID Document popup');
+            const idt = await this.findPopupTarget(idPopup);
+            await this.captureEvidence('ID Document popup opened', undefined, idPopup).catch(() => {});
+            // Select Document Type
+            const docTypeSelect = idt.locator('select[name="EntityDocumentBO.DocTypeCode"]');
+            if (await docTypeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+              const docTypeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocTypeCode"]');
+              const targetType = docTypeOptions.find((o: string) => o === docData.documentType) || docTypeOptions.find((o: string) => o.includes(docData.documentType)) || docTypeOptions.find((o: string) => o.includes(docData.documentTypeDesc || ''));
+              if (targetType) {
+                await docTypeSelect.selectOption({ label: targetType });
+                console.log('  \u2713 Set Document Type: ' + targetType);
+                await docTypeSelect.evaluate((el: HTMLSelectElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); });
+                for (let i = 0; i < 5; i++) {
+                  await idPopup.waitForTimeout(2000);
+                  const docCodeOpts = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocCode"]');
+                  if (docCodeOpts.some((o: string) => o !== '--Select--' && o.length > 0)) break;
+                }
               }
             }
-          }
-          // Select Document Code
-          const docCodeSelect = idt.locator('select[name="EntityDocumentBO.DocCode"]');
-          if (await docCodeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
-            const docCodeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocCode"]');
-            const targetCode = docCodeOptions.find((o: string) => o.includes(docData.documentCode)) || docCodeOptions.find((o: string) => o !== '--Select--' && o.length > 0);
-            if (targetCode) {
-              await docCodeSelect.selectOption({ label: targetCode });
-              console.log('  \u2713 Set Document Code: ' + targetCode);
-              await docCodeSelect.evaluate((el: HTMLSelectElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); });
+            // Select Document Code
+            const docCodeSelect = idt.locator('select[name="EntityDocumentBO.DocCode"]');
+            if (await docCodeSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+              const docCodeOptions = await this.getSelectOptions(idt, 'select[name="EntityDocumentBO.DocCode"]');
+              const targetCode = docCodeOptions.find((o: string) => o.includes(docData.documentCode)) || docCodeOptions.find((o: string) => o.includes(docData.documentCodeDescription || ''));
+              if (targetCode) {
+                await docCodeSelect.selectOption({ label: targetCode });
+                console.log('  \u2713 Set Document Code: ' + targetCode);
+                await docCodeSelect.evaluate((el: HTMLSelectElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); });
+              }
             }
-          }
-          // Reference Number
-          const refInput = idt.locator('input[name="EntityDocumentBO.ReferenceNumber"]');
-          if (await refInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await refInput.fill(docData.uniqueId);
-            console.log('  \u2713 Set Reference Number: ' + docData.uniqueId);
-          }
-          // Issue/Expiry dates
-          await idt.evaluate((data: { issueDate: string; expiryDate: string }) => {
-            const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-            ['3_EntityDocumentBO.DocIssueDate', 'EntityDocumentBO.DocIssueDate'].forEach(n => {
-              const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
-              if (el) { el.removeAttribute('readonly'); el.value = data.issueDate; fire(el); }
-            });
-            if (data.expiryDate) {
-              ['3_EntityDocumentBO.DocExpiryDate', 'EntityDocumentBO.DocExpiryDate'].forEach(n => {
+            // Reference Number
+            const refInput = idt.locator('input[name="EntityDocumentBO.ReferenceNumber"]');
+            if (await refInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await refInput.fill(docData.uniqueId);
+              console.log('  \u2713 Set Reference Number: ' + docData.uniqueId);
+            }
+            // Issue/Expiry dates
+            await idt.evaluate((data: { issueDate: string; expiryDate: string }) => {
+              const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
+              ['3_EntityDocumentBO.DocIssueDate', 'EntityDocumentBO.DocIssueDate'].forEach(n => {
                 const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
-                if (el) { el.removeAttribute('readonly'); el.value = data.expiryDate; fire(el); }
+                if (el) { el.removeAttribute('readonly'); el.value = data.issueDate; fire(el); }
               });
-            }
-          }, { issueDate: docData.issueDate, expiryDate: docData.expiryDate }).catch(() => {});
-          // LOV for Place of Issue and Country of Issue
-          await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.PlaceOfIssue', docData.placeOfIssue, 'Place of Issue');
-          await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.CountryOfIssue', 'Bermuda', 'Country of Issue');
-          // Save
-          const findIdSave = async (t: number) => {
-            for (const pf of idPopup.frames()) {
-              for (const bv of ['Save', 'OK', 'Submit']) {
-                const b = pf.locator(`input[value="${bv}"]`).first();
-                if (await b.isVisible({ timeout: t }).catch(() => false)) return b;
+              if (data.expiryDate) {
+                ['3_EntityDocumentBO.DocExpiryDate', 'EntityDocumentBO.DocExpiryDate'].forEach(n => {
+                  const el = document.querySelector(`input[name="${n}"]`) as HTMLInputElement;
+                  if (el) { el.removeAttribute('readonly'); el.value = data.expiryDate; fire(el); }
+                });
               }
+            }, { issueDate: docData.issueDate, expiryDate: docData.expiryDate }).catch(() => {});
+            // LOV for Place of Issue and Country of Issue
+            if (docData.placeOfIssue) await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.PlaceOfIssue', docData.placeOfIssue, 'Place of Issue');
+            if (docData.countryOfIssue) {
+              const countryDisplay = docData.countryOfIssue === 'BM' ? 'BERMUDA' : (docData.countryOfIssueDisplay || docData.countryOfIssue);
+              await this.selectDocLovCorp(idPopup, idt, 'btnone_EntityDocumentBO.CountryOfIssue', countryDisplay, 'Country of Issue');
             }
-            return null;
-          };
-          const idDocSaveBtn = await findIdSave(3000);
-          if (idDocSaveBtn) { await idDocSaveBtn.click(); console.log('  \u2713 Clicked Save in ID Document popup'); }
-          if (!idPopup.isClosed()) await idPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!idPopup.isClosed()) idPopup.close().catch(() => {}); });
-          idAdded = true; console.log('\u2713 ID Document added');
+            await this.captureEvidence('ID Document popup filled', undefined, idPopup).catch(() => {});
+            // Save
+            const findIdSave = async (t: number) => {
+              for (const pf of idPopup.frames()) {
+                for (const bv of ['Save', 'OK', 'Submit']) {
+                  const b = pf.locator(`input[value="${bv}"]`).first();
+                  if (await b.isVisible({ timeout: t }).catch(() => false)) return b;
+                }
+              }
+              return null;
+            };
+            const idDocSaveBtn = await findIdSave(3000);
+            await this.captureEvidence('ID Document popup before save', undefined, idPopup).catch(() => {});
+            if (idDocSaveBtn) { await idDocSaveBtn.click(); console.log('  \u2713 Clicked Save in ID Document popup'); }
+            try { await idPopup.waitForEvent('close', { timeout: 5000 }); } catch (_) {}
+            await this.safeClosePopup(idPopup, 5000);
+            await this.captureEvidence('ID Document popup after save', undefined, idPopup).catch(() => {});
+            idAdded = true; console.log('\u2713 ID Document added');
+          }
+          break;
         }
-        break;
       }
-    }
-    if (!idAdded) console.log('\u26a0 Could not add ID Document');
+      if (!idAdded) console.log('\u26a0 Could not add ID Document');
     }
     await page.waitForTimeout(this.timeouts.short3);
     await this.closeUnexpectedPopups(page);
+    await this.captureEvidence('Corporate ID Document complete').catch(() => {});
   }
 
   private async selectDocLovCorp(idPopup: Page, idt: any, btnName: string, searchValue: string, label: string): Promise<void> {
@@ -682,15 +923,16 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       if (allRows.length > 0) selected = await trySelect(searchValue);
       if (!selected && allRows.length > 0) selected = await trySelect(allRows[0].text);
     }
-    if (!lov.isClosed()) await lov.waitForEvent('close', { timeout: this.timeouts.medium }).catch(() => { if (!lov.isClosed()) lov.close().catch(() => {}); });
+    try { await lov.waitForEvent('close', { timeout: 5000 }); } catch (_) {}
+    await this.safeClosePopup(lov, 5000);
   }
 
   // ==================== FILL CURRENCY TAB ====================
   async fillCurrencyTab(): Promise<void> {
     console.log('\n========== CURRENCY TAB ==========');
+    await this.captureEvidence('Corporate Currency - before').catch(() => {});
     const page = this.workingPage;
-    const vcd = CRM_TEST_DATA.corporate.endToEnd.validCcyData;
-    const ccyList = CRM_TEST_DATA.corporate.endToEnd.currencies || [vcd];
+    const ccyList = CRM_TEST_DATA.corporate.endToEnd.currencies || [];
     await this.closeUnexpectedPopups(page);
     for (const f of page.frames()) {
       const t = f.getByText('Currency', { exact: false }).first();
@@ -703,23 +945,54 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     await this.closeUnexpectedPopups(page);
 
     let ccyAdded = false;
+    let ccyPopup: Page | null = null;
+    let ccyTarget: any = null;
+
+    const getCcyTarget = async (): Promise<any> => {
+      if (!ccyPopup || ccyPopup.isClosed()) return null;
+      return this.findPopupTarget(ccyPopup);
+    };
+    const evalCcy = async (fn: (args: any) => any, arg: any): Promise<any> => {
+      let lastErr: any;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (!ccyTarget) ccyTarget = await getCcyTarget();
+          if (!ccyTarget) throw new Error('No CCY target frame');
+          return await ccyTarget.evaluate(fn, arg);
+        } catch (e: any) {
+          lastErr = e;
+          if (attempt === 2 || !e.message?.includes('has been closed')) throw e;
+          console.log('  \u26a0 CCY frame closed, reacquiring...');
+          await page.waitForTimeout(this.timeouts.short3);
+          ccyTarget = await getCcyTarget();
+        }
+      }
+      throw lastErr;
+    };
+
     for (const ccyData of ccyList) {
+      if (!ccyData.ccy) continue;
+      if (ccyPopup && ccyPopup.isClosed()) { ccyPopup = null; ccyTarget = null; }
       let ccyAddedThis = false;
-      for (const f of page.frames()) {
-        let addBtn = f.locator('input[name="Add Currency"]').first();
-        let btnVisible = await addBtn.isVisible({ timeout: 3000 }).catch(() => false);
-        if (!btnVisible) { addBtn = f.locator('input[value="Add CCY"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-        if (!btnVisible) { addBtn = f.locator('input[value="Add Currency Details"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-        if (!btnVisible) { addBtn = f.locator('input[value="Add"]').first(); btnVisible = await addBtn.isVisible({ timeout: 2000 }).catch(() => false); }
-        if (btnVisible) {
+      const searchFrames: any[] = [...page.frames()];
+      if (ccyPopup && !ccyPopup.isClosed()) {
+        searchFrames.unshift(ccyPopup);
+        for (const cf of ccyPopup.frames()) { if (!searchFrames.includes(cf)) searchFrames.unshift(cf); }
+      }
+      for (const f of searchFrames) {
+        let addBtn = await this.findSectionButton(f, ['Currency', 'CCY'], ['Add', 'Add Currency', 'Add CCY', 'Add Currency Details'])
+          || await this.findSectionButton(f, ['Currency', 'CCY'], ['Add'])
+          || await this.findVisibleButton(f, 'Add Currency');
+        if (addBtn) {
           const pp = page.context().waitForEvent('page', { timeout: this.timeouts.popupLoad }).catch(() => null);
           await addBtn.click();
-          const ccyPopup = await pp;
+          ccyPopup = (await pp) || ccyPopup;
           if (ccyPopup) {
             ccyPopup.on('dialog', async (d) => { this.lastDialogMessages.push(d.message()); await d.accept().catch(() => {}); });
             await this.waitForPopupReady(ccyPopup, 'Currency popup');
-            const ct = await this.findPopupTarget(ccyPopup);
-            await ct.evaluate((data: any) => {
+            ccyTarget = await this.findPopupTarget(ccyPopup);
+            await this.captureEvidence('Currency popup opened', undefined, ccyPopup).catch(() => {});
+            await evalCcy((data: any) => {
               const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
               const setF = (p: string, v: string) => { for (const i of Array.from(document.querySelectorAll('input'))) { if ((i as HTMLInputElement).name.toLowerCase().includes(p) && (i as HTMLInputElement).type !== 'hidden') { (i as HTMLInputElement).removeAttribute('readonly'); (i as HTMLInputElement).value = v; fire(i as HTMLElement); return; } } };
               setF('credit_discount', data.creditDiscountPcnt); setF('debit_discount', data.debitDiscountPcnt);
@@ -727,6 +1000,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
               setF('withholding_tax_floor', data.withholdingTaxFloorLimit); setF('floor_limit', data.withholdingTaxFloorLimit);
               setF('preferential_expiry', data.preferentialExpiryDate); setF('expiry_date', data.preferentialExpiryDate);
             }, ccyData).catch(() => {});
+            await this.captureEvidence('Currency popup filled', undefined, ccyPopup).catch(() => {});
             // CCY LOV
             for (const pf of ccyPopup.frames()) {
               const lb = pf.locator('input[name*="btn"][name*="CCY"], input[name*="btn"][name*="ccy"]').first();
@@ -747,12 +1021,13 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
                       break;
                     }
                   }
-                  if (!lovP.isClosed()) await lovP.close().catch(() => {});
+                  await this.safeClosePopup(lovP, 5000);
                 }
                 break;
               }
             }
             const findCcySave = async (t: number) => {
+              if (!ccyPopup) return null;
               for (const pf of ccyPopup.frames()) {
                 for (const bv of ['Save', 'OK', 'Submit']) {
                   const b = pf.locator(`input[value="${bv}"]`).first();
@@ -764,9 +1039,11 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
             const ccyDlgHandler = async (d: Dialog) => { await d.accept().catch(() => {}); };
             ccyPopup.on('dialog', ccyDlgHandler);
             const ccySaveBtn = await findCcySave(3000);
+            await this.captureEvidence('Currency popup before save', undefined, ccyPopup).catch(() => {});
             if (ccySaveBtn) { await ccySaveBtn.click(); console.log('\u2713 Clicked Save in Currency popup'); }
-            if (!ccyPopup.isClosed()) await ccyPopup.waitForEvent('close', { timeout: this.timeouts.long15 }).catch(() => { if (!ccyPopup.isClosed()) ccyPopup.close().catch(() => {}); });
-            ccyPopup.removeListener('dialog', ccyDlgHandler);
+            try { await ccyPopup.waitForEvent('close', { timeout: 5000 }); ccyPopup = null; ccyTarget = null; } catch (_) {}
+            try { ccyPopup?.removeListener('dialog', ccyDlgHandler); } catch (_) {}
+            await this.captureEvidence('Currency popup after save', undefined, ccyPopup).catch(() => {});
             ccyAdded = true; ccyAddedThis = true; console.log('\u2713 Currency added');
           }
           break;
@@ -777,309 +1054,237 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     if (!ccyAdded) console.log('\u26a0 Could not add Currency');
     await page.waitForTimeout(this.timeouts.short3);
     await this.closeUnexpectedPopups(page);
+    await this.captureEvidence('Corporate Currency complete');
   }
 
-  // ==================== FILL DEMOGRAPHIC TAB ====================
-  async fillDemographicTab(): Promise<void> {
-    console.log('\n========== DEMOGRAPHIC TAB ==========');
+  // ==================== FILL GENERAL TAB AND SUB-TABS ====================
+  async fillGeneralTab(): Promise<void> {
+    console.log('\n========== GENERAL TAB ==========');
+    await this.captureEvidence('Corporate General tab - before').catch(() => {});
     const page = this.workingPage;
     await this.closeUnexpectedPopups(page);
-    let demoTabClicked = false;
-    for (const f of page.frames()) {
-      const t = f.getByText('Demographic', { exact: false }).first();
-      if (await t.isVisible({ timeout: 5000 }).catch(() => false)) {
-        const txt = await t.textContent().catch(() => '');
-        if (txt && txt.toLowerCase().includes('demographic')) { await t.click(); demoTabClicked = true; console.log('\u2713 Clicked Demographic tab'); break; }
-      }
-    }
-    await page.waitForTimeout(this.timeouts.medium);
+    // Make sure we are on the main Customer form frame before touching the General tab.
+    await this.reacquireAccountFrame('before General', undefined, true).catch(() => {});
+    await this.navigateToSectionTab(['General', 'General Details']);
 
-    let demoFrame: any = null;
-    for (const f of page.frames()) {
-      try { const u = f.url(); if (u.includes('CorpModFinancialDet') || u.includes('CorpTFinMod_Det') || u.includes('DemographicMod_det')) { demoFrame = f; break; } } catch (_) {}
+    await this.fillBasicInfo();
+    await this.fillIdDocumentTab();
+    await this.fillContactTab();
+
+    // Group Details and Core Interface Details are explicitly skipped for now because
+    // the current CRM workflow does not require them and visiting Core Interface
+    // causes serverside validation errors (e.g. FreeCode2Desc invalid).
+    // Future Excel columns can be re-enabled here once the exact tab controls are mapped.
+
+    await this.fillCurrencyTab();
+    await this.fillGeneralSubTab(['Tax Certification Details', 'Tax Certification'], 'Tax Certification Details');
+    await this.fillTaxCertificationSection(CRM_TEST_DATA.corporate.endToEnd.taxCertificationData);
+    console.log('\u2713 General tab and sub-tabs processed');
+    await this.captureEvidence('Corporate General tab complete');
+  }
+
+  private async fillGeneralSubTab(tabLabels: string[], label: string): Promise<void> {
+    console.log('\n--- ' + label + ' ---');
+    const page = this.workingPage;
+    try {
+      await this.navigateToSectionTab(tabLabels);
+    } catch (e) {
+      console.log('  \u26a0 Could not process ' + label + ': ' + (e as Error).message?.substring(0, 100));
     }
-    if (!demoFrame) demoFrame = page.frame({ name: 'formDispFrame' }) || this.accountFrame;
-    const getDemoFrame = () => {
-      for (const f of page.frames()) { try { if (f.url().includes('CorpModFinancialDet') || f.url().includes('CorpTFinMod_Det') || f.url().includes('DemographicMod_det')) return f; } catch (_) {} }
-      return page.frame({ name: 'formDispFrame' }) || demoFrame;
+    await page.waitForTimeout(this.timeouts.short).catch(() => {});
+  }
+
+  // ==================== FILL RELATIONSHIP TAB ====================
+  async fillRelationshipTab(): Promise<void> {
+    console.log('\n========== RELATIONSHIP TAB ==========');
+    await this.captureEvidence('Corporate Relationship - before').catch(() => {});
+    const page = this.workingPage;
+    const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
+    await this.closeUnexpectedPopups(page);
+
+    // Reacquire the main Customer form first so the Relationship tab is clicked inside the Customer module.
+    await this.reacquireAccountFrame('before Relationship', undefined, true).catch(() => {});
+    const relFrame = await this.navigateToSectionTab(['Relationship']);
+    // Relationship fields live in the main Corporate form, not in a sub-popup.
+    await this.reacquireAccountFrame('Relationship', undefined, true).catch(() => {});
+    const f = this.mainAccountFrame || this.accountFrame || relFrame || page;
+
+    // Wait for Relationship section fields to render inside the Customer form frame.
+    await page.waitForTimeout(this.timeouts.short3);
+
+    // Helper to fill relationship fields in whichever frame is active (main form or popup).
+    const fillRelFields = async (target: any) => {
+      if (cd.relationshipType) {
+        const relType = String(cd.relationshipType);
+        let relSet = await this.setGenericFieldByLabel(target, 'Relationship Type', relType, 'select');
+        if (!relSet) {
+          relSet = await this.setSelect(target, ['CorporateBO.relationship_Type', 'CorporateModBO.relationship_Type', 'RelationshipBO.relationship_Type', 'CorporateBO.relationshipType'], relType, 'Relationship Type');
+        }
+        if (!relSet) {
+          relSet = await this.setLovByLabel(target, 'Relationship Type', relType, relType);
+        }
+        if (relSet) {
+          console.log('\u2713 Relationship Type = "' + relType + '"');
+        } else {
+          console.log('\u26a0 Relationship Type not set for "' + relType + '"');
+        }
+      }
+      if (cd.relationshipStartDate) {
+        await this.setField(target, ['CorporateBO.relationship_StartDate', '3_CorporateBO.relationship_StartDate'], cd.relationshipStartDate, 'Relationship Start Date');
+      }
+      if (cd.createdBy) {
+        await this.setField(target, ['CorporateBO.relationship_CreatedBy', 'CorporateModBO.relationship_CreatedBy'], cd.createdBy, 'Relationship Created By');
+      }
+      if (cd.primaryRelationshipManagerId) {
+        await this.setField(target, ['CorporateBO.PrimaryRMLogin_ID', 'CorporateModBO.PrimaryRMLogin_ID'], cd.primaryRelationshipManagerId, 'Primary RM');
+      }
+      if ((cd as any).secondaryRelationshipManagerId) {
+        await this.setField(target, ['CorporateBO.SecondaryRMLogin_ID', 'CorporateModBO.SecondaryRMLogin_ID'], (cd as any).secondaryRelationshipManagerId, 'Secondary Relationship Manager');
+      }
+      if ((cd as any).relationshipLevel) {
+        await this.setGenericFieldByLabel(target, 'Relationship Level', (cd as any).relationshipLevel, 'select').catch(() => {});
+      }
     };
 
-    // Fill Nationality
-    for (const f of page.frames()) {
-      const info = await f.evaluate(() => {
-        const r: { codeName: string; dispName: string; btnName: string } = { codeName: '', dispName: '', btnName: '' };
-        document.querySelectorAll('input').forEach(el => {
-          const n = (el as HTMLInputElement).name || '';
-          if (n.includes('Nationality') && !n.startsWith('Cat_') && !n.startsWith('btn') && !n.startsWith('pi_')) r.codeName = n;
-          if (n.startsWith('Cat_') && n.includes('Nationality')) r.dispName = n;
-          if ((n.startsWith('btn') || n.startsWith('pi_')) && n.includes('Nationality')) r.btnName = n;
-        });
-        return r;
-      }).catch(() => ({ codeName: '', dispName: '', btnName: '' }));
-      if (info.codeName || info.btnName) { this.natInfo = info; demoFrame = f; break; }
-    }
-    if (this.natInfo.codeName) {
-      await demoFrame.evaluate((a: { c: string; d: string }) => {
-        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const ce = document.querySelector(`input[name="${a.c}"]`) as HTMLInputElement;
-        if (ce) { ce.value = 'BM'; fire(ce); }
-        if (a.d) { const de = document.querySelector(`input[name="${a.d}"]`) as HTMLInputElement; if (de) { de.value = 'BERMUDA'; fire(de); } }
-      }, { c: this.natInfo.codeName, d: this.natInfo.dispName }).catch(() => {});
-      console.log('\u2713 Nationality = BERMUDA (BM)');
-    } else if (this.natInfo.btnName) {
-      try {
-        const lpp = page.context().waitForEvent('page', { timeout: this.timeouts.long15 }).catch(() => null);
-        await demoFrame.locator(`input[name="${this.natInfo.btnName}"]`).evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).catch(() => {});
-        const natLov = await lpp;
-        if (natLov && !natLov.isClosed()) {
-          await natLov.bringToFront();
-          await new Promise(r => setTimeout(r, 2000));
-          await this.waitForPopupReady(natLov, 'Nationality LOV');
-          for (const lf of natLov.frames()) {
-            const si = lf.locator('input[type="text"]').first();
-            if (await si.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await si.fill('BERMUDA').catch(() => {});
-              const sub = lf.locator('input[value="Submit"]').first();
-              if (await sub.isVisible({ timeout: 3000 }).catch(() => false)) await sub.click().catch(() => {});
-              await natLov.waitForTimeout(this.timeouts.short).catch(() => {});
-              try { await Promise.race([lf.getByText('BERMUDA', { exact: true }).first().dblclick({ timeout: this.timeouts.medium }), natLov.waitForEvent('close', { timeout: this.timeouts.long })]); } catch (_) {}
-              break;
-            }
+    // Some Finacle builds require clicking an Add/Update button to open a relationship popup.
+    const addRelBtn = await this.findVisibleButton(f, 'Add Relationship') || await this.findButtonByKeywords(f, ['Add Relationship', 'Add Relation', 'Update Relationship']);
+    if (addRelBtn) {
+      console.log('\u2713 Clicking Add Relationship to open relationship popup');
+      const popupPromise = page.context().waitForEvent('page', { timeout: 15000 }).catch(() => null);
+      await addRelBtn.click();
+      let relPopup = await popupPromise;
+      if (!relPopup) {
+        // Relationship may open inside the same page as a new frame
+        await page.waitForTimeout(this.timeouts.short3);
+        for (const fr of page.frames()) {
+          const u = fr.url() || '';
+          if (u.includes('Relationship') || u.includes('Rel')) { relPopup = fr as any; break; }
+        }
+      }
+      if (relPopup && !(relPopup as any).isClosed()) {
+        if (typeof (relPopup as any).waitForLoadState === 'function') await (relPopup as any).waitForLoadState('domcontentloaded').catch(() => {});
+        const pf = typeof (relPopup as any).frames === 'function' ? ((relPopup as any).frames().length ? (relPopup as any).frames()[0] : relPopup) : relPopup;
+        await this.waitForPopupReady(pf, 'Relationship Details').catch(() => {});
+        await fillRelFields(pf || relPopup);
+        const saveBtn = await this.findVisibleButton(pf || relPopup, 'Save') || await this.findButtonByKeywords(pf || relPopup, ['Save', 'OK', 'Submit']);
+        if (saveBtn) {
+          await saveBtn.click();
+          console.log('\u2713 Clicked Save in Relationship Details popup');
+          await page.waitForTimeout(this.timeouts.short3);
+          await this.closeUnexpectedPopups(page);
+          if (typeof (relPopup as any).isClosed === 'function' && !(relPopup as any).isClosed()) {
+            await (relPopup as any).waitForEvent('close', { timeout: 5000 }).catch(() => {});
+            await this.safeClosePopup(relPopup, 3000);
           }
-          if (!natLov.isClosed()) await natLov.close().catch(() => {});
         }
-      } catch (e) { console.log('\u26a0 Nationality LOV error: ' + (e as Error).message?.substring(0, 100)); }
-    }
-
-    // Residence Country
-    demoFrame = getDemoFrame();
-    await demoFrame.evaluate(() => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); };
-      document.querySelectorAll('input').forEach(el => {
-        const inp = el as HTMLInputElement;
-        if (inp.name.includes('Residence_Country') && !inp.name.startsWith('Cat_') && !inp.name.startsWith('btn') && !inp.name.startsWith('pi_')) { if (!inp.value) { inp.value = 'BM'; fire(inp); } }
-        if (inp.name.startsWith('Cat_') && inp.name.includes('Residence_Country')) { if (!inp.value) { inp.value = 'BERMUDA'; fire(inp); } }
-      });
-    }).catch(() => {});
-    console.log('\u2713 Residence Country = BERMUDA');
-
-    // Save Demographic
-    for (const f of page.frames()) { const sb = f.locator('input[value="Save"]').first(); if (await sb.isVisible({ timeout: 3000 }).catch(() => false)) { await sb.click(); console.log('\u2713 Saved Demographic'); break; } }
-    await page.waitForTimeout(this.timeouts.medium);
-
-    // Income and Expense sub-tab
-    for (const f of page.frames()) { const t = f.getByText('Income and Expense', { exact: false }).first(); if (await t.isVisible({ timeout: 5000 }).catch(() => false)) { await t.click(); console.log('\u2713 Clicked Income and Expense sub-tab'); break; } }
-    await page.waitForTimeout(this.timeouts.medium);
-    demoFrame = getDemoFrame();
-
-    // Annual Turnover
-    let grossField = '';
-    for (const fn of ['3_DemographicBO.Annual_Salary_Income', 'DemographicBO.Annual_Salary_Income', 'DemographicBO.Annual_Turnover', 'CorpModFinancialBO.AnnualTurnover', 'CorpModFinancialBO.annual_turnover']) {
-      for (const f of page.frames()) { if (await f.evaluate((n: string) => !!document.querySelector(`input[name="${n}"]`), fn).catch(() => false)) { grossField = fn; demoFrame = f; break; } }
-      if (grossField) break;
-    }
-    if (!grossField) {
-      for (const f of page.frames()) {
-        const found = await f.evaluate(() => { for (const i of Array.from(document.querySelectorAll('input'))) { const n = (i as HTMLInputElement).name.toLowerCase(); if (n.includes('annual_salary') || n.includes('turnover') || n.includes('gross')) return (i as HTMLInputElement).name; } return ''; }).catch(() => '');
-        if (found) { grossField = found; demoFrame = f; break; }
+      } else {
+        // No popup opened; fill directly in the main form and commit
+        await fillRelFields(f);
+        await addRelBtn.click();
+        await page.waitForTimeout(this.timeouts.short3);
+        await this.closeUnexpectedPopups(page);
       }
-    }
-    if (grossField) {
-      await demoFrame.evaluate((fn: string) => { const el = document.querySelector(`input[name="${fn}"]`) as HTMLInputElement; if (el) el.removeAttribute('readonly'); }, grossField).catch(() => {});
-      const gl = demoFrame.locator(`input[name="${grossField}"]`);
-      if (await gl.isVisible({ timeout: 5000 }).catch(() => false)) await gl.fill('500000').catch(() => {});
-      else await demoFrame.evaluate((a: { f: string; v: string }) => { const el = document.querySelector(`input[name="${a.f}"]`) as HTMLInputElement; if (el) { el.removeAttribute('readonly'); el.value = a.v; el.dispatchEvent(new Event('change', { bubbles: true })); } }, { f: grossField, v: '500000' }).catch(() => {});
-      console.log('\u2713 Annual Turnover = 500000 (field: ' + grossField + ')');
+    } else {
+      await fillRelFields(f);
     }
 
-    // BMD currency
-    await demoFrame.evaluate(() => {
-      const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); };
-      for (const s of Array.from(document.querySelectorAll('select'))) {
-        const se = s as HTMLSelectElement;
-        if (se.name !== 'op_code' && se.name !== 'res_type' && se.name !== 'soln_type') {
-          const hasCcy = Array.from(se.options).some(o => o.text.includes('BMD') || o.text.includes('USD'));
-          if (hasCcy) { for (const o of Array.from(se.options)) { if (o.text.includes('BMD') || o.value === 'BMD') { se.value = o.value; fire(se); break; } } break; }
-        }
-      }
-    }).catch(() => {});
+    await page.waitForTimeout(this.timeouts.short3);
+    await this.captureEvidence('Corporate Relationship complete');
+  }
 
-    // Monthly Expense
-    let expField = '';
-    for (const fn of ['3_DemographicBO.Annual_Operating_Exp', 'DemographicBO.Annual_Operating_Exp', 'CorpModFinancialBO.AnnualOperatingExp', 'CorpModFinancialBO.annual_operating_exp']) {
-      for (const f of page.frames()) { if (await f.evaluate((n: string) => !!document.querySelector(`input[name="${n}"]`), fn).catch(() => false)) { expField = fn; demoFrame = f; break; } }
-      if (expField) break;
+  // ==================== FILL PREFERENCES TAB ====================
+  async fillPreferencesTab(): Promise<void> {
+    console.log('\n========== PREFERENCES TAB ==========');
+    await this.captureEvidence('Corporate Preferences - before').catch(() => {});
+    const page = this.workingPage;
+    const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
+    const dd = CRM_TEST_DATA.corporate.endToEnd.demographicData || {};
+    const rbd = CRM_TEST_DATA.corporate.endToEnd.riskBaselData || {};
+    await this.closeUnexpectedPopups(page);
+
+    // Reacquire the main Customer form so Preferences sub-tabs are clicked inside the Customer module.
+    await this.reacquireAccountFrame('before Preferences', undefined, true).catch(() => {});
+    const prefFrame = await this.navigateToSectionTab(['Preferences']);
+    await this.reacquireAccountFrame('Preferences', undefined, true).catch(() => {});
+    const f = this.mainAccountFrame || this.accountFrame || prefFrame || page;
+
+    // Basic Preference
+    await this.navigateToSectionTab(['Basic Preference', 'Basic Preference Details', 'Basic']);
+    const basicFrame = this.mainAccountFrame || this.accountFrame || page;
+    const preferredChannel = cd.preferredCommunicationChannel || rbd.communicationIndemnity || '';
+    if (preferredChannel) {
+      await this.setGenericFieldByLabel(basicFrame, 'Preferred Communication Channel', preferredChannel, 'select');
+      // Move the preferred channel from Available Channels to Access Channels
+      await this.setDualListByLabel(basicFrame, 'Available Channels', preferredChannel, 'Access Channels').catch(() => {});
     }
-    if (!expField) {
-      for (const f of page.frames()) {
-        const found = await f.evaluate(() => { for (const i of Array.from(document.querySelectorAll('input'))) { const n = (i as HTMLInputElement).name.toLowerCase(); if (n.includes('operating_exp') || n.includes('expense')) return (i as HTMLInputElement).name; } return ''; }).catch(() => '');
-        if (found) { expField = found; demoFrame = f; break; }
-      }
+    await this.fillSectionByMeta(basicFrame, 'demographicData', dd, CRM_TEST_DATA.corporate.endToEnd._meta).catch(() => {});
+
+    // Bank Preference
+    await this.navigateToSectionTab(['Bank Preference', 'Bank Preference Details', 'Bank']);
+    const bankFrame = this.accountFrame || page;
+    if (cd.defaultChannelForAlerts) {
+      await this.setGenericFieldByLabel(bankFrame, 'Default Channel for Alerts', cd.defaultChannelForAlerts, 'select');
     }
-    if (expField) {
-      await demoFrame.evaluate((fn: string) => { const el = document.querySelector(`input[name="${fn}"]`) as HTMLInputElement; if (el) el.removeAttribute('readonly'); }, expField).catch(() => {});
-      const el = demoFrame.locator(`input[name="${expField}"]`);
-      if (await el.isVisible({ timeout: 5000 }).catch(() => false)) await el.fill('100000').catch(() => {});
-      else await demoFrame.evaluate((a: { f: string; v: string }) => { const e = document.querySelector(`input[name="${a.f}"]`) as HTMLInputElement; if (e) { e.removeAttribute('readonly'); e.value = a.v; e.dispatchEvent(new Event('change', { bubbles: true })); } }, { f: expField, v: '100000' }).catch(() => {});
-      console.log('\u2713 Monthly Expense = 100000 (field: ' + expField + ')');
-    }
-    await page.screenshot({ path: 'test-results-temp/corp-demographic-complete.png' }).catch(() => {});
+
+    // Customer Preference
+    await this.navigateToSectionTab(['Customer Preference', 'Customer Preference Details', 'Customer']);
+    const custFrame = this.accountFrame || page;
+    await this.fillSectionByMeta(custFrame, 'demographicData', dd, CRM_TEST_DATA.corporate.endToEnd._meta).catch(() => {});
+    await this.fillSectionByMeta(custFrame, 'psychographicData', CRM_TEST_DATA.corporate.endToEnd.psychographicData, CRM_TEST_DATA.corporate.endToEnd._meta).catch(() => {});
+
+    await page.waitForTimeout(this.timeouts.short3);
+    await this.captureEvidence('Corporate Preferences complete');
+  }
+
+  // ==================== FILL FINANCIAL TAB ====================
+  async fillFinancialTab(): Promise<void> {
+    console.log('\n========== FINANCIAL TAB ==========');
+    await this.captureEvidence('Corporate Financial - before').catch(() => {});
+    const page = this.workingPage;
+    await this.closeUnexpectedPopups(page);
+
+    // Reacquire the main Customer form so the Financial tab is clicked inside the Customer module.
+    await this.reacquireAccountFrame('before Financial', undefined, true).catch(() => {});
+    await this.navigateToSectionTab(['Financial', 'Financial Details']);
+    await this.reacquireAccountFrame('Financial', undefined, true).catch(() => {});
+
+    // Corporate Finance and Other Bank Details are driven from the workbook.
+    // Defer saving to final Submit so earlier Basic Info values are not overwritten.
+    await this.fillAdditionalSections([
+      { name: 'corporateFinanceData', tabLabels: ['Basic Info', 'Financial Basic Info', 'Corporate Finance', 'Financial'], skipSave: true },
+      { name: 'otherBankData', tabLabels: ['Other Bank Details', 'Other Bank', 'Banking Details'] }
+    ], CRM_TEST_DATA.corporate.endToEnd, CRM_TEST_DATA.corporate.endToEnd._meta);
+    await this.captureEvidence('Corporate Financial complete');
   }
 
   // ==================== PRE-SUBMIT VERIFICATION ====================
   async preSubmitVerification(): Promise<void> {
     console.log('\n=== Pre-Submit: Re-verify mandatory fields ===');
+    await this.captureEvidence('Corporate Pre-Submit - before').catch(() => {});
     const page = this.workingPage;
-    const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
-    const ctd = CRM_TEST_DATA.corporate.endToEnd.contactData;
 
-    // Navigate back to General Details
-    for (const f of page.frames()) { const t = f.getByText('General Details', { exact: false }).first(); if (await t.isVisible({ timeout: 3000 }).catch(() => false)) { await t.click(); break; } }
+    // Reacquire the main Customer form frame and navigate back to Basic Info.
+    await this.reacquireAccountFrame('pre-submit', undefined, true).catch(() => {});
+    for (const f of page.frames()) {
+      if (f !== this.mainAccountFrame && f !== this.accountFrame) continue;
+      const t = f.getByText('General Details', { exact: false }).first();
+      if (await t.isVisible({ timeout: 3000 }).catch(() => false)) { await t.click(); break; }
+    }
     await page.waitForTimeout(this.timeouts.short3);
 
-    // Diagnostic: discover actual field names for Sub-segment and Notes across all frames
-    for (const f of page.frames()) {
-      const diag = await f.evaluate(() => {
-        const sels: string[] = [];
-        document.querySelectorAll('select').forEach(s => {
-          const sel = s as HTMLSelectElement;
-          if (sel.name && (sel.name.toLowerCase().includes('sub') || sel.name.toLowerCase().includes('segment') || sel.name.toLowerCase().includes('note'))) {
-            const opts = Array.from(sel.options).map(o => `${o.value}:${o.text.trim()}`).slice(0, 5);
-            sels.push(`select[name="${sel.name}"] val="${sel.value}" opts=[${opts.join(', ')}]`);
-          }
-        });
-        const tas: string[] = [];
-        document.querySelectorAll('textarea').forEach(t => {
-          const ta = t as HTMLTextAreaElement;
-          if (ta.name) tas.push(`textarea[name="${ta.name}"] val="${(ta.value || '').substring(0, 30)}"`);
-        });
-        const noteInps: string[] = [];
-        document.querySelectorAll('input').forEach(el => {
-          const inp = el as HTMLInputElement;
-          if (inp.name && (inp.name.toLowerCase().includes('note') || inp.name.toLowerCase().includes('native'))) {
-            noteInps.push(`input[name="${inp.name}"] type=${inp.type} val="${(inp.value || '').substring(0, 30)}"`);
-          }
-        });
-        return { sels, tas, noteInps };
-      }).catch(() => ({ sels: [], tas: [], noteInps: [] }));
-      if (diag.sels.length > 0 || diag.tas.length > 0 || diag.noteInps.length > 0) {
-        console.log(`  Diag frame "${f.name()}": selects=[${diag.sels.join('; ')}] textareas=[${diag.tas.join('; ')}] noteInps=[${diag.noteInps.join('; ')}]`);
-      }
-    }
+    // Re-fill every workbook value from Basic Info before final submission.
+    await this.fillBasicInfo(true, 'Corporate Pre-Submit - Basic Info');
+    await this.reacquireAccountFrame('pre-submit after fillBasicInfo', undefined, true).catch(() => {});
+    await this.closeUnexpectedPopups(page);
 
-    for (const f of page.frames()) {
-      const result = await f.evaluate((args: { natCode: string; natDisp: string; createdBy: string; primaryRelationshipManagerId: string; notes: string }) => {
-        const fire = (el: HTMLElement) => { el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('blur', { bubbles: true })); };
-        const setSel = (name: string, match: string) => { const sel = document.querySelector(`select[name="${name}"]`) as HTMLSelectElement; if (!sel) return false; for (const o of Array.from(sel.options)) { if (o.text.trim().toUpperCase().includes(match.toUpperCase()) || o.value.toUpperCase().includes(match.toUpperCase())) { sel.value = o.value; fire(sel); return true; } } return false; };
-        const setInp = (name: string, val: string) => { const el = document.querySelector(`input[name="${name}"]`) as HTMLInputElement; if (!el) return false; el.removeAttribute('readonly'); el.value = val; fire(el); return true; };
-        const res = { foundAny: false, fixes: [] as string[] };
-        // Nationality
-        const nc = document.querySelector(`input[name="${args.natCode}"]`) as HTMLInputElement;
-        if (nc) { res.foundAny = true; if (!nc.value) { nc.value = 'BM'; fire(nc); const nd = document.querySelector(`input[name="${args.natDisp}"]`) as HTMLInputElement; if (nd) { nd.value = 'BERMUDA'; fire(nd); } res.fixes.push('Nationality=BM'); } }
-        // CountryOfOrigin
-        document.querySelectorAll('input').forEach(el => {
-          const inp = el as HTMLInputElement;
-          if (inp.name.includes('CountryOfOrigin') && !inp.name.startsWith('Cat_') && !inp.name.startsWith('btn') && !inp.name.startsWith('pi_')) { res.foundAny = true; if (!inp.value) { inp.value = 'BM'; fire(inp); res.fixes.push('CountryOfOrigin=BM'); } }
-          if (inp.name.includes('CountryOfOrigin') && inp.name.startsWith('Cat_')) { if (!inp.value) { inp.value = 'BERMUDA'; fire(inp); } }
-        });
-        // Sub-segment — search broadly for any select with 'sub' and 'segment' in name
-        const subSegNames = ['CorporateModBO.subSegment', 'CorporateBO.subSegment'];
-        let subSegSet = false;
-        for (const ssn of subSegNames) { if (setSel(ssn, 'CORPORATE')) { res.fixes.push('SubSegment=CORPORATE'); subSegSet = true; break; } }
-        if (!subSegSet) { for (const ssn of subSegNames) { if (setSel(ssn, 'CCOR')) { res.fixes.push('SubSegment=CCOR'); subSegSet = true; break; } } }
-        if (!subSegSet) {
-          // Broader search for sub-segment select
-          document.querySelectorAll('select').forEach(s => {
-            if (subSegSet) return;
-            const sel = s as HTMLSelectElement;
-            const n = (sel.name || '').toLowerCase();
-            if ((n.includes('subseg') || n.includes('sub_seg') || (n.includes('sub') && n.includes('segment')))) {
-              for (const o of Array.from(sel.options)) {
-                if (o.value && o.text.trim() !== '--Select--' && o.text.trim() !== '') {
-                  sel.value = o.value; fire(sel); res.fixes.push('SubSegment=' + sel.name + '=' + o.text.trim()); subSegSet = true; break;
-                }
-              }
-            }
-          });
-        }
-        if (!subSegSet) { for (const ssn of subSegNames) { const sel = document.querySelector(`select[name="${ssn}"]`) as HTMLSelectElement; if (sel) { for (const o of Array.from(sel.options)) { if (o.value && o.text.trim() !== '--Select--') { sel.value = o.value; fire(sel); res.fixes.push('SubSegment=' + o.text.trim()); subSegSet = true; break; } } if (subSegSet) break; } } }
-        // Notes — textarea with name "CorporateBO.notes" (lowercase)
-        const noteTextareaNames = ['CorporateBO.notes', 'CorporateBO.Notes', 'CorporateModBO.Notes'];
-        let notesSet = false;
-        for (const nn of noteTextareaNames) {
-          const ta = document.querySelector(`textarea[name="${nn}"]`) as HTMLTextAreaElement;
-          if (!notesSet && ta) { ta.value = args.notes; fire(ta); res.fixes.push('Notes=' + nn + '(textarea)'); notesSet = true; break; }
-        }
-        if (!notesSet) {
-          document.querySelectorAll('textarea').forEach(el => {
-            if (notesSet) return;
-            const ta = el as HTMLTextAreaElement;
-            if (ta.name && ta.name.toLowerCase().includes('note') && !ta.value) {
-              ta.value = args.notes; fire(ta); res.fixes.push('Notes=' + ta.name + '(textarea)'); notesSet = true;
-            }
-          });
-        }
-        if (!notesSet) {
-          const noteInputNames = ['CorporateBO.Notes', 'CorporateBO.notes', 'CorporateModBO.Notes'];
-          for (const nn of noteInputNames) { if (!notesSet && setInp(nn, args.notes)) { res.fixes.push('Notes=' + nn); notesSet = true; break; } }
-        }
-        // Relationship Created By
-        const relNames = ['CorporateBO.relationship_CreatedBy', 'CorporateModBO.relationship_CreatedBy'];
-        let relSet = false;
-        for (const rn of relNames) { if (setInp(rn, args.createdBy)) { res.fixes.push('RelCreatedBy=' + rn); relSet = true; break; } if (setSel(rn, args.createdBy)) { res.fixes.push('RelCreatedBy=' + rn + '(sel)'); relSet = true; break; } }
-        if (!relSet) {
-          document.querySelectorAll('input, select').forEach(el => {
-            if (relSet) return;
-            const inp = el as HTMLInputElement; const n = inp.name?.toLowerCase() || '';
-            if ((n.includes('relationship') && n.includes('created')) || (n.includes('rel') && n.includes('create'))) {
-              if (n.startsWith('pi_') || n.startsWith('btn') || n.startsWith('cat_')) return;
-              if (el.tagName === 'SELECT') { const sel = el as HTMLSelectElement; for (const o of Array.from(sel.options)) { if (o.value && o.text.trim() !== '--Select--') { sel.value = o.value; fire(sel); relSet = true; break; } } }
-              else { inp.removeAttribute('readonly'); inp.value = args.createdBy; fire(inp); relSet = true; }
-            }
-          });
-        }
-        if (setInp('CorporateBO.PrimaryRMLogin_ID', args.primaryRelationshipManagerId)) res.fixes.push('PRMID=' + args.primaryRelationshipManagerId);
-        setSel('CorporateBO.NativeLangCode', 'ENGLISH');
-        setSel('CorporateModBO.Status_Desc', 'ACTIVE');
-        setSel('CorporateModBO.IsEbankingEnabled', 'N');
-        setSel('CorporateModBO.Cust_Type_Desc', 'Corporate');
-        setSel('Assigned_BackendID', 'FINACLECORE');
-        return res;
-      }, { natCode: this.natInfo.codeName, natDisp: this.natInfo.dispName, createdBy: cd.createdBy, primaryRelationshipManagerId: cd.primaryRelationshipManagerId, notes: ctd.notes }).catch(() => ({ foundAny: false, fixes: [] }));
-      if (result.foundAny) {
-        if (result.fixes.length > 0) console.log('  \u2713 Re-filled: ' + result.fixes.join(', '));
-        else console.log('  \u2713 All mandatory fields already filled');
-        break;
-      }
-    }
-    console.log('\u2713 Pre-Submit verification complete');
-
-    // Navigate back to General Details for LOV fields
-    if (!page.isClosed()) {
-      for (const f of page.frames()) {
-        for (const tabText of ['General Details', 'Basic Info', 'General']) {
-          const tab = f.getByText(tabText, { exact: false }).first();
-          if (await tab.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await tab.click(); await page.waitForTimeout(this.timeouts.medium).catch(() => {}); break;
-          }
-        }
-      }
-    }
-
-    if (!page.isClosed()) {
-      await this.selectLovValue({ parentPage: page, target: page, buttonName: 'btnone_CorporateBO.CountryOfOrigin', searchValue: 'Bermuda', label: 'Country of Origin', config: this.config });
-      if (!page.isClosed()) await this.refreshAccountFrame('after CountryOfOrigin LOV');
-    }
-    if (!page.isClosed()) await page.waitForTimeout(this.timeouts.short).catch(() => {});
-    if (!page.isClosed()) {
-      await this.selectLovValue({ parentPage: page, target: page, buttonName: 'btnone_CorporateBO.relationship_CreatedBy', searchValue: cd.primaryRelationshipManagerId, label: 'Relationship Created By', config: this.config });
-      if (!page.isClosed()) await page.waitForTimeout(this.timeouts.medium).catch(() => {});
-    }
+    console.log('Pre-Submit verification complete');
+    await this.captureEvidence('Corporate Pre-Submit complete');
   }
 
   // ==================== SUBMIT ====================
   async submitForm(): Promise<string> {
     console.log('\n=== TC_CORP_SUBMIT_001: Click Submit ===');
+    await this.captureEvidence('Corporate Submit - before').catch(() => {});
     const page = this.workingPage;
     let cifId = '';
 
@@ -1170,13 +1375,14 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     this._cifId = cifId;
     if (cifId) console.log('\u2713\u2713 CIF ID CAPTURED: ' + cifId);
     else console.log('\u26a0 CIF ID not captured');
-    await page.screenshot({ path: 'test-results-temp/corp-after-submit.png' }).catch(() => {});
+    await this.captureEvidence('Corporate after submit', { cifId });
     return cifId;
   }
 
   // ==================== PROCESS SELECTION ====================
   async handleProcessSelection(): Promise<void> {
     console.log('\n=== TC_CORP_PS_001: Process Selection popup ===');
+    await this.captureEvidence('Corporate Process Selection - before').catch(() => {});
     const page = this.workingPage;
     try {
       let psPopup: Page | null = null;
@@ -1195,6 +1401,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
         psPopup.on('dialog', async (d) => { const msg = d.message(); this.lastDialogMessages.push(msg); console.log('\ud83d\udce2 PS popup dialog: "' + msg.substring(0, 200) + '"'); await d.accept().catch(() => {}); });
         await psPopup.waitForLoadState('domcontentloaded', { timeout: this.timeouts.long15 }).catch(() => {});
         await psPopup.waitForTimeout(this.timeouts.medium);
+        await this.captureEvidence('Process Selection popup opened', undefined, psPopup).catch(() => {});
 
         // Poll for Save button
         let saveReady = false;
@@ -1204,6 +1411,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
         }
 
         // Click Save Process Selection
+        await this.captureEvidence('Process Selection popup before save', undefined, psPopup).catch(() => {});
         let saveClicked = false;
         for (const f of psPopup.frames()) { const sb = f.locator('input[value*="Save Process Selection"]').first(); if (await sb.isVisible({ timeout: 5000 }).catch(() => false)) { await sb.click(); saveClicked = true; console.log('\u2713 Clicked "Save Process Selection"'); break; } }
         if (!saveClicked) {
@@ -1232,15 +1440,19 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           try {
             for (const f of psPopup.frames()) { const closeBtn = f.locator('input[value="Close"]').first(); if (await closeBtn.isVisible({ timeout: 3000 }).catch(() => false)) { await closeBtn.click(); break; } }
             await psPopup.waitForTimeout(this.timeouts.short).catch(() => {});
-            if (!psPopup.isClosed()) await psPopup.close().catch(() => {});
+            await this.safeClosePopup(psPopup, 5000);
           } catch (_) {}
         }
       } else { console.log('\u26a0 Process Selection popup not found'); }
 
-      if (this._processSaveConfirmed) console.log('\u2713 Process Selection saved and confirmed');
-      else console.log('\u26a0 Process Selection confirmation not received');
+      if (this._processSaveConfirmed) {
+        console.log('\u2713 Process Selection saved and confirmed');
+        await this.captureEvidence('Process Selection popup after save', { processSaveConfirmed: this._processSaveConfirmed, cifId: this._cifId }, psPopup).catch(() => {});
+      } else {
+        console.log('\u26a0 Process Selection confirmation not received');
+      }
     } catch (e) { console.log('\u26a0 Process Selection error: ' + (e as Error).message?.substring(0, 200)); }
-    await page.screenshot({ path: 'test-results-temp/corp-final-state.png' }).catch(() => {});
+    await this.captureEvidence('Corporate final state', { cifId: this._cifId, processSaveConfirmed: this._processSaveConfirmed });
   }
 
 }

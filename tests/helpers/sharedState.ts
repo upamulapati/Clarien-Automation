@@ -8,7 +8,9 @@ import * as path from 'path';
 // instead of scattered JSON files under data/. The file is git-ignored.
 // =====================================================================
 
-const DATA_DIR = path.resolve(__dirname, '../../data');
+const DATA_DIR = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(process.cwd(), 'data');
 export const SHARED_STATE_FILE = path.join(DATA_DIR, 'shared-state.json');
 const CIF_POOL_FILE = path.join(DATA_DIR, 'cif-pool.json');
 
