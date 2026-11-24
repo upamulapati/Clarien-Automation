@@ -143,8 +143,8 @@ export async function captureEvidence(
 
   // Skip rapid duplicate captures of the same step in the same test to avoid
   // bloating the Allure report with redundant screenshots.
-  const testKey = (info as any).testId || info.title || 'unknown';
-  const dedupeKey = `${testKey}:${step}`;
+  const testId = getTestKey();
+  const dedupeKey = `${testId}:${step}`;
   const now = Date.now();
   const last = recentCaptures.get(dedupeKey);
   if (last && now - last < MIN_DUPLICATE_INTERVAL_MS) {
@@ -173,13 +173,12 @@ export async function captureEvidence(
   }
 
   // Deduplicate exact duplicate screenshots within the same test.
-  const testKey = getTestKey();
   const screenshotBuffer = await fs.promises.readFile(screenshotPath);
   const hash = createHash('sha256').update(screenshotBuffer).digest('hex');
-  if (!testScreenshotHashes.has(testKey)) {
-    testScreenshotHashes.set(testKey, new Set<string>());
+  if (!testScreenshotHashes.has(testId)) {
+    testScreenshotHashes.set(testId, new Set<string>());
   }
-  const hashes = testScreenshotHashes.get(testKey)!;
+  const hashes = testScreenshotHashes.get(testId)!;
   if (hashes.has(hash)) {
     await fs.promises.unlink(screenshotPath).catch(() => {});
     console.log(`📸 Skipping duplicate evidence: ${step}`);
