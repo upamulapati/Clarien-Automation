@@ -12,7 +12,7 @@
       "popupLoad": 30000,
       "formLoad": 60000,
       "crmLoad": 120000,
-      "testTimeout": 900000
+      "testTimeout": 1800000
     }
   },
   "retail": {
@@ -37,7 +37,12 @@
         "nativeLanguage": "English",
         "preferredLanguage": "India (English)",
         "region": "INT",
+        "regionDisplay": "",
         "tdsTable": "PCHFB",
+        "tdsTableDisplay": "",
+        "sector": "",
+        "sectorCode": "",
+        "sectorDisplay": "",
         "preferredLocale": "en_US",
         "defaultChannelForAlerts": "BRANCH",
         "primaryRelationshipManagerId": "FIVUSR"
@@ -93,13 +98,21 @@
         "withholdingTaxFloorLimit": "1000",
         "preferentialExpiryDate": "31/12/2099"
       },
+      "taxCertificationData": {
+        "foreignAcTaxReportingRequired": "N",
+        "foreignTaxReportingStatus": "",
+        "foreignTaxReportingCountry": "",
+        "foreignTaxReportingCountryDisplay": ""
+      },
       "demographicData": {
         "nationality": "AD",
         "nationalityDisplay": "ANDORRA",
         "countryOfBirth": "BM",
         "countryOfBirthDisplay": "BERMUDA",
-        "maritalStatus": "Married"
+        "maritalStatus": "Married",
+        "availableChannels": ""
       },
+      "qualificationData": [],
       "employmentData": {
         "employmentType": "SALARIED"
       },
@@ -109,6 +122,16 @@
         "grossIncome": "50000",
         "annualOperatingExpense": "15000"
       },
+      "individualProfileOrPreferenceData": {},
+      "segmentationData": {},
+      "relationshipData": [],
+      "assetData": [],
+      "productPreferenceData": [],
+      "creditBureauPreferenceData": [],
+      "transactionPlanData": [],
+      "otherBankData": [],
+      "creditCardData": [],
+      "riskBaselData": {},
       "expectedDocCodes": ["CODOC", "IDCUS", "MIGR", "OTHER", "TRUST"],
       "expectedGridColumnsDocument": ["IsPreferred", "Document Code", "Unique ID", "Place of Issue", "Issue Date", "Expiry Date", "Received On", "Select"],
       "expectedGridColumns": ["CCY", "Credit Discount Pcnt", "Debit Discount Pcnt", "Withholding Tax Pcnt", "Withholding Tax Floor Limit", "Preferential Expiry Date", "Select"],
@@ -175,7 +198,8 @@
         "subSegment": "CCOR",
         "fundSource": "BUSINESS",
         "region": "INT",
-        "sector": "COMMERCIAL BANKING",
+        "sector": "DISTRIBUTION",
+        "sectorCode": "700",
         "subSectorCode": "CB",
         "taxId": "TAX123456",
         "entityClass": "CORPORATE",
@@ -254,6 +278,36 @@
         "withholdingTaxFloorLimit": "1000",
         "preferentialExpiryDate": "31/12/2099"
       },
+      "taxCertificationData": {
+        "foreignAcTaxReportingRequired": "N",
+        "foreignTaxReportingStatus": "",
+        "foreignTaxReportingCountry": "",
+        "foreignTaxReportingCountryDisplay": ""
+      },
+      "demographicData": {},
+      "employmentData": {},
+      "incomeExpenseData": {},
+      "corporateFinanceData": {
+        "noOfEmployees": "",
+        "investmentInSharesAndUnits": "",
+        "businessAssets": "",
+        "netWorth": "",
+        "depositsInOtherBanks": "",
+        "totalShareInvestment": "",
+        "propertyType": "",
+        "ccy": "",
+        "financialYearEndMonth": "",
+        "shareholderIndicator": "",
+        "occupationLegal": "",
+        "country": "",
+        "countryCode": "BM"
+      },
+      "groupDetailsData": {},
+      "coreInterfaceDetailsData": {},
+      "psychographicData": {},
+      "otherBankData": [],
+      "creditCardData": [],
+      "riskBaselData": {},
       "expectedDocCodes": ["CODOC", "IDCUS", "MIGR", "OTHER", "TRUST"],
       "expectedCurrencies": ["BMD", "EUR", "USD", "GBP", "CAD", "AUD", "CHF", "JPY", "SGD"],
       "expectedCurrenciesDemographic": ["AUD", "BMD", "CAD", "CHF", "EUR", "GBP", "JPY", "SGD", "USD"]

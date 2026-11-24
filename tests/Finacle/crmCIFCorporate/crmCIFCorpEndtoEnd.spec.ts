@@ -29,9 +29,9 @@ test.describe('CIF Corporate Creation', () => {
     await e2ePage.selectCrm();
     await e2ePage.waitForCrmLoad();
     await e2ePage.navigateToNewEntity();
-    await e2ePage.fillBasicInfo();
+    await e2ePage.fillGeneralTab();
 
-    await e2ePage.fillContactTab();
+    // Contact and ID document sections are handled inside fillGeneralTab
 
     // SP#5: Address fields must not contain "undefined"
     const addrResult = await sp.verifyAddressFieldsNotUndefined(page);
@@ -39,9 +39,9 @@ test.describe('CIF Corporate Creation', () => {
       expect(addrResult.undefinedFields.length, 'SP#5: No address fields should contain undefined').toBe(0);
     }
 
-    await e2ePage.fillIdDocumentTab();
+    // ID Document tab handled inside fillGeneralTab
 
-    await e2ePage.fillCurrencyTab();
+    // Currency tab handled inside fillGeneralTab
 
     // SP#1: CCY auto-populate must not produce "undefined"
     const ccyResult = await sp.verifyCurrencyAutoPopulate(page);
@@ -49,7 +49,9 @@ test.describe('CIF Corporate Creation', () => {
       expect(ccyResult.ccyDisplayValue, 'SP#1: CCY display must not be undefined').not.toBe('undefined');
     }
 
-    await e2ePage.fillDemographicTab();
+    await e2ePage.fillRelationshipTab();
+    await e2ePage.fillPreferencesTab();
+    await e2ePage.fillFinancialTab();
     await e2ePage.preSubmitVerification();
 
     // SP#2: Submit/Save icons must be functional before submit

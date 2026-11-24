@@ -18,10 +18,12 @@ const FLOW9_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/f
 const FLOW10_DATA = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../data/flow10.json'), 'utf8'));
 
 const sharedStateFile = path.resolve(__dirname, '../data/shared-state.json');
+// Ensure a fresh, empty shared-state.json is always present before any spec runs.
 if (fs.existsSync(sharedStateFile)) {
   fs.unlinkSync(sharedStateFile);
-  console.log(`[runOrdered] Cleared stale shared state: ${sharedStateFile}`);
 }
+fs.writeFileSync(sharedStateFile, '{}', 'utf8');
+console.log(`[runOrdered] Ensured shared state file exists: ${sharedStateFile}`);
 
 
 const headed = process.env.CI ? '' : '--headed';
@@ -453,6 +455,16 @@ for (let i = 0; i < files.length; i++) {
 }
 
 writeLastRunManifest();
+
+// Generate the Allure PDF report for the completed ordered run.
+try {
+  const pdfCommand = `node "${path.resolve(cwd, 'scripts', 'generateAllurePdf.js')}"`;
+  console.log(`\n[runOrdered] Generating Allure PDF report: ${pdfCommand}`);
+  execSync(pdfCommand, { cwd, stdio: 'inherit' });
+  console.log('[runOrdered] PDF report generated successfully.');
+} catch (e) {
+  console.error(`[runOrdered] Could not generate PDF report: ${e.message}`);
+}
 
 if (exitCode !== 0) {
   console.error(`\nFailed Spec: ${failedFile}`);

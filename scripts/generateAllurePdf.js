@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { chromium } = require('playwright');
 
 const args = process.argv.slice(2);
@@ -25,6 +26,23 @@ function escapeHtml(text) {
 function getLabel(result, name) {
   const label = (result.labels || []).find(l => l.name === name);
   return label ? label.value : '';
+}
+
+function extractCifId(results) {
+  for (const result of results) {
+    const { data } = collectAttachments(result);
+    for (const att of data) {
+      const content = getAttachmentContent(att);
+      if (!content) continue;
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed && parsed.cifId && /\d{5,}/.test(String(parsed.cifId))) {
+          return String(parsed.cifId);
+        }
+      } catch (_) {}
+    }
+  }
+  return '';
 }
 
 function getPackageFile(result) {
@@ -118,6 +136,35 @@ function getAttachmentStep(name) {
     .trim();
 }
 
+const EXTRA_SCREENSHOT_DIRS = [
+  path.resolve('test-results'),
+  path.resolve('test-results-temp')
+];
+
+function collectExtraScreenshots(startTime, endTime) {
+  const out = [];
+  const bufferMs = 5 * 60 * 1000;
+  const minTime = startTime ? startTime - bufferMs : 0;
+  const maxTime = endTime ? endTime + bufferMs : Infinity;
+  for (const dir of EXTRA_SCREENSHOT_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    function walk(d) {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.toLowerCase().endsWith('.png')) {
+          try {
+            const mtime = fs.statSync(p).mtime.getTime();
+            if (mtime >= minTime && mtime <= maxTime) out.push(p);
+          } catch (_) {}
+        }
+      }
+    }
+    walk(dir);
+  }
+  return out.sort();
+}
+
 function getAttachmentContent(att) {
   if (att.body) {
     return Buffer.from(att.body, 'base64').toString('utf8');
@@ -142,27 +189,30 @@ function parseDataAttachment(att) {
 
 function renderDataPanel(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
-  const entries = Object.entries(data).filter(([k]) => k !== 'screenshot' && k !== 'timestamp');
+  let entries = Object.entries(data)
+    .filter(([k]) => k !== 'screenshot' && k !== 'timestamp' && !k.startsWith('field_'))
+    .sort(([a], [b]) => a.localeCompare(b));
   if (!entries.length) return '';
+  if (entries.length > 25) entries = entries.slice(0, 25);
   const rows = entries.map(([k, v]) => {
     const value = v === undefined || v === null ? '' : String(v);
     const valueClass = value ? 'value-ok' : 'value-missing';
     return `<tr><td class="data-key">${escapeHtml(k)}</td><td class="data-value ${valueClass}">${escapeHtml(value)}</td></tr>`;
   }).join('');
   return `<div class="data-panel">
-    <div class="data-title">Input Data</div>
+    <div class="data-title">Captured Data</div>
     <table class="data-table">${rows}</table>
   </div>`;
 }
 
-function renderImageAttachment(att, status) {
-  const file = readAttachment(att.source);
-  if (!file) return '';
-  const b64 = file.toString('base64');
+function renderImageAttachment(att, data, status, index, b64) {
   const action = escapeHtml(getAttachmentStep(att.name));
+  const dataHtml = data ? renderDataPanel(data) : '';
   return `<div class="attachment screenshot status-${status}">
+    <div class="screenshot-step">Step ${index}: ${action}</div>
     <img src="data:${att.type};base64,${b64}" alt="${action}" />
     <div class="screenshot-caption">Action: ${action}</div>
+    ${dataHtml}
   </div>`;
 }
 
@@ -172,9 +222,29 @@ function renderTest(result) {
   const duration = formatDuration(result.start, result.stop);
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
   const status = result.status || 'unknown';
-  const { images } = collectAttachments(result);
+  const statusIcon = `<span class="status-icon status-${status}">${status.toUpperCase()}</span>`;
+  const { images, data } = collectAttachments(result);
 
-  const imgHtml = images.map(img => renderImageAttachment(img, status)).join('');
+  const dataByStep = new Map();
+  for (const d of data) {
+    const step = getAttachmentStep(d.name);
+    dataByStep.set(step, parseDataAttachment(d));
+  }
+
+  const seenImageHashes = new Set();
+  let imgHtml = '';
+  let stepNumber = 0;
+  for (const img of images) {
+    const file = readAttachment(img.source);
+    if (!file) continue;
+    const hash = crypto.createHash('sha256').update(file).digest('hex');
+    if (seenImageHashes.has(hash)) continue;
+    seenImageHashes.add(hash);
+    stepNumber++;
+    const stepData = dataByStep.get(getAttachmentStep(img.name));
+    const b64 = file.toString('base64');
+    imgHtml += renderImageAttachment(img, stepData, status, stepNumber, b64);
+  }
 
   return `
     <section class="test">
@@ -188,7 +258,7 @@ function renderTest(result) {
         <span><strong>Duration:</strong> ${duration}</span>
       </div>
       ${message ? `<div class="message">${message}</div>` : ''}
-      ${imgHtml ? `<div class="screenshots-section"><h3>Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
+      ${imgHtml ? `<div class="screenshots-section"><h3>Evidence Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
     </section>`;
 }
 
@@ -230,104 +300,20 @@ function detectLatestRun(parsed) {
   return sorted.map(p => p.file);
 }
 
-function readExecutionResults() {
-  const file = path.join(OUTPUT_DIR, 'execution-results.json');
-  try {
-    if (!fs.existsSync(file)) return null;
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (!Array.isArray(data.runs) || !data.runs.length) return null;
-    return data.runs[data.runs.length - 1];
-  } catch (e) {
-    return null;
-  }
+function renderExtraScreenshots(files) {
+  if (!files || !files.length) return '';
+  const items = files.map(file => {
+    try {
+      const b64 = fs.readFileSync(file).toString('base64');
+      const caption = path.relative(process.cwd(), file);
+      return `<div class="attachment screenshot"><img src="data:image/png;base64,${b64}" alt="${escapeHtml(caption)}" /><div class="screenshot-caption">Extra: ${escapeHtml(caption)}</div></div>`;
+    } catch (e) { return ''; }
+  }).filter(Boolean).join('');
+  if (!items) return '';
+  return `<section class="test"><h2>Additional Screenshots (Playwright output)</h2><div class="screenshot-gallery">${items}</div></section>`;
 }
 
-function renderExecutionSummaryTable(run) {
-  if (!run) return '';
-  const overall = run.overall || {};
-  const total = overall.totalInstancesExecuted || 0;
-  const passed = overall.passedInstances || 0;
-  const failed = overall.failedInstances || 0;
-  const skipped = overall.skippedInstances || 0;
-  const passRate = total ? ((passed / total) * 100).toFixed(2) : '0.00';
-  const failRate = total ? ((failed / total) * 100).toFixed(2) : '0.00';
-
-  const statusClass = s => {
-    if (s === 'passed' || s === 'Success') return 'status-passed';
-    if (s === 'failed' || s === 'Failure') return 'status-failed';
-    if (s === 'Partial Success') return 'status-broken';
-    if (s === 'skipped') return 'status-skipped';
-    return 'status-unknown';
-  };
-
-  let rows = '';
-  const summary = (run.instanceSummary || []).slice(0, 50);
-  for (const inst of summary) {
-    const failureReason = inst.status === 'passed' ? '' : escapeHtml(inst.error || inst.upstreamError || '-');
-    rows += `<tr class="${statusClass(inst.status)}">
-      <td>${escapeHtml(inst.instanceId)}</td>
-      <td>${escapeHtml(inst.status || 'unknown')}</td>
-      <td>${failureReason}</td>
-      <td>${formatDate(inst.startTime)}</td>
-      <td>${formatDate(inst.endTime)}</td>
-    </tr>`;
-  }
-
-  const matrix = (run.instanceSummary || []).map(inst =>
-    `<div class="dashboard-box ${statusClass(inst.status)}" style="min-width:55px;padding:6px 4px;font-size:9px">${escapeHtml(inst.instanceId)}<br>${escapeHtml(inst.status || '')}</div>`
-  ).join('');
-
-  return `
-    <section class="dashboard">
-      <h2>Orchestration Summary: ${escapeHtml(run.flowName || 'Flow')}</h2>
-      <div class="status-banner ${statusClass(overall.status)}">
-        <strong>Overall Status:</strong> ${escapeHtml(overall.status || 'N/A')}
-      </div>
-      <div class="dashboard-grid summary-stats">
-        <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total Instance Executions</span></div>
-        <div class="dashboard-box stat-passed"><span class="value">${passed}</span><span class="label">Passed</span></div>
-        <div class="dashboard-box stat-failed"><span class="value">${failed}</span><span class="label">Failed</span></div>
-        <div class="dashboard-box stat-skipped"><span class="value">${skipped}</span><span class="label">Skipped</span></div>
-        <div class="dashboard-box stat-rate"><span class="value">${passRate}%</span><span class="label">Pass Rate</span></div>
-        <div class="dashboard-box stat-rate"><span class="value">${failRate}%</span><span class="label">Fail Rate</span></div>
-      </div>
-      <h3>Instance Status Matrix</h3>
-      <div class="dashboard-grid">${matrix}</div>
-      <h3>Instance Details</h3>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Instance</th>
-            <th>Status</th>
-            <th>Failure Reason</th>
-            <th>Start</th>
-            <th>End</th>
-          </tr>
-        </thead>
-        <tbody>${rows || '<tr><td colspan="5" class="note">No instance results available</td></tr>'}</tbody>
-      </table>
-    </section>`;
-}
-
-function formatDate(iso) {
-  if (!iso) return 'N/A';
-  try {
-    return new Date(iso).toLocaleString('en-US', {
-      timeZone: 'Atlantic/Bermuda',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function renderDashboard(results) {
+function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
   if (!results.length) return '';
   const start = Math.min(...results.map(r => r.start || 0));
   const stop = Math.max(...results.map(r => r.stop || 0));
@@ -461,12 +447,18 @@ async function main() {
   return m ? `${m[3]}-${m[1]}-${m[2]} ${m[4]}` : s;
 })();
   const suiteName = resolveSuiteName(results);
+  const cifId = extractCifId(results);
   const outputName = onlyFilter
     ? onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()
     : suiteName;
-  const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName} report.html`);
-  const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName} report.pdf`);
+  const cifSuffix = cifId ? `_CIF_${cifId}` : '';
+  const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName}${cifSuffix}_report.html`);
+  const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName}${cifSuffix}_report.pdf`);
   const testsHtml = results.map(renderTest).join('');
+  const runStart = Math.min(...results.map(r => r.start || 0));
+  const runStop = Math.max(...results.map(r => r.stop || 0));
+  const extraScreenshots = collectExtraScreenshots(runStart, runStop);
+  const extraSectionHtml = renderExtraScreenshots(extraScreenshots);
   const dashboardHtml = renderDashboard(results);
   const pageTitle = `${suiteName} Test Report (PDF)`;
   const htmlTitle = `${suiteName} Test Report - PDF`;
@@ -510,6 +502,7 @@ async function main() {
     .main-actions ol { margin: 0 0 12px 18px; padding: 0; }
     .main-actions li { margin-bottom: 4px; }
     .screenshot-caption { margin-top: 6px; font-weight: 600; color: #333; }
+    .screenshot-step { font-weight: bold; font-size: 11px; color: #333; margin-bottom: 6px; }
     .data-panel { margin-top: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; background: #f9f9f9; }
     .data-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
     .data-table { border-collapse: collapse; width: 100%; font-size: 9px; }
@@ -574,6 +567,7 @@ async function main() {
   </div>
   ${dashboardHtml}
   ${testsHtml}
+  ${extraSectionHtml}
 </body>
 </html>`;
 
