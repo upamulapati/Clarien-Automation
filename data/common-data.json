@@ -1,6 +1,6 @@
 {
   "credentials": {
-    "username": "finacletest13",
+    "username": "finacletest01",
     "password": "Infy@123"
   },
   "secondCredentials": {
@@ -32,6 +32,7 @@
       "sharedKey": "paymentOrderIdAchFcc",
       "data": {
         "debitAccount": "7010003820",
+        
         "ccy": "USD",
         "amount": "100",
         "beneficiaryAddressType": "A",

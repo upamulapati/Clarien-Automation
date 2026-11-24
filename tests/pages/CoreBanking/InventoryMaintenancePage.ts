@@ -1045,10 +1045,11 @@ export class InventoryMaintenancePage {
         ).first();
 
         // Check the input field and the FINW body text in parallel.
-        const [inputVal, bodyText] = await Promise.all([
+        const [inputVal, bodyTextRaw] = await Promise.all([
           idInput.inputValue({ timeout: 1000 }).catch(() => ''),
           finwFrame.locator('body').textContent({ timeout: 1000 }).catch(() => '')
         ]);
+        const bodyText = bodyTextRaw || '';
         // Finacle sometimes emits the success banner inside a JS string with
         // escaped brackets/slash (\<, \>, \\). Strip those backslashes before matching.
         const normalizedBody = bodyText
@@ -1076,7 +1077,8 @@ export class InventoryMaintenancePage {
         }
       }
 
-      const body = await finwFrame.locator('body').textContent({ timeout: 1000 }).catch(() => '');
+      const bodyRaw = await finwFrame.locator('body').textContent({ timeout: 1000 }).catch(() => '');
+      const body = bodyRaw || '';
       const sample = body.replace(/\\+(?=[<>/])/g, '').replace(/\s+/g, ' ').substring(0, 2000);
       const finalStatus = await this.getStatusMessage();
       console.log('Could not extract Inventory Transaction ID. status:', finalStatus?.substring(0, 200), 'Body text sample:', sample);
@@ -1096,7 +1098,8 @@ export class InventoryMaintenancePage {
   async getPageText(): Promise<string> {
     try {
       const finwFrame = this.getFinwFrame();
-      return await finwFrame.locator('body').textContent({ timeout: 3000 }).catch(() => '');
+      const text = await finwFrame.locator('body').textContent({ timeout: 3000 }).catch(() => '');
+      return text || '';
     } catch (e) {
       console.log(`Could not read page text: ${e}`);
       return '';

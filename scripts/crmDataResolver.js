@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const xlsx = require('xlsx');
-const { crm, inflate, modInflate } = require('./crmDataLayout');
+const { crm, inflateFromHeaders, modInflate } = require('./crmDataLayout');
 
 const EXCEL = path.resolve(__dirname, '../data/test-data.xlsx');
 const STEP_DATA = path.resolve(__dirname, '../data/crm-step-data.json');
@@ -30,10 +30,31 @@ function normalizeDates(ws, rows) {
       const isDateCell =
         (cell.z && xlsx.SSF.is_date(cell.z)) ||
         (cell.w && /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(cell.w));
-      if (cell.t !== 'n' || !isDateCell) continue;
       const header = headers[c];
       if (!header || !rows[rowIndex]) continue;
-      rows[rowIndex][header] = xlsx.SSF.format('dd/mm/yyyy', cell.v);
+      const idx = c - range.s.c;
+
+      if (cell.t === 'n' && isDateCell) {
+        const formatted = xlsx.SSF.format('dd/mm/yyyy', cell.v);
+        rows[rowIndex][header] = formatted;
+        if (rows[rowIndex]._raw && idx >= 0 && idx < rows[rowIndex]._raw.length) {
+          rows[rowIndex]._raw[idx] = formatted;
+        }
+      } else if (isDateCell && (cell.t === 's' || cell.t === 'str' || typeof cell.v === 'string')) {
+        const raw = String(cell.w !== undefined ? cell.w : cell.v).trim();
+        const m = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+        if (m) {
+          let day = parseInt(m[1], 10);
+          let month = parseInt(m[2], 10);
+          let year = parseInt(m[3], 10);
+          if (year < 100) year += 2000;
+          const formatted = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+          rows[rowIndex][header] = formatted;
+          if (rows[rowIndex]._raw && idx >= 0 && idx < rows[rowIndex]._raw.length) {
+            rows[rowIndex]._raw[idx] = formatted;
+          }
+        }
+      }
     }
   }
 }
@@ -41,11 +62,15 @@ function normalizeDates(ws, rows) {
 function coerceAllToStrings(rows) {
   for (const row of rows) {
     for (const key of Object.keys(row)) {
+      if (key === '_raw') continue;
       if (row[key] == null) {
         row[key] = '';
       } else if (typeof row[key] !== 'string') {
         row[key] = String(row[key]);
       }
+    }
+    if (Array.isArray(row._raw)) {
+      row._raw = row._raw.map(v => v == null ? '' : String(v));
     }
   }
 }
@@ -87,7 +112,28 @@ function resolve(customerType, dataRowId, sheet = 'CRM') {
   }
 
   const ws = wb.Sheets[sheet];
-  const rows = xlsx.utils.sheet_to_json(ws);
+  // Read as array-of-arrays so every column in the header row is preserved.
+  const rawRows = xlsx.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  const headers = (rawRows[0] || []).map(h => String(h || '').trim());
+
+  // Convert each data row to an object keyed by header; pad short rows to header length.
+  const rows = rawRows.slice(1).map(r => {
+    const row = {};
+    const raw = [];
+    const seen = new Set();
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i];
+      const v = r[i] !== undefined && r[i] !== null ? r[i] : '';
+      raw[i] = v;
+      if (!h) continue;
+      if (!seen.has(h)) {
+        row[h] = v;
+        seen.add(h);
+      }
+    }
+    row._raw = raw;
+    return row;
+  });
 
   // Normalize any date-formatted numeric cells to dd/mm/yyyy strings.
   // Excel may store typed-in dates as serial numbers; without this the resolver
@@ -106,8 +152,7 @@ function resolve(customerType, dataRowId, sheet = 'CRM') {
   if (sheet === 'CRM_Mod') {
     stepData = modInflate(customerType, dataRowId, instanceRows[0]);
   } else {
-    const newEndToEnd = inflate(customerType, dataRowId, instanceRows[0]);
-    attachRepeatableArrays(newEndToEnd, instanceRows);
+    const newEndToEnd = inflateFromHeaders(customerType, dataRowId, headers, instanceRows);
     stepData = JSON.parse(JSON.stringify(crm));
     stepData[customerType].endToEnd = newEndToEnd;
   }

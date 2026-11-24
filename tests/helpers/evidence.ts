@@ -44,6 +44,10 @@ async function waitForUiToSettle(page: Page): Promise<void> {
   await page.waitForTimeout(600);
 }
 
+// Suppress rapid duplicate evidence captures for the same logical step within a test.
+const recentCaptures = new Map<string, number>();
+const MIN_DUPLICATE_INTERVAL_MS = 5000;
+
 /**
  * Collect the current values of all visible input, select and textarea
  * elements across every non-detached frame on the page. The returned
@@ -130,13 +134,27 @@ export async function gatherPageInputData(page: Page): Promise<Record<string, st
  * test output folder and are picked up by the allure-playwright / HTML reporter.
  */
 export async function captureEvidence(
-  page: Page,
+  page: Page | null,
   step: string,
   data?: Record<string, unknown>
 ): Promise<void> {
+  if (!page || page.isClosed?.()) return;
   const info = test.info();
+
+  // Skip rapid duplicate captures of the same step in the same test to avoid
+  // bloating the Allure report with redundant screenshots.
+  const testKey = (info as any).testId || info.title || 'unknown';
+  const dedupeKey = `${testKey}:${step}`;
+  const now = Date.now();
+  const last = recentCaptures.get(dedupeKey);
+  if (last && now - last < MIN_DUPLICATE_INTERVAL_MS) {
+    console.log(`📸 Evidence skipped (recent duplicate): ${step}`);
+    return;
+  }
+  recentCaptures.set(dedupeKey, now);
+
   const safeStep = step.replace(/[^a-zA-Z0-9_-]+/g, '_');
-  const timestamp = Date.now();
+  const timestamp = now;
   const screenshotFile = `evidence-${safeStep}-${timestamp}.png`;
   const screenshotPath = info.outputPath(screenshotFile);
 

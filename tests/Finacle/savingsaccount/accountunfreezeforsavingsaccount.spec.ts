@@ -8,7 +8,7 @@ import { loginToFinacle } from '../../helpers/finacleSetup';
 import COMMON_DATA from '../../../data/common-data.json';
 import { CREDENTIALS } from '../../../data/credentials';
 
-// Account unfreeze (HAFSM) is performed by finacletest1.
+// Account unfreeze (HAFSM) is performed by finacle-test13.
 const USERNAME = CREDENTIALS.credentials.username;
 const PASSWORD = CREDENTIALS.credentials.password;
 

@@ -208,7 +208,8 @@ export class HomePage {
     setLogoutInProgress(true);
     try {
       await this.logoutButton.click().catch(() => {});
-      await this.page.waitForTimeout(3000);
+      try { await this.page.waitForLoadState('networkidle', { timeout: 10000 }); } catch {}
+      try { await this.page.waitForTimeout(3000); } catch {}
     } finally {
       setLogoutInProgress(false);
     }

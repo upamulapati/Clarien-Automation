@@ -26,6 +26,7 @@ export class CrmEndToEndPage extends CrmBasePage {
     await homePage.selectCRM({ useAdmin });
     await this.workingPage.waitForTimeout(this.timeouts.medium);
     console.log('âœ“ CRM selected');
+    await this.captureEvidence('CRM selected').catch(() => {});
   }
 
   // ==================== WAIT FOR CRM LOAD ====================
@@ -35,6 +36,7 @@ export class CrmEndToEndPage extends CrmBasePage {
     await this.workingPage.waitForTimeout(this.timeouts.medium);
     await this.ensureCRMReady(this.workingPage, this.config);
     console.log('âœ“ CRM loaded and ready');
+    await this.captureEvidence('CRM loaded and ready').catch(() => {});
   }
 
   // ==================== DOC LOV HELPER (shared by both retail & corporate) ====================
@@ -558,7 +560,6 @@ export class CrmEndToEndPage extends CrmBasePage {
     this._cifId = cifId;
     if (cifId) console.log(`âœ“âœ“ CIF ID CAPTURED: ${cifId}`);
     else console.log('âš  CIF ID not captured');
-    await page.screenshot({ path: 'test-results-temp/after-submit.png' }).catch(() => {});
     return cifId;
   }
 
