@@ -201,16 +201,14 @@ function renderDataPanel(data) {
   </div>`;
 }
 
-function renderImageAttachment(att, data, status) {
+function renderImageAttachment(att, status) {
   const file = readAttachment(att.source);
   if (!file) return '';
   const b64 = file.toString('base64');
   const action = escapeHtml(getAttachmentStep(att.name));
-  const dataHtml = data ? renderDataPanel(data) : '';
   return `<div class="attachment screenshot status-${status}">
     <img src="data:${att.type};base64,${b64}" alt="${action}" />
     <div class="screenshot-caption">Action: ${action}</div>
-    ${dataHtml}
   </div>`;
 }
 
@@ -221,30 +219,22 @@ function renderTest(result) {
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
   const status = result.status || 'unknown';
   const statusIcon = `<span class="status-icon status-${status}">${status.toUpperCase()}</span>`;
-  const { images, data } = collectAttachments(result);
+  const { images } = collectAttachments(result);
 
-  const dataByStep = new Map();
-  for (const d of data) {
-    const step = getAttachmentStep(d.name);
-    dataByStep.set(step, parseDataAttachment(d));
-  }
-
-  const actions = [...new Set(images.map(img => getAttachmentStep(img.name)))];
-
-  const mainActionsHtml = actions.length
-    ? `<div class="main-actions"><h3>Main Actions</h3><ol>${actions.map(a => `<li>${escapeHtml(a)}</li>`).join('')}</ol></div>`
-    : '';
-  const imgHtml = images.map(img => renderImageAttachment(img, dataByStep.get(getAttachmentStep(img.name)), status)).join('');
+  const imgHtml = images.map(img => renderImageAttachment(img, status)).join('');
 
   return `
     <section class="test">
-      <h2 class="test-title">${statusIcon} ${title}</h2>
+      <h2 class="test-title">
+        <span class="status-icon status-${status}">${status}</span>
+        ${title}
+      </h2>
       <div class="test-meta">
         <span><strong>Suite:</strong> ${escapeHtml(suite)}</span>
+        <span><strong>Status:</strong> ${escapeHtml(status)}</span>
         <span><strong>Duration:</strong> ${duration}</span>
       </div>
       ${message ? `<div class="message">${message}</div>` : ''}
-      ${mainActionsHtml}
       ${imgHtml ? `<div class="screenshots-section"><h3>Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
     </section>`;
 }
@@ -312,12 +302,6 @@ function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
   const total = results.length;
   const passed = counts.passed || 0;
   const successRate = total ? Math.round((passed / total) * 100) : 0;
-  const sourceFiles = Array.isArray(specFiles) && specFiles.length
-    ? [...new Set(specFiles)].filter(Boolean).sort()
-    : [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
-  const specListHtml = sourceFiles.length
-    ? `<ul class="spec-list">${sourceFiles.map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`
-    : '<p class="note">No spec file information available.</p>';
   const statBox = (status, label) => {
     const count = counts[status] || 0;
     return count ? `<div class="dashboard-box stat-${status}"><span class="value">${count}</span><span class="label">${label}</span></div>` : '';
@@ -333,11 +317,6 @@ function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
         <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total</span></div>
         <div class="dashboard-box stat-rate"><span class="value">${successRate}%</span><span class="label">Pass Rate</span></div>
         <div class="dashboard-box stat-duration"><span class="value">${formatDuration(start, stop)}</span><span class="label">Duration</span></div>
-      </div>
-      <div class="spec-files">
-        <h3>Executed Spec Files (Suite: ${escapeHtml(suiteName)})</h3>
-        <p class="note">Total: ${specFiles.length} spec file(s) in this run</p>
-        ${specListHtml}
       </div>
     </section>`;
 }
@@ -372,28 +351,33 @@ async function main() {
   let selectedFiles;
   if (fs.existsSync(LAST_RUN_FILE)) {
     manifest = JSON.parse(fs.readFileSync(LAST_RUN_FILE, 'utf8'));
-    if (manifest && manifest.suite && Array.isArray(testOrder[manifest.suite])) {
-      const suiteFiles = new Set(testOrder[manifest.suite]);
-      const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
-      const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
-      selectedFiles = relevant.map(p => p.file);
-      console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
-    } else if (Array.isArray(manifest.files) && manifest.files.length) {
+    if (Array.isArray(manifest.files) && manifest.files.length) {
       const manifestMtime = fs.statSync(LAST_RUN_FILE).mtime.getTime();
       const newestResultMtime = Math.max(...parsed.map(p => p.mtime));
       const allManifestFilesExist = manifest.files.every(f => allFiles.includes(f));
       if (allManifestFilesExist && manifestMtime >= newestResultMtime) {
         selectedFiles = manifest.files;
         console.log(`Using run manifest: ${selectedFiles.length} result(s)`);
-      } else {
-        selectedFiles = detectLatestRun(parsed);
-        console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
       }
-    } else {
-      selectedFiles = detectLatestRun(parsed);
-      console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
     }
-  } else {
+
+    if (!selectedFiles && manifest && manifest.suite) {
+      const sourceSpecs = Array.isArray(manifest.specFiles) && manifest.specFiles.length
+        ? manifest.specFiles
+        : testOrder[manifest.suite];
+      if (Array.isArray(sourceSpecs) && sourceSpecs.length) {
+        const suiteFiles = new Set(sourceSpecs);
+        const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
+        const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
+        selectedFiles = relevant.map(p => p.file);
+        if (selectedFiles.length > 0) {
+          console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
+        }
+      }
+    }
+  }
+
+  if (!selectedFiles || selectedFiles.length === 0) {
     selectedFiles = detectLatestRun(parsed);
     console.log(`Detected latest run: ${selectedFiles.length} result(s)`);
   }
@@ -425,22 +409,24 @@ async function main() {
     process.exit(1);
   }
 
-  const generated = new Date().toISOString().replace('T', ' ').replace(/\..*/, '');
+  const generated = (() => {
+  const s = new Date().toLocaleString('en-US', {
+    timeZone: 'Atlantic/Bermuda',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/);
+  return m ? `${m[3]}-${m[1]}-${m[2]} ${m[4]}` : s;
+})();
   const suiteName = resolveSuiteName(results);
-  const resultPackageFiles = [...new Set(results.map(getPackageFile).filter(Boolean))].sort();
-  const resultFileSet = new Set(resultPackageFiles);
-  const specFiles = (() => {
-    if (manifest && Array.isArray(manifest.specFiles) && manifest.specFiles.length) {
-      const manifestSet = new Set(manifest.specFiles);
-      if (manifestSet.size === resultFileSet.size && [...manifestSet].every(f => resultFileSet.has(f))) {
-        return manifest.specFiles;
-      }
-    }
-    return resultPackageFiles;
-  })();
   const cifId = extractCifId(results);
   const outputName = onlyFilter
-    ? `${onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()} instance 1`
+    ? onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()
     : suiteName;
   const cifSuffix = cifId ? `_CIF_${cifId}` : '';
   const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName}${cifSuffix}_report.html`);
@@ -450,7 +436,7 @@ async function main() {
   const runStop = Math.max(...results.map(r => r.stop || 0));
   const extraScreenshots = collectExtraScreenshots(runStart, runStop);
   const extraSectionHtml = renderExtraScreenshots(extraScreenshots);
-  const dashboardHtml = renderDashboard(results, suiteName, specFiles);
+  const dashboardHtml = renderDashboard(results);
   const pageTitle = `${suiteName} Test Report (PDF)`;
   const htmlTitle = `${suiteName} Test Report - PDF`;
 
@@ -496,9 +482,19 @@ async function main() {
     .data-panel { margin-top: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; background: #f9f9f9; }
     .data-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
     .data-table { border-collapse: collapse; width: 100%; font-size: 9px; }
-    .data-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .data-table th, .data-table td { padding: 3px 5px; border: 1px solid #ddd; }
+    .data-table th { background: #f5f5f5; font-weight: bold; }
+    .data-table tr.status-passed { background: #d4edda; }
+    .data-table tr.status-failed { background: #f8d7da; }
+    .data-table tr.status-broken { background: #fff3cd; }
+    .data-table tr.status-skipped { background: #e2e3e5; }
     .data-key { font-weight: 600; color: #333; width: 30%; }
     .data-value { color: #222; }
+    .status-banner { padding: 8px 12px; border-radius: 4px; font-weight: bold; margin: 8px 0; }
+    .status-banner.status-passed { background: #d4edda; color: #155724; }
+    .status-banner.status-failed { background: #f8d7da; color: #721c24; }
+    .status-banner.status-broken { background: #fff3cd; color: #856404; }
+    .status-banner.status-skipped { background: #e2e3e5; color: #383d41; }
     .value-ok { background: #d4edda; color: #155724; }
     .value-missing { background: #f8d7da; color: #721c24; }
     .attachment.status-passed img { border: 3px solid #2da94f; }
@@ -511,10 +507,23 @@ async function main() {
     .note { font-style: italic; color: #555; }
     .dashboard { margin-bottom: 16px; }
     .dashboard h2 { margin-bottom: 10px; }
-    .dashboard-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 10px; min-width: 90px; text-align: center; background: #fafafa; }
-    .dashboard-box .value { display: block; font-size: 20px; font-weight: bold; color: #333; }
-    .dashboard-box .label { display: block; font-size: 10px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .dashboard-grid { display: flex; flex-wrap: nowrap; gap: 8px; }
+    .dashboard-box { border: 1px solid #ccc; border-radius: 4px; padding: 8px 4px; flex: 1 1 0; min-width: 0; text-align: center; background: #fafafa; overflow: hidden; }
+    .dashboard-box .value { display: block; font-size: 18px; font-weight: bold; color: #333; }
+    .dashboard-box .label { display: block; font-size: 9px; text-transform: uppercase; color: #666; margin-top: 4px; }
+    .summary-stats { flex-wrap: nowrap; gap: 4px; }
+    .summary-stats .dashboard-box { flex: 1 1 0; min-width: 0; padding: 6px 2px; overflow-wrap: break-word; border-color: #ccc; }
+    .summary-stats .dashboard-box .value { font-size: 18px; }
+    .summary-stats .dashboard-box .label { font-size: 8px; }
+    .summary-stats .stat-total { background: #e6f2ff; border-color: #b3d7ff; }
+    .summary-stats .stat-passed { background: #d4edda; border-color: #c3e6cb; }
+    .summary-stats .stat-passed .value { color: #155724; }
+    .summary-stats .stat-failed { background: #f8d7da; border-color: #f5c6cb; }
+    .summary-stats .stat-failed .value { color: #721c24; }
+    .summary-stats .stat-skipped { background: #e2e3e5; border-color: #d6d8db; }
+    .summary-stats .stat-skipped .value { color: #383d41; }
+    .summary-stats .stat-rate { background: #fff3cd; border-color: #ffeeba; }
+    .summary-stats .stat-duration { background: #d1ecf1; border-color: #bee5eb; }
     .stat-passed .value { color: #2da94f; }
     .stat-failed .value { color: #d00; }
     .stat-broken .value { color: #f39c12; }
@@ -530,7 +539,7 @@ async function main() {
 <body>
   <div class="header">
     <h1>${escapeHtml(pageTitle)}</h1>
-    <div>Generated: ${generated} | Tests: ${results.length} | Extra screenshots: ${extraScreenshots.length}</div>
+    <div>Generated (Bermuda time): ${generated} | Tests: ${results.length}</div>
   </div>
   ${dashboardHtml}
   ${testsHtml}

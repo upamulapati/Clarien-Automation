@@ -1,0 +1,19 @@
+{
+  "flows": {
+    "currentAccount": {
+      "activeInstances": [
+        "4",
+        "5",
+        "6"
+      ],
+      "successfulInstances": [
+        "4",
+        "5"
+      ],
+      "instanceOutputs": {
+        "4": "7600000191",
+        "5": "4600000155"
+      }
+    }
+  }
+}

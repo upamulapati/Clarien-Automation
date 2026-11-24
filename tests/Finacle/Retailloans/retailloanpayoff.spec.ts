@@ -3,7 +3,7 @@ import { RetailLoanPayoffPage } from '../../pages/CoreBanking/RetailLoanPayoffPa
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { RETAIL_LOAN_DATA } from '../../config/excelTestData';
 import { CREDENTIALS } from '../../../data/credentials';
-import { getSharedValue } from '../../helpers/sharedState';
+import { getSharedValue, setSharedValue } from '../../helpers/sharedState';
 import COMMON_DATA from '../../../data/common-data.json';
 
 // Maker user who creates the retail-loan payoff.
@@ -43,6 +43,8 @@ test('HPAYOFF - payoff creation for retail loan', async ({ page }) => {
     console.log('Payoff creation message:', result.message);
     expect(result.message).toBeTruthy();
     expect(result.message).toMatch(/Payoff done successfully/i);
+    setSharedValue<string>((state, value) => { (state as any).payoffCollectRefundAccountId = value; }, COLLECT_REFUND_ACCOUNT_ID);
+    console.log(`Persisted payoff Collect/Refund A/c ID: ${COLLECT_REFUND_ACCOUNT_ID}`);
     console.log('====================================');
   } finally {
     await homePage.logout().catch(() => {});

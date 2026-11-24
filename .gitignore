@@ -34,3 +34,6 @@ scripts/buildCrmSheet.js
 
 *.png
 *.log
+# Per-VM Excel data and backups
+data/test-data*.xlsx*
+/test-data*.xlsx*

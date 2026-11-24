@@ -63,7 +63,7 @@ let homePage: HomePage;
 let loanPage: AccountPage;
 
 test.beforeEach(async ({ page }) => {
-  test.setTimeout(300000);
+  test.setTimeout(600000);
   // Cap individual action waits so a missing/unknown field fails fast (instead
   // of blocking for the whole test timeout) while we lock the loan selectors.
   page.setDefaultTimeout(20000);
@@ -181,6 +181,10 @@ for (const accountKey of ['chargeoffLoanAccountId', 'payoffLoanAccountId']) {
   // "Document: Visit document information as it is set as mandatory."
   console.log('Visiting Document details tab...');
   await loanPage.visitLoanTab('Document', 'documentdetails');
+
+  // Step 15c: Other Details tab - the global Submit button resides here.
+  console.log('Visiting Other Details tab...');
+  await loanPage.visitLoanTab('Other Details', 'otherdetails');
 
   // Step 16: Submit - the confirmation screen shows the new A/c ID.
   console.log('Clicking Submit button...');

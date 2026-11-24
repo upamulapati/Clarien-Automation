@@ -1,0 +1,593 @@
+<html><head>
+
+  <base href="https://clrnuat.clarienbank.com:443/finbranch/inquiry/">  
+	
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta http-equiv="PRAGMA" content="-1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Expires" content="-1">
+<title>Inventory Code List</title> 
+<script language="javascript" src="../Renderer/javascripts/102250_finbranchResource_INFENG.js"> </script> 
+<link href="../Renderer/stylesheets/10225_services.css" rel="STYLESHEET" title="Finacle Stylesheet" type="text/css">
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_FIN_LEVEL01.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_SC_FIN.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/Renderer/mtree/precArray.js"></script>
+
+<script language="javascript" src="../Renderer/javascripts/1022530310_cust_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_loc_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_resource_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/1022530310_login_common_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_cust_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_hotkeyprocessor_link.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_hotkeydata_link.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/1022530310_common_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/1022530310_frwk_common_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/inquiry/1022530310_inquirydetails_link.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/inquiry/10225_inquirydetails_glink.js"> </script>
+<script language="javascript" src="../Renderer/props/102250_inquiryprops.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/inquiry/10225_viewProperties.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/inquiry/1022530310_dynamic_listpage.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_cust_frm_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_expldhndl.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_explode_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/portal/10225_unifiedViewUtils.js"> </script>
+
+
+<script language="JavaScript">
+var dom_to_set = 'clarienbank.com';
+var prodEnv = 'Y'; 
+var SSO = (dom_to_set != "") && true;
+if (SSO) {
+	document.domain = dom_to_set;
+}
+if(prodEnv == 'Y')
+{
+	document.oncontextmenu = function ()
+	{
+		return false;
+	}
+}
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+var reqId = "up81ep0wr8y2";
+var rtId = "1uyhrh0fbsku3";
+var reqUnqId = "reqUnqId";
+var reqParamValReqd  = "N";
+if(reqParamValReqd == "Y"){
+	var reqParamsIgnoreList = "[]";
+	var tmpReqParamsIgnoreList = ","+reqParamsIgnoreList.slice(1,-1)+",";
+	reqParamsIgnoreList = tmpReqParamsIgnoreList.replace(/ /g, "");
+}
+var isPopup = "Y";
+var reqIdChkByPass = "null";
+var silentPrntReqd = "N";
+var jnlpMode = "N";
+var silentPrintWaitingTime = "10000";
+var calbase = "00";
+var lowHijYear = 1300;
+var highHijYear = 1599;
+var CURR_GROUP_NAME= "inquiry";
+var localeCode= "DF";
+var encodeLst = "[hidden_amendGoodsDesc, hidden_amendDocReq, hidden_amendAddConditions, hidden_amendSpcPaymentConForBenf, hidden_amendSpecPaymentConForRecBank, customData, screen_amendDescGoodsServ, screen_amendDocReq, screen_amendAddConditions, screen_amendSpcPaymentConForBenf, screen_amendSpecPaymentConForRecBank, descGoodsServ1, goodsDesc1, screen_docReq, hidden_docReq, screen_addConditions, hidden_addConditions, screen_spcPaymentConForBenf, hidden_spcPaymentConForBenf, screen_specPaymentConForRecBank, hidden_specPaymentConForRecBank, mtt.textDesc, hidden_ctextarea, screen_ctextarea]";
+var tmpEncodeLst = ","+encodeLst.slice(1,-1)+",";
+encodeLst = tmpEncodeLst.replace(/ /g, "");
+var isEncodeReqd = "{isEncodeReqd}";
+var onsJSErrLogReqd = "N";
+var dateFormat = "00";
+var NumLocYears="0";
+var dateInputCal ="00";
+var DECIMAL_SEPARATOR = '.';
+var MANTISSA_SEPARATOR = ',';
+var LANGCODE = "INFENG";
+var finContextPath = "\/finbranch";
+var crvContextPath = '/fincrv';
+var lastCalMappedDate = "";
+var iCalCount = 1;
+var iFeatureCount = 0;
+var FeatureStringArr = new Array(0);
+var calStringArr = new Array(1);
+var ContextSwitchDoneFrom = "";
+var fileDownloadApplet = "Y";
+var fileDownloadApplet = (fileDownloadApplet == "Y")?true:false;
+var isChromeOrEdge=((navigator.userAgent.indexOf("MSIE") != -1) || (navigator.userAgent.indexOf('Trident') != -1))?false:true;
+
+            calStringArr[0] = '00';
+
+
+
+var profileId  = 'NOPROFILE';
+var literalContext = 'C';
+var defaultLiteralContext = 'C';
+var dualFlg = "N"; 
+
+function checkIfSwitchEnabled(feature)
+{
+        for (var i=0; i<FeatureStringArr.length; i++)
+        {
+		if(feature === FeatureStringArr[i])
+			return true;
+        }
+	return false;	
+}
+
+function isFeatureEnabledFor(ftrString){
+                var e = false;
+                var x = ftrString.split(","); //loop thru the list of features 
+                for(var i = 0; i< x.length;i++)
+                {
+                   e = checkIfSwitchEnabled (x[i]); // find out if the current feature is enabled
+                   if (e) break;         // If any feature is enabled, that is enough.. return true.
+                }
+                return e;
+}
+
+
+if (LANGCODE == "ARABIC")
+{
+    document.write('<HTML dir=RTL></HTML>');
+}
+
+</script>
+<meta http-equiv="PRAGMA" content="no-cache"> 
+<meta http-equiv="Cache-Control" content="no-cache,no-store">
+<meta http-equiv="Expires" content="-1"> 
+
+
+
+<script src="../Renderer/javascripts/1022530310_timeout_link.js"></script>
+<script>
+window.history.forward(1);
+var timeid;
+var USERID = "FINACLETEST13";
+var USER_TIME_OUT = 23580000;
+
+fnSetTimers();
+enableTimers();
+
+</script>
+
+
+
+
+<script language="javascript" src="../FrwkRenderer/javascripts/frwkjs/literaljs/INFENG/10_2_25__hsrinctl_INFENG.js?menuName=hsrinctl"></script>
+<script language="javascript" src="../Renderer/props/1022530310_hsrinctlprops.js"></script>
+
+
+<script>
+var amountFormat = null;
+var inPortal    = false;
+var dtlCtxtSet  = false;
+var isSearchMode = "true";
+var isSummaryReqd = false;
+var sumDisplayPos = "T";
+amountFormat = "Million";
+
+var menuName = "hsrinctl";
+var screenName = "hsrinctldtl";
+var isTitleFromCalledMenu = "false";
+var sResTitle= "";
+var bEnableSaveAs = false;
+inPortal    = false;
+dtlCtxtSet  = false;
+var outputFields = ":invtClass\=invt_class|:invtType\=invt_type|:invtDesc\=invt_desc|:invtSrlAlpha\=invt_srl_alpha|:invtBeginSrlNum\=begin_srl_num|:invtEndSrlNum\=end_srl_num|:invtQty\=invt_qty";
+var fileFmt = "txt";
+</script>
+
+
+
+
+<script>
+
+	var bEnablePrevious = false;
+	var bEnableNext = false;
+	var bEnableBack = false;
+	var bEnableClose = true;
+	var bEnableSubmit = false;
+	var bEnableOk = false;
+	var sPopUpExceptionWindow = 'false' ;
+	var sReferralMode = '' ;
+
+</script>
+
+
+<script language="JavaScript" src="../Renderer/javascripts/jspjs/INFENG/102250_inquirydetails_INFENG.js"> </script></head>
+
+
+
+
+
+<body class="cbody" onload="javascript:return inquirydetails_ONLOAD4(this);" onkeydown="javascript:return inquirydetails_ONKEYDOWN1(this,event);" onkeyup="javascript:return inquirydetails_ONKEYUP3(this,event);" onkeypress="javascript:return inquirydetails_ONKEYPRESS2(this,event);">
+<form method="post" target="HSRINCTL" onsubmit="javascript:return inquirydetails_ONSUBMIT5(this);" action="../inquiry/inquiry_ctrl.jsp?rtId=1uyhrh0fbsku3">
+<span class="cform">
+
+
+
+
+<script language="Javascript">
+var dispUsrInfoLLSize = 0;
+var dispErrLLSize = 0;
+</script>
+
+<script>
+window.name="HSRINCTL";
+var arrHeader	=	new Array(8);
+var details=new ViewProperties();
+var submitMode	=null;
+
+submitMode="SEARCHER";
+
+details.setFieldCount(8);
+details.setRowCount(0);
+details.setMode(submitMode);
+details.setViewId("HSRINCTL");
+
+
+details.setViewTitle("FLT010249");
+
+
+details.setViewMultipleRows("");
+
+
+details.setViewSubTitle("FLT000296");
+
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_class_type");
+
+
+headerProperties.setFieldLabel("FLT003342");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[0]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_class");
+
+
+headerProperties.setFieldLabel("");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("");
+
+
+headerProperties.setLabelAlignment("");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("N");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("�");
+headerProperties.setIsOrderByField("�");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[1]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_type");
+
+
+headerProperties.setFieldLabel("");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("");
+
+
+headerProperties.setLabelAlignment("");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("N");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("�");
+headerProperties.setIsOrderByField("�");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[2]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_desc");
+
+
+headerProperties.setFieldLabel("FLT015877");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[3]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_srl_alpha");
+
+
+headerProperties.setFieldLabel("FLT015876");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[4]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("begin_srl_num");
+
+
+headerProperties.setFieldLabel("FLT010561");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[5]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("end_srl_num");
+
+
+headerProperties.setFieldLabel("FLT014219");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("string");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[6]	=	headerProperties;
+
+headerProperties	=	new ViewHeaderProperties();
+
+headerProperties.setFieldName("invt_qty");
+
+
+headerProperties.setFieldLabel("FLT014429");
+
+
+headerProperties.setFieldStyle("");
+
+
+headerProperties.setFieldAlignment("LEFT");
+
+
+headerProperties.setLabelAlignment("LEFT");
+
+
+headerProperties.setFieldHeight("");
+
+
+headerProperties.setFieldWidth("");
+
+
+headerProperties.setHideIf("");
+
+
+headerProperties.setFieldDataType("int");
+
+headerProperties.setIsDisplayField("Y");
+headerProperties.setfeatureId("");
+headerProperties.setIsHidden("N");
+headerProperties.setIsOrderByField("N");
+
+headerProperties.setFieldLinkMode("�");
+
+headerProperties.setFieldLinkFunction("");
+
+
+arrHeader[7]	=	headerProperties;
+
+details.setHeader(arrHeader);
+
+var valArr=new Array(0);
+
+details.setValues(valArr);
+printBlock1();
+printBlock2();
+</script><input type="hidden" name="actionCode" id="actionCode"><input type="hidden" name="tabName"><input type="hidden" name="callMode" id="callMode" value="E"><input type="hidden" name="screenName" value="inquirydetails"><input type="hidden" name="expldQryStr" id="expldQryStr"><input type="hidden" name="reqId" id="reqId" value="up81ep0wr8y2"><input type="hidden" name="rtId" id="rtId" value="1uyhrh0fbsku3"><input type="hidden" name="reqIdChkByPass" id="reqIdChkByPass" value="null"><input type="hidden" name="ContextSwitchDoneFrom" id="ContextSwitchDoneFrom" value=""><input type="hidden" name="isPopUp" id="isPopUp" value="Y"><div id="overlay"></div><table width="100%" border="0" cellspacing="0" cellpadding="0"><tbody><tr><td class="popuptab">Inventory Code List&nbsp;</td></tr></tbody></table><table width="100%" border="0" cellpadding="0" cellspacing="0" class="tableborder"><tbody><tr><td><table width="100%" border="0" cellpadding="0" cellspacing="0" class="innertable"><tbody><tr><td><table width="100%" border="0" cellspacing="0" cellpadding="0" class="innertabletop1"><tbody><tr><td align="right"></td></tr></tbody></table><table class="innertabletop1" cellspacing="0" cellpadding="0" width="100%"><tbody><tr valign="middle" class="subhdrbg"><td align="right" valign="middle"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td align="right"></td></tr></tbody></table><table width="100%" border="0" cellspacing="0" cellpadding="0"><tbody><tr><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">Inventory Class/Type</td><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">Inventory Description</td><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">Inventory Alpha</td><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">Begin Srl. No.</td><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">End Srl. No.</td><td width="" style="text-align:LEFT" class="searcheader" rowspan="2">Quantity</td></tr><tr></tr><tr class="ctext_small"><td colspan="6">No records were fetched.</td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
+<input type="hidden" id="Navigation" name="Navigation">
+
+
+
+	
+	<input type="hidden" name="customData" value="">
+	
+
+	<script language="JavaScript">
+		printFooterBlock();
+	</script><table width="100%" border="0" cellpadding="4" cellspacing="0"><tbody><tr><td><input type="button" class="button" id="Close" name="Close" value="Close" onclick="javascript:return inquirydetails_ONCLICK13(this,this);" hotkeyid="Cancel"></td></tr></tbody></table>
+
+</span>
+</form>
+
+
+
+
+</body></html>

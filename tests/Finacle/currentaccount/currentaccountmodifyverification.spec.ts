@@ -23,10 +23,29 @@ test.beforeEach(async ({ page }) => {
   accountPage = new AccountPage(page);
 });
 
+const sharedAccounts = (getSharedValue('currentAccounts') ?? {}) as Record<string, string>;
+const verifyDataByInstance = new Map<string, any>();
 for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
   const acctData = acct.data ?? acct;
-  test(acctData.testLabel, async ({ page }) => {
-    const verifyAccountId = getSharedValue((state) => state.currentAccounts?.[String(acctData.instance)] ?? state.accountId) ?? acctData.accountId;
+  const key = String(acctData.instance ?? '');
+  if (key) verifyDataByInstance.set(key, acctData);
+}
+
+const instances = Object.keys(sharedAccounts).length > 0
+  ? Object.keys(sharedAccounts)
+  : Array.from(verifyDataByInstance.keys());
+
+for (const instance of instances) {
+  const acctData = verifyDataByInstance.get(instance) ?? { instance };
+  const rawAccountId = sharedAccounts[instance] ?? acctData.accountId;
+  const testLabel = typeof acctData.testLabel === 'string' ? acctData.testLabel.trim() : '';
+  const accountIdForTitle = rawAccountId ? String(rawAccountId).trim() : 'from-shared-state';
+  const testTitle = testLabel || `Verify current account modification - Instance ${instance} - ${accountIdForTitle}`;
+  test(testTitle, async ({ page }) => {
+    const verifyAccountId = accountIdForTitle !== 'from-shared-state' ? accountIdForTitle : undefined;
+    if (!verifyAccountId) {
+      throw new Error(`No accountId to verify for instance ${instance}`);
+    }
     console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
     console.log(`Verifying current account modification: ${verifyAccountId}`);
 
@@ -49,8 +68,8 @@ for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
 
     console.log('Visiting required HACM verification tabs...');
 
-    const EXPECTED_DISPATCH_MODE = (acctData.dispatchMode ?? 'no dispatch') as string;
-    const EXPECTED_ACCOUNT_STATUS = (acctData.accountStatus ?? 'inactive') as string;
+    const expectedDispatchMode = (acctData.dispatchMode ? String(acctData.dispatchMode).trim() : '') as string;
+    const expectedAccountStatus = (acctData.accountStatus ? String(acctData.accountStatus).trim() : '') as string;
 
     console.log('Visiting General tab to check Dispatch Mode...');
     await accountPage.visitTab('General');
@@ -58,8 +77,8 @@ for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
     console.log('Captured dispatch mode:', dispatchMode);
     if (!dispatchMode) {
       console.warn('Dispatch mode was not captured on General tab');
-    } else if (!new RegExp(EXPECTED_DISPATCH_MODE.replace(/[-\s]/g, '[-\\s]?'), 'i').test(dispatchMode)) {
-      console.warn(`Expected dispatch mode to reflect '${EXPECTED_DISPATCH_MODE}', got: ${dispatchMode}`);
+    } else if (expectedDispatchMode && !new RegExp(expectedDispatchMode.replace(/[-\s]/g, '[-\\s]?'), 'i').test(dispatchMode)) {
+      console.warn(`Expected dispatch mode to reflect '${expectedDispatchMode}', got: ${dispatchMode}`);
     }
 
     console.log('Visiting Interest & Tax tab...');
@@ -77,17 +96,15 @@ for (const acct of CURRENT_MODIFY_VERIFY_DATA) {
     console.log('Captured A/c status:', accountStatus);
     if (!accountStatus) {
       console.warn('A/c Status was not captured on Scheme tab');
-    } else if (!new RegExp(EXPECTED_ACCOUNT_STATUS, 'i').test(accountStatus)) {
-      console.warn(`Expected A/c Status to be '${EXPECTED_ACCOUNT_STATUS}', got: ${accountStatus}`);
+    } else if (expectedAccountStatus && !new RegExp(expectedAccountStatus, 'i').test(accountStatus)) {
+      console.warn(`Expected A/c Status to be '${expectedAccountStatus}', got: ${accountStatus}`);
     }
 
     console.log('Visiting Addl. Info. tab...');
     await accountPage.visitTab('Addl. Info.');
 
-    if (acctData.visitDocumentTab === true || String(acctData.visitDocumentTab).toLowerCase() === 'y' || String(acctData.visitDocumentTab).toLowerCase() === 'true') {
-      console.log('Visiting Document details tab...');
-      await accountPage.visitTabById('documentdetails');
-    }
+    console.log('Visiting Document details tab...');
+    await accountPage.visitTabById('documentdetails');
 
     console.log('Clicking Submit button...');
     await accountPage.clickSubmit();

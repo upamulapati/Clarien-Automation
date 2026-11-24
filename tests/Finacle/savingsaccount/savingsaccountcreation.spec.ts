@@ -2,8 +2,16 @@ import { test, expect } from '@playwright/test';
 import { loginToFinacle } from '../../helpers/finacleSetup';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
-import { getSharedValue, updateSharedState } from '../../helpers/sharedState';
+import {
+  getSharedValue,
+  updateSharedState,
+  saveInstanceResult,
+  updateInstanceStatus,
+  getSuiteName,
+} from '../../helpers/sharedState';
 import { SAVINGS_DATA, DEFAULT_CUSTOMER } from '../../config/excelTestData';
+import { getSelectedInstances } from '../../helpers/flowStepData';
+import { tagInstance } from '../../helpers/instance';
 import { CREDENTIALS } from '../../../data/credentials';
 import FLOW7_DATA from '../../../data/flow7.json';
 
@@ -13,9 +21,13 @@ const SHARED_CIF = getSharedValue((state) => state.cifs?.retail?.cifId);
 if (SHARED_CIF) console.log(`[SharedState] Using CIF ID from previous run: ${SHARED_CIF}`);
 
 const { username: USERNAME, password: PASSWORD } = CREDENTIALS.credentials;
+const SUITE_NAME = getSuiteName('savingsAccount');
 // SAVINGS_DATA and DEFAULT_CUSTOMER are loaded from savingsTestData.ts.
 
-const groups: { main: any; related: any[] }[] = [];
+const selectedInstances = getSelectedInstances();
+const selectedSet = selectedInstances ? new Set(selectedInstances) : null;
+
+let groups: { main: any; related: any[] }[] = [];
 let activeGroup: { main: any; related: any[] } | null = null;
 
 for (const entry of SAVINGS_DATA) {
@@ -34,6 +46,18 @@ for (const entry of SAVINGS_DATA) {
 
   activeGroup = { main: row, related: [] };
   groups.push(activeGroup);
+}
+
+// When an instance selection is supplied (e.g. INSTANCES env or STEP_DATA from the
+// ordered runner), keep only the requested main instances. Otherwise all enabled
+// rows from the sheet are processed, making the suite flexible for future rows.
+if (selectedSet) {
+  const filtered = groups.filter((g) => selectedSet.has(String(g.main.instance ?? '').trim()));
+  if (filtered.length > 0) {
+    groups = filtered;
+  } else {
+    console.warn('[savingsaccountcreation] No groups matched selected instances, running all groups');
+  }
 }
 
 const SCENARIOS: any[] = [];
@@ -68,9 +92,11 @@ for (const group of groups) {
 test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
 for (const scenario of SCENARIOS) {
-  test(`HOAACSB - create savings account (${scenario.name})`, async ({ page }) => {
+  test(`HOAACSB - create savings account (${scenario.name}) [instance:${scenario.instance}]`, async ({ page }) => {
+    tagInstance(scenario.instance);
     test.setTimeout(900000);
     const lastDialogMessages: string[] = [];
+    const instanceKey = scenario.instance != null ? String(scenario.instance) : undefined;
     try {
       const { homePage } = await loginToFinacle(page, USERNAME, PASSWORD, lastDialogMessages);
       const savingsAccountPage = new AccountPage(page);
@@ -79,16 +105,18 @@ for (const scenario of SCENARIOS) {
       console.log('Selecting Core Server...');
       await savingsAccountPage.selectCoreServer();
 
-      // Navigate to HOAACSB (savings account creation screen)
-      console.log('Searching for HOAACSB...');
-      await savingsAccountPage.searchMenu('HOAACSB');
+      // Validate Head SOL ID against Excel SOL ID and switch context if needed
+      console.log(`Ensuring SOL context ${scenario.data.solId} for savings creation...`);
+      await savingsAccountPage.ensureSolContext(scenario.data.solId, 'HOAACSB');
 
       console.log(`Creating savings account ${scenario.name} (CIF: ${scenario.data.cifCode})...`);
       await savingsAccountPage.createSavingsAccount(scenario.data as any, { skipGeneralDetailsRevisit: true, relatedParties: scenario.relatedParties });
 
       const result = await savingsAccountPage.verifyAccountCreated();
       console.log('Exact result message:', result.message);
-      expect(result.success, `Expected success but got: ${result.message}`).toBe(true);
+      if (!result.success) {
+        throw new Error(result.message || 'Account creation failed without a specific message');
+      }
       expect(result.message).toBeTruthy();
       console.log('Account created:', result.message);
       expect(result.message).toMatch(/(?:successfully|completed|verified|authorized|authorised|created|added|modified|deleted|disbursed|linked|generated|New A\/c\.?\s*ID|Account Number|Account No)/i);
@@ -105,20 +133,30 @@ for (const scenario of SCENARIOS) {
         console.log('Related party result:', relatedResult.message);
       }
 
-      // Persist the generated Account ID for downstream verification specs
-      const instanceKey = scenario.data.instance != null ? String(scenario.data.instance) : undefined;
-      updateSharedState((state) => {
-        if (!state.savingsAccounts) state.savingsAccounts = {};
-        state.savingsAccounts[scenario.name] = result.accountNumber ?? '';
-        if (instanceKey) state.savingsAccounts[instanceKey] = result.accountNumber ?? '';
-        state.accountId = result.accountNumber ?? '';
-        if (hasRelatedParties) {
+      // Persist the generated Account ID and status under the per-suite instance key
+      if (instanceKey && result.accountNumber) {
+        saveInstanceResult(
+          instanceKey,
+          { status: 'passed', accountId: result.accountNumber, solId: scenario.data.solId },
+          SUITE_NAME
+        );
+      }
+      if (hasRelatedParties) {
+        updateSharedState((state) => {
           state.relatedPartyAddedForSavings = true;
-        }
-      });
+        });
+      }
 
       await homePage.logout();
     } catch (err: any) {
+      if (instanceKey) {
+        updateInstanceStatus(
+          instanceKey,
+          'failed',
+          err?.message || String(err),
+          SUITE_NAME
+        );
+      }
       console.error(`Savings account creation test failed for ${scenario.name}:`, err);
       console.error(`CIF used: ${scenario.data.cifCode}`);
       if (lastDialogMessages.length > 0) {

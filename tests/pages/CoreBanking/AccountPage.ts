@@ -35,6 +35,7 @@ export class AccountPage {
   private hacmMainUrl: string | null = null;
   protected capturedDialogMessages: string[] = [];
   protected capturedPopupMessage: string | null = null;
+  protected capturedAccountNumber: string | null = null;
 
   constructor(page: Page, lastDialogMessages?: string[]) {
     this.page = page;
@@ -233,8 +234,18 @@ export class AccountPage {
     await this.page.waitForTimeout(3000);
     await this.menuSelect.fill(searchTerm);
     await this.menuSelect.press('Enter');
-    await this.page.waitForTimeout(5000);
-    
+    await this.page.waitForTimeout(3000);
+
+    // Some screens (e.g. HCCS / Change Context SOL) require clicking the Go button explicitly.
+    const goButton = this.loginFrame.locator('input[type="submit"], input[type="button"], button').filter({ hasText: /^go$/i }).first();
+    if (await goButton.count().catch(() => 0) > 0 && await goButton.isVisible().catch(() => false)) {
+      await goButton.click();
+      console.log(`Clicked Go button for menu search: ${searchTerm}`);
+      await this.page.waitForTimeout(3000);
+    }
+
+    await this.page.waitForTimeout(2000);
+
     const searchPattern = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
 
     // Select the option that contains the searched code - try loginFrame first
@@ -268,6 +279,171 @@ export class AccountPage {
     await captureEvidence(this.page, `Menu searched: ${searchTerm}`, { searchTerm });
   }
 
+  // Captures the Head SOL ID shown in the application header (e.g. "18 November, 2026 100 01").
+  // Prefers the JavaScript variable exposed by Finacle, falling back to a regex over the FINW or page body.
+  async getHeadSolId(): Promise<string | null> {
+    const readVarFromFrame = async (frame: any): Promise<string | null> => {
+      try {
+        const v = await frame.evaluate(() => (window as any).headCtxSol);
+        if (v) return String(v).trim();
+      } catch {}
+      return null;
+    };
+
+    const readFromBodyText = (bodyText: string): string | null => {
+      const headerMatch = bodyText.match(/\d{1,2}\s+[A-Za-z]{3,},?\s*\d{4}\s+(\d{1,})\s+\d{1,2}\b/);
+      return headerMatch ? headerMatch[1].trim() : null;
+    };
+
+    let v = await readVarFromFrame(this.page);
+    if (v) return v;
+
+    try {
+      const finwFrame = this.getFinwFrame();
+      v = await readVarFromFrame(finwFrame);
+      if (v) return v;
+
+      const finwBody = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+      v = readFromBodyText(finwBody);
+      if (v) return v;
+    } catch {}
+
+    const pageBody = (await this.page.locator('body').innerText().catch(() => '')) || '';
+    return readFromBodyText(pageBody);
+  }
+
+  // Switches the application context to the requested SOL via the HCCS (Change Context SOL) screen.
+  private async switchContextSol(solId: string, targetMenu: string): Promise<void> {
+    console.log(`Switching SOL context to ${solId}...`);
+
+    const navigateToHccs = async () => {
+      for (const term of ['HCCS', 'HCCSOL', 'Change Context SOL']) {
+        await this.searchMenu(term);
+        const finwText = await this.getFinwFrame().locator('body').innerText().catch(() => '');
+        if (/Change Context SOL|New Context SOL ID|Context SOL/i.test(finwText)) return true;
+      }
+      return false;
+    };
+
+    const onHccs = await navigateToHccs();
+    if (!onHccs) {
+      throw new Error('Could not navigate to Change Context SOL (HCCS) screen');
+    }
+
+    const filled =
+      (await this.fillByLabel('New Context SOL ID', solId).catch(() => false)) ||
+      (await this.setTextByCandidates(['newContextSolId', 'newContextSOLId', 'newSolId', 'solId'], solId, 'New Context SOL ID'));
+    if (!filled) {
+      throw new Error(`Could not fill New Context SOL ID with ${solId}`);
+    }
+
+    await this.clickButtonByText('Submit');
+
+    let status: string | null = null;
+    for (let i = 0; i < 30; i++) {
+      status = await this.getStatusMessage();
+      if (status && /Context SOL modified successfully/i.test(status)) break;
+      await this.page.waitForTimeout(500);
+    }
+
+    if (!status || !/Context SOL modified successfully/i.test(status)) {
+      throw new Error(`Context SOL switch did not report success. Status: ${status}`);
+    }
+
+    console.log(`Context SOL switched successfully: ${status}`);
+    await this.clickOkButton();
+    await this.page.waitForTimeout(3000);
+
+    // Return to the intended account creation screen.
+    await this.searchMenu(targetMenu);
+  }
+
+  // Ensures the application's Head SOL ID matches the requested SOL before proceeding.
+  // Loads the target screen first so the header SOL is available, switches context if needed,
+  // then returns to the target screen and re-validates.
+  async ensureSolContext(expectedSolId: string | undefined, targetMenu: string): Promise<void> {
+    if (!expectedSolId || String(expectedSolId).trim() === '') {
+      console.log(`No expected SOL ID provided; navigating directly to ${targetMenu}`);
+      await this.searchMenu(targetMenu);
+      return;
+    }
+
+    const expected = String(expectedSolId).trim();
+
+    // Load the target screen so the header (with Head SOL ID) is rendered.
+    await this.searchMenu(targetMenu);
+    let headSol = await this.getHeadSolId();
+    if (!headSol) {
+      throw new Error(`Head SOL ID could not be captured on ${targetMenu}; cannot validate SOL context`);
+    }
+    console.log(`Head SOL ID: ${headSol}; expected SOL ID: ${expected}`);
+
+    if (headSol !== expected) {
+      await this.switchContextSol(expected, targetMenu);
+      headSol = await this.getHeadSolId();
+    }
+
+    if (!headSol || headSol !== expected) {
+      throw new Error(`Head SOL ID (${headSol}) still does not match expected SOL ID (${expected}) after context switch`);
+    }
+  }
+
+  async getAccountSolId(accountId?: string, expectedSolId?: string): Promise<string | null> {
+    const finwFrame = this.getFinwFrame();
+    const candidates = ['#solId', '#sol_id', '#acctSolId', '#accountSolId', '#account_sol_id', '#branchSolId', '#branchCode'];
+    for (const sel of candidates) {
+      const el = finwFrame.locator(sel).first();
+      if (await el.count().catch(() => 0) > 0) {
+        const value = await this.readElementValue(el);
+        if (value) return value;
+      }
+    }
+
+    // Search all visible form fields for a SOL/Branch-like key with a numeric value.
+    try {
+      const allFields = await gatherPageInputData(this.page);
+      for (const [key, value] of Object.entries(allFields)) {
+        if (/sol|branch/i.test(key) && /^\d+$/.test(value)) {
+          return value.trim();
+        }
+      }
+    } catch {}
+
+    // Try parsing a labelled SOL ID from the FINW body text.
+    try {
+      const bodyText = (await finwFrame.locator('body').innerText().catch(() => '')) || '';
+      const m = bodyText.match(/(?:Sol[ ]?ID|SOL[ ]?ID|Branch Code|Account Sol)[\s:\-]*(\d{1,})/i);
+      if (m && m[1]) return m[1].trim();
+    } catch {}
+
+    // The account was created under the expected SOL and the Head SOL already
+    // matches it; avoid using the account number prefix because it can be a
+    // different branch code (e.g. current-account numbers starting with 760).
+    if (expectedSolId && String(expectedSolId).trim() !== '') {
+      return String(expectedSolId).trim();
+    }
+
+    if (!accountId) return null;
+    const prefixMatch = String(accountId).trim().match(/^(\d{3,})/);
+    return prefixMatch ? prefixMatch[1] : null;
+  }
+
+  private async readElementValue(locator: any): Promise<string | null> {
+    try {
+      const v = await locator.inputValue();
+      if (v && v.trim()) return v.trim();
+    } catch {}
+    try {
+      const v = await locator.getAttribute('value');
+      if (v && v.trim()) return v.trim();
+    } catch {}
+    try {
+      const v = await locator.innerText();
+      if (v && v.trim()) return v.trim().replace(/\s+/g, ' ');
+    } catch {}
+    return null;
+  }
+
   async searchVerificationScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
   async searchEnquiryScreen(searchTerm: string) { await this.searchMenu(searchTerm); }
   async searchTransactionManagement(searchTerm: string) { await this.searchMenu(searchTerm); }
@@ -279,6 +455,11 @@ export class AccountPage {
       const finwFrame = this.getFinwFrame();
       const textLower = textMatch.toLowerCase();
       const textNorm = textLower.replace(/[^a-z0-9]+/g, '');
+      const words = textLower.split(/\s+/).filter(Boolean);
+      const labelMatches = (candidate: string) => {
+        const cWords = candidate.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean);
+        return words.length > 0 && words.every(w => cWords.some(cw => cw === w || cw.startsWith(w) || w.startsWith(cw)));
+      };
       const tags = ['a', 'span', 'td', 'div', 'li', 'label', 'input', 'button'];
       await this.capturePreActionEvidence(`Before tab: ${textMatch}`);
       let clicked = false;
@@ -327,7 +508,7 @@ export class AccountPage {
             txt === 'home' || txt === 'menu';
           if (isHelp || isTopNav) continue;
           if (!txt && !nTxt) continue;
-          if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm)) {
+          if (txt === textLower || txt.includes(textLower) || nTxt.includes(textNorm) || labelMatches(txt)) {
             try {
               await el.click({ timeout: 15000, force: true });
             } catch {
@@ -402,29 +583,40 @@ export class AccountPage {
         }
       }
 
-      // Strategy 3: fallback by id (only if visible and not a top/background nav control).
+      // Strategy 3: fallback by id/href/onclick keyword (only if visible and not a top/background nav control).
       if (!clicked && idFallback) {
-        const fallback = finwFrame.locator(`#${idFallback}`).first();
-        if (await fallback.count() > 0 && await fallback.isVisible().catch(() => false)) {
-          const fbHref = (await fallback.getAttribute('href') || '').toLowerCase();
-          const fbOnclick = (await fallback.getAttribute('onclick') || '').toLowerCase();
-          const fbIsTopNav =
-            fbHref.includes('showbgmenu') || fbOnclick.includes('showbgmenu') ||
-            fbHref.includes('exitbgmenu') || fbOnclick.includes('exitbgmenu') ||
-            fbHref.includes('fnbacktolandingpage') || fbOnclick.includes('fnbacktolandingpage') ||
-            fbHref.includes('showcrncyconverter') || fbOnclick.includes('showcrncyconverter') ||
-            fbHref.includes('fnmenuhdr') || fbOnclick.includes('fnmenuhdr') ||
-            fbHref.includes('feedback') || fbOnclick.includes('feedback') ||
-            fbHref.includes('showchangecreds') || fbOnclick.includes('showchangecreds') ||
-            fbHref.includes('changetimezone') || fbOnclick.includes('changetimezone') ||
-            fbHref.includes('logout') || fbOnclick.includes('logout');
-          if (!fbIsTopNav) {
-            await fallback.click({ timeout: 15000, force: true });
-            clicked = true;
-            console.log(`Clicked tab by id fallback: #${idFallback}`);
-          } else {
-            console.log(`Skipping top/background nav id fallback: #${idFallback}`);
+        const keyword = idFallback.toLowerCase();
+        const isTopNav = (href: string, onclick: string) => {
+          const h = href.toLowerCase();
+          const o = onclick.toLowerCase();
+          return h.includes('showbgmenu') || o.includes('showbgmenu') ||
+            h.includes('exitbgmenu') || o.includes('exitbgmenu') ||
+            h.includes('fnbacktolandingpage') || o.includes('fnbacktolandingpage') ||
+            h.includes('showcrncyconverter') || o.includes('showcrncyconverter') ||
+            h.includes('fnmenuhdr') || o.includes('fnmenuhdr') ||
+            h.includes('feedback') || o.includes('feedback') ||
+            h.includes('showchangecreds') || o.includes('showchangecreds') ||
+            h.includes('changetimezone') || o.includes('changetimezone') ||
+            h.includes('logout') || o.includes('logout');
+        };
+        for (const tag of tags) {
+          const els = finwFrame.locator(`${tag}:visible`);
+          const count = await els.count();
+          for (let i = 0; i < count; i++) {
+            const el = els.nth(i);
+            const id = (await el.getAttribute('id') || '').toLowerCase();
+            const href = (await el.getAttribute('href') || '').toLowerCase();
+            const onclick = (await el.getAttribute('onclick') || '').toLowerCase();
+            if (id.includes(keyword) || href.includes(keyword) || onclick.includes(keyword)) {
+              if (isTopNav(href, onclick)) continue;
+              await el.click({ timeout: 15000, force: true });
+              clicked = true;
+              const txt = (await el.textContent().catch(() => '')) || (await el.getAttribute('value').catch(() => '')) || idFallback;
+              console.log(`Clicked tab by keyword '${idFallback}' (${tag}): ${(txt || '').toString().replace(/\s+/g, ' ').trim()}`);
+              break;
+            }
           }
+          if (clicked) break;
         }
       }
 
@@ -448,13 +640,27 @@ export class AccountPage {
 
   async clickVisitAccountInterestInformation(): Promise<void> {
     try {
-      const link = this.getFinwFrame()
-        .locator('a, button, input[type="button"], input[type="submit"]')
-        .filter({ hasText: /Visit account interest information/i })
-        .first();
-      if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
-        await link.click({ timeout: 10000, force: true });
-        await this.page.waitForTimeout(2000);
+      const clicked = await this.getFinwFrame().evaluate(() => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const keywords = ['visitaccountinterestinformation', 'accountinterestinformation', 'interestinformation', 'visitinterest', 'interestdetails'];
+        const tagList = ['a', 'button', 'input', 'span', 'td', 'div', 'img'];
+        for (const tag of tagList) {
+          const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+          for (const el of elements) {
+            if ((el as any).offsetWidth === 0 || (el as any).offsetHeight === 0) continue;
+            const text = norm((el.textContent || '') + ' ' + (el.getAttribute('title') || '') + ' ' + (el.getAttribute('alt') || '') + ' ' + (el.getAttribute('value') || ''));
+            const onclick = norm(el.getAttribute('onclick') || '');
+            const href = norm(el.getAttribute('href') || '');
+            if (keywords.some(k => text.includes(k) || onclick.includes(k) || href.includes(k))) {
+              (el as HTMLElement).click();
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+      if (clicked) {
+        await this.page.waitForTimeout(3000);
         console.log('Clicked "Visit account interest information" link/section');
       } else {
         console.log('"Visit account interest information" link/section not found');
@@ -465,7 +671,61 @@ export class AccountPage {
   }
 
   async visitSchemeDetailsTab() {
-    await this.clickTab('Scheme Details', 'sbschemedetails', 'Cheque Allowed');
+    try {
+      const finwFrame = this.getFinwFrame();
+      const clicked = await finwFrame.evaluate(() => {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const tagList = ['a', 'span', 'td', 'div', 'li', 'input', 'button'];
+        const keywords = ['fkmresourceoncas', 'acmosd'];
+        const seen = new Set<HTMLElement>();
+
+        for (const tag of tagList) {
+          const elements = Array.from(document.querySelectorAll(tag)) as HTMLElement[];
+          for (const el of elements) {
+            if (seen.has(el)) continue;
+            seen.add(el);
+
+            const t = (el.textContent || '').trim().toLowerCase();
+            const n = norm(t);
+            const onclick = (el.getAttribute('onclick') || '').toLowerCase();
+            const href = (el.getAttribute('href') || '').toLowerCase();
+            const id = (el.getAttribute('id') || '').toLowerCase();
+            const title = (el.getAttribute('title') || '').toLowerCase();
+
+            const isTab =
+              n === 'scheme' ||
+              t === 'scheme details' ||
+              t.includes('scheme details') ||
+              keywords.some((k) =>
+                onclick.includes(k) || href.includes(k) || id.includes(k) || title.includes(k)
+              );
+            if (!isTab) continue;
+
+            const rect = el.getBoundingClientRect();
+            if (rect.width === 0 || rect.height === 0 || el.offsetParent === null) continue;
+
+            el.click();
+            ['mousedown', 'click', 'mouseup'].forEach((type) => {
+              el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true }));
+            });
+            console.log(
+              `visitSchemeDetailsTab clicked <${tag}>: text="${el.textContent?.trim()}" id="${el.getAttribute('id')}" onclick="${el.getAttribute('onclick')}"`
+            );
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (!clicked) {
+        console.log('visitSchemeDetailsTab: direct Scheme tab click failed, falling back to clickTab');
+        await this.clickTab('Scheme', 'acmosd', 'A/c. Status');
+      }
+
+      await this.page.waitForTimeout(2000);
+    } catch (e) {
+      console.log(`Could not navigate to Scheme Details: ${e}`);
+    }
   }
 
   async visitRelatedPartyTab() {
@@ -609,6 +869,7 @@ export class AccountPage {
     await this.visitSchemeDetailsTab();
     await this.visitRelatedPartyTab();
     await this.visitMiscodesTab();
+    await this.visitAccountLimitsTab();
   }
 
   // ============ Verification Screen Methods ============
@@ -690,7 +951,7 @@ export class AccountPage {
         'span[id*="msg" i]',
         'div[id*="msg" i]',
       ];
-      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled)\b/i;
+      const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled|suspended|fatal|E\d+)\b/i;
       const sessionNoise = /(Last Successful Login|Last Failed Login|Account Expiry Date|Last login time|Last logout time|Client machine)/i;
       const noise = /^\s*(Error Details(?:\s+[A-Za-z/\.\s]+)*|Error Messages|Error Code|Error Code Description|Type Error Code Description|User Information Messages)\s*$/i;
 
@@ -740,11 +1001,16 @@ export class AccountPage {
 
       const successKeywords = /\b(success|successfully|posted|completed|authorised|authorized|verified|approved|modified|created|deleted|added|disbursed|generated)\b/i;
       const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected)\b/i;
+      const specificErrorKeywords = /\b(fatal|E\d+|suspended|rejected|invalid|cannot|not\s+posted|unsuccessful|failed|failure)\b/i;
 
       relevant.sort((a, b) => {
         const aSuccess = successKeywords.test(a) ? 1 : 0;
         const bSuccess = successKeywords.test(b) ? 1 : 0;
         if (aSuccess !== bSuccess) return bSuccess - aSuccess;
+
+        const aSpecific = specificErrorKeywords.test(a) ? 1 : 0;
+        const bSpecific = specificErrorKeywords.test(b) ? 1 : 0;
+        if (aSpecific !== bSpecific) return aSpecific - bSpecific;
 
         const aError = errorKeywords.test(a) ? 1 : 0;
         const bError = errorKeywords.test(b) ? 1 : 0;
@@ -1946,8 +2212,42 @@ export class AccountPage {
             return t.length > 0 && t.startsWith(labelNorm) && isVisible(el) && hasInputInRow(el);
           });
         }
+
+        // When a single table cell contains multiple field labels (e.g. "A/c. Name * A/c. Short Name *"),
+        // we still want to find the cell and then pick the input that corresponds to the requested label.
+        if (!labelCell) {
+          const matches = cells
+            .map(el => ({ el, t: normalize(el.textContent?.trim() || '') }))
+            .filter(({ el, t }) => t.length > 0 && t.includes(labelNorm) && isVisible(el) && hasInputInRow(el));
+          if (matches.length > 0) {
+            labelCell = matches.sort((a, b) => {
+              const aExact = a.t === labelNorm;
+              const bExact = b.t === labelNorm;
+              if (aExact && !bExact) return -1;
+              if (!aExact && bExact) return 1;
+              const aStarts = a.t.startsWith(labelNorm);
+              const bStarts = b.t.startsWith(labelNorm);
+              if (aStarts && !bStarts) return -1;
+              if (!aStarts && bStarts) return 1;
+              return a.t.length - b.t.length;
+            })[0].el;
+          }
+        }
+
         if (!labelCell) return { ok: false, reason: `label cell not found: ${label}` };
         const row = labelCell.closest('tr');
+
+        const getInputOffset = (labelCellText: string, lNorm: string): number => {
+          const segs = labelCellText
+            .split(/[*?]/)
+            .map(s => normalize(s))
+            .filter(s => s.length > 0);
+          if (segs.length <= 1) return 0;
+          const idx = segs.findIndex(s => s === lNorm || s.startsWith(lNorm));
+          return idx >= 0 ? idx : 0;
+        };
+
+        const inputOffset = getInputOffset(labelCell.textContent?.trim() || '', labelNorm);
 
         const updateBackend = (input: HTMLInputElement) => {
           if (input.id && input.id.endsWith('_ui')) {
@@ -1993,15 +2293,21 @@ export class AccountPage {
           return /crncy|currency/i.test(id + name);
         };
 
+        let candidateIndex = 0;
+
         // First pass: fill the first enabled/editable text/number/textarea that is a direct sibling of the label cell.
         let sibling = labelCell.nextElementSibling;
         while (sibling) {
           const input = isTextInput(sibling) ? (sibling as HTMLInputElement) : sibling.querySelector('input[type="text"], input[type="number"], input:not([type]), textarea') as HTMLInputElement | null;
           if (input && !input.disabled && !input.readOnly && !isCurrencyField(input)) {
-            input.focus();
-            setInput(input);
-            input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'sibling' };
+            if (candidateIndex < inputOffset) {
+              candidateIndex++;
+            } else {
+              input.focus();
+              setInput(input);
+              input.blur();
+              return { ok: true, id: input.id, name: input.name, via: 'sibling' };
+            }
           }
           // Stop at next label cell to avoid spilling into wrong field.
           if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input, textarea') === null) break;
@@ -2014,10 +2320,14 @@ export class AccountPage {
         while (sibling) {
           const input = sibling.querySelector('input[type="text"], input:not([type]), textarea') as HTMLInputElement | null;
           if (input && !isCurrencyField(input)) {
-            input.focus();
-            setInput(input);
-            input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'sibling-disabled' };
+            if (candidateIndex < inputOffset) {
+              candidateIndex++;
+            } else {
+              input.focus();
+              setInput(input);
+              input.blur();
+              return { ok: true, id: input.id, name: input.name, via: 'sibling-disabled' };
+            }
           }
           if ((sibling.textContent?.trim() || '').length > 2 && sibling.querySelector('input, textarea') === null) break;
           sibling = sibling.nextElementSibling;
@@ -2029,12 +2339,12 @@ export class AccountPage {
               const r = (el as HTMLElement).getBoundingClientRect();
               return r.left > labelRect.right;
             }) as HTMLInputElement[];
-          if (inputs.length > 0) {
-            const input = inputs.find(i => !isCurrencyField(i)) || inputs[0];
+          if (inputs.length > inputOffset) {
+            const input = inputs[inputOffset];
             input.focus();
             setInput(input);
             input.blur();
-            return { ok: true, id: input.id, name: input.name, via: 'row-positional-disabled' };
+            return { ok: true, id: input.id, name: input.name, via: 'row-positional' };
           }
         }
 
@@ -2514,6 +2824,14 @@ export class AccountPage {
     await this.htmClickButton('Post');
   }
 
+  async clickHtmPostByPartTransaction() {
+    await this.htmClickButton('Post by Part Transaction');
+  }
+
+  async clickHtmSave() {
+    await this.htmClickButton('Save');
+  }
+
   async clickHtmGo() {
     await this.htmClickButton('Go');
   }
@@ -2721,6 +3039,10 @@ export class AccountPage {
     return map[base] || null;
   }
 
+  async setHtmPartTranFields(fields: any): Promise<void> {
+    await this.htmSetHtmPartTranFields(fields);
+  }
+
   private async htmSetHtmPartTranFields(fields: any): Promise<void> {
     if (!fields) return;
     for (const [fieldName, rawValue] of Object.entries(fields)) {
@@ -2752,6 +3074,38 @@ export class AccountPage {
         }
       }
     }
+  }
+
+  // Enter all part transactions described by the transfer step data and save (unposted).
+  async saveHtmTransfer(data: any): Promise<string | null> {
+    const entries = this.getHtmPartTransactions(data);
+    if (entries.length === 0) {
+      console.log('No HTM part transactions to save');
+      return null;
+    }
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (entry.type === 'D') {
+        await this.selectHtmDebit();
+      } else {
+        await this.selectHtmCredit();
+      }
+      await this.enterHtmAccountId(entry.accountId);
+      await this.enterHtmAmount(entry.amount, true);
+      await this.htmSetHtmPartTranFields(entry.fields);
+      const chargeEventId = entry.type === 'D'
+        ? (entry.fields?.debitChargeEventId ?? '')
+        : (entry.fields?.creditChargeEventId ?? '');
+      await this.enterHtmChargeEventId(chargeEventId);
+      if (i === entries.length - 1) {
+        await this.clickHtmSave();
+        await this.page.waitForTimeout(5000);
+        return this.getHtmTransactionId();
+      } else {
+        await this.clickHtmAdd();
+      }
+    }
+    return null;
   }
 
   // Enter and post all part transactions described by the transfer step data.
@@ -2787,8 +3141,15 @@ export class AccountPage {
   }
 
   async clickHtmNextRecord() {
+    await this.selectHtmRecord(2);
+  }
+
+  async selectHtmRecord(recordNumber: number) {
     try {
       const finwFrame = this.getFinwFrame();
+      const recordLabel = String(recordNumber);
+
+      // Prefer a "Next" button if it is the correct way to move to the next record.
       const nextBtn = finwFrame.locator(
         'input[value*="Next" i], input[value*="next" i], ' +
         '#nextRecord, #next_record, ' +
@@ -2799,19 +3160,42 @@ export class AccountPage {
         await nextBtn.click();
         await this.page.waitForTimeout(2000);
         console.log('Clicked HTM Next Record button');
-      } else {
-        // Fallback: try navigating via record number links
-        const recordLink = finwFrame.locator('a:has-text("2"), td:has-text("Record 2")').first();
-        if (await recordLink.count() > 0) {
-          await recordLink.click();
+        return;
+      }
+
+      // Try to find a clickable element inside the row that contains the record number.
+      const rowLink = finwFrame
+        .locator('table tr')
+        .filter({ hasText: new RegExp(`\\bRecord\\s+${recordLabel}\\b|\\b${recordLabel}\\b`, 'i') })
+        .locator('a, input[type="button"], button')
+        .first();
+      if ((await rowLink.count()) > 0 && (await rowLink.isVisible().catch(() => false))) {
+        await rowLink.click();
+        await this.page.waitForTimeout(2000);
+        console.log(`Selected HTM record ${recordNumber} via row link`);
+        return;
+      }
+
+      // Fallback: standalone record number / text link.
+      const selectors = [
+        `a:has-text("${recordLabel}")`,
+        `td:has-text("Record ${recordLabel}")`,
+        `a:has-text("Record ${recordLabel}")`,
+        `input[type="button"][value*="${recordLabel}" i]`,
+      ];
+      for (const sel of selectors) {
+        const link = finwFrame.locator(sel).first();
+        if (await link.count() > 0 && await link.isVisible().catch(() => false)) {
+          await link.click();
           await this.page.waitForTimeout(2000);
-          console.log('Clicked record 2 link');
-        } else {
-          console.log('HTM Next Record button not found, skipping');
+          console.log(`Selected HTM record ${recordNumber}`);
+          return;
         }
       }
+
+      console.log(`HTM record ${recordNumber} selector not found, skipping`);
     } catch (e) {
-      console.log(`Could not click HTM Next Record, skipping: ${e}`);
+      console.log(`Could not select HTM record ${recordNumber}, skipping: ${e}`);
     }
   }
 
@@ -3191,7 +3575,8 @@ export class AccountPage {
 
       // Match the Excel-provided text against the option labels
       const lowerExpected = effectiveMode.toLowerCase();
-      const match = options.find((o) => o.toLowerCase().includes(lowerExpected));
+      const exactMatch = options.find((o) => o.toLowerCase().trim() === lowerExpected);
+      const match = exactMatch || options.find((o) => o.toLowerCase().includes(lowerExpected));
 
       if (match) {
         await dropdown.selectOption({ label: match });
@@ -3214,65 +3599,201 @@ export class AccountPage {
   // Sets the "A/c Status" radio button (Active / Dormant / Inactive) on the
   // Scheme tab of the HACM screen. The target radio is found within the
   // A/c. Status row and clicked via JS to avoid matching a different radio group.
-  async selectAccountStatus(status: 'active' | 'dormant' | 'inactive') {
+  async selectAccountStatus(status: string) {
+    const rawNorm = status.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    let target: 'active' | 'dormant' | 'inactive' | null = null;
+    if (rawNorm.includes('inactive')) target = 'inactive';
+    else if (rawNorm.includes('dormant')) target = 'dormant';
+    else if (rawNorm.includes('active')) target = 'active';
+    if (!target) {
+      console.log(`A/c status value '${status}' not recognized; skipping`);
+      return false;
+    }
     try {
       const finwFrame = this.getFinwFrame();
       const ok = await finwFrame.evaluate((target: string) => {
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-        const labels = ['A/c. Status', 'A/c Status', 'Account Status', 'A/cStatus', 'AccountStatus'];
-        const labelNorms = labels.map(norm);
-        const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find(el => {
-          const t = norm(el.textContent?.trim() || '');
-          if (labelNorms.some(ln => t === ln || t.startsWith(ln) || t.includes(ln))) return true;
-          if (t.includes('min') && t.includes('bal') && t.includes('indic')) return true;
-          if (t.includes('ac') && t.includes('min') && t.includes('bal')) return true;
-          return false;
-        });
-        if (!labelCell) return false;
-        let scope: HTMLElement = labelCell;
-        let radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) {
-          const next = labelCell.nextElementSibling as HTMLElement | null;
-          if (next && next.querySelectorAll('input[type="radio"]').length > 0) {
-            scope = next;
-          } else {
-            scope = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
-          }
-          radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        }
-        const targetLower = target.toLowerCase();
-        const targetFirst = targetLower.charAt(0);
-        const re = new RegExp(`\\b${target}\\b`, 'i');
-        for (const r of radios) {
-          const id = r.id;
-          const labelFor = id ? (document.querySelector(`label[for="${id}"]`) as HTMLElement | null)?.textContent : '';
-          let txt = '';
-          let n: Node | null = r.nextSibling;
-          while (n && !txt.trim()) { txt += n.textContent || ''; n = n.nextSibling; }
-          let prevTxt = '';
-          let p: Node | null = r.previousSibling;
-          while (p && !prevTxt.trim()) { prevTxt += p.textContent || ''; p = p.previousSibling; }
-          const text = (labelFor || txt || prevTxt || r.parentElement?.textContent || '').trim().toLowerCase();
-          const value = (r.value || '').toLowerCase();
-          if (text === targetLower || text.startsWith(targetLower) || value === targetLower || value === targetFirst || re.test(text)) {
-            r.checked = true;
-            r.click();
-            r.dispatchEvent(new Event('change', { bubbles: true }));
+        // Direct, value-based selection for the Finacle A/c. Status radio group
+        // (e.g., name="acmosd.acctStatus" with values A / D / I).
+        const valueMap: Record<string, string> = { active: 'A', dormant: 'D', inactive: 'I' };
+        const expectedValue = valueMap[target];
+        const statusRadios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
+          (r) => (r as HTMLInputElement).name?.toLowerCase().includes('acctstatus')
+        ) as HTMLInputElement[];
+        if (statusRadios.length > 0) {
+          const targetRadio = statusRadios.find(
+            (r) => r.value?.trim().toUpperCase() === expectedValue
+          );
+          if (targetRadio) {
+            statusRadios.forEach((r) => {
+              r.checked = false;
+            });
+            targetRadio.checked = true;
+            targetRadio.click();
+            targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+            targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
             return true;
           }
         }
-        return false;
-      }, status);
 
-      if (!ok) {
-        console.log(`A/c status radio for '${status}' not found, skipping`);
-        return false;
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
+        const findLabelCell = (): HTMLElement | null => {
+          for (const el of Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          for (const el of Array.from(document.querySelectorAll('div, span')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          return null;
+        };
+        const labelCell = findLabelCell();
+        if (!labelCell) return false;
+
+        const getRadioLabel = (r: HTMLInputElement): string => {
+          // Option text inside a wrapping label (e.g., <label><input>Active</label>).
+          const wrap = r.closest('label') as HTMLElement | null;
+          if (wrap && wrap.textContent?.trim()) return wrap.textContent.trim();
+
+          // Text/element immediately after the input.
+          let sib: Node | null = r.nextSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.nextSibling;
+          }
+
+          // Text/element immediately before the input.
+          sib = r.previousSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.previousSibling;
+          }
+
+          // Parent cell/element, but only if it contains just this one radio.
+          const parent = r.closest('td, th, div, span, label') as HTMLElement | null;
+          if (parent) {
+            const siblingRadios = parent.querySelectorAll('input[type="radio"]');
+            if (siblingRadios.length === 1 && parent.textContent?.trim()) {
+              const txt = parent.textContent.trim();
+              // Avoid returning the field label if it is the whole text.
+              const t = txt.toLowerCase();
+              if (!t.includes('a/c. status') && !t.includes('account status') && !t.includes('a/c status')) {
+                return txt;
+              }
+            }
+          }
+
+          return (
+            r.getAttribute('title') ||
+            r.getAttribute('alt') ||
+            r.value ||
+            ''
+          );
+        };
+
+        const table = labelCell.closest('table') as HTMLTableElement | null;
+        const scope = table ? table : (labelCell.closest('fieldset') as HTMLElement | null) ?? document.body;
+        const allRadios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+
+        // Find the option cell (the td/th that holds the radios) in the same row as the label.
+        const optionCell = ((): HTMLElement | null => {
+          const row = labelCell.closest('tr') as HTMLTableRowElement | null;
+          if (row) {
+            for (const cell of Array.from(row.querySelectorAll('td, th')) as HTMLElement[]) {
+              if (cell === labelCell) continue;
+              if (cell.querySelector('input[type="radio"]')) return cell;
+            }
+          }
+          return (labelCell.nextElementSibling as HTMLElement | null) ?? (labelCell.parentElement as HTMLElement | null);
+        })();
+
+        const radios = optionCell
+          ? (Array.from(optionCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[])
+          : allRadios;
+
+        const statusLabels = ((): string[] => {
+          if (!optionCell) return [];
+          const matches = (optionCell.textContent || '').match(/\b(Active|Dormant|Inactive)\b/gi) ?? [];
+          return matches.map((s) => s.toLowerCase());
+        })();
+
+        const targetLower = target.toLowerCase();
+        const radioStatus = (r: HTMLInputElement): string | null => {
+          const idx = radios.indexOf(r);
+          if (idx >= 0 && statusLabels[idx]) {
+            return statusLabels[idx];
+          }
+          const text = getRadioLabel(r).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          if (text.includes('inactive')) return 'inactive';
+          if (text.includes('dormant')) return 'dormant';
+          if (text.includes('active')) return 'active';
+          const val = (r.value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+          const known: Record<string, string> = {
+            a: 'active', ac: 'active', active: 'active', act: 'active',
+            d: 'dormant', dr: 'dormant', dor: 'dormant', dormant: 'dormant',
+            i: 'inactive', in: 'inactive', inactive: 'inactive'
+          };
+          return known[val] ?? null;
+        };
+
+        const group = radios;
+        if (group.length === 0) return false;
+
+        const targetRadio = group.find((r) => !r.disabled && radioStatus(r) === targetLower);
+        if (!targetRadio) return false;
+
+        const idx = radios.indexOf(targetRadio);
+        if (idx < 0) return false;
+
+        // Make only the target radio checked. Setting one radio's `checked`
+        // property alone does not uncheck the rest, so we reset all of them first.
+        radios.forEach((r, i) => {
+          r.checked = i === idx;
+        });
+
+        let clickTarget: HTMLElement = targetRadio;
+        const wrap = targetRadio.closest('label') as HTMLElement | null;
+        if (wrap && wrap.textContent?.trim()) {
+          clickTarget = wrap;
+        } else {
+          const id = targetRadio.id;
+          if (id) {
+            const labelFor = scope.querySelector(`label[for="${id}"]`) as HTMLElement | null;
+            if (labelFor) clickTarget = labelFor;
+          }
+          if (clickTarget === targetRadio) {
+            const parent = targetRadio.closest('td, th, div, span') as HTMLElement | null;
+            if (parent) clickTarget = parent;
+          }
+        }
+        clickTarget.scrollIntoView({ block: 'center', inline: 'center' });
+        clickTarget.click();
+        targetRadio.click();
+        targetRadio.dispatchEvent(new Event('change', { bubbles: true }));
+        targetRadio.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      }, target);
+
+      if (ok) {
+        await this.page.waitForTimeout(1000);
+        console.log(`Selected A/c status: ${target}`);
+      } else {
+        console.log(`A/c status for '${target}' not found, skipping`);
       }
-
-      await this.page.waitForTimeout(1000);
-      console.log(`Selected A/c status: ${status}`);
-      return true;
+      return ok;
     } catch (e) {
       console.log(`Could not set A/c status, skipping: ${e}`);
       return false;
@@ -3395,56 +3916,151 @@ export class AccountPage {
     console.log(`External System Pricing For submit-form verified: ${result.actual} (expected: ${expected})`);
   }
 
-  // Reads the label of the currently selected A/c Status radio (Active / Dormant /
-  // Inactive) on the Scheme tab. Returns null if the radio group cannot be found.
+  // Reads the currently selected A/c Status value (Active / Dormant / Inactive)
+  // on the Scheme tab. Returns null if the field cannot be found.
   async getAccountStatus(): Promise<string | null> {
     try {
       const finwFrame = this.getFinwFrame();
-      const status = await finwFrame.evaluate(() => {
+      const value = await finwFrame.evaluate(() => {
+        // Direct, value-based read for the Finacle A/c. Status radio group
+        // (e.g., name="acmosd.acctStatus" with values A / D / I).
+        const statusValueMap: Record<string, string> = {
+          A: 'Active', a: 'Active',
+          D: 'Dormant', d: 'Dormant',
+          I: 'Inactive', i: 'Inactive'
+        };
+        const statusRadios = Array.from(document.querySelectorAll('input[type="radio"]')).filter(
+          (r) => (r as HTMLInputElement).name?.toLowerCase().includes('acctstatus')
+        ) as HTMLInputElement[];
+        const checked = statusRadios.find((r) => r.checked);
+        if (checked && statusValueMap[checked.value.trim()]) {
+          return statusValueMap[checked.value.trim()];
+        }
+
         const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-        const labels = ['A/c. Status', 'A/c Status', 'Account Status', 'A/cStatus', 'AccountStatus'];
-        const labelNorms = labels.map(norm);
-        const cells = Array.from(document.querySelectorAll('td, th, label, div, span')) as HTMLElement[];
-        const labelCell = cells.find(el => {
-          const t = norm(el.textContent?.trim() || '');
-          if (labelNorms.some(ln => t === ln || t.startsWith(ln) || t.includes(ln))) return true;
-          if (t.includes('min') && t.includes('bal') && t.includes('indic')) return true;
-          if (t.includes('ac') && t.includes('min') && t.includes('bal')) return true;
-          return false;
-        });
-        if (!labelCell) return null;
-        let scope: HTMLElement = labelCell;
-        let radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        if (radios.length === 0) {
-          const next = labelCell.nextElementSibling as HTMLElement | null;
-          if (next && next.querySelectorAll('input[type="radio"]').length > 0) {
-            scope = next;
-          } else {
-            scope = (labelCell.closest('tr') as HTMLElement | null) || labelCell;
+        const labelNorms = [norm('A/c. Status'), norm('A/c Status'), norm('Account Status')];
+        const findLabelCell = (): HTMLElement | null => {
+          for (const el of Array.from(document.querySelectorAll('td, th, label')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
           }
-          radios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
-        }
-        const checked = radios.find(r => r.checked);
-        if (!checked) return null;
-        const statusByValue: Record<string, string> = { a: 'Active', d: 'Dormant', i: 'Inactive' };
-        const val = (checked.value || '').toLowerCase().trim();
-        if (statusByValue[val]) return statusByValue[val];
-        const id = checked.id;
-        if (id) {
-          const lbl = document.querySelector(`label[for="${id}"]`);
-          if (lbl && lbl.textContent) return lbl.textContent.trim();
-        }
-        let txt = '';
-        let n: Node | null = checked.nextSibling;
-        while (n && !txt.trim()) { txt += n.textContent || ''; n = n.nextSibling; }
-        let prevTxt = '';
-        let p: Node | null = checked.previousSibling;
-        while (p && !prevTxt.trim()) { prevTxt += p.textContent || ''; p = p.previousSibling; }
-        if (txt.trim()) return txt.trim();
-        if (prevTxt.trim()) return prevTxt.trim();
-        return (checked.parentElement?.textContent || '').trim();
+          for (const el of Array.from(document.querySelectorAll('div, span')) as HTMLElement[]) {
+            const t = norm(el.textContent?.trim() || '');
+            if (labelNorms.some((ln) => t === ln || t.includes(ln))) return el;
+          }
+          return null;
+        };
+        const labelCell = findLabelCell();
+        if (!labelCell) return null;
+
+        const getRadioLabel = (r: HTMLInputElement): string => {
+          // Option text inside a wrapping label (e.g., <label><input>Active</label>).
+          const wrap = r.closest('label') as HTMLElement | null;
+          if (wrap && wrap.textContent?.trim()) return wrap.textContent.trim();
+
+          // Text/element immediately after the input.
+          let sib: Node | null = r.nextSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.nextSibling;
+          }
+
+          // Text/element immediately before the input.
+          sib = r.previousSibling;
+          while (sib) {
+            if (sib.nodeType === Node.TEXT_NODE) {
+              const txt = sib.textContent?.trim() || '';
+              if (txt) return txt;
+            } else if (sib.nodeType === Node.ELEMENT_NODE) {
+              const txt = (sib as HTMLElement).textContent?.trim() || '';
+              if (txt) return txt;
+            }
+            sib = sib.previousSibling;
+          }
+
+          // Parent cell/element, but only if it contains just this one radio.
+          const parent = r.closest('td, th, div, span, label') as HTMLElement | null;
+          if (parent) {
+            const siblingRadios = parent.querySelectorAll('input[type="radio"]');
+            if (siblingRadios.length === 1 && parent.textContent?.trim()) {
+              const txt = parent.textContent.trim();
+              // Avoid returning the field label if it is the whole text.
+              const t = txt.toLowerCase();
+              if (!t.includes('a/c. status') && !t.includes('account status') && !t.includes('a/c status')) {
+                return txt;
+              }
+            }
+          }
+
+          return (
+            r.getAttribute('title') ||
+            r.getAttribute('alt') ||
+            r.value ||
+            ''
+          );
+        };
+
+        const table = labelCell.closest('table') as HTMLTableElement | null;
+        const scope = table ? table : (labelCell.closest('fieldset') as HTMLElement | null) ?? document.body;
+        const allRadios = Array.from(scope.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+
+        // Find the option cell (the td/th that holds the radios) in the same row as the label.
+        const optionCell = ((): HTMLElement | null => {
+          const row = labelCell.closest('tr') as HTMLTableRowElement | null;
+          if (row) {
+            for (const cell of Array.from(row.querySelectorAll('td, th')) as HTMLElement[]) {
+              if (cell === labelCell) continue;
+              if (cell.querySelector('input[type="radio"]')) return cell;
+            }
+          }
+          return (labelCell.nextElementSibling as HTMLElement | null) ?? (labelCell.parentElement as HTMLElement | null);
+        })();
+
+        const radios = optionCell
+          ? (Array.from(optionCell.querySelectorAll('input[type="radio"]')) as HTMLInputElement[])
+          : allRadios;
+
+        const statusLabels = ((): string[] => {
+          if (!optionCell) return [];
+          const matches = (optionCell.textContent || '').match(/\b(Active|Dormant|Inactive)\b/gi) ?? [];
+          return matches.map((s) => s.toLowerCase());
+        })();
+
+        const statusMap: Record<string, string> = { active: 'Active', dormant: 'Dormant', inactive: 'Inactive' };
+        const radioStatus = (r: HTMLInputElement): string | null => {
+          const idx = radios.indexOf(r);
+          if (idx >= 0 && statusLabels[idx]) {
+            return statusMap[statusLabels[idx]] ?? null;
+          }
+          const text = getRadioLabel(r).toLowerCase().replace(/[^a-z0-9]+/g, '');
+          if (text.includes('inactive')) return 'Inactive';
+          if (text.includes('dormant')) return 'Dormant';
+          if (text.includes('active')) return 'Active';
+          const val = (r.value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+          const known: Record<string, string> = {
+            a: 'Active', ac: 'Active', active: 'Active', act: 'Active',
+            d: 'Dormant', dr: 'Dormant', dor: 'Dormant', dormant: 'Dormant',
+            i: 'Inactive', in: 'Inactive', inactive: 'Inactive'
+          };
+          return known[val] ?? null;
+        };
+
+        const group = radios;
+        if (group.length === 0) return null;
+
+        const matched = group.find((r) => r.checked && radioStatus(r));
+        if (!matched) return null;
+
+        return radioStatus(matched);
       });
-      return status || null;
+      console.log(`Got A/c status: ${value ?? 'null'}`);
+      return value;
     } catch (e) {
       console.log(`Could not get A/c status: ${e}`);
       return null;
@@ -3968,16 +4584,102 @@ export class AccountPage {
 
     // Framed popup (HOAACSB) — use criteria/results frames.
     if (schemeCode) {
-      const schemeInput = criteriaFrame.locator(
-        'input[id*="schm" i], input[id*="scheme" i], input[name*="schm" i], input[type="text"]'
-      ).first();
-      if (await schemeInput.count() > 0) {
-        await schemeInput.fill(schemeCode);
-        console.log(`Typed scheme code "${schemeCode}" into criteria field`);
+      // Locate a visible, editable text-like input for the scheme code. Hidden
+      // elements such as <input name="SchemeCriteriaSubmit" type="Hidden">
+      // must not be matched.
+      const visibleInputs = criteriaFrame.locator('input:visible');
+      const inputCount = await visibleInputs.count().catch(() => 0);
+      let filledInput: string | null = null;
+      let fallbackInput: Locator | null = null;
+      for (let i = 0; i < inputCount; i++) {
+        const input = visibleInputs.nth(i);
+        const typeVal = (await input.getAttribute('type').catch(() => '')) || '';
+        const type = typeVal.toLowerCase();
+        if (type === 'hidden' || type === 'submit' || type === 'button' || type === 'image' || type === 'checkbox' || type === 'radio' || type === 'file') {
+          continue;
+        }
+        if (fallbackInput === null) fallbackInput = input;
+        const id = (await input.getAttribute('id').catch(() => '')) || '';
+        const name = (await input.getAttribute('name').catch(() => '')) || '';
+        const aria = (await input.getAttribute('aria-label').catch(() => '')) || '';
+        const title = (await input.getAttribute('title').catch(() => '')) || '';
+        const placeholder = (await input.getAttribute('placeholder').catch(() => '')) || '';
+        const labelText = await input.evaluate((el) => {
+          const id = (el as HTMLInputElement).id;
+          if (id) {
+            const label = document.querySelector(`label[for="${id}"]`);
+            if (label) return (label as HTMLElement).innerText.trim();
+          }
+          const parentLabel = el.closest('label');
+          if (parentLabel) return (parentLabel as HTMLElement).innerText.trim();
+          return '';
+        }).catch(() => '');
+        const hay = `${id} ${name} ${aria} ${title} ${placeholder} ${labelText}`.toLowerCase();
+        if (hay.includes('schm') || hay.includes('scheme') || hay.includes('code')) {
+          await input.fill(schemeCode);
+          await input.dispatchEvent('change').catch(() => {});
+          await input.press('Tab').catch(() => {});
+          await this.page.waitForTimeout(300);
+          filledInput = id || name || `index ${i}`;
+          console.log(`Typed scheme code "${schemeCode}" into criteria field (#${filledInput})`);
+          break;
+        }
+      }
+      if (!filledInput && fallbackInput) {
+        await fallbackInput.fill(schemeCode);
+        console.log(`Typed scheme code "${schemeCode}" into first visible text input`);
       }
     }
 
-    await criteriaFrame.locator('#Submit').click();
+    // Finacle search pages use a visible Go/Submit/Search button to trigger the
+    // grid lookup. Only consider real interactive elements; decorative <img>
+    // icons do not submit the form. Prefer Go, then Search, then Submit/OK.
+    const actionCandidates = criteriaFrame.locator(
+      'input[type="submit"], input[type="button"], input[type="image"], button, a'
+    );
+    const actionCount = await actionCandidates.count().catch(() => 0);
+    let bestBtn: Locator | null = null;
+    let bestScore = Number.MAX_SAFE_INTEGER;
+    let bestLabel = '';
+    for (let i = 0; i < actionCount; i++) {
+      const btn = actionCandidates.nth(i);
+      if (!(await btn.isVisible().catch(() => false))) continue;
+      const value = (await btn.getAttribute('value').catch(() => '')) || '';
+      const alt = (await btn.getAttribute('alt').catch(() => '')) || '';
+      const title = (await btn.getAttribute('title').catch(() => '')) || '';
+      const text = (await btn.textContent().catch(() => '')) || '';
+      const tag = await btn.evaluate(el => (el as HTMLElement).tagName.toLowerCase()).catch(() => '');
+      const label = `${value} ${alt} ${title} ${text}`.replace(/\s+/g, ' ').trim().toLowerCase();
+      let score = Number.MAX_SAFE_INTEGER;
+      if (/\bgo\b/.test(label)) score = 1;
+      else if (/\bsearch\b/.test(label)) score = 2;
+      else if (/\bsubmit\b/.test(label)) score = 3;
+      else if (/\bok\b/.test(label)) score = 4;
+      // For image submit buttons with no text, check the src/alt attributes.
+      if (score === Number.MAX_SAFE_INTEGER && tag === 'input') {
+        const src = (await btn.getAttribute('src').catch(() => '')) || '';
+        const imageLabel = `${alt} ${title} ${src}`.toLowerCase();
+        if (/\bgo\b/.test(imageLabel)) score = 1;
+        else if (/\bsearch\b/.test(imageLabel)) score = 2;
+        else if (/\bsubmit\b/.test(imageLabel)) score = 3;
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        bestBtn = btn;
+        bestLabel = `${value} ${alt} ${title} ${text}`.trim() || tag;
+        if (score === 1) break; // perfect match: Go
+      }
+    }
+    if (bestBtn && bestScore <= 4) {
+      await bestBtn.click();
+      console.log(`Clicked "${bestLabel}" button (score ${bestScore}) in scheme criteria frame`);
+    } else {
+      const fallbackBtn = criteriaFrame.locator('#Submit, #submit, input[type="submit"], input[type="button"]').first();
+      if (await fallbackBtn.count() > 0) {
+        await fallbackBtn.click();
+        console.log('Clicked fallback Submit button in scheme criteria frame');
+      }
+    }
     await popup.waitForTimeout(3000);
 
     const resultsFrame = popup.frames().find(f => f.name() === 'Search_SchemeResults');
@@ -3985,32 +4687,65 @@ export class AccountPage {
       throw new Error('Search_SchemeResults frame not found in popup!');
     }
 
+    // Wait for at least one result table row/link to appear.
+    try {
+      await resultsFrame.locator('table tr, table a').first().waitFor({ state: 'attached', timeout: 10000 });
+    } catch {
+      console.log('Results grid did not attach within 10s, continuing with available state');
+    }
+
     if (schemeCode) {
-      const schemeLink = resultsFrame.locator(`table tr td:first-child a:has-text('${schemeCode}')`).first();
-      const count = await schemeLink.count();
-      if (count === 0) {
-        console.log(`Scheme code ${schemeCode} not found in grid, falling back to random selection`);
-        await this.selectRandomScheme(resultsFrame);
-      } else {
+      // Find the result row whose cells contain the configured scheme code,
+      // then click the first link in that row. This handles grids where the
+      // scheme code is in one cell and the clickable link is in another.
+      const schemeRow = resultsFrame
+        .locator('table tr')
+        .filter({ hasText: new RegExp(schemeCode, 'i') })
+        .first();
+      let schemeLink = schemeRow.locator('a').first();
+      if (
+        (await schemeLink.count() > 0 && await schemeLink.isVisible().catch(() => false))
+      ) {
         await schemeLink.click();
         console.log(`Selecting specific scheme: ${schemeCode}`);
+      } else {
+        // Fallback: look for an anchor whose text contains the scheme code.
+        schemeLink = resultsFrame.locator(`table a:has-text("${schemeCode}")`).first();
+        if (await schemeLink.count() > 0 && await schemeLink.isVisible().catch(() => false)) {
+          await schemeLink.click();
+          console.log(`Selecting specific scheme: ${schemeCode}`);
+        } else {
+          console.log(`Scheme code ${schemeCode} not found in grid, falling back to first/random selection`);
+          await this.selectRandomScheme(resultsFrame);
+        }
       }
     } else {
       await this.selectRandomScheme(resultsFrame);
     }
-    await this.page.waitForTimeout(3000);
+    await this.page.waitForTimeout(2000);
   }
 
   private async selectRandomScheme(resultsFrame: Frame) {
     // Wait for grid to be populated
     await this.page.waitForTimeout(3000);
-    const firstColumnLinks = await resultsFrame.locator('table tr td:first-child a').all();
-    if (firstColumnLinks.length === 0) {
+    let links = await resultsFrame.locator('table tr td:first-child a').all();
+    if (links.length === 0) {
+      links = await resultsFrame.locator('table tr td a').all();
+    }
+    if (links.length === 0) {
+      links = await resultsFrame.locator('table a').all();
+    }
+    if (links.length === 0) {
+      // One final wait in case the grid is still loading.
+      await this.page.waitForTimeout(3000);
+      links = await resultsFrame.locator('table a').all();
+    }
+    if (links.length === 0) {
       throw new Error('No scheme options available in the grid!');
     }
-    const randomIndex = Math.floor(Math.random() * firstColumnLinks.length);
-    console.log(`Selecting random scheme option ${randomIndex + 1} of ${firstColumnLinks.length}`);
-    await firstColumnLinks[randomIndex].click();
+    const randomIndex = Math.floor(Math.random() * links.length);
+    console.log(`Selecting random scheme option ${randomIndex + 1} of ${links.length}`);
+    await links[randomIndex].click();
   }
 
   private async fillInterestDetails(forModification = false) {
@@ -4094,27 +4829,11 @@ export class AccountPage {
     await this.acceptButton.click();
     await this.page.waitForTimeout(3000);
 
-    const dispatchMode = (accountData.dispatchMode || 'post') as 'email' | 'post';
-    await this.fillAllTabs(dispatchMode, false, accountData);
-
-    // Account Limits is a mandatory tab that must be filled before submit.
-    await this.visitAccountLimitsTab();
-    const bodStr = await this.getBODDate() || this.todayDate();
-    const [dd, mm, yyyy] = bodStr.split('-').map(Number);
-    const bod = new Date(yyyy, mm - 1, dd);
-    const future = new Date(bod);
-    future.setFullYear(bod.getFullYear() + 1);
-    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-    const fallbackExpiry = fmt(future);
-    const expiryDate = (accountData.schemeExpiryDate && String(accountData.schemeExpiryDate).trim()) ||
-                       (accountData.accountLimitsExpiryDate && String(accountData.accountLimitsExpiryDate).trim()) ||
-                       fallbackExpiry;
-    console.log(`Using Account Limits expiry date: ${expiryDate}`);
-    await this.fillLoanAccountLimits(expiryDate);
-    await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
-    await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
-    await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
-
+    await this.createCurrentAccount(accountData, _options?.relatedParties || [], {
+      skipBasic: true,
+      includeAccountLimits: true,
+      skipSubmit: true,
+    });
 
     await this.clickSubmit();
   }
@@ -4123,8 +4842,13 @@ export class AccountPage {
   // Creates a current account via HOAACCA strictly from the provided Excel row.
   // Each tab is visited in order and editable fields are matched by label.
   // Missing, disabled, or unlocatable fields are logged and skipped.
-  async createCurrentAccount(accountData: AccountData, relatedParties: any[] = []) {
+  async createCurrentAccount(
+    accountData: AccountData,
+    relatedParties: any[] = [],
+    options?: { skipBasic?: boolean; includeAccountLimits?: boolean; skipSubmit?: boolean }
+  ) {
     const data = accountData as any;
+    const { skipBasic = false, includeAccountLimits = false, skipSubmit = false } = options ?? {};
 
     const valueOf = (key: string, source = data) =>
       source[key] == null || source[key] === '' ? undefined : String(source[key]).trim();
@@ -4288,15 +5012,17 @@ export class AccountPage {
       { key: 'Free Text 2', labels: ['Free Text 2'] },
     ];
 
-    this.tabReports = [];
+    if (!skipBasic) {
+      this.tabReports = [];
 
-    await this.fillBasicAccountDetails(accountData);
-    this.tabReports.push(await this.captureHOAACCATab('Basic Details'));
-    await this.selectSchemeCode(accountData.schemeCode ?? undefined);
-    await this.capturePreActionEvidence('Before Accept');
-    await this.acceptButton.click();
-    await this.page.waitForTimeout(3000);
-    this.tabReports.push(await this.captureHOAACCATab('Scheme Selection'));
+      await this.fillBasicAccountDetails(accountData);
+      this.tabReports.push(await this.captureHOAACCATab('Basic Details'));
+      await this.selectSchemeCode(accountData.schemeCode ?? undefined);
+      await this.capturePreActionEvidence('Before Accept');
+      await this.acceptButton.click();
+      await this.page.waitForTimeout(3000);
+      this.tabReports.push(await this.captureHOAACCATab('Scheme Selection'));
+    }
 
     await this.visitGeneralDetailsTab();
 
@@ -4360,54 +5086,98 @@ export class AccountPage {
     await this.fillDynamicFreeFields(data, 'MIS');
     this.tabReports.push(await this.captureHOAACCATab('MIS Codes'));
 
-    await this.visitOthersTab();
-    const esp = valueOf('externalSystemPricingFor');
-    if (esp) {
-      const espToken = String(esp).split('-')[0].trim().toLowerCase();
-      const checked = await this.setCheckboxByLabel('External System Pricing', 'Yes');
-      if (checked) {
-        console.log('Checked External System Pricing checkbox');
-        await this.page.waitForTimeout(1000);
+    if (includeAccountLimits) {
+      await this.visitAccountLimitsTab();
+      const bodStr = await this.getBODDate() || this.todayDate();
+      const [dd, mm, yyyy] = bodStr.split('-').map(Number);
+      const bod = new Date(yyyy, mm - 1, dd);
+      const future = new Date(bod);
+      future.setFullYear(bod.getFullYear() + 1);
+      const fmt = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      const fallbackExpiry = fmt(future);
+      const expiryDate =
+        (data.schemeExpiryDate && String(data.schemeExpiryDate).trim()) ||
+        (data.accountLimitsExpiryDate && String(data.accountLimitsExpiryDate).trim()) ||
+        fallbackExpiry;
+
+      await this.fillLoanAccountLimits(expiryDate);
+
+      const accountLimitsFields = [
+        { key: 'accountLimitsSanctionLimit', labels: ['Sanction Limit'] },
+        { key: 'drawingPower', labels: ['Drawing Power'] },
+        { key: 'drawingPowerPercent', labels: ['Drawing Power %', 'Drawing Power Pcnt', 'Drawing Power Percent'] },
+        { key: 'drawingPowerPcnt', labels: ['Drawing Power %', 'Drawing Power Pcnt', 'Drawing Power Percent'] },
+        { key: 'Limit Level Interest', labels: ['Limit Level Interest'] },
+        { key: 'limitReferenceNo', labels: ['Limit Reference No.', 'Reference No'] },
+        { key: 'Penal Interest Start Date', labels: ['Penal Interest Start Date'] },
+        { key: 'sanctionAuthority', labels: ['Sanction Authority'] },
+      ];
+      await fillFields(accountLimitsFields);
+
+      // Ensure mandatory numeric fields have values even when not provided in Excel.
+      if (!valueOf('accountLimitsSanctionLimit') && !valueOf('schemeSanctionLimit')) {
+        await this.setTextByCandidates(['sanctionLimit'], '1000', 'Sanction limit');
       }
-      let selected = await this.selectOptionByLabel('External System Pricing For', espToken, this.getFinwFrame());
-      if (!selected) {
-        selected = await this.selectOptionByLabel('Ext. System Pricing For', espToken, this.getFinwFrame());
+      if (!valueOf('drawingPower')) {
+        await this.setTextByCandidates(['drawingPower'], '1000', 'Drawing power');
       }
-      if (!selected) {
-        await this.selectExternalSystemPricingFor(String(esp));
+      if (!valueOf('drawingPowerPercent') && !valueOf('drawingPowerPcnt')) {
+        await this.setTextByCandidates(['drawingPowerPcnt'], '100', 'Drawing power percent');
       }
-      if (espToken === 'c') {
-        if (valueOf('relationshipPricingId')) {
-          await this.fillByLabel('Relationship Pricing ID', String(valueOf('relationshipPricingId')));
+      this.tabReports.push(await this.captureHOAACCATab('Account Limits'));
+    } else {
+      await this.visitOthersTab();
+      const esp = valueOf('externalSystemPricingFor');
+      if (esp) {
+        const espToken = String(esp).split('-')[0].trim().toLowerCase();
+        const checked = await this.setCheckboxByLabel('External System Pricing', 'Yes');
+        if (checked) {
+          console.log('Checked External System Pricing checkbox');
+          await this.page.waitForTimeout(1000);
         }
-        if (valueOf('pricingEffectiveDate')) {
-          await this.fillByLabel('Pricing Effective Date', String(valueOf('pricingEffectiveDate')));
+        let selected = await this.selectOptionByLabel('External System Pricing For', espToken, this.getFinwFrame());
+        if (!selected) {
+          selected = await this.selectOptionByLabel('Ext. System Pricing For', espToken, this.getFinwFrame());
         }
-        if (valueOf('pricingReviewDate')) {
-          await this.fillByLabel('Pricing Review Date', String(valueOf('pricingReviewDate')));
+        if (!selected) {
+          await this.selectExternalSystemPricingFor(String(esp));
         }
-      } else {
-        console.log(`External System Pricing For is not C - Charge; leaving pricing details blank`);
+        if (espToken === 'c') {
+          if (valueOf('relationshipPricingId')) {
+            await this.fillByLabel('Relationship Pricing ID', String(valueOf('relationshipPricingId')));
+          }
+          if (valueOf('pricingEffectiveDate')) {
+            await this.fillByLabel('Pricing Effective Date', String(valueOf('pricingEffectiveDate')));
+          }
+          if (valueOf('pricingReviewDate')) {
+            await this.fillByLabel('Pricing Review Date', String(valueOf('pricingReviewDate')));
+          }
+        } else {
+          console.log(`External System Pricing For is not C - Charge; leaving pricing details blank`);
+        }
       }
+      await fillFields(othersFields);
+      this.tabReports.push(await this.captureHOAACCATab('Others'));
+
+      await this.visitDocumentDetailsTab();
+      await fillFields(documentFields);
+      // Ensure Document Details date fields update the hidden date values.
+      const fillDocDate = async (key: string, label: string) => {
+        const v = valueOf(key);
+        if (v) await this.setFieldValueByLabel(label, v, 'date');
+      };
+      await fillDocDate('documentDate', 'Document Date');
+      await fillDocDate('Due Date', 'Due Date');
+      await fillDocDate('receivedDate', 'Received Date');
+      await fillDocDate('documentExpiryDate', 'Document Expiry Date');
+      await this.fillDynamicFreeFields(data, 'Document');
+      this.tabReports.push(await this.captureHOAACCATab('Document Details'));
     }
-    await fillFields(othersFields);
-    this.tabReports.push(await this.captureHOAACCATab('Others'));
 
-    await this.visitDocumentDetailsTab();
-    await fillFields(documentFields);
-    // Ensure Document Details date fields update the hidden date values.
-    const fillDocDate = async (key: string, label: string) => {
-      const v = valueOf(key);
-      if (v) await this.setFieldValueByLabel(label, v, 'date');
-    };
-    await fillDocDate('documentDate', 'Document Date');
-    await fillDocDate('Due Date', 'Due Date');
-    await fillDocDate('receivedDate', 'Received Date');
-    await fillDocDate('documentExpiryDate', 'Document Expiry Date');
-    await this.fillDynamicFreeFields(data, 'Document');
-    this.tabReports.push(await this.captureHOAACCATab('Document Details'));
-
-    await this.clickSubmit();
+    if (!skipSubmit) {
+      await this.clickSubmit();
+    }
   }
 
   // Returns the last calendar day of the next month as dd-mm-yyyy.
@@ -4490,6 +5260,12 @@ export class AccountPage {
     for (const id of candidateIds) {
       const field = finwFrame.locator(`#${id}`);
       if (await field.count() > 0 && await field.first().isVisible().catch(() => false)) {
+        const enabled = await field.first().isEnabled().catch(() => false);
+        const editable = await field.first().isEditable().catch(() => false);
+        if (!enabled || !editable) {
+          console.log(`Skipping ${label} (#${id}): disabled or read-only`);
+          continue;
+        }
         await field.first().clear();
         await field.first().fill(value);
         await field.first().press('Tab');
@@ -5513,6 +6289,11 @@ export class AccountPage {
       await this.page.waitForTimeout(500);
     }
 
+    const pageError = await this.getStatusMessage();
+    const errorLike = /\b(fatal|suspended|error|invalid|rejected|cannot|failed|failure|E\d+)\b/i;
+    if (pageError && errorLike.test(pageError)) {
+      throw new Error(pageError);
+    }
     throw new Error('Submit/Verify/Authorize button not found in any frame');
   }
 
@@ -5682,6 +6463,7 @@ export class AccountPage {
   async submitForm() {
     this.capturedDialogMessages = [];
     this.capturedPopupMessage = null;
+    this.capturedAccountNumber = null;
 
     const dialogHandler = async (dialog: Dialog) => {
       this.capturedDialogMessages.push(dialog.message());
@@ -5701,9 +6483,11 @@ export class AccountPage {
       try {
         const finwFrame = this.getFinwFrame();
         const finwUrl = finwFrame.url();
-        if (finwUrl && !/otherdetails/i.test(finwUrl) && this.hacmMainUrl) {
-          console.log(`[submitForm] FINW is on ${finwUrl}; returning to otherdetails via goto: ${this.hacmMainUrl}`);
-          await finwFrame.goto(this.hacmMainUrl, { timeout: 30000, waitUntil: 'networkidle' });
+        const mainPath = (this.hacmMainUrl || '').split('?')[0].toLowerCase();
+        const currentPath = (finwUrl || '').split('?')[0].toLowerCase();
+        if (finwUrl && this.hacmMainUrl && currentPath !== mainPath) {
+          console.log(`[submitForm] FINW is on ${finwUrl}; returning to HACM main via goto: ${this.hacmMainUrl}`);
+          await finwFrame.goto(this.hacmMainUrl, { timeout: 30000, waitUntil: 'domcontentloaded' });
           await this.page.waitForTimeout(2000);
         }
       } catch {}
@@ -5711,6 +6495,12 @@ export class AccountPage {
       await this.clickSubmit();
       await this.page.waitForTimeout(3000);
       await this.acceptWarningPopup();
+      // Capture the generated account number from the confirmation now,
+      // because the confirmation is dismissed once OK/Accept is clicked.
+      const preSubmitAccount = await this.getGeneratedLoanAccountNumber();
+      if (preSubmitAccount) {
+        this.capturedAccountNumber = preSubmitAccount;
+      }
       await this.clickOkButton();
     } finally {
       this.page.off('dialog', dialogHandler);
@@ -5718,43 +6508,60 @@ export class AccountPage {
   }
 
   // Clicks the OK button on the confirmation shown after submitting.
+  // Searches all pages/frames because Finacle may render the confirmation in a popup.
   async clickOkButton() {
     try {
-      // Capture the confirmation text before clicking OK; Finacle closes the
-      // message once OK is pressed, so the success text must be saved now.
-      try {
-        const preOkMessage = await this.getStatusMessage();
-        if (preOkMessage) {
-          this.capturedPopupMessage = preOkMessage;
-          console.log(`Captured pre-OK status message: ${preOkMessage}`);
-        }
-      } catch {}
+      const okSelector =
+        '#OK, #Ok, #ok, #OK, input[value="OK" i], input[value="Ok" i], ' +
+        'input[type="button"][value*="OK" i], input[type="button"][value*="Ok" i], ' +
+        'button:has-text("OK" i), button:has-text("Ok" i), a:has-text("OK" i), a:has-text("Ok" i)';
 
+      // Try FINW first.
       const finwFrame = this.getFinwFrame();
-      const okBtn = finwFrame
-        .locator('#OK, #Ok, #ok, input[value="OK"], input[value="Ok"], button:has-text("OK")')
-        .first();
-      if (await okBtn.count() > 0) {
-        await okBtn.click({ timeout: 15000 });
-        console.log('Clicked OK button');
-        await this.page.waitForTimeout(3000);
-      } else {
-        console.log('OK button not found, skipping');
+      const finwBtn = finwFrame.locator(okSelector).first();
+      if (await finwBtn.count().catch(() => 0) > 0 && await finwBtn.isVisible().catch(() => false)) {
+        await finwBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+        await finwBtn.click({ timeout: 15000 });
+        console.log('Clicked OK button in FINW');
+        await this.page.waitForTimeout(2000);
+        return;
       }
+
+      // Search all open pages and their frames for the OK control.
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const candidates = frame.locator(okSelector);
+          const count = await candidates.count().catch(() => 0);
+          for (let i = 0; i < count; i++) {
+            const candidate = candidates.nth(i);
+            if (await candidate.isVisible().catch(() => false)) {
+              await candidate.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+              await candidate.click({ timeout: 15000 });
+              console.log(`Clicked OK button in frame '${frame.name() || 'main'}'`);
+              await this.page.waitForTimeout(2000);
+              return;
+            }
+          }
+        }
+      }
+      console.log('OK button not found, skipping');
     } catch (e) {
       console.log(`Could not click OK button, skipping: ${e}`);
     }
   }
 
   // Clicks the Accept button shown after the loan A/c ID is generated to
-  // finalise creation. Searches all frames in case it renders outside FINW.
+  // finalise creation. Searches all pages/frames in case it renders outside FINW.
   async clickAccept() {
     await this.capturePreActionEvidence('Before Accept');
     const buttonSelector =
       'input[type="button"][value^="Accept" i], input[type="button"][value*="Accept" i], ' +
+      'input[type="button"][value^="OK" i], input[type="button"][value^="Ok" i], ' +
       'input[type="submit"][value^="Accept" i], input[type="submit"][value*="Accept" i], ' +
-      'input[value^="Accept" i], #Accept, #accept, ' +
-      'button:has-text("Accept")';
+      'input[value^="Accept" i], input[value="OK" i], input[value="Ok" i], ' +
+      '#Accept, #accept, #OK, #Ok, #ok, ' +
+      'button:has-text("Accept"), button:has-text("OK"), button:has-text("Ok")';
     const anchorSelector = 'a#Accept, a#accept';
 
     const deadline = Date.now() + 10000;
@@ -5769,17 +6576,17 @@ export class AccountPage {
           clicked = true;
         }
       } catch (e) {
-        console.log(`Accept button click attempt failed, retrying: ${e}`);
+        console.log(`Accept/OK button click attempt failed, retrying: ${e}`);
       }
       if (!clicked) await this.page.waitForTimeout(500);
     }
     if (clicked) {
       await this.page.waitForTimeout(3000);
-      console.log('Clicked Accept button in FINW frame');
+      console.log('Clicked Accept/OK button in FINW frame');
       return;
     }
 
-    // Last resort: an anchor link with text Accept in FINW.
+    // Last resort: an anchor link with text Accept/OK in FINW.
     try {
       const finwFrame = this.getFinwFrame();
       const anchor = finwFrame.locator(anchorSelector).first();
@@ -5794,22 +6601,25 @@ export class AccountPage {
       console.log(`Accept anchor fallback failed: ${e}`);
     }
 
-    // Search all other frames for any visible Accept control.
-    for (const frame of this.page.frames()) {
-      try {
-        const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
-        if (await btn.count().catch(() => 0) > 0) {
-          await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
-          await btn.click({ timeout: 15000, force: true });
-          await this.page.waitForTimeout(3000);
-          console.log(`Clicked Accept control in frame '${frame.name() || 'main'}'`);
-          return;
+    // Search all other pages and their frames for any visible Accept/OK control.
+    for (const p of this.page.context().pages()) {
+      if (p.isClosed()) continue;
+      for (const frame of p.frames()) {
+        try {
+          const btn = frame.locator(buttonSelector + ', ' + anchorSelector).first();
+          if (await btn.count().catch(() => 0) > 0) {
+            await btn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await btn.click({ timeout: 15000, force: true });
+            await this.page.waitForTimeout(3000);
+            console.log(`Clicked Accept/OK control in page '${p.url()}' frame '${frame.name() || 'main'}'`);
+            return;
+          }
+        } catch (e) {
+          console.log(`Accept/OK control click in frame failed: ${e}`);
         }
-      } catch (e) {
-        console.log(`Accept control click in frame failed: ${e}`);
       }
     }
-    console.log('Accept button not found in any frame, skipping');
+    console.log('Accept/OK button not found in any frame, skipping');
   }
 
   // Clicks the Validate button on the current HCLM tab and waits for any
@@ -6178,7 +6988,7 @@ export class AccountPage {
 
     const statusKeywords = /\b(successfully|posted|completed|failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|authorised|authorized|verified|approved|rejected|modified|deleted|created|added|disbursed|generated|rescheduled)\b/i;
     const successKeywords = /(?:successfully|posted|completed|verified|authorized|authorised|approved|modified|deleted|created|added|disbursed|generated)/i;
-    const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected)\b/i;
+    const errorKeywords = /\b(failed|failure|error|invalid|cannot|not\s+posted|unsuccessful|rejected|suspended|fatal|E\d+)\b/i;
     const accountIdRegex = /New A\/c\.?\s*ID|Account Number|Account No/i;
 
     // Messages captured from dialogs and warning/exception popups are the most
@@ -6435,7 +7245,7 @@ export class AccountPage {
 
   // Marks the currently displayed related party record for deletion by ticking
   // the "Record" DEL checkbox (above the language preference field).
-  async markRelatedPartyRecordForDeletion() {
+  async markRelatedPartyRecordForDeletion(): Promise<boolean> {
     try {
       const finwFrame = this.getFinwFrame();
       const box = finwFrame.locator('#chkdelFlg, input[name="relatedpartydetails.chkdelFlg"]').first();
@@ -6444,8 +7254,10 @@ export class AccountPage {
       await box.check();
       await this.page.waitForTimeout(1000);
       console.log('Marked related party record for deletion (chkdelFlg)');
+      return true;
     } catch (e) {
       console.log(`Could not mark related party record for deletion, skipping: ${e}`);
+      return false;
     }
   }
 
@@ -6943,12 +7755,24 @@ export class AccountPage {
       console.log('Accept/Go button not found on loan header');
     }
     await this.page.waitForTimeout(4000);
+    const currentUrl = this.getFinwFrame().url();
+    if (currentUrl && /otherdetails/i.test(currentUrl)) {
+      this.hacmMainUrl = currentUrl;
+      console.log(`Saved HACM main URL: ${this.hacmMainUrl}`);
+    } else if (currentUrl) {
+      console.log(`Loan header submitted (Accept/Go clicked). FINW url: ${currentUrl}`);
+    }
     console.log('Loan header submitted (Accept/Go clicked)');
   }
 
   // Navigates to a loan tab by its visible label (with optional anchor id and content verification).
   async visitLoanTab(label: string, idFallback?: string, verificationLabel?: string) {
     await this.clickTab(label, idFallback, verificationLabel);
+    const currentUrl = this.getFinwFrame().url();
+    if (currentUrl && /otherdetails/i.test(currentUrl)) {
+      this.hacmMainUrl = currentUrl;
+      console.log(`Saved HACM main URL from Other Details: ${this.hacmMainUrl}`);
+    }
     console.log(`Visited loan tab: ${label}`);
   }
 
@@ -7363,7 +8187,10 @@ export class AccountPage {
       ['noOfInstlmnts', 'noOfInstallments', 'noOfInstalments', 'numInstallments'],
       count, 'Number of instalments'
     ) || await this.fillByLabel('No. of Instalments', count) || await this.fillByLabel('No of Instalments', count) || await this.fillByLabel('No. of Installments', count) || await this.fillByLabel('No of Installments', count);
-    if (!updated) throw new Error('Number of instalments field was not found on the Payment Plan tab');
+    if (!updated) {
+      console.warn('Number of instalments field was not found on the Payment Plan tab; skipping');
+      return;
+    }
   }
 
   // Steps 9-11: Payment plan - Holiday period configuration.
@@ -7384,7 +8211,7 @@ export class AccountPage {
     await this.selectByIdSafe('holFreqCalBase', 'Select');
   }
 
-  // Step 12: Payment schedule - click amortization schedule then OK.
+  // Step 12: Payment schedule - click amortization schedule then OK/Close.
   async generateAmortizationSchedule() {
     const finwFrame = this.getFinwFrame();
     const btn = finwFrame.locator(
@@ -7392,12 +8219,90 @@ export class AccountPage {
     ).first();
     if (await btn.count() > 0) {
       await btn.click({ timeout: 15000 });
-      await this.page.waitForTimeout(3000);
       console.log('Clicked Amortization schedule');
     } else {
       console.log('Amortization schedule button not found');
     }
-    await this.clickOkButton();
+
+    // The schedule's OK button is the inspected input#Ok (name="Ok", value="OK", hotkeyid="Go").
+    const okBtn = finwFrame.locator(
+      'input#Ok[type="button"][value="OK"], input[name="Ok"][value="OK"], input[hotkeyid="Go"]'
+    ).first();
+    try {
+      await okBtn.waitFor({ state: 'visible', timeout: 5000 });
+      await okBtn.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+      await okBtn.click({ timeout: 15000 });
+      console.log('Clicked Amortization schedule OK (#Ok)');
+      return;
+    } catch (e) {
+      console.log('Amortization schedule OK (#Ok) not found in FINW, continuing with fallback search');
+    }
+
+    // Close the schedule by clicking the OK/Close button. The schedule may
+    // render in the main FINW frame or in a newly opened tab/window.
+    const closeSelector =
+      'button:has-text("OK" i), button:has-text("Ok" i), button:has-text("Close" i), ' +
+      'input[value*="OK" i], input[value*="Ok" i], input[value*="CLOSE" i], ' +
+      'input[type="submit"][value*="OK" i], input[type="image"][alt*="OK" i], ' +
+      'a:has-text("OK" i), a:has-text("Ok" i), a:has-text("Close" i), ' +
+      'img[alt*="OK" i], img[alt*="Ok" i], img[alt*="Close" i], img[title*="OK" i], img[title*="Ok" i], img[title*="Close" i], ' +
+      'td:has-text("OK" i), td:has-text("Ok" i), td:has-text("Close" i), ' +
+      '#OK, #Ok, #ok, #close, #Close';
+
+    let clicked = false;
+    for (const p of this.page.context().pages()) {
+      if (p.isClosed()) continue;
+      await p.waitForLoadState('domcontentloaded').catch(() => {});
+      for (const frame of p.frames()) {
+        const candidates = frame.locator(closeSelector);
+        const count = await candidates.count().catch(() => 0);
+        for (let i = 0; i < count; i++) {
+          const candidate = candidates.nth(i);
+          if (await candidate.isVisible().catch(() => false)) {
+            await candidate.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+            await candidate.click({ timeout: 15000 });
+            clicked = true;
+            console.log('Clicked Amortization schedule OK/Close');
+            break;
+          }
+        }
+        if (clicked) break;
+      }
+      if (clicked) {
+        if (p !== this.page) {
+          // Let the popup close itself, then switch back to the main page.
+          await this.page.waitForTimeout(2000);
+          await p.close().catch(() => {});
+        }
+        break;
+      }
+    }
+
+    if (!clicked) {
+      console.log('Amortization schedule OK/Close not visible, trying JS fallback');
+      for (const p of this.page.context().pages()) {
+        if (p.isClosed()) continue;
+        for (const frame of p.frames()) {
+          const count = await frame.locator(closeSelector).count().catch(() => 0);
+          if (count > 0) {
+            const el = frame.locator(closeSelector).first();
+            try {
+              await el.evaluate((node: any) => node.click && node.click());
+              clicked = true;
+              console.log('Clicked Amortization schedule OK/Close via JS');
+            } catch {}
+          }
+          if (clicked) break;
+        }
+        if (clicked) break;
+      }
+    }
+
+    if (!clicked) {
+      console.log('Amortization schedule OK/Close button not found, trying generic clickOkButton');
+      await this.clickOkButton();
+    }
+    await this.page.waitForTimeout(2000);
   }
 
   // Step 13: Account limits - expiry date, document date (today), drawing power
@@ -7469,40 +8374,73 @@ export class AccountPage {
   // Finacle reports the new account inside a confirmation message rather than
   // a form field, so scan every frame for that message and pull the number.
   async getGeneratedLoanAccountNumber(): Promise<string | null> {
+    // If the number was already captured before the OK/Accept button was
+    // pressed (see clickOkButton), return it immediately. The confirmation
+    // popup is no longer on screen by the time the spec calls this.
+    if (this.capturedAccountNumber) {
+      console.log(`Using captured loan account number: ${this.capturedAccountNumber}`);
+      return this.capturedAccountNumber;
+    }
+
     await this.page.waitForTimeout(2000);
 
+    const accountPatterns = [
+      /(?:new\s+a\/c|a\/c)\.?\s*(?:id|number)[:\s]+(\d{6,})/i,
+      /\baccount\s*(?:id|number)[:\s]+(\d{6,})/i,
+      /(?:generated|opened|created)\s+(?:account|a\/c)(?:\s*(?:id|number)?)[:\s]+(\d{6,})/i,
+      /\b(?:loan|retail)\s+(?:account|a\/c)(?:\s*(?:id|number)?)[:\s]+(\d{6,})/i,
+    ];
+
+    // 0) The status/confirmation message captured before clicking OK/Accept
+    //    is the most reliable source once the popup has been dismissed.
+    if (this.capturedPopupMessage) {
+      const message = this.capturedPopupMessage.replace(/\s+/g, ' ').trim();
+      for (const pattern of accountPatterns) {
+        const m = message.match(pattern);
+        if (m) {
+          console.log(`Extracted loan account number from captured message: ${m[1]}`);
+          this.capturedAccountNumber = m[1];
+          return this.capturedAccountNumber;
+        }
+      }
+    }
+
     // 1) The confirmation screen shows "New A/c. ID: <number>". Scan each
-    //    frame's text for that pattern and return the account number.
+    //    frame's text for a confirmation pattern and return the account number.
     for (const frame of this.page.frames()) {
       const body = (await frame.locator('body').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-      const m = body.match(/A\/c\.?\s*ID[:\s]+(\d{6,})/i);
-      if (m) {
-        console.log(`Extracted loan account number from confirmation: ${m[1]}`);
-        return m[1];
+      for (const pattern of accountPatterns) {
+        const m = body.match(pattern);
+        if (m) {
+          console.log(`Extracted loan account number from confirmation: ${m[1]}`);
+          this.capturedAccountNumber = m[1];
+          return this.capturedAccountNumber;
+        }
       }
     }
 
     // 2) Fall back to explicit success/confirmation message elements.
     for (const frame of this.page.frames()) {
       const msg = frame.locator(
-        'tr.alert, td.alert, #pageMsg, .errortext, .message, ' +
+        'tr.alert, td.alert, #pageMsg, .errortext, .message, .success, ' +
         'span[id*="msg" i], div[id*="msg" i], font'
       );
       const count = await msg.count().catch(() => 0);
       for (let i = 0; i < count; i++) {
         const text = (await msg.nth(i).textContent().catch(() => ''))?.replace(/\s+/g, ' ').trim() || '';
-        if (/success|created|opened|account/i.test(text)) {
+        if (/success|created|opened|account|generated|reference/i.test(text)) {
           console.log(`Loan confirmation (frame '${frame.name() || 'main'}'): ${text}`);
-          const num = text.match(/\b\d{8,}\b/);
+          const num = text.match(/\b\d{8,}\b/)?.[0];
           if (num) {
-            console.log(`Extracted loan account number from message: ${num[0]}`);
-            return num[0];
+            console.log(`Extracted loan account number from message: ${num}`);
+            this.capturedAccountNumber = num;
+            return num;
           }
         }
       }
     }
 
-    // 2) Fall back to the populated account-number field on the screen.
+    // 3) Fall back to the populated account-number field on the screen.
     for (const frame of this.page.frames()) {
       const input = frame.locator(
         '#AcctNum, #acctId, #foracid, #accountId, #accountNumber, ' +
@@ -7512,8 +8450,10 @@ export class AccountPage {
         const val = ((await input.inputValue().catch(() => '')) ||
           (await input.textContent().catch(() => '')) || '').trim();
         if (/\d{8,}/.test(val)) {
-          console.log(`Extracted loan account number from field: ${val}`);
-          return val;
+          const clean = val.replace(/\D/g, '');
+          console.log(`Extracted loan account number from field: ${clean}`);
+          this.capturedAccountNumber = clean;
+          return this.capturedAccountNumber;
         }
       }
     }

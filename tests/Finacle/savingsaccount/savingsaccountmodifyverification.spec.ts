@@ -9,76 +9,86 @@ import COMMON_DATA from '../../../data/common-data.json';
 
 const VERIFY_CONFIG = getVerificationConfig();
 
+const sharedAccounts = (getSharedValue('savingsAccounts') ?? {}) as Record<string, string>;
+const verifyDataByInstance = new Map<string, any>();
 for (const acct of SAVINGS_MODIFY_VERIFY_DATA) {
   const acctData = acct.data ?? acct;
-  const accountType = acctData.type ?? 'savings';
+  const key = String(acctData.instance ?? '');
+  if (key) verifyDataByInstance.set(key, acctData);
+}
 
-  test.describe(`Savings Account Modification Verification - ${accountType}`, () => {
-    test.beforeEach(async () => {
-      test.setTimeout(300000);
-    });
+const instances = Object.keys(sharedAccounts).length > 0
+  ? Object.keys(sharedAccounts)
+  : Array.from(verifyDataByInstance.keys());
 
-    test(acctData.testLabel, async ({ page }) => {
-      const verifyAccountId = getSharedValue((state) => state.savingsAccounts?.[String(acctData.instance)] ?? state.accountId) ?? acctData.accountId;
-      if (!verifyAccountId?.trim()) {
-        throw new Error(`No accountId found for instance ${acctData.instance} in shared state or verify data.`);
-      }
-      console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
+test.beforeEach(async () => {
+  test.setTimeout(300000);
+});
 
-      const lastDialogMessages: string[] = [];
-      setupDialogHandlers(page, lastDialogMessages);
+for (const instance of instances) {
+  const acctData = verifyDataByInstance.get(instance) ?? { instance };
+  const rawAccountId = sharedAccounts[instance] ?? acctData.accountId;
+  const testLabel = typeof acctData.testLabel === 'string' ? acctData.testLabel.trim() : '';
+  const accountIdForTitle = rawAccountId ? String(rawAccountId).trim() : 'from-shared-state';
+  const testTitle = testLabel || `Savings Account Modification Verification - Instance ${instance} - ${accountIdForTitle}`;
+  test(testTitle, async ({ page }) => {
+    if (!accountIdForTitle || accountIdForTitle === 'from-shared-state') {
+      throw new Error(`No accountId to verify for instance ${instance}`);
+    }
+    const verifyAccountId = accountIdForTitle;
+    console.log(`[Verify] Using Account ID: ${verifyAccountId}`);
 
-      await login(page, VERIFY_CONFIG);
+    const lastDialogMessages: string[] = [];
+    setupDialogHandlers(page, lastDialogMessages);
 
-      const homePage = new HomePage(page);
-      const accountPage = new AccountPage(page);
+    await login(page, VERIFY_CONFIG);
 
-      console.log('Selecting Core Server...');
-      await accountPage.selectCoreServer();
-      await page.waitForTimeout(3000);
+    const homePage = new HomePage(page);
+    const accountPage = new AccountPage(page);
 
-      console.log(`Searching for ${COMMON_DATA.savingsAccount.screens.modifyAndVerify}...`);
-      await accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
-      await page.waitForTimeout(3000);
+    console.log('Selecting Core Server...');
+    await accountPage.selectCoreServer();
+    await page.waitForTimeout(3000);
 
-      console.log('Selecting Verify function...');
-      await accountPage.selectFunction('Verify');
+    console.log(`Searching for ${COMMON_DATA.savingsAccount.screens.modifyAndVerify}...`);
+    await accountPage.searchMenu(COMMON_DATA.savingsAccount.screens.modifyAndVerify);
+    await page.waitForTimeout(3000);
 
-      console.log('Entering account ID...');
-      await accountPage.enterHacmAccountId(verifyAccountId);
+    console.log('Selecting Verify function...');
+    await accountPage.selectFunction('Verify');
 
-      console.log('Clicking Go button...');
-      await accountPage.clickGo();
-      await page.waitForTimeout(5000);
+    console.log('Entering account ID...');
+    await accountPage.enterHacmAccountId(verifyAccountId);
 
-      console.log('Visiting all HACM verification tabs...');
-      for (const tab of ['General', 'Interest & Tax', 'Related Party', 'MIS Codes', 'Scheme', 'Addl. Info.']) {
-        await accountPage.visitTab(tab);
-      }
+    console.log('Clicking Go button...');
+    await accountPage.clickGo();
+    await page.waitForTimeout(5000);
 
-      if (acctData.visitDocumentTab === true || String(acctData.visitDocumentTab).toLowerCase() === 'y' || String(acctData.visitDocumentTab).toLowerCase() === 'true') {
-        console.log('Visiting Document details tab...');
-        await accountPage.visitTabById('documentdetails');
-      }
+    console.log('Visiting all HACM verification tabs...');
+    for (const tab of ['General', 'Interest & Tax', 'Related Party', 'MIS Codes', 'Scheme', 'Addl. Info.']) {
+      await accountPage.visitTab(tab);
+    }
 
-      console.log('Clicking Submit button...');
-      await accountPage.submitForm();
+    console.log('Visiting Document details tab...');
+    await accountPage.visitTabById('documentdetails');
 
-      console.log('Capturing verification result...');
-      const result = await accountPage.verifyAccountCreated();
-      console.log('Verification status message:', result.message);
-      console.log('Verified Account ID:', result.accountNumber);
+    console.log('Clicking Submit button...');
+    await accountPage.submitForm();
 
-      await accountPage.clickOkButton();
+    console.log('Capturing verification result...');
+    const result = await accountPage.verifyAccountCreated();
+    console.log('Verification status message:', result.message);
+    console.log('Verified Account ID:', result.accountNumber);
 
-      const verifiedAccountId = result.accountNumber || verifyAccountId;
-      expect(result.success, `Expected successful verification but got: ${result.message}`).toBe(true);
-      expect(result.message).toMatch(/verified|successful|modified|completed/i);
-      expect(verifiedAccountId).toBeTruthy();
+    await accountPage.clickOkButton();
 
-      console.log('Logging out...');
-      await homePage.logout();
-    });
+    const verifiedAccountId = result.accountNumber || verifyAccountId;
+    expect(result.success, `Expected successful verification but got: ${result.message}`).toBe(true);
+    expect(result.message).toMatch(/verified|successful|modified|completed/i);
+    expect(verifiedAccountId).toBeTruthy();
+
+    console.log('Logging out...');
+    await homePage.logout();
   });
 }
 

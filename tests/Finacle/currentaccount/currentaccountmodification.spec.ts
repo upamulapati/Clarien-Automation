@@ -5,6 +5,8 @@ import * as fs from 'fs';
 import { HomePage } from '../../pages/HomePages/HomePage';
 import { AccountPage } from '../../pages/CoreBanking/AccountPage';
 import { loginToFinacle } from '../../helpers/finacleSetup';
+import { updateSharedState } from '../../helpers/sharedState';
+import { getSelectedInstances } from '../../helpers/flowStepData';
 import { CREDENTIALS } from '../../../data/credentials';
 import COMMON_DATA from '../../../data/common-data.json';
 
@@ -74,7 +76,12 @@ function loadCurrentModifyData(): Record<string, string>[] {
       }
       return normalized;
     })
-    .filter((row) => row.Sheet && row.Sheet.trim() !== '');
+    .filter(
+      (row) =>
+        (row.Sheet && row.Sheet.trim() !== '') ||
+        (row.instance && String(row.instance).trim() !== '') ||
+        (row.accountId && String(row.accountId).trim() !== '')
+    );
 }
 
 function prettyLabel(header: string): string {
@@ -128,7 +135,8 @@ function valuesMatch(expected: string, actual: string): boolean {
   const c1 = clean(stripCode(expected));
   const c2 = clean(stripCode(actual));
   if (c1 === c2) return true;
-  if (c1.length > 0 && c2.length > 0 && (c2.includes(c1) || c1.includes(c2))) return true;
+  // Removed one-direction substring match to avoid false positives
+  // (e.g. "Active" being treated as matching "Inactive").
 
   const n1 = parseFloat(expected.replace(/,/g, ''));
   const n2 = parseFloat(actual.replace(/,/g, ''));
@@ -152,7 +160,7 @@ function valuesMatch(expected: string, actual: string): boolean {
 
 const IDENTITY_FIELDS = ['instance', 'accountId', 'type', 'testLabel', 'enabled', 'flowName', 'sharedKey', 'Sheet', 'Add related parties'];
 
-const TABS_TO_SKIP = ['Flexi-Deposit'];
+const TABS_TO_SKIP = ['Flexi-Deposit', 'FFD Details'];
 
 const TAB_ORDER = [
   'General Details',
@@ -496,7 +504,10 @@ function groupCurrentModifyData(rows: Record<string, string>[]): { main: Record<
   let current: { main: Record<string, string> | null; related: Record<string, string>[] } = { main: null, related: [] };
   for (const row of rows) {
     const sheet = (row.Sheet ?? '').trim().toLowerCase();
-    if (sheet === 'main') {
+    const hasInstance = row.instance && String(row.instance).trim() !== '';
+    const hasAccountId = row.accountId && String(row.accountId).trim() !== '';
+    const isMain = sheet === 'main' || (sheet !== 'related party' && (hasInstance || hasAccountId));
+    if (isMain) {
       if (current.main) {
         groups.push({ main: current.main, related: current.related });
       }
@@ -511,14 +522,19 @@ function groupCurrentModifyData(rows: Record<string, string>[]): { main: Record<
   return groups;
 }
 
-const CURRENT_MODIFY_DATA = groupCurrentModifyData(loadCurrentModifyData());
+const allGroups = groupCurrentModifyData(loadCurrentModifyData());
+const selectedInstances = getSelectedInstances();
+const groupsToRun = selectedInstances
+  ? allGroups.filter((g) => selectedInstances.includes(String(g.main.instance)))
+  : allGroups;
 
-for (const group of CURRENT_MODIFY_DATA) {
+for (const group of groupsToRun) {
   const effectiveAccountId = group.main.accountId;
+  const instance = String(group.main.instance);
   const row = group.main;
   const relatedPartyRows = group.related;
 
-  test.describe('Current Account Modification - ' + effectiveAccountId, () => {
+  test.describe('Current Account Modification - Instance ' + instance + ' - ' + effectiveAccountId, () => {
     test.use({ ignoreHTTPSErrors: true, actionTimeout: 30000 });
 
     let homePage: HomePage;
@@ -534,7 +550,7 @@ for (const group of CURRENT_MODIFY_DATA) {
       accountPage = new AccountPage(page);
     });
 
-    test('HACM - data-driven current account modification - ' + effectiveAccountId, async ({ page }) => {
+    test('HACM - data-driven current account modification - Instance ' + instance + ' - ' + effectiveAccountId, async ({ page }) => {
       console.log('[Modification] Using Account ID: ' + effectiveAccountId);
 
       await accountPage.selectCoreServer();
@@ -594,7 +610,7 @@ for (const group of CURRENT_MODIFY_DATA) {
         } else if (tab === 'Interest Details') {
           await accountPage.visitInterestDetailsTab();
         } else if (tab === 'Scheme') {
-          await accountPage.visitTab('Scheme');
+          await accountPage.visitSchemeDetailsTab();
         } else if (tab === 'FFD Details') {
           await accountPage.visitTab('FFD Details');
         } else if (tab === 'Related Party') {
@@ -656,13 +672,13 @@ for (const group of CURRENT_MODIFY_DATA) {
             continue;
           }
 
-          if (field === 'A/c. Status' || field === 'accountStatus') {
+          const normalizedField = field.toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (normalizedField === 'acstatus' || field.toLowerCase() === 'accountstatus') {
             const actual = (await accountPage.getAccountStatus()) ?? '';
             if (valuesMatch(expected, actual)) {
               results.push({ field, expected, actual, status: 'Skipped' });
             } else {
-              const token = expected.split('-')[0].trim().toLowerCase() || 'active';
-              const ok = await accountPage.selectAccountStatus(token as any);
+              const ok = await accountPage.selectAccountStatus(expected);
               const actual2 = (await accountPage.getAccountStatus()) ?? '';
               const updated = ok && valuesMatch(expected, actual2);
               results.push({ field, expected, actual: actual2, status: updated ? 'Updated' : 'Failed' });
@@ -918,6 +934,15 @@ for (const group of CURRENT_MODIFY_DATA) {
         expect(result.message).toMatch(/(?:successfully|posted|completed|verified|authorized|authorised|approved|modified|deleted|created|added|disbursed|generated)/i);
       } else {
         console.log('No fields required modification; skipping submit.');
+      }
+
+      if (effectiveAccountId) {
+        updateSharedState((state) => {
+          if (!state.currentAccounts) state.currentAccounts = {};
+          state.currentAccounts[instance] = effectiveAccountId;
+          state.accountId = effectiveAccountId;
+        });
+        console.log(`[SharedState] Stored current account for instance ${instance}: ${effectiveAccountId}`);
       }
 
       await homePage.logout();

@@ -1,0 +1,394 @@
+<html><head>
+
+  <base href="https://clrnuat.clarienbank.com:443/finbranch/imc/">  
+	
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta http-equiv="PRAGMA" content="-1">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Expires" content="-1">
+<title>Inventory Movement between Locations</title> 
+<script language="javascript" src="../Renderer/javascripts/102250_finbranchResource_INFENG.js"> </script> 
+<link href="../Renderer/stylesheets/10225_services.css" rel="STYLESHEET" title="Finacle Stylesheet" type="text/css">
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_FIN_LEVEL01.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/MenuRenderer/mtree/01_GU_BT_APPLICATIONS_INFENG_SC_FIN.js"></script>
+<script language="javascript" src="https://clrnuat.clarienbank.com:443/finbranch/Renderer/mtree/precArray.js"></script>
+
+<script language="javascript" src="../Renderer/javascripts/1022530310_cust_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_loc_evt.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/10225_resource_functions.js"> </script>
+<script language="javascript" src="../Renderer/javascripts/1022530310_login_common_functions.js"> </script>
+
+
+<script language="JavaScript">
+var dom_to_set = 'clarienbank.com';
+var prodEnv = 'Y'; 
+var SSO = (dom_to_set != "") && true;
+if (SSO) {
+	document.domain = dom_to_set;
+}
+if(prodEnv == 'Y')
+{
+	document.oncontextmenu = function ()
+	{
+		return false;
+	}
+}
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+var reqId = "1msvwdgshrzzg";
+var rtId = "1hcpbuedmsdgl";
+var reqUnqId = "reqUnqId";
+var reqParamValReqd  = "N";
+if(reqParamValReqd == "Y"){
+	var reqParamsIgnoreList = "[]";
+	var tmpReqParamsIgnoreList = ","+reqParamsIgnoreList.slice(1,-1)+",";
+	reqParamsIgnoreList = tmpReqParamsIgnoreList.replace(/ /g, "");
+}
+var isPopup = "N";
+var reqIdChkByPass = "null";
+var silentPrntReqd = "N";
+var jnlpMode = "N";
+var silentPrintWaitingTime = "10000";
+var calbase = "00";
+var lowHijYear = 1300;
+var highHijYear = 1599;
+var CURR_GROUP_NAME= "imc";
+var localeCode= "DF";
+var encodeLst = "[hidden_amendGoodsDesc, hidden_amendDocReq, hidden_amendAddConditions, hidden_amendSpcPaymentConForBenf, hidden_amendSpecPaymentConForRecBank, customData, screen_amendDescGoodsServ, screen_amendDocReq, screen_amendAddConditions, screen_amendSpcPaymentConForBenf, screen_amendSpecPaymentConForRecBank, descGoodsServ1, goodsDesc1, screen_docReq, hidden_docReq, screen_addConditions, hidden_addConditions, screen_spcPaymentConForBenf, hidden_spcPaymentConForBenf, screen_specPaymentConForRecBank, hidden_specPaymentConForRecBank, mtt.textDesc, hidden_ctextarea, screen_ctextarea]";
+var tmpEncodeLst = ","+encodeLst.slice(1,-1)+",";
+encodeLst = tmpEncodeLst.replace(/ /g, "");
+var isEncodeReqd = "{isEncodeReqd}";
+var onsJSErrLogReqd = "N";
+var dateFormat = "00";
+var NumLocYears="0";
+var dateInputCal ="00";
+var DECIMAL_SEPARATOR = '.';
+var MANTISSA_SEPARATOR = ',';
+var LANGCODE = "INFENG";
+var finContextPath = "\/finbranch";
+var crvContextPath = '/fincrv';
+var lastCalMappedDate = "";
+var iCalCount = 1;
+var iFeatureCount = 0;
+var FeatureStringArr = new Array(0);
+var calStringArr = new Array(1);
+var ContextSwitchDoneFrom = "";
+var fileDownloadApplet = "Y";
+var fileDownloadApplet = (fileDownloadApplet == "Y")?true:false;
+var isChromeOrEdge=((navigator.userAgent.indexOf("MSIE") != -1) || (navigator.userAgent.indexOf('Trident') != -1))?false:true;
+
+            calStringArr[0] = '00';
+
+
+
+var profileId  = 'NOPROFILE';
+var literalContext = 'C';
+var defaultLiteralContext = 'C';
+var dualFlg = "N"; 
+
+function checkIfSwitchEnabled(feature)
+{
+        for (var i=0; i<FeatureStringArr.length; i++)
+        {
+		if(feature === FeatureStringArr[i])
+			return true;
+        }
+	return false;	
+}
+
+function isFeatureEnabledFor(ftrString){
+                var e = false;
+                var x = ftrString.split(","); //loop thru the list of features 
+                for(var i = 0; i< x.length;i++)
+                {
+                   e = checkIfSwitchEnabled (x[i]); // find out if the current feature is enabled
+                   if (e) break;         // If any feature is enabled, that is enough.. return true.
+                }
+                return e;
+}
+
+
+if (LANGCODE == "ARABIC")
+{
+    document.write('<HTML dir=RTL></HTML>');
+}
+
+</script>
+<meta http-equiv="PRAGMA" content="no-cache"> 
+<meta http-equiv="Cache-Control" content="no-cache,no-store">
+<meta http-equiv="Expires" content="-1"> 
+
+
+<script language="JavaScript" src="../Renderer/javascripts/jspjs/INFENG/102250_imcdtl_INFENG.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_core_banking.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_common_constants.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_invtConst.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_hotkeyprocessor_link.js"> </script><script language="javascript" src="../Renderer/javascripts/1022530310_common_functions.js"> </script><script language="javascript" src="../Renderer/javascripts/lists/10225_showSearcher.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_cust_functions.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_menuLayer.js"> </script><script language="javascript" src="../Renderer/javascripts/imc/10225_imcdtl_link.js"> </script><script language="javascript" src="../Renderer/javascripts/imc/10225_imcdtl_glink.js"> </script><script language="javascript" src="../Renderer/props/102250_imcprops.js"> </script><script language="javascript" src="../Renderer/javascripts/10225_hotkeydata_link.js"> </script></head>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<body class="cbody" onload="javascript:return imcdtl_ONLOAD3(this);" onkeydown="javascript:return imcdtl_ONKEYDOWN1(this,event);" onkeyup="javascript:return imcdtl_ONKEYUP2(this,event);" leftmargin="0" topmargin="0" marginwidth="0" marginheight="0" onresize="adjustMenuDiv();">
+<form action="../imc/imc_ctrl.jsp" method="post" onsubmit="javascript:return imcdtl_ONSUBMIT4(this);">
+
+
+<script src="../Renderer/javascripts/1022530310_timeout_link.js"></script>
+<script>
+window.history.forward(1);
+var timeid;
+var USERID = "FINACLETEST13";
+var USER_TIME_OUT = 23580000;
+
+fnSetTimers();
+enableTimers();
+
+</script>
+
+
+
+<script language="JavaScript">
+    var focusField      = "";
+    var bgColor         = " bgColor\=\'#BEDEF7\' ";
+    var funcCode        = "A";
+    var cookiePresent   = "false";
+    var serialNo        = "0";
+    var totalRecNo      = "1";
+    var multiRecName    = "imcDet";
+	var sIsOldRecord   	= "true";    
+	var inputs 		= new Array (
+					new Array("text","left",""), // invtClassTypeWithDesc
+					new Array("text","left",""), // invtSrlAlpha
+					new Array("text","right",""), // invtBeginSrlNum
+					new Array("text","right",""), // invtEndSrlNum
+					new Array("text","right",""), // invtQty
+					new Array("text","left",""), // invtXferPartcls
+					new Array("text","left","")  // delFlagDesc
+				);
+</script>
+
+
+
+<script>
+
+	var invtClass = 'CHQ';
+	var invtType = 'CHQB';
+	var invtDesc = 'LOCAL BMD CHEQUE';
+	var invtSrlAlpha = '2';
+	var invtBeginSrlNum = '86';
+	var invtEndSrlNum = '100';
+	var invtQty = '15';
+	var invtXferPartcls = '';
+	var delFlag = 'N';
+	var userId = 'FINACLETEST13';
+	var groupName = 'imc';
+	var srlNo = '';
+	var funcCode = 'A';
+	var invtTranId = '';
+	var invtTranDate = '06-11-2026';
+	var invtLocnClassFrom = 'DL';
+	var locnClassFromDesc1 = 'DOUBLE LOCK';
+	var invtLocnCodeFrom = '002';
+	var locnClassFromDesc = 'DOUBLE LOCK';
+	var invtLocnClassTo = 'VT';
+	var locnClassToDesc1 = 'VAULT';
+	var invtLocnCodeTo = '003';
+	var locnClassToDesc = 'TXN PROCESSING TEAM';
+	var invtStatus = '';
+	var bypassFlg = 'Y';
+	var invtTranSrlNum = '';
+	var contextSolId = '100';
+	var sPopUpExceptionWindow = 'false' ;
+	var sReferralMode = '' ;
+
+</script>
+
+
+
+ <script language="javascript" src="../Renderer/custom/samples/custfetch/custom_functions.js"></script>
+ <script language="JavaScript" src="../Renderer/javascripts/jspjs/INFENG/102250_header_INFENG.js"> </script>
+ <script language="javascript" src="../Renderer/javascripts/1022530310_header_link.js"></script>
+<script language="javascript" src="../Renderer/javascripts/lists/10225_showSearcher.js"> </script>
+<script>
+
+
+var prodEnv = "Y"; 
+var isProdEnv  = "Y";
+var nonSSOLogin = false;
+var toPaintHeader = true; 
+if((typeof(isSSOLogin) != 'undefined')&&(typeof(isSSOLogin) != null)){
+   nonSSOLogin = isSSOLogin(); 
+} 
+if((typeof(paintHeader) != 'undefined')&&(typeof(paintHeader) != null)){ 
+   toPaintHeader = paintHeader(); 
+} 
+
+var enterKey = 13;
+var logTestCase = "";
+var currIp = "";
+var strBaseRef = "https:\/\/clrnuat.clarienbank.com:443";
+var sessionid = "O:189714";
+var sectok = "ef210985233a8e78d3153d14fc940585";
+var fabsessionid = "";
+var finsessionid = "O:189714";
+var FinAvailFlg = "Y";
+var FabAvailFlg = "N";
+var headDate = getDateForDisplay("06 November, 2026", "06", "11", "2026");
+var headUserId = "FINACLETEST13";
+var headCtxSol = "100";
+var contextBankId = '01';
+var crvBaseUrl = '';
+var fabBaseUrl = '';
+var finBaseUrl = '';
+var userMenuId = '01_GU_BT_APPLICATIONS';
+var userMenuTreeObj = new MenuProperties();
+var userSCMenuTreeObj = new MenuShortCutProperties();
+userMenuTreeObj.setUsrMenuId(userMenuId);
+userMenuTreeObj.setMenuObj(userMenuTreeObj);
+userSCMenuTreeObj.setUsrSCMenuId(userMenuId);
+userSCMenuTreeObj.setMenuSCObj(userSCMenuTreeObj);
+var isAuditEnabled = false;
+var isBackGround = false;
+var bgParentGroup = '';
+var isCalledMenu = false;
+var crvAcctId = '';
+var crvCustId = '';
+var sGroupName = 'imc';
+var menuType = '';
+var mopId = '';
+var isLoggedInFin = false;
+var isLoggedInFab = false;
+var IS_ERROR_PAGE = false;
+var menuInfoDownloaded = false;
+var appLangCode = "INFENG";
+var isONSLogin = true;
+var finSecTok = "";
+var fabSecTok = "";
+var ssoAuthUrl = "http://fininfra-svc:8080/fininfra/SSOServlet";
+var menuTitle = '';
+var isMenuShrtcutProt = 'N';
+var multiBankEnabled = "N";
+var isPortalCtxt =  "";
+var inPortal = false;
+var IsFinacleLite = "N";
+var Literal = "";
+var displayMenuShortcutBar = 'N';
+var disableMenuTree = 'N';
+
+userInfoUtil.setEffTenor("F");
+userInfoUtil.setContextSol("100");
+
+
+inPortal 		= false;
+isAuditEnabled = false;
+isCalledMenu    =       false;
+gfkmCookie = '';
+mopId = 'HIMC';
+menuType = '�';
+
+menuTitle = 'Inventory Movement between Locations';
+
+isBackGround = false;
+userMenuTreeObj.setBgMode(isBackGround);
+bgParentGroup = '';
+iMemopad = 0;
+menuInfoDownloaded = true;
+downloadedLevel = 1;
+if (menuInfoDownloaded)
+{
+  for(i=2;i<=downloadedLevel;i++) 
+   { 
+           levelList = eval("finMenuLevel0"+i); 
+           finMenu = finMenu.concat(levelList); 
+   } 
+
+userMenuTreeObj.setMenuProps(USER_MENU_ID, finMenu, fabMenu, crvMenu, bgMenu, portalTabMenuArr, portalLhnAMenuArr, portalLhnBMenuArr, miscMenu);
+userSCMenuTreeObj.setMenuSCProps(USER_MENU_ID,normalONSMenu, fcfgMenu, icfgMenu, bcfgMenu,radfxMenu);
+}
+isLoggedInFin = true;
+isLoggedInFab = false;
+
+if(!nonSSOLogin){ 
+	writeLayer(); 
+} 
+	 hideMenuTreeForNonIE();
+
+
+</script><table width="100%" border="0" cellpadding="0" cellspacing="0" background="../Renderer/images/INFENG/toptile.gif"><tbody><tr><td width="80%" align="right" valign="top"><table border="0" cellpadding="0" cellspacing="0"><tbody><tr><td colspan="12" style="background-image:url(../Renderer/images/INFENG/dotstile.gif); background-repeat:repeat-x;"><spacer type="block" width="1" height="1"></spacer></td></tr><tr><td><img src="../Renderer/images/INFENG/arrow.gif" width="18" height="17" style="cursor: pointer;"></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_Home" href="javascript:fnBacktoLandingPage();" class="topnavi" style="cursor: pointer;">Home</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_html" href="javascript:fnHtmlMenu();" class="topnavi" style="cursor: pointer;">Menu</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td id="showmemoleftcurve" class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_hdrm" href="javascript:fnMenuHdr('showmemopad','false');" class="topnavi" style="cursor: pointer;">Show Memo Pad</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td id="bgmenuleftcurve" class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_mhdr" href="javascript:fnMenuHdr('showbglist','true');" class="topnavi" style="cursor: pointer;">Background Menu</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td class="topnavi_bottom" onmouseover="this.className=' bgTd ' " onmouseout="this.className=' topnavi_bottom ' "><a id="anc_hcrnc" href="javascript:showCrncyConverter();" class="topnavi" style="cursor: pointer;">CCY Converter</a></td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;06 November, 2026&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;100&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td><td>&nbsp;&nbsp;01&nbsp;&nbsp;</td><td width="1"><img src="../Renderer/images/INFENG/divider_topnavi.gif" width="1" height="17" style="cursor: pointer;"></td></tr></tbody></table></td><td colspan="2"></td></tr><tr><input type="hidden" name="bgMenuUrl" style=""><input type="hidden" id="menuName" name="menuName" value="" style=""></tr></tbody></table><div id="menutree_div" style="position: absolute; width: 263px; z-index: -1; left: 0px; top: 62px; visibility: hidden;" border="0"><table id="mtitle_tab" width="100%" border="0" cellspacing="0" cellpadding="1" style="z-index: -1; visibility: hidden;"><tbody><tr><td width="57%" align="right" bgcolor="#9AB4CB">Menu</td><td width="43%" align="right" bgcolor="#9AB4CB"><img src="../Renderer/images/INFENG/X.gif" alt="Close" width="15" height="14" border="0" onclick="HIDE_menutree()" style="cursor:hand" hspace="0"></td></tr></tbody></table><iframe name="menutree" id="menutree" frameborder="0" marginheight="0" marginwidth="0" scrolling="auto" height="100%" width="100%" src="javascript:false;" style="z-index: -1; visibility: hidden;"></iframe></div><div id="cancelwait_div" style="position:absolute; width:100px; height:100px; z-index:0; visibility:hidden;"><iframe name="cancelwait" id="cancelwait" frameborder="0" marginheight="0" marginwidth="0" scrolling="no" height="100%" width="100%" src="javascript:false;"></iframe></div>
+
+
+
+
+
+<table class="ctable" cellspacing="0" cellpadding="0" border="0">
+<tbody><tr><td colspan="5"><table width="100%" border="0" cellspacing="0" cellpadding="0" class="errortableborder">
+<tbody><tr><td width="3%" align="center"><div align="center"><img src="../images/INFENG/error.gif" width="19" height="17" style="cursor: pointer;"></div></td>
+<td width="97%" class="alert">Error Messages</td></tr>
+<tr class="alert"><td colspan="2"><a onmouseover="displayHand(this)" onclick="fnSelectField('imc', 'invtClass')" style="cursor: pointer;">&nbsp;<script language="Javascript">document.write(jsUtil.encodeChar('005')+' - '+jsUtil.encodeChar('The record is not found.'))</script>005 - The record is not found.</a></td></tr>
+</tbody></table>
+</td></tr>
+</tbody></table>
+
+<script language="Javascript">
+var dispUsrInfoLLSize = 0;
+var dispErrLLSize = 1;
+</script>
+
+
+
+<script language="javascript">
+printBlock1();
+</script><input type="hidden" name="actionCode" id="actionCode" style=""><input type="hidden" name="tabName" style=""><input type="hidden" name="callMode" id="callMode" value="E" style=""><input type="hidden" name="screenName" value="imcdtl" style=""><input type="hidden" name="expldQryStr" id="expldQryStr" style=""><input type="hidden" name="reqId" id="reqId" value="1msvwdgshrzzg" style=""><input type="hidden" name="rtId" id="rtId" value="1hcpbuedmsdgl" style=""><input type="hidden" name="reqIdChkByPass" id="reqIdChkByPass" value="null" style=""><input type="hidden" name="ContextSwitchDoneFrom" id="ContextSwitchDoneFrom" value="" style=""><div id="overlay"></div><input type="hidden" name="submitform" value="" style=""><input type="hidden" name="pagename" value="imcdtl" style=""><input type="hidden" name="check" id="check" style=""><input type="hidden" name="imc.serialNo" id="serialNo" value="0" style=""><input type="hidden" name="FocusField" id="FocusField" style=""><input type="hidden" name="imc.delFlag" id="delFlag" value="N" style=""><input type="hidden" name="imc.imcDet.ConfirmChoice" id="ConfirmChoice" value="" style=""><input type="hidden" name="imc.imcDet.RecNo" id="RecNo" style=""><input type="hidden" name="imc.imcDet.ErrLLName" id="ErrLLName" style=""><table border="0" cellspacing="0" cellpadding="0" class="ctable"><tbody><tr><td>	<table border="0" cellspacing="0" cellpadding="0"><tbody><tr><td class="page-heading">Inventory Movement between Locations</td></tr></tbody></table><table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td width="20%" height="20" class="textlabel">Function</td><td width="30%" class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld0">Add	</label></td><td width="1%" class="columnwidth">&nbsp;</td><td class="textlabel">Inventory Transaction. ID</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld1">	</label></td></tr><tr><td class="textlabel">Transaction Date</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld4">06-11-2026	</label></td><td class="columnwidth">&nbsp;</td><td class="textlabel">&nbsp;</td><td class="textfielddisplaylabel">&nbsp;</td></tr></tbody></table><table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td width="50%" class="activetab1">Inventory Details</td></tr></tbody></table><table border="0" cellpadding="0" cellspacing="0" width="100%"><tbody><tr><td valign="top">	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="table"><tbody><tr><td>	<table width="100%" border="0" cellpadding="0" cellspacing="0" class="innertable"><tbody><tr><td>	<table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr><td colspan="5" align="right">	<table border="0" cellspacing="0" cellpadding="0"><tbody><tr><td colspan="310"><spacer type="block" width="1" height="1"></spacer></td><td colspan="300"><spacer type="block" width="1" height="1"></spacer></td><td colspan="300"><spacer type="block" width="1" height="1"></spacer></td><td align="right"><a id="sLnk2" href="javascript:showHelpFile('imc_help.htm');" style="cursor: pointer;"><img src="../Renderer/images/INFENG/help.gif" width="47" height="21" vspace="1" border="0" hotkeyid="finHelp" style="cursor: pointer;"></a></td></tr></tbody></table></td></tr><tr><td class="textlabel">From Location Class</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld8">DL DOUBLE LOCK	</label></td><td width="1%" class="columnwidth">&nbsp;</td><td class="textlabel">From Location Code</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld13">002 DOUBLE LOCK	</label></td></tr><tr><td class="textlabel">To Location Class</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld19">VT VAULT	</label></td><td class="columnwidth">&nbsp;</td><td class="textlabel">To Location Code</td><td class="textfielddisplaylabel">	<label id="compField" cmpfldcount="cmpfld26">003 TXN PROCESSING TEAM	</label></td></tr><tr><td colspan="5" class="rowspacing"><spacer type="block" width="1" height="1"></spacer></td></tr><tr class="rowspacing"><td colspan="5">	<table width="100%" border="0" cellpadding="0" cellspacing="0"><tbody><tr class="subhdrbg"><td colspan="8">    <table border="0" cellpadding="0" cellspacing="0" width="100%">      <tbody><tr>        <td>&nbsp;&nbsp;&nbsp;          <input id="imcDet_AddNew" type="button" fblk="imcDet" name="imcDet_AddNew" value="Add" class="button1" style="">        </td>        <td align="right">           <table border="0" cellpadding="0" cellspacing="0">             <tbody><tr height="18">               <td width="99%">&nbsp;</td><td align="right">                 <img src="../Renderer/images/INFENG/arrowpre.gif" id="imcDet_PrevPage" hotkeyid="PrevPage" fblk="imcDet" alt="Go to the previous set of records." height="14" width="7" vspace="1" align="middle" style="cursor:hand" name="imcDet_PrevPage">&nbsp;&nbsp;</td>              <td style="white-space:nowrap">Records&nbsp;                 <input id="imcDet_LowLimit" hotkeyid="LowLimit" type="text" fblk="imcDet" name="imcDet_LowLimit" value="1" class="textfieldcode" maxlength="4" style="vertical-align: middle;">&nbsp;&nbsp;to&nbsp;&nbsp;1&nbsp;&nbsp;of&nbsp;&nbsp;1&nbsp;&nbsp;</td>              <td>                 <img src="../Renderer/images/INFENG/arrownext.gif" id="imcDet_NextPage" hotkeyid="NextPage" fblk="imcDet" alt="Go to the next set of records." height="14" width="7" vspace="1" align="middle" style="cursor:hand" name="imcDet_NextPage">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>             </tr>           </tbody></table>        </td>      </tr>    </tbody></table></td></tr><tr><td class="searcheader1a">Inventory Class/Type</td><td class="searcheader">Inventory Alpha</td><td class="amountheader">Start No.</td><td class="amountheader">End No.</td><td class="amountheader">Quantity</td><td class="searcheader">Transfer Particulars</td><td class="searcheader">Del.</td><td class="searcheader1a">&nbsp;</td></tr>
+<script type="text/javascript" src="../Renderer/javascripts/multirec_link.js"></script>
+<script type="text/javascript">
+   var literalObj = new Array("Add","View the previous record.","View the next record or add a new record.","Records","of","to","Go to the previous set of records.","Go to the next set of records.");
+   var imcDetTable = new MultiRecTable("7", "1", "1", "4", "1", "0", "A", "imc", "imcDet","",false);
+</script><tr id="imcDet_MarkerRow" style="display:none"><td colspan="5"></td></tr>    <input type="hidden" id="IsPageEmpty" name="imc.imcDet.IsPageEmpty" value="false" style="">    <input type="hidden" id="direction" name="imc.imcDet.direction" value="" style="">    <input type="hidden" id="FetchRow" name="imc.imcDet.FetchRow" style="">
+<script>
+MultiRecTable_addRow(new Array("0","Y","CHQ / CHQB LOCAL BMD CHEQUE","2","86","100","15","","No"), new Array("text","text","text","text","text","text","text",""),4,true);
+MultiRecTable_addRow(new Array("1","N","","","","","","",""), new Array("text","text","text","text","text","text","text",""),4,false);
+MultiRecTable_addRow(new Array("2","N","","","","","","",""), new Array("text","text","text","text","text","text","text",""),4,false);
+MultiRecTable_addRow(new Array("3","N","","","","","","",""), new Array("text","text","text","text","text","text","text",""),4,false);
+</script><tr class="searclist1arow"><td>CHQ / CHQB LOCAL BMD CHEQUE&nbsp;</td><td>2&nbsp;</td><td>86&nbsp;</td><td>100&nbsp;</td><td>15&nbsp;</td><td>&nbsp;</td><td>No&nbsp;</td><td class="leftscroll"><img id="imcDet_PrevRec" hotkeyid="Up" name="imcDet_PrevRec" fblk="imcDet" alt="View the previous record." src="../Renderer/images/INFENG/uparrow.gif" width="18" height="20" border="0" style="cursor:hand"></td></tr><tr class="searclist2a"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td class="leftscroll">&nbsp;</td></tr><tr class="searclist1a"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td class="leftscroll">&nbsp;</td></tr><tr class="searclist2a" style=""><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td class="leftscroll"><img id="imcDet_NextRec" hotkeyid="Down" name="imcDet_NextRec" fblk="imcDet" alt="View the next record or add a new record." src="../Renderer/images/INFENG/downarrow.gif" width="18" height="20" border="0" style="cursor:hand"></td></tr>
+<script type="text/javascript">
+   window.imcDetTable.addMouseClickListeners();
+</script>
+
+<script language="javascript">
+printBlock2();
+</script><tr class="searclist1a"><td><br><input onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtClass" name="imc.invtClass" enabled="" type="text" class="textfieldcode" maxlength="3" onchange="javascript:return imcdtl_ONCHANGE5(this);" fmnd="N" fmb="N" fdt="default" fblk="fblk" style="">/<input onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtType" name="imc.invtType" hotkeyid="search1" enabled="" type="text" class="twotextfieldsearchicon" maxlength="6" onchange="javascript:return imcdtl_ONCHANGE6(this);" fmnd="N" fmb="N" fdt="default" fblk="fblk" style="">&nbsp;<a id="sLnk3" href="Javascript:fnShowInvtClassList()" style="cursor: pointer; z-index: 1000;"><img src="../images/INFENG/search_icon.gif" width="16" height="17" border="0" hotkeyid="search1" style="cursor: pointer;"></a><br><input onchange="javascript:return custom_ONCHANGE('imcdtl',this);" onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtDesc" name="imc.invtDesc" type="text" class="label" size="25" maxlength="25" readonly="" fdt="default" fblk="fblk" fds="Y" style=""></td><td><input onchange="javascript:return custom_ONCHANGE('imcdtl',this);" onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtSrlAlpha" name="imc.invtSrlAlpha" enabled="" type="text" class="twotextfieldsearchicon" maxlength="6" fmnd="N" fmb="N" fdt="default" fblk="fblk" style=""><br><br></td><td><input onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtBeginSrlNum" name="imc.invtBeginSrlNum" enabled="" type="text" class="textfieldamount17num" maxlength="16" fmnd="N" fmb="N" fdt="default" fblk="fblk" onchange="javascript:return imcdtl_ONCHANGE7(this);" style=""><br><br></td><td><input onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtEndSrlNum" name="imc.invtEndSrlNum" enabled="" type="text" class="textfieldamount17num" maxlength="16" fmnd="N" fmb="N" fdt="default" fblk="fblk" onchange="javascript:return imcdtl_ONCHANGE8(this);" style=""><br><br></td><td><input onchange="javascript:return custom_ONCHANGE('imcdtl',this);" onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtQty" name="imc.invtQty" enabled="" type="text" class="textfieldamount17num" maxlength="8" fmnd="N" fmb="N" fdt="default" fblk="fblk" style=""><br><br></td><td><input onchange="javascript:return custom_ONCHANGE('imcdtl',this);" onblur="javascript:return custom_ONBLUR('imcdtl',this);" id="invtXferPartcls" name="imc.invtXferPartcls" enabled="" type="text" class="textfield25char" maxlength="25" fmnd="N" fmb="N" fdt="default" fblk="fblk" style=""><br><br></td><td><input id="chkdelFlag" name="imc.chkdelFlag" enabled="" type="checkbox" onclick="javascript:return imcdtl_ONCLICK9(this,this);" fmnd="N" fmb="N" fdt="default" fblk="fblk" style=""><br><br></td><td>&nbsp;</td></tr></tbody></table></td></tr><tr><td colspan="5" class="grayline"><spacer type="block" width="1" height="1"></spacer></td></tr><tr><td colspan="5" class="rowspacing"><spacer type="block" width="1" height="1"></spacer></td></tr><tr class="rowspacing"><td bgcolor="#eeeeee" colspan="5" class="searchresultshr">	<img src="../images/INFENG/bullet.jpg" width="11" height="11" style="cursor: pointer;">	<label id="compField" cmpfldcount="cmpfld34">&nbsp;	</label></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table></td></tr></tbody></table>
+	
+	<input type="hidden" name="customData" value="" style="">
+	
+
+	<script language="JavaScript">
+		printFooterBlock();
+	</script><div class="ctable"><input id="Submit" name="Submit" type="button" class="button" onclick="javascript:return imcdtl_ONCLICK10(this,this);" value="Submit" hotkeyid="Submit" style=""><input id="Validate" name="Validate" type="button" class="button" onclick="javascript:return imcdtl_ONCLICK11(this,this);" value="Validate" hotkeyid="Validate" style=""><input id="Cancel" name="Cancel" type="button" class="button" onclick="javascript:return imcdtl_ONCLICK12(this,this);" value="Cancel" hotkeyid="Cancel" style=""><input id="Back" name="Back" type="button" class="button" onclick="javascript:return imcdtl_ONCLICK13(this,this);" value="Back" hotkeyid="Cancel" style=""></div>
+
+</form>
+
+
+
+
+</body></html>

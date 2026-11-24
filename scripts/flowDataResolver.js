@@ -36,9 +36,24 @@ function resolveTokens(value, state) {
 
 function createAccountIterator(state) {
   const ids = [];
+  const seen = new Set();
   if (state) {
-    if (state.currentAccounts && typeof state.currentAccounts === 'object') {
-      const seen = new Set();
+    // New per-suite structure: gather passed account IDs across all suites.
+    for (const [key, suite] of Object.entries(state)) {
+      if (suite && typeof suite === 'object' && suite.instances && typeof suite.instances === 'object') {
+        for (const inst of Object.values(suite.instances)) {
+          if (inst && inst.status === 'passed' && inst.accountId) {
+            const s = String(inst.accountId).trim();
+            if (s && !seen.has(s)) {
+              ids.push(s);
+              seen.add(s);
+            }
+          }
+        }
+      }
+    }
+    // Legacy fallback.
+    if (ids.length === 0 && state.currentAccounts && typeof state.currentAccounts === 'object') {
       for (const v of Object.values(state.currentAccounts)) {
         const s = String(v).trim();
         if (s && !seen.has(s)) {
