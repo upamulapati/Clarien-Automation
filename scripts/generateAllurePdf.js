@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const { chromium } = require('playwright');
 
 const args = process.argv.slice(2);
@@ -142,27 +143,30 @@ function parseDataAttachment(att) {
 
 function renderDataPanel(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
-  const entries = Object.entries(data).filter(([k]) => k !== 'screenshot' && k !== 'timestamp');
+  let entries = Object.entries(data)
+    .filter(([k]) => k !== 'screenshot' && k !== 'timestamp' && !k.startsWith('field_'))
+    .sort(([a], [b]) => a.localeCompare(b));
   if (!entries.length) return '';
+  if (entries.length > 25) entries = entries.slice(0, 25);
   const rows = entries.map(([k, v]) => {
     const value = v === undefined || v === null ? '' : String(v);
     const valueClass = value ? 'value-ok' : 'value-missing';
     return `<tr><td class="data-key">${escapeHtml(k)}</td><td class="data-value ${valueClass}">${escapeHtml(value)}</td></tr>`;
   }).join('');
   return `<div class="data-panel">
-    <div class="data-title">Input Data</div>
+    <div class="data-title">Captured Data</div>
     <table class="data-table">${rows}</table>
   </div>`;
 }
 
-function renderImageAttachment(att, status) {
-  const file = readAttachment(att.source);
-  if (!file) return '';
-  const b64 = file.toString('base64');
+function renderImageAttachment(att, data, status, index, b64) {
   const action = escapeHtml(getAttachmentStep(att.name));
+  const dataHtml = data ? renderDataPanel(data) : '';
   return `<div class="attachment screenshot status-${status}">
+    <div class="screenshot-step">Step ${index}: ${action}</div>
     <img src="data:${att.type};base64,${b64}" alt="${action}" />
     <div class="screenshot-caption">Action: ${action}</div>
+    ${dataHtml}
   </div>`;
 }
 
@@ -172,9 +176,28 @@ function renderTest(result) {
   const duration = formatDuration(result.start, result.stop);
   const message = result.statusDetails && result.statusDetails.message ? escapeHtml(result.statusDetails.message) : '';
   const status = result.status || 'unknown';
-  const { images } = collectAttachments(result);
+  const { images, data } = collectAttachments(result);
 
-  const imgHtml = images.map(img => renderImageAttachment(img, status)).join('');
+  const dataByStep = new Map();
+  for (const d of data) {
+    const step = getAttachmentStep(d.name);
+    dataByStep.set(step, parseDataAttachment(d));
+  }
+
+  const seenImageHashes = new Set();
+  let imgHtml = '';
+  let stepNumber = 0;
+  for (const img of images) {
+    const file = readAttachment(img.source);
+    if (!file) continue;
+    const hash = crypto.createHash('sha256').update(file).digest('hex');
+    if (seenImageHashes.has(hash)) continue;
+    seenImageHashes.add(hash);
+    stepNumber++;
+    const stepData = dataByStep.get(getAttachmentStep(img.name));
+    const b64 = file.toString('base64');
+    imgHtml += renderImageAttachment(img, stepData, status, stepNumber, b64);
+  }
 
   return `
     <section class="test">
@@ -188,7 +211,7 @@ function renderTest(result) {
         <span><strong>Duration:</strong> ${duration}</span>
       </div>
       ${message ? `<div class="message">${message}</div>` : ''}
-      ${imgHtml ? `<div class="screenshots-section"><h3>Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
+      ${imgHtml ? `<div class="screenshots-section"><h3>Evidence Screenshots</h3><div class="screenshot-gallery">${imgHtml}</div></div>` : ''}
     </section>`;
 }
 
@@ -510,6 +533,7 @@ async function main() {
     .main-actions ol { margin: 0 0 12px 18px; padding: 0; }
     .main-actions li { margin-bottom: 4px; }
     .screenshot-caption { margin-top: 6px; font-weight: 600; color: #333; }
+    .screenshot-step { font-weight: bold; font-size: 11px; color: #333; margin-bottom: 6px; }
     .data-panel { margin-top: 8px; padding: 6px; border: 1px solid #ccc; border-radius: 3px; background: #f9f9f9; }
     .data-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
     .data-table { border-collapse: collapse; width: 100%; font-size: 9px; }

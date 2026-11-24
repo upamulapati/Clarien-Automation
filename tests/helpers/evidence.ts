@@ -1,6 +1,48 @@
 import { Frame, Page, test } from '@playwright/test';
+import { createHash } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+
+const testScreenshotHashes = new Map<string, Set<string>>();
+
+function getTestKey(): string {
+  try {
+    const info = test.info();
+    return info.testId || `${info.title}_${info.retry ?? 0}`;
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function waitForUiToSettle(page: Page): Promise<void> {
+  const start = Date.now();
+  const timeout = 4000;
+  while (Date.now() - start < timeout) {
+    try {
+      const busy = await page.evaluate(() => {
+        const selectors = [
+          '.loading', '.spinner', '.progress', '.busy', '.x-loading',
+          '[class*="loading"]', '[class*="spinner"]', '[class*="progress"]',
+          '[aria-busy="true"]'
+        ];
+        const indicators = Array.from(document.querySelectorAll(selectors.join(', ')));
+        for (const el of indicators) {
+          const style = window.getComputedStyle(el as Element);
+          const htmlEl = el as HTMLElement;
+          if (style.display !== 'none' && style.visibility !== 'hidden' && htmlEl.offsetParent !== null) {
+            return true;
+          }
+        }
+        return false;
+      });
+      if (!busy) break;
+    } catch {
+      break;
+    }
+    await page.waitForTimeout(250);
+  }
+  await page.waitForTimeout(600);
+}
 
 /**
  * Collect the current values of all visible input, select and textarea
@@ -104,18 +146,45 @@ export async function captureEvidence(
   // Wait for any async data to finish loading and the UI to settle
   // before taking the screenshot so the entered data is fully rendered.
   await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(800).catch(() => {});
+  await waitForUiToSettle(page);
 
-  // Take a full-page screenshot and attach it to the test report.
-  await page.screenshot({ path: screenshotPath, fullPage: true }).catch(() => {});
-  if (fs.existsSync(screenshotPath)) {
-    await info.attach(`${step} - screenshot`, { path: screenshotPath, contentType: 'image/png' });
+  // Capture the screenshot at device scale so text is sharper and easier to read.
+  await page.screenshot({ path: screenshotPath, fullPage: true, scale: 'device' }).catch(() => {});
+  if (!fs.existsSync(screenshotPath)) {
+    return;
   }
 
-  // Attach the optional data payload as a JSON snippet.
-  if (data !== undefined) {
+  // Deduplicate exact duplicate screenshots within the same test.
+  const testKey = getTestKey();
+  const screenshotBuffer = await fs.promises.readFile(screenshotPath);
+  const hash = createHash('sha256').update(screenshotBuffer).digest('hex');
+  if (!testScreenshotHashes.has(testKey)) {
+    testScreenshotHashes.set(testKey, new Set<string>());
+  }
+  const hashes = testScreenshotHashes.get(testKey)!;
+  if (hashes.has(hash)) {
+    await fs.promises.unlink(screenshotPath).catch(() => {});
+    console.log(`📸 Skipping duplicate evidence: ${step}`);
+    return;
+  }
+  hashes.add(hash);
+
+  // Auto-capture the visible page data when none is supplied so business users
+  // can see the values that were entered or displayed at that step.
+  let payload = data;
+  if (payload === undefined) {
+    try {
+      payload = await gatherPageInputData(page);
+    } catch {
+      payload = {};
+    }
+  }
+
+  await info.attach(`${step} - screenshot`, { path: screenshotPath, contentType: 'image/png' });
+
+  if (payload !== undefined && Object.keys(payload).length > 0) {
     await info.attach(`${step} - data`, {
-      body: JSON.stringify(data, null, 2),
+      body: JSON.stringify(payload, null, 2),
       contentType: 'application/json',
     });
   }
