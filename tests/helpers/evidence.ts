@@ -5,15 +5,6 @@ import * as path from 'path';
 
 const testScreenshotHashes = new Map<string, Set<string>>();
 
-function getTestKey(): string {
-  try {
-    const info = test.info();
-    return info.testId || `${info.title}_${info.retry ?? 0}`;
-  } catch {
-    return 'unknown';
-  }
-}
-
 async function waitForUiToSettle(page: Page): Promise<void> {
   const start = Date.now();
   const timeout = 4000;
@@ -140,10 +131,10 @@ export async function captureEvidence(
 ): Promise<void> {
   if (!page || page.isClosed?.()) return;
   const info = test.info();
+  const testKey = (info as any).testId || info.title || 'unknown';
 
   // Skip rapid duplicate captures of the same step in the same test to avoid
   // bloating the Allure report with redundant screenshots.
-  const testKey = (info as any).testId || info.title || 'unknown';
   const dedupeKey = `${testKey}:${step}`;
   const now = Date.now();
   const last = recentCaptures.get(dedupeKey);
@@ -173,7 +164,6 @@ export async function captureEvidence(
   }
 
   // Deduplicate exact duplicate screenshots within the same test.
-  const testKey = getTestKey();
   const screenshotBuffer = await fs.promises.readFile(screenshotPath);
   const hash = createHash('sha256').update(screenshotBuffer).digest('hex');
   if (!testScreenshotHashes.has(testKey)) {

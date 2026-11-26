@@ -22,7 +22,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
 
   // Fallback for code/display LOV fields when the lookup popup cannot be used.
   // Sets the hidden code input and visible category (Cat_) input directly.
-  private async setLovWithFallback(
+  private async setLovDirectByNames(
     frame: any,
     codeNames: string[],
     displayNames: string[],
@@ -58,22 +58,41 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     return { country: '', area: '', local: raw };
   }
 
-  // Re-apply critical Corporate country LOV fields using the two-textbox helper so
-  // the CRM has time to auto-populate the hidden code and display values.
+  // Re-apply critical Corporate code-value LOV fields using the popup LOV helpers.
+  // Country/place values and Sector/Sub-sector values are all workbook codes, not display text.
   private async applyCorporateLovs(frame: any, cd: any): Promise<void> {
     if (!frame) return;
 
     if (cd.countryOfIncorporation) {
-      await this.setTwoTextboxLovByLabel(frame, 'Country of Incorporation', String(cd.countryOfIncorporation)).catch(() => {});
-    }
-    if (cd.sector) {
-      await this.setGenericFieldByLabel(frame, 'Sector', cd.sectorCode ? String(cd.sectorCode) : String(cd.sector), 'select').catch(() => {});
-    }
-    if (cd.subSector) {
-      await this.setGenericFieldByLabel(frame, 'Sub-sector', cd.subSectorCode ? String(cd.subSectorCode) : String(cd.subSector), 'select').catch(() => {});
+      const coiCode = String(cd.countryOfIncorporation);
+      const coiDisplay = String(cd.countryOfIncorporationDisplay || this.LOOKUP_FALLBACKS['Country of Incorporation']?.display || '').trim();
+      await this.setLovWithFallback(frame, 'Country of Incorporation', coiCode, coiDisplay, 'Country of Incorporation').catch(() => {});
+      await this.workingPage.waitForTimeout(this.timeouts.short).catch(() => {});
+      await this.refreshAccountFrame('after Country of Incorporation').catch(() => {});
+      frame = this.accountFrame || frame;
     }
     if (cd.countryOfOrigin) {
-      await this.setTwoTextboxLovByLabel(frame, 'Country of Origin', String(cd.countryOfOrigin)).catch(() => {});
+      const cooCode = String(cd.countryOfOrigin);
+      const cooDisplay = String(cd.countryOfOriginDisplay || this.LOOKUP_FALLBACKS['Country of Origin']?.display || '').trim();
+      await this.setLovWithFallback(frame, 'Country of Origin', cooCode, cooDisplay, 'Country of Origin').catch(() => {});
+      await this.workingPage.waitForTimeout(this.timeouts.short).catch(() => {});
+      await this.refreshAccountFrame('after Country of Origin').catch(() => {});
+      frame = this.accountFrame || frame;
+    }
+    if (cd.sector) {
+      const sectorCode = cd.sectorCode ? String(cd.sectorCode) : String(cd.sector);
+      const sectorSet = await this.setGenericFieldByLabel(frame, 'Sector', sectorCode, 'select').catch(() => false);
+      if (!sectorSet) await this.setLovByCodeValue(frame, 'Sector', sectorCode).catch(() => {});
+      await this.workingPage.waitForTimeout(this.timeouts.short).catch(() => {});
+      await this.refreshAccountFrame('after Sector').catch(() => {});
+      frame = this.accountFrame || frame;
+    }
+    if (cd.subSector || cd.subSectorCode) {
+      const subSectorCode = cd.subSectorCode ? String(cd.subSectorCode) : String(cd.subSector);
+      const subSet = await this.setGenericFieldByLabel(frame, 'Sub-sector', subSectorCode, 'select').catch(() => false);
+      if (!subSet) await this.setLovByCodeValue(frame, 'Sub-sector', subSectorCode).catch(() => {});
+      await this.refreshAccountFrame('after Sub-sector').catch(() => {});
+      frame = this.accountFrame || frame;
     }
 
     await this.refreshAccountFrame('after Corporate LOVs');
@@ -94,14 +113,23 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
 
     if (fd.ccy) {
       const ccy = String(fd.ccy);
-      // CCY is a two-textbox category LOV: write the code into the first input and let the CRM auto-populate the display.
-      await this.setField(frame, ['FinancialModBO.crncy_Code', 'FinancialBO.crncy_Code'], ccy, 'CCY code').catch(() => {});
+      // CCY is a two-textbox category LOV: set both code and display inputs.
+      await this.setLov(frame, ['FinancialModBO.crncy_Code', 'FinancialBO.crncy_Code'], ['Cat_FinancialModBO.crncy_Code', 'Cat_FinancialBO.crncy_Code'], ccy, ccy, 'CCY').catch(() => {});
     }
 
     if (fd.country) {
-      const countryCode = fd.countryCode || endToEnd?.corporateData?.countryOfIncorporation || '';
-      // Country is a two-textbox category LOV: write the code into the first input and let the CRM auto-populate the display.
-      await this.setField(frame, ['FinancialBO.country'], String(countryCode), 'Corporate Finance Country code').catch(() => {});
+      const countryCode = String(fd.countryCode || endToEnd?.corporateData?.countryOfIncorporation || '').trim();
+      const countryDisplay = String(fd.country || 'Bermuda').trim();
+      // The Financial Basic Info "Country" field is a code/display LOV.
+      // Search by Category Value first, then by code, then fall back to direct writes.
+      const countrySet = await this.setLovWithFallback(
+        frame,
+        'Country',
+        countryCode,
+        countryDisplay,
+        'Corporate Finance Country'
+      ).catch(() => false);
+      if (countrySet) console.log(`✓ Corporate Finance Country set: ${countryCode} / ${countryDisplay}`);
     }
 
     await this.dumpFrameHtml(frame, 'corporate-finance-final');
@@ -240,7 +268,7 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
   // ==================== PRIVATE HELPERS ====================
   protected async refreshAccountFrame(label = ''): Promise<void> {
     const page = this.workingPage;
-    for (let attempt = 0; attempt < 5; attempt++) {
+    for (let attempt = 0; attempt < 10; attempt++) {
       try {
         if (page.isClosed()) { console.log('  \u26a0 Page is closed, cannot refresh accountFrame' + (label ? ' (' + label + ')' : '')); return; }
         await page.waitForTimeout(1000);
@@ -259,12 +287,17 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
           if (hasCorporateFields) { candidate = f; break; }
         } catch (_) {}
       }
-      if (!candidate) candidate = page.frames().find(f => { const u = f.url(); return u.includes('CorpGeneralModDet') || u.includes('CorpCreateDetWizard') || u.includes('CorpMod'); });
+      if (!candidate) candidate = page.frames().find((f: any) => { const u = f.url(); return u.includes('CorpGeneralModDet') || u.includes('CorpCreateDetWizard') || u.includes('CorpMod'); });
       if (!candidate) candidate = page.frame({ name: 'formDispFrame' }) || undefined;
       if (candidate) {
         try {
           const cnt = await candidate.evaluate(() => document.querySelectorAll('input').length);
-          if (cnt > 3) { this.accountFrame = candidate; console.log('  \u21bb Refreshed accountFrame' + (label ? ' (' + label + ')' : '') + ' inputs=' + cnt); return; }
+          if (cnt > 3) {
+            this.accountFrame = candidate;
+            this.mainAccountFrame = candidate;
+            console.log('  \u21bb Refreshed accountFrame' + (label ? ' (' + label + ')' : '') + ' inputs=' + cnt);
+            return;
+          }
         } catch (_) {}
       }
     }
@@ -340,45 +373,144 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     return selected;
   }
 
-  // Set Charge Level Code from the workbook value. This is a two-textbox category LOV:
-  // the workbook value is entered in the visible input and the CRM auto-populates
-  // the hidden code after a short wait; no lookup popup is opened.
+  // Set Charge Level Code from the workbook value. The CRM field is a category-value LOV,
+  // so search the popup by Category Value and persist the resolved code/display pair.
   private async setChargeLevelCode(f: any, cd: any): Promise<void> {
-    const value = String(cd.chargeLevelCode || '').trim();
-    if (!value) return;
+    const categoryValue = String(cd.chargeLevelDisplay || cd.chargeLevelCode || '').trim();
+    if (!categoryValue) return;
 
-    await this.setTwoTextboxLovByLabel(f, 'Charge Level Code', value).catch(() => {});
-    console.log(`✓ Charge Level Code handled with workbook value: ${value}`);
+    await this.setLovByCategoryValue(f, 'Charge Level Code', categoryValue, 'Charge Level Code').catch(() => {});
+    await this.refreshAccountFrame('after Charge Level Code').catch(() => {});
+    console.log(`✓ Charge Level Code handled with workbook value: ${categoryValue}`);
+  }
+
+  // ==================== BASIC INFO LOV VERIFICATION (pre-submit) ====================
+  /**
+   * Re-check only the LOV fields that are commonly cleared by tab navigation.
+   * If a value is already present, skip it. This avoids re-working the entire
+   * Basic Info tab during pre-submit verification.
+   */
+  protected async ensureBasicInfoLovs(): Promise<void> {
+    console.log('\n--- Ensure Basic Info LOVs ---');
+    await this.refreshAccountFrame('ensureBasicInfoLovs').catch(() => {});
+    const page = this.workingPage;
+    await this.closeUnexpectedPopups(page);
+    await this.navigateToSectionTab(['General', 'General Details']).catch(() => {});
+    await this.navigateToSectionTab(['Basic Info', 'Basic Information', 'Basic Details', 'Basic']).catch(() => {});
+    await this.refreshAccountFrame('ensureBasicInfoLovs after Basic Info').catch(() => {});
+    let f = this.accountFrame;
+    if (!f) {
+      console.log('⚠ Could not acquire account frame for Basic Info LOV verification');
+      return;
+    }
+
+    const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
+    const normalize = (s: string) => String(s || '').toUpperCase().replace(/[\s\u00A0]+/g, ' ').trim();
+    const matches = (actual: string, expected: string) => {
+      if (!expected) return true;
+      if (!actual) return false;
+      const a = normalize(actual);
+      const e = normalize(expected);
+      return a === e || a.includes(e) || e.includes(a);
+    };
+
+    const ensure = async (
+      label: string,
+      expectedCode: string,
+      expectedDisplay: string,
+      setter: () => Promise<boolean | void>,
+      mustCheckCode = true
+    ): Promise<boolean> => {
+      try {
+        const current = await this.getLovValueByLabel(f, label).catch(() => null);
+        if (current) {
+          const codeOk = mustCheckCode && expectedCode ? matches(current.code, expectedCode) : true;
+          const dispOk = expectedDisplay ? matches(current.display, expectedDisplay) : true;
+          if (codeOk && dispOk) {
+            console.log(`  ✓ ${label} already populated (code="${current.code}", display="${current.display}")`);
+            return false;
+          }
+        }
+      } catch (_) {}
+      const ok = await setter().catch(() => false);
+      if (ok) console.log(`  ✓ ${label} set`);
+      else console.log(`  ⚠ ${label} could not be set`);
+      return !!ok;
+    };
+
+    if (cd.businessType) {
+      await ensure('Business Type', '', cd.businessType, async () => {
+        let set = await this.setLovByCategoryValue(f, 'Business Type', cd.businessType, 'Business Type').catch(() => false);
+        if (!set) set = await this.setLovByLabel(f, 'Business Type', String(cd.businessType), String(cd.businessType)).catch(() => false);
+        return set;
+      }, false);
+    }
+
+    const corporateSegment = String(cd.corporateSegment || cd.segment || '').trim();
+    const corporateSegmentDisplay = String(cd.corporateSegmentDisplay || cd.segmentDisplay || corporateSegment).trim();
+    if (corporateSegmentDisplay) {
+      const segmentChanged = await ensure('Corporate Segment', '', corporateSegmentDisplay, async () => {
+        let set = await this.setLovByCategoryValue(f, 'Corporate Segment', corporateSegmentDisplay, 'Corporate Segment').catch(() => false);
+        if (!set) set = await this.setLovByLabel(f, 'Corporate Segment', corporateSegmentDisplay, corporateSegmentDisplay).catch(() => false);
+        return set;
+      }, false);
+      // Re-acquire the frame after changing the parent LOV so dependent fields refresh.
+      if (segmentChanged) {
+        await this.refreshAccountFrame('ensureBasicInfoLovs after Corporate Segment').catch(() => {});
+        f = this.accountFrame || f;
+      }
+    }
+
+    const subSegmentCode = String(cd.subSegment || '').trim();
+    const subSegmentDisplay = String(cd.subSegmentDisplay || subSegmentCode).trim();
+    if (subSegmentCode) {
+      const subChanged = await ensure('Sub-segment', subSegmentCode, subSegmentDisplay, async () => {
+        return await this.setSelectOrLovByLabel(f, 'Sub-segment', subSegmentCode, subSegmentDisplay, 'select').catch(() => false);
+      });
+      if (subChanged) {
+        await this.refreshAccountFrame('ensureBasicInfoLovs after Sub-segment').catch(() => {});
+        f = this.accountFrame || f;
+      }
+    }
+
+    if (cd.principalPlaceOfOperation) {
+      const ppo = String(cd.principalPlaceOfOperation);
+      await ensure('Principal Place of Operation', ppo, ppo, async () => {
+        let set = await this.setLovByCodeValue(f, 'Principal Place of Operation', ppo).catch(() => false);
+        if (!set) set = await this.setLovByLabel(f, 'Principal Place of Operation', ppo, ppo).catch(() => false);
+        return set;
+      });
+    }
+
+    if (cd.countryOfIncorporation) {
+      const coi = String(cd.countryOfIncorporation);
+      const coiDisplay = String(cd.countryOfIncorporationDisplay || this.LOOKUP_FALLBACKS['Country of Incorporation']?.display || '').trim();
+      await ensure('Country of Incorporation', coi, coiDisplay || coi, async () => {
+        return await this.setLovWithFallback(f, 'Country of Incorporation', coi, coiDisplay, 'Country of Incorporation').catch(() => false);
+      });
+    }
+
+    await this.setChargeLevelCode(f, cd);
   }
 
   // ==================== FILL BASIC INFO TAB ====================
   async fillBasicInfo(skipSave = false, evidencePrefix = 'Corporate Basic Info'): Promise<void> {
     console.log('\n========== BASIC INFO TAB ==========');
+    // Discard any cached frame objects; navigating across outer/sub-tabs can recreate
+    // the formDispFrame, so we must re-attach to the live frame every time.
+    this.mainAccountFrame = null;
+    this.accountFrame = null;
+
+    // First select the General outer tab, then the Basic Info sub-tab, so this
+    // works both on first fill and in pre-submit re-verification.
+    await this.navigateToSectionTab(['General', 'General Details']).catch(() => {});
+    this.mainAccountFrame = null;
+    this.accountFrame = null;
+    await this.navigateToSectionTab(['Basic Info', 'Basic Information', 'Basic Details', 'Basic']).catch(() => {});
+
+    await this.refreshAccountFrame('fillBasicInfo after Basic Info').catch(() => {});
     await this.captureEvidence(`${evidencePrefix} - before`).catch(() => {});
-    // Prefer the cached main Customer form frame.
-    if (!this.accountFrame && this.mainAccountFrame) this.accountFrame = this.mainAccountFrame;
-    // Verify accountFrame has CorporateBO fields — re-detect if not
-    const checkFrame = this.mainAccountFrame || this.accountFrame;
-    const hasCorporateFields = await checkFrame.evaluate(() => {
-      return !!document.querySelector('input[name="CorporateBO.corporate_Name"]');
-    }).catch(() => false);
-    if (!hasCorporateFields) {
-      console.log('  ⚠ accountFrame lacks CorporateBO fields — scanning all frames...');
-      const page = this.workingPage;
-      for (const f of page.frames()) {
-        try {
-          const hasFields = await f.evaluate(() => !!document.querySelector('input[name="CorporateBO.corporate_Name"]')).catch(() => false);
-          if (hasFields) {
-            const cnt = await f.evaluate(() => document.querySelectorAll('input').length).catch(() => 0);
-            this.accountFrame = f;
-            this.mainAccountFrame = f;
-            console.log('  ✓ Re-detected accountFrame: "' + f.name() + '" url=' + f.url().substring(f.url().lastIndexOf('/') + 1).substring(0, 80) + ' inputs=' + cnt);
-            break;
-          }
-        } catch (_) {}
-      }
-    }
-    const f = this.accountFrame;
+    let f = this.accountFrame;
     const cd = CRM_TEST_DATA.corporate.endToEnd.corporateData;
 
     // Core identity fields
@@ -392,9 +524,15 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     if (phone.area) await this.setField(f, ['CorporateBO.phone.areacode'], phone.area, 'Phone Area Code');
     if (phone.local) await this.setField(f, ['CorporateBO.phone.localcode'], phone.local, 'Phone Local Code');
 
-    // Business Type from CRM sheet
+    // Business Type from CRM sheet is a category-value LOV.
     if (cd.businessType) {
-      await this.setGenericFieldByLabel(f, 'Business Type', cd.businessType, 'select').catch(() => {});
+      let btSet = await this.setLovByCategoryValue(f, 'Business Type', cd.businessType, 'Business Type').catch(() => false);
+      if (!btSet) {
+        // Fallback: write the CRM value directly into the code/display inputs next to the label.
+        const btVal = String(cd.businessType);
+        btSet = await this.setLovByLabel(f, 'Business Type', btVal, btVal).catch(() => false);
+      }
+      if (btSet) console.log(`✓ Business Type set: ${cd.businessType}`);
     }
 
     await this.setField(f, ['CorporateBO.registration_Number'], cd.registrationNo, 'Registration No');
@@ -405,14 +543,31 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     if (cd.solId) {
       const solSet = await this.setSelect(f, ['CorporateBO.primary_Service_Center', 'CorporateModBO.primary_Service_Center'], cd.solId, 'Primary Service Center');
       if (!solSet) await this.setLov(f, ['CorporateBO.primary_Service_Center'], ['Cat_CorporateBO.primary_Service_Center'], cd.solId, cd.solId, 'Primary Service Center');
+      await this.refreshAccountFrame('after Primary SOL').catch(() => {});
     }
 
-    // Segment / Sub-segment: workbook code + display in the two textboxes, no lookup popup.
-    if (cd.segment || cd.segmentDisplay) {
-      await this.setTwoTextboxLovByLabel(f, 'Corporate Segment', cd.segment || '', cd.segmentDisplay || '').catch(() => {});
+    // Corporate Segment is a category-value LOV. Resolve it first because Sub-segment is a dependent dropdown.
+    const corporateSegment = String(cd.corporateSegment || cd.segment || '').trim();
+    const corporateSegmentDisplay = String(cd.corporateSegmentDisplay || cd.segmentDisplay || corporateSegment).trim();
+    if (corporateSegmentDisplay) {
+      await this.setLovByCategoryValue(f, 'Corporate Segment', corporateSegmentDisplay, 'Corporate Segment').catch(() => {});
+      // Give the CRM time to populate/enable the Sub-segment dropdown and re-attach to the fully-loaded main form.
+      await this.workingPage.waitForTimeout(this.timeouts.short).catch(() => {});
+      await this.refreshAccountFrame('after Corporate Segment').catch(() => {});
     }
-    if (cd.subSegment || cd.subSegmentDisplay) {
-      await this.setTwoTextboxLovByLabel(f, 'Sub-segment', cd.subSegment || '', cd.subSegmentDisplay || '').catch(() => {});
+
+    // Sub-segment is a dependent select dropdown; retry briefly until options are populated.
+    const subSegmentCode = String(cd.subSegment || '').trim();
+    const subSegmentDisplay = String(cd.subSegmentDisplay || subSegmentCode).trim();
+    if (subSegmentCode) {
+      let subSet = false;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        subSet = await this.setSelectOrLovByLabel(f, 'Sub-segment', subSegmentCode, subSegmentDisplay, 'select').catch(() => false);
+        if (subSet) break;
+        await this.workingPage.waitForTimeout(this.timeouts.short).catch(() => {});
+        await this.refreshAccountFrame('Sub-segment retry').catch(() => {});
+      }
+      if (subSet) console.log(`✓ Sub-segment set: ${subSegmentCode} / ${subSegmentDisplay}`);
     }
 
     await this.setField(f, ['CorporateBO.source_Of_Funds'], cd.fundSource, 'Source of Funds');
@@ -426,9 +581,17 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       await this.setGenericFieldByLabel(f, 'Region', cd.region, 'select').catch(() => {});
     }
 
-    // Principal Place of Operation (only if the CRM sheet provides a value)
+    // Principal Place of Operation is a code-value LOV; the workbook provides the code (not the display text).
     if (cd.principalPlaceOfOperation) {
-      await this.setTwoTextboxLovByLabel(f, 'Principal Place of Operation', String(cd.principalPlaceOfOperation)).catch(() => {});
+      let ppoSet = await this.setLovByCodeValue(f, 'Principal Place of Operation', String(cd.principalPlaceOfOperation)).catch(() => false);
+      if (!ppoSet) {
+        // Fallback: write the code directly into the code/display inputs next to the label.
+        const ppoCode = String(cd.principalPlaceOfOperation);
+        ppoSet = await this.setLovByLabel(f, 'Principal Place of Operation', ppoCode, ppoCode).catch(() => false);
+      }
+      if (ppoSet) console.log(`✓ Principal Place of Operation set: ${cd.principalPlaceOfOperation}`);
+      await this.refreshAccountFrame('after Principal Place of Operation').catch(() => {});
+      f = this.accountFrame || f;
     }
 
     await this.setField(f, ['CorporateBO.website_Address'], cd.website, 'Website Address');
@@ -445,8 +608,8 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     if (cd.accessOwnerSegment) await this.setGenericFieldByLabel(f, 'Access Owner Segment', cd.accessOwnerSegment, 'select');
     if (cd.accessOwnerBusinessCenter) await this.setGenericFieldByLabel(f, 'Access Owner Business Center', cd.accessOwnerBusinessCenter, 'text');
 
-    // Relationship Created By and Primary RM
-    if (cd.createdBy) await this.setField(f, ['CorporateBO.relationship_CreatedBy', 'CorporateModBO.relationship_CreatedBy'], cd.createdBy, 'Relationship Created By');
+    // Relationship Created By is autopopulated with the logged-in user; do not overwrite it.
+    // Primary RM
     if (cd.primaryRelationshipManagerId) await this.setField(f, ['CorporateBO.PrimaryRMLogin_ID', 'CorporateModBO.PrimaryRMLogin_ID'], cd.primaryRelationshipManagerId, 'Primary RM');
 
     // Notes (textarea) from workbook
@@ -509,10 +672,11 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
     // Do not click the bottom Save button; instead navigate to the next sub-tab
     // so the application saves via tab navigation and values remain populated.
     await this.dumpFrameHtml(f, 'basic-info-final');
+    // Capture the after screenshot before navigating away so the filled Basic Info state is preserved.
+    await this.captureEvidence(`${evidencePrefix} complete`).catch(() => {});
     if (!skipSave) {
       await this.navigateToSectionTab(['Identification Document Details', 'Document', 'ID Document', 'Identification']);
     }
-    await this.captureEvidence(`${evidencePrefix} complete`).catch(() => {});
   }
 
   // ==================== FILL CONTACT TAB ====================
@@ -1132,8 +1296,9 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
       if (cd.relationshipStartDate) {
         await this.setField(target, ['CorporateBO.relationship_StartDate', '3_CorporateBO.relationship_StartDate'], cd.relationshipStartDate, 'Relationship Start Date');
       }
+      // Relationship Created By is autopopulated with the logged-in user; do not overwrite it.
       if (cd.createdBy) {
-        await this.setField(target, ['CorporateBO.relationship_CreatedBy', 'CorporateModBO.relationship_CreatedBy'], cd.createdBy, 'Relationship Created By');
+        console.log('  ℹ Skipping Relationship Created By (autopopulated/disabled)');
       }
       if (cd.primaryRelationshipManagerId) {
         await this.setField(target, ['CorporateBO.PrimaryRMLogin_ID', 'CorporateModBO.PrimaryRMLogin_ID'], cd.primaryRelationshipManagerId, 'Primary RM');
@@ -1261,21 +1426,16 @@ export class CrmCorporateEndToEndPage extends CrmEndToEndPage {
   async preSubmitVerification(): Promise<void> {
     console.log('\n=== Pre-Submit: Re-verify mandatory fields ===');
     await this.captureEvidence('Corporate Pre-Submit - before').catch(() => {});
-    const page = this.workingPage;
 
-    // Reacquire the main Customer form frame and navigate back to Basic Info.
-    await this.reacquireAccountFrame('pre-submit', undefined, true).catch(() => {});
-    for (const f of page.frames()) {
-      if (f !== this.mainAccountFrame && f !== this.accountFrame) continue;
-      const t = f.getByText('General Details', { exact: false }).first();
-      if (await t.isVisible({ timeout: 3000 }).catch(() => false)) { await t.click(); break; }
-    }
-    await page.waitForTimeout(this.timeouts.short3);
+    // Close any leftover LOV/popup windows before reacquiring the main form frame.
+    await this.closeUnexpectedPopups(this.workingPage);
 
-    // Re-fill every workbook value from Basic Info before final submission.
-    await this.fillBasicInfo(true, 'Corporate Pre-Submit - Basic Info');
-    await this.reacquireAccountFrame('pre-submit after fillBasicInfo', undefined, true).catch(() => {});
-    await this.closeUnexpectedPopups(page);
+    // Reacquire the active Corporate form frame and re-fill only the Basic Info LOV
+    // values that are missing, rather than re-working the entire General/Basic Info tab.
+    await this.refreshAccountFrame('pre-submit').catch(() => {});
+    await this.ensureBasicInfoLovs();
+    await this.refreshAccountFrame('pre-submit after ensureBasicInfoLovs').catch(() => {});
+    await this.closeUnexpectedPopups(this.workingPage);
 
     console.log('Pre-Submit verification complete');
     await this.captureEvidence('Corporate Pre-Submit complete');

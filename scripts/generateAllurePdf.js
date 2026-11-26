@@ -141,8 +141,8 @@ const EXTRA_SCREENSHOT_DIRS = [
   path.resolve('test-results-temp')
 ];
 
-function collectExtraScreenshots(startTime, endTime) {
-  const out = [];
+function collectExtraScreenshots(startTime, endTime, seenImageHashes = new Set(), maxCount = 20) {
+  const candidates = [];
   const bufferMs = 5 * 60 * 1000;
   const minTime = startTime ? startTime - bufferMs : 0;
   const maxTime = endTime ? endTime + bufferMs : Infinity;
@@ -151,18 +151,39 @@ function collectExtraScreenshots(startTime, endTime) {
     function walk(d) {
       for (const e of fs.readdirSync(d, { withFileTypes: true })) {
         const p = path.join(d, e.name);
-        if (e.isDirectory()) walk(p);
-        else if (e.name.toLowerCase().endsWith('.png')) {
+        if (e.isDirectory()) {
+          // Allure/evidence attachments are already rendered from the result JSON.
+          // Only collect genuine Playwright auto-screenshots from the test run folder.
+          if (e.name === 'attachments') return;
+          walk(p);
+        } else if (e.name.toLowerCase().endsWith('.png')) {
+          // Skip evidence files that are already attached to Allure results.
+          const base = e.name.toLowerCase();
+          if (base.startsWith('evidence-')) return;
+          if (base.includes('attachment')) return;
           try {
             const mtime = fs.statSync(p).mtime.getTime();
-            if (mtime >= minTime && mtime <= maxTime) out.push(p);
+            if (mtime >= minTime && mtime <= maxTime) candidates.push({ p, mtime });
           } catch (_) {}
         }
       }
     }
     walk(dir);
   }
-  return out.sort();
+  // Prefer the newest/most-relevant extras and never include exact duplicates.
+  candidates.sort((a, b) => b.mtime - a.mtime);
+  const out = [];
+  for (const { p } of candidates) {
+    if (out.length >= maxCount) break;
+    try {
+      const file = fs.readFileSync(p);
+      const hash = crypto.createHash('sha256').update(file).digest('hex');
+      if (seenImageHashes.has(hash)) continue;
+      seenImageHashes.add(hash);
+      out.push({ path: p, b64: file.toString('base64'), hash });
+    } catch (_) {}
+  }
+  return out;
 }
 
 function getAttachmentContent(att) {
@@ -216,7 +237,7 @@ function renderImageAttachment(att, data, status, index, b64) {
   </div>`;
 }
 
-function renderTest(result) {
+function renderTest(result, seenImageHashes = new Set()) {
   const title = escapeHtml(result.name || 'Unnamed test');
   const suite = getLabel(result, 'suite') || 'Unknown suite';
   const duration = formatDuration(result.start, result.stop);
@@ -231,7 +252,6 @@ function renderTest(result) {
     dataByStep.set(step, parseDataAttachment(d));
   }
 
-  const seenImageHashes = new Set();
   let imgHtml = '';
   let stepNumber = 0;
   for (const img of images) {
@@ -302,11 +322,14 @@ function detectLatestRun(parsed) {
 
 function renderExtraScreenshots(files) {
   if (!files || !files.length) return '';
-  const items = files.map(file => {
+  let index = 0;
+  const items = files.map(fileObj => {
     try {
-      const b64 = fs.readFileSync(file).toString('base64');
+      const file = fileObj.path || fileObj;
+      const b64 = fileObj.b64 || fs.readFileSync(file).toString('base64');
       const caption = path.relative(process.cwd(), file);
-      return `<div class="attachment screenshot"><img src="data:image/png;base64,${b64}" alt="${escapeHtml(caption)}" /><div class="screenshot-caption">Extra: ${escapeHtml(caption)}</div></div>`;
+      index++;
+      return `<div class="attachment screenshot"><div class="screenshot-step">Extra ${index}</div><img src="data:image/png;base64,${b64}" alt="${escapeHtml(caption)}" /><div class="screenshot-caption">Extra: ${escapeHtml(caption)}</div></div>`;
     } catch (e) { return ''; }
   }).filter(Boolean).join('');
   if (!items) return '';
@@ -454,10 +477,27 @@ async function main() {
   const cifSuffix = cifId ? `_CIF_${cifId}` : '';
   const OUTPUT_HTML = path.join(OUTPUT_DIR, `${outputName}${cifSuffix}_report.html`);
   const OUTPUT_PDF = path.join(OUTPUT_DIR, `${outputName}${cifSuffix}_report.pdf`);
-  const testsHtml = results.map(renderTest).join('');
+
+  // Avoid regenerating the PDF if inputs have not changed since the last run.
+  let newestInput = 0;
+  for (const file of allFiles) {
+    try { newestInput = Math.max(newestInput, fs.statSync(path.join(RESULTS_DIR, file)).mtimeMs); } catch (_) {}
+  }
+  if (fs.existsSync(LAST_RUN_FILE)) {
+    try { newestInput = Math.max(newestInput, fs.statSync(LAST_RUN_FILE).mtimeMs); } catch (_) {}
+  }
+  // Regenerate if the generator script itself is updated.
+  try { newestInput = Math.max(newestInput, fs.statSync(__filename).mtimeMs); } catch (_) {}
+  if (fs.existsSync(OUTPUT_PDF) && fs.statSync(OUTPUT_PDF).mtimeMs >= newestInput) {
+    console.log(`PDF report is up-to-date: ${OUTPUT_PDF}`);
+    return;
+  }
+
+  const seenImageHashes = new Set();
+  const testsHtml = results.map(r => renderTest(r, seenImageHashes)).join('');
   const runStart = Math.min(...results.map(r => r.start || 0));
   const runStop = Math.max(...results.map(r => r.stop || 0));
-  const extraScreenshots = collectExtraScreenshots(runStart, runStop);
+  const extraScreenshots = collectExtraScreenshots(runStart, runStop, seenImageHashes, 20);
   const extraSectionHtml = renderExtraScreenshots(extraScreenshots);
   const dashboardHtml = renderDashboard(results);
   const pageTitle = `${suiteName} Test Report (PDF)`;

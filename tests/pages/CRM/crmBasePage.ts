@@ -17,6 +17,7 @@ export class CrmBasePage {
   protected workingPage: Page;
   protected accountFrame: any = null;
   protected mainAccountFrame: any = null;
+  private _lovSubmitScreenshots: Set<string> = new Set();
 
   constructor(page: Page, config: AppConfig, lastDialogMessages: string[]) {
     this.page = page;
@@ -46,7 +47,9 @@ export class CrmBasePage {
   // =====================================================================
   async takeScreenshot(name: string) {
     try {
-      const screenshot = await this.page.screenshot({ fullPage: false });
+      const target = this.workingPage || this.page;
+      if (!target || target.isClosed?.()) return;
+      const screenshot = await target.screenshot({ fullPage: false });
       await test.info().attach(name, { body: screenshot, contentType: 'image/png' });
       console.log(`Screenshot taken: ${name}`);
     } catch (e) {
@@ -56,7 +59,7 @@ export class CrmBasePage {
 
   protected async captureEvidence(step: string, data?: Record<string, unknown>, page?: Page | null): Promise<void> {
     try {
-      const target = page || this.page;
+      const target = page || this.workingPage || this.page;
       if (!target || (target as Page).isClosed?.()) return;
       await captureEvidence(target, step, data);
     } catch (e) {
@@ -335,21 +338,103 @@ export class CrmBasePage {
     return false;
   }
 
+  /**
+   * Fill a LOV popup search input identified as either the Code or Category (display) field.
+   * Clears all visible search inputs first so the value is only submitted in the intended field.
+   */
+  protected async lovFillSearchByInputHint(popup: Page, value: string, label: string, hint: 'code' | 'category'): Promise<boolean> {
+    if (popup.isClosed()) return false;
+    const raw = value === undefined || value === null ? '' : String(value).trim();
+    if (/^(undefined|null|\[object)/i.test(raw) || !raw) {
+      console.log(`  ⚠ Skipping LOV ${hint} search for ${label}: invalid value "${value}"`);
+      return false;
+    }
+    const safeValue = raw.replace(/\*/g, '').trim();
+    for (const lf of popup.frames()) {
+      const filled = await lf.evaluate((args: { v: string; h: 'code' | 'category' }) => {
+        const v = args.v;
+        const h = args.h;
+        const inputs = Array.from(document.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+        const candidates: { el: HTMLInputElement; score: number; order: number }[] = [];
+        inputs.forEach((el, i) => {
+          const style = window.getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return;
+          const name = (el.getAttribute('name') || '').toUpperCase();
+          const id = (el.getAttribute('id') || '').toUpperCase();
+          if (/LOWLIMIT|HIGHLIMIT|PAGENO|GOTO|RECNO|RECORD/i.test(name + id)) return;
+          const row = el.closest('tr');
+          const rowText = row ? (row.innerText || '').toUpperCase() : '';
+          let labelFor = '';
+          if (el.id) {
+            const lbl = document.querySelector(`label[for="${el.id}"]`);
+            if (lbl) labelFor = (lbl.textContent || '').toUpperCase();
+          }
+          const placeholder = (el.getAttribute('placeholder') || '').toUpperCase();
+          const title = (el.getAttribute('title') || '').toUpperCase();
+          const aria = (el.getAttribute('aria-label') || '').toUpperCase();
+          const attrText = `${name} ${id} ${placeholder} ${title} ${aria} ${labelFor}`;
+          const all = `${attrText} ${rowText}`;
+          let score = 0;
+          // Strong preference for the field's own label attributes.
+          if (h === 'category') {
+            if (attrText.includes('CATEGORY') || attrText.includes('DESCRIPTION') || attrText.includes('DISPLAY') || attrText.includes('VALUE')) score += 25;
+            if (attrText.includes('CODE')) score -= 15;
+            if (rowText.includes('CATEGORY') || rowText.includes('DESCRIPTION') || rowText.includes('DISPLAY') || rowText.includes('VALUE')) score += 8;
+            if (rowText.includes('CODE')) score -= 4;
+          } else {
+            if (attrText.includes('CODE')) score += 25;
+            if (attrText.includes('CATEGORY') || attrText.includes('DESCRIPTION') || attrText.includes('DISPLAY') || attrText.includes('VALUE')) score -= 15;
+            if (rowText.includes('CODE')) score += 8;
+            if (rowText.includes('CATEGORY') || rowText.includes('DESCRIPTION') || rowText.includes('DISPLAY') || rowText.includes('VALUE')) score -= 4;
+          }
+          if (score <= -5) return;
+          // Slight tie-breaker for leftmost inputs when row text is ambiguous.
+          if (score === 0) score = (h === 'code' ? -i : i);
+          candidates.push({ el, score, order: i });
+        });
+        if (candidates.length === 0) return false;
+        candidates.forEach(c => {
+          c.el.value = '';
+          c.el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        candidates.sort((a, b) => (b.score - a.score) || (a.order - b.order));
+        const best = candidates[0];
+        best.el.value = v;
+        best.el.dispatchEvent(new Event('input', { bubbles: true }));
+        best.el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      }, { v: safeValue, h: hint }).catch(() => false);
+      if (filled) {
+        console.log(`  Typed "${safeValue}" in LOV ${hint} search for ${label}`);
+        return true;
+      }
+    }
+    return false;
+  }
+
   protected async lovClickSubmit(popup: Page, label: string, config: AppConfig): Promise<boolean> {
     if (popup.isClosed()) return false;
+    const selectors = ['input[value="Submit"]', 'input[value="Search"]', 'input[value="Go"]', 'button[type="submit"]', 'input[type="submit"]'];
     for (const lf of popup.frames()) {
-      const btn = lf.locator('input[value="Submit"]').first();
-      if (await btn.isVisible({ timeout: config.timeouts.short3 }).catch(() => false)) {
-        try {
-          await btn.click();
-        } catch (e) {
-          if (popup.isClosed()) return false;
-          console.log(`  ⚠ Could not click LOV Submit for ${label}: ${(e as Error).message?.substring(0, 80)}`);
-          return false;
+      for (const sel of selectors) {
+        const loc = lf.locator(sel).first();
+        if (await loc.isVisible({ timeout: 800 }).catch(() => false)) {
+          try {
+            await loc.click();
+          } catch (e) {
+            if (popup.isClosed()) return false;
+            console.log(`  ⚠ Could not click LOV submit for ${label} (${sel}): ${(e as Error).message?.substring(0, 80)}`);
+            continue;
+          }
+          console.log(`  ✓ Clicked submit in LOV for ${label}`);
+          if (!this._lovSubmitScreenshots.has(label)) {
+            this._lovSubmitScreenshots.add(label);
+            await this.takeScreenshot(`LOV Submit - ${label}`).catch(() => {});
+          }
+          return true;
         }
-        console.log(`  ✓ Clicked Submit in LOV for ${label}`);
-        await this.takeScreenshot(`LOV Submit - ${label}`).catch(() => {});
-        return true;
       }
     }
     return false;
@@ -456,11 +541,12 @@ export class CrmBasePage {
                 const txt = getCellText(c);
                 return !isJunkText(txt) && txt.length > 0 && txt.length <= 80;
               });
-              if (cells.length < 2) continue;
+              if (cells.length === 0) continue;
               let matchCell: HTMLTableCellElement | null = null;
-              for (const cell of cells) {
-                const txt = getCellText(cell).toUpperCase();
-                if (txt === t || txt.includes(t)) { matchCell = cell as HTMLTableCellElement; break; }
+              let matchIdx = -1;
+              for (let ci = 0; ci < cells.length; ci++) {
+                const txt = getCellText(cells[ci]).toUpperCase();
+                if (txt === t || txt.includes(t)) { matchCell = cells[ci] as HTMLTableCellElement; matchIdx = ci; break; }
               }
               if (!matchCell) continue;
               const link = row.querySelector('a');
@@ -578,6 +664,12 @@ export class CrmBasePage {
               else if ((hu.includes('VALUE') || hu.includes('DESCRIPTION') || hu.includes('CATEGORY') || hu.includes('NATIONALITY') || hu.includes('LOCATION') || hu.includes('COUNTRY') || hu.includes('STATE') || hu.includes('CITY')) && !hu.includes('CODE')) dispIdx = i;
             });
             if (codeIdx === -1 && dispIdx === -1) { codeIdx = 1; dispIdx = 0; }
+            if (codeIdx === -1 && headers.length >= 2) {
+              // No explicit Code header: assume the first column is the display/category
+              // and the last column is the code. This handles headers like 'Category Value' repeated in both columns.
+              dispIdx = 0;
+              codeIdx = headers.length - 1;
+            }
 
             const rows = Array.from(table.querySelectorAll('tr'));
             for (const row of rows) {
@@ -586,7 +678,7 @@ export class CrmBasePage {
                 const txt = getCellText(c);
                 return !isJunkText(txt) && txt.length > 0 && txt.length <= 80;
               });
-              if (cells.length < 2) continue;
+              if (cells.length === 0) continue;
               const matchIdx = cells.findIndex(c => {
                 const txt = getCellText(c).toUpperCase();
                 return txt === t || txt.includes(t);
@@ -594,9 +686,9 @@ export class CrmBasePage {
               if (matchIdx === -1) continue;
               const safeCodeIdx = codeIdx >= 0 && codeIdx < cells.length ? codeIdx : (cells.length > 1 ? 1 : 0);
               const safeDispIdx = dispIdx >= 0 && dispIdx < cells.length ? dispIdx : 0;
-              const code = getCellText(cells[safeCodeIdx]) || getCellText(cells[1]) || getCellText(cells[0]) || '';
-              const display = getCellText(cells[safeDispIdx]) || getCellText(cells[0]) || '';
-              if (!code || !display) continue;
+              const code = getCellText(cells[safeCodeIdx]) || getCellText(cells[matchIdx]) || getCellText(cells[1]) || getCellText(cells[0]) || '';
+              const display = getCellText(cells[safeDispIdx]) || getCellText(cells[matchIdx]) || getCellText(cells[0]) || '';
+              if (!code && !display) continue;
               if (isJunkText(code) || isJunkText(display)) continue;
               if (code.length > 50 || display.length > 80) continue;
               return { code, display };
@@ -646,7 +738,10 @@ export class CrmBasePage {
     parentPage: Page; target: any; buttonName: string; searchValue: string;
     label: string; config: AppConfig; directFieldName?: string; parentPopup?: Page;
     fallback?: { code: string; display: string; resolved?: boolean };
+    categoryValueOnly?: boolean;
+    codeValueOnly?: boolean;
   }): Promise<boolean> {
+    this._lovSubmitScreenshots.clear();
     const { parentPage, target, buttonName, label, config, directFieldName, parentPopup } = opts;
     let searchValue = String(opts.searchValue || '').replace(/\*/g, '').trim();
     if (opts.fallback) {
@@ -661,47 +756,54 @@ export class CrmBasePage {
       return false;
     }
 
-    let lovBtn: any = null;
-    let lovBtnFrame: any = null;
-    const btnOnTarget = target.locator(`input[name="${buttonName}"]`);
-    if (await btnOnTarget.isVisible({ timeout: config.timeouts.short3 }).catch(() => false)) {
-      lovBtn = btnOnTarget; lovBtnFrame = target;
-    } else {
-      for (const f of parentPage.frames()) {
-        const btn = f.locator(`input[name="${buttonName}"]`);
-        if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { lovBtn = btn; lovBtnFrame = f; break; }
-      }
-    }
-    // Some LOV buttons exist but are hidden/disabled after a value is already selected.
-    // Fall back to the first matching button element regardless of visibility.
-    if (!lovBtn) {
-      const hiddenFallback = target.locator(`input[name="${buttonName}"]`).first();
-      if (await hiddenFallback.count().catch(() => 0) > 0) {
-        lovBtn = hiddenFallback; lovBtnFrame = target;
+    let lovPopup: any = null;
+
+    if (buttonName) {
+      let lovBtn: any = null;
+      let lovBtnFrame: any = null;
+      const btnOnTarget = target.locator(`input[name="${buttonName}"]`);
+      if (await btnOnTarget.isVisible({ timeout: config.timeouts.short3 }).catch(() => false)) {
+        lovBtn = btnOnTarget; lovBtnFrame = target;
       } else {
         for (const f of parentPage.frames()) {
-          const btn = f.locator(`input[name="${buttonName}"]`).first();
-          if (await btn.count().catch(() => 0) > 0) { lovBtn = btn; lovBtnFrame = f; break; }
+          const btn = f.locator(`input[name="${buttonName}"]`);
+          if (await btn.isVisible({ timeout: 2000 }).catch(() => false)) { lovBtn = btn; lovBtnFrame = f; break; }
         }
       }
-    }
-    if (!lovBtn) {
-      console.log(`⚠ LOV button not found for ${label}: ${buttonName}`);
-      return false;
+      // Some LOV buttons exist but are hidden/disabled after a value is already selected.
+      // Fall back to the first matching button element regardless of visibility.
+      if (!lovBtn) {
+        const hiddenFallback = target.locator(`input[name="${buttonName}"]`).first();
+        if (await hiddenFallback.count().catch(() => 0) > 0) {
+          lovBtn = hiddenFallback; lovBtnFrame = target;
+        } else {
+          for (const f of parentPage.frames()) {
+            const btn = f.locator(`input[name="${buttonName}"]`).first();
+            if (await btn.count().catch(() => 0) > 0) { lovBtn = btn; lovBtnFrame = f; break; }
+          }
+        }
+      }
+
+      if (lovBtn) {
+        const isDisabled = await lovBtn.evaluate((el: HTMLInputElement) => el.disabled).catch(() => false);
+        if (isDisabled) {
+          console.log(`  ⚠ LOV button "${buttonName}" disabled, enabling for ${label}...`);
+          await lovBtn.evaluate((el: HTMLInputElement) => { el.disabled = false; });
+          await parentPage.waitForTimeout(500);
+        }
+
+        const lovPromise = contextPage.context().waitForEvent('page', { timeout: config.timeouts.long15 }).catch(() => null);
+        await lovBtn.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+        console.log(`  Clicked LOV for ${label}...`);
+        lovPopup = await lovPromise;
+      }
     }
 
-    const isDisabled = await lovBtn.evaluate((el: HTMLInputElement) => el.disabled).catch(() => false);
-    if (isDisabled) {
-      console.log(`  ⚠ LOV button "${buttonName}" disabled, enabling for ${label}...`);
-      await lovBtn.evaluate((el: HTMLInputElement) => { el.disabled = false; });
-      await parentPage.waitForTimeout(500);
+    if (!lovPopup) {
+      console.log(`  ⚠ LOV button not found for ${label}${buttonName ? ': ' + buttonName : ''}, trying lookup icon...`);
+      lovPopup = await this.openLovPopupByLabel(target, label, config, parentPage);
     }
 
-    const lovPromise = contextPage.context().waitForEvent('page', { timeout: config.timeouts.long15 }).catch(() => null);
-    await lovBtn.evaluate((el: HTMLElement) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
-    console.log(`  Clicked LOV for ${label}...`);
-
-    const lovPopup = await lovPromise;
     if (!lovPopup) {
       console.log(`⚠ No LOV popup opened for ${label}`);
       if (directFieldName) await this.lovSetDirectValue(target, directFieldName, searchValue, label);
@@ -724,10 +826,22 @@ export class CrmBasePage {
     // Try each visible search input in turn (supports Code and Category Value search fields)
     let selected = false;
     let cd: { code: string; display: string } | null = null;
+    const hint: 'code' | 'category' | undefined = opts.categoryValueOnly ? 'category' : (opts.codeValueOnly ? 'code' : undefined);
     if (searchValue) {
-      for (let inputIdx = 0; inputIdx < 3; inputIdx++) {
+      const maxInputIdx = hint ? 0 : 2;
+      if (hint) {
+        // Clear all search inputs so the selected Code or Category Value field starts empty.
+        await lovPopup.evaluate(() => {
+          document.querySelectorAll('input[type="text"]').forEach((el) => {
+            const input = el as HTMLInputElement;
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          });
+        }).catch(() => {});
+      }
+      for (let inputIdx = 0; inputIdx <= maxInputIdx; inputIdx++) {
         if (lovPopup.isClosed()) { selected = true; break; }
-        const filled = await this.lovFillSearch(lovPopup, searchValue, label, inputIdx);
+        const filled = hint ? await this.lovFillSearchByInputHint(lovPopup, searchValue, label, hint) : await this.lovFillSearch(lovPopup, searchValue, label, inputIdx);
         if (!filled) break; // no more visible search fields
         await this.lovClickSubmit(lovPopup, label, config);
         if (!lovPopup.isClosed()) await lovPopup.waitForTimeout(config.timeouts.short).catch(() => {});
@@ -795,6 +909,135 @@ export class CrmBasePage {
 
     await this.closeUnexpectedPopups(parentPage, ...(parentPopup ? [parentPopup] : []));
     return selected || (!!cd?.code) || (!!directFieldName && !!(fallback as any)?.resolved);
+  }
+
+  /**
+   * Open the LOV popup for a label and search using the Category Value (display text).
+   * Does not write the value into the Code search field. Resolves the code/display pair
+   * and writes both back to the parent form.
+   */
+  protected async setLovByCategoryValue(frame: any, label: string, categoryValue: string, logLabel?: string): Promise<boolean> {
+    const v = String(categoryValue || '').trim();
+    if (!v) return false;
+    const buttons = await this.findLovButtonNamesByLabel(frame, label).catch(() => [] as string[]);
+    const candidates = buttons.filter(b => /^btnone_|^btntwo_/i.test(b));
+    const targets = candidates.length ? candidates : buttons;
+    const fieldNameFromLabel = await this.findFieldNameByLabel(frame, label).catch(() => undefined);
+    for (const bn of targets.length ? targets : ['']) {
+      const directFieldName = /^btnone_|^btntwo_/i.test(bn) ? bn.replace(/^btnone_|^btntwo_/, '') : fieldNameFromLabel;
+      const ok = await this.selectLovValue({
+        parentPage: this.workingPage,
+        target: frame,
+        buttonName: bn,
+        searchValue: v,
+        label: logLabel || label,
+        config: this.config,
+        directFieldName,
+        fallback: { code: '', display: v },
+        categoryValueOnly: true
+      }).catch(() => false);
+      if (ok) {
+        console.log(`✓ ${logLabel || label} set via category LOV: ${v}`);
+        return true;
+      }
+    }
+    console.log(`⚠ ${logLabel || label} LOV not set (category value: ${v})`);
+    return false;
+  }
+
+  /**
+   * Open the LOV popup for a label and search using the Code value.
+   * Does not write the value into the Category Value search field.
+   * Resolves the code/display pair and writes both back to the parent form.
+   */
+  protected async setLovByCodeValue(frame: any, label: string, codeValue: string, logLabel?: string): Promise<boolean> {
+    const v = String(codeValue || '').trim();
+    if (!v) return false;
+    const buttons = await this.findLovButtonNamesByLabel(frame, label).catch(() => [] as string[]);
+    const candidates = buttons.filter(b => /^btnone_|^btntwo_/i.test(b));
+    const targets = candidates.length ? candidates : buttons;
+    const fieldNameFromLabel = await this.findFieldNameByLabel(frame, label).catch(() => undefined);
+    for (const bn of targets.length ? targets : ['']) {
+      const directFieldName = /^btnone_|^btntwo_/i.test(bn) ? bn.replace(/^btnone_|^btntwo_/, '') : fieldNameFromLabel;
+      const ok = await this.selectLovValue({
+        parentPage: this.workingPage,
+        target: frame,
+        buttonName: bn,
+        searchValue: v,
+        label: logLabel || label,
+        config: this.config,
+        directFieldName,
+        fallback: { code: v, display: '' },
+        codeValueOnly: true
+      }).catch(() => false);
+      if (ok) {
+        console.log(`✓ ${logLabel || label} set via code LOV: ${v}`);
+        return true;
+      }
+    }
+    console.log(`⚠ ${logLabel || label} LOV not set (code value: ${v})`);
+    return false;
+  }
+
+  /**
+   * Set a code/display LOV using the provided code or category value.
+   * For Country-like fields the CRM sheet usually supplies the Category Value
+   * (e.g. 'Bermuda'), so we search by display/category first, then by code,
+   * then fall back to the raw CRM value and finally to direct control writes.
+   */
+  protected async setLovWithFallback(
+    frame: any,
+    label: string,
+    codeValue: string,
+    displayValue: string,
+    logLabel?: string
+  ): Promise<boolean> {
+    const code = String(codeValue || '').trim();
+    const display = String(displayValue || '').trim();
+    if (!code && !display) {
+      console.log(`⚠ ${logLabel || label} LOV skipped (no code or display)`);
+      return false;
+    }
+
+    const used = new Set<string>();
+
+    // 1) Search by Category Value / display first (the typical CRM-sheet value).
+    for (const v of [display, code]) {
+      if (v && !used.has(v.toUpperCase())) {
+        used.add(v.toUpperCase());
+        const catOk = await this.setLovByCategoryValue(frame, label, v, logLabel).catch(() => false);
+        if (catOk) return true;
+      }
+    }
+
+    // 2) Search by code.
+    for (const v of [code, display]) {
+      if (v && !used.has(v.toUpperCase())) {
+        used.add(v.toUpperCase());
+        const codeOk = await this.setLovByCodeValue(frame, label, v, logLabel).catch(() => false);
+        if (codeOk) return true;
+      }
+    }
+
+    // 3) Direct two-textbox write when both parts are known.
+    if (code) {
+      const twoOk = await this.setTwoTextboxLovByLabel(frame, label, code, display).catch(() => false);
+      if (twoOk) return true;
+    }
+
+    // 4) Direct label-based write using both code and display.
+    if (code && display) {
+      const directOk = await this.setLovByLabel(frame, label, code, display).catch(() => false);
+      if (directOk) return true;
+    }
+    if (code || display) {
+      const v = code || display;
+      const directOk2 = await this.setLovByLabel(frame, label, v, v).catch(() => false);
+      if (directOk2) return true;
+    }
+
+    console.log(`⚠ ${logLabel || label} LOV could not be set with fallback`);
+    return false;
   }
 
   // =====================================================================
@@ -938,79 +1181,177 @@ export class CrmBasePage {
         el.dispatchEvent(new Event('blur', { bubbles: true }));
       };
 
+      // Prefer an actual <label> element; only fall back to containers if no label exists.
       let labelEl: HTMLElement | null = null;
-      for (const el of Array.from(document.querySelectorAll('label, td, th, div, span, p'))) {
-        const t = normalize((el as HTMLElement).innerText || el.textContent);
-        if (t === labelNorm || (t.includes(labelNorm) && t.length < labelNorm.length + 15)) {
-          labelEl = el as HTMLElement; break;
+      for (const selector of ['label', 'td, th, div, span, p, legend']) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
+          const t = normalize((el as HTMLElement).innerText || el.textContent);
+          if (t === labelNorm || (t.includes(labelNorm) && t.length < labelNorm.length + 25)) {
+            labelEl = el as HTMLElement;
+            // If this container contains a child <label> that matches, prefer the child label.
+            if (labelEl.tagName.toLowerCase() !== 'label') {
+              const childLabel = labelEl.querySelector('label');
+              if (childLabel && normalize(childLabel.innerText || childLabel.textContent || '') === labelNorm) {
+                labelEl = childLabel as HTMLElement;
+              }
+            }
+            break;
+          }
         }
+        if (labelEl) break;
       }
       if (!labelEl) return false;
 
-      const row = labelEl.closest('tr, td, div, li, fieldset, form') || labelEl.parentElement;
-      if (!row) return false;
+      // Narrow the search to the label's table cell and the next sibling cell. This
+      // prevents scoring controls from other fields when a <tr> contains multiple fields.
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const fieldRoots = getFieldRoots(labelEl);
+      const queryInRoots = (selector: string): Element | null => {
+        for (const root of fieldRoots) {
+          const el = root.querySelector(selector);
+          if (el) return el;
+        }
+        return null;
+      };
 
       let codeSet = false;
       let displaySet = false;
 
-      // Direct inputs in the same container.
-      const inputs = Array.from(row.querySelectorAll('input, select, textarea')) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+      // Find the most likely code input by matching the label words against control names.
+      // Hidden code inputs are valid LOV code fields; their geometry is not usable,
+      // so name matching is used instead.  We start in the label's cell(s) and fall back
+      // to the whole document if the cell is not a normal table/cell container.
+      const labelWords = labelNorm.split(/[^a-z0-9]+/).filter(w => w.length > 2);
+      const isRelevantName = (n: string) => {
+        const name = n.toLowerCase();
+        return n && !name.includes('wizard') && !name.includes('hash') && !name.startsWith('btn') && !name.startsWith('pi_') && !name.includes('search');
+      };
+      const isCatName = (n: string) => {
+        const name = n.toLowerCase();
+        return name.startsWith('cat_') || name.startsWith('cat');
+      };
+
+      const scoreInput = (inp: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, fallback = false) => {
+        const n = (inp.name || '').toLowerCase();
+        if (!isRelevantName(n)) return -Infinity;
+        const isCat = isCatName(n);
+        const stripped = n.replace(/^cat_/i, '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '');
+        let score = 0;
+        for (const w of labelWords) {
+          if (stripped.includes(w)) score += 200;
+          else if (n.includes(w)) score += 80;
+        }
+        if (fallback) score -= 500; // cell-local matches are strongly preferred
+        // Geometry is only meaningful for visible controls.
+        if (inp.type !== 'hidden' && inp.tagName.toLowerCase() !== 'select') {
+          const r = inp.getBoundingClientRect();
+          const lr = labelEl.getBoundingClientRect();
+          const dx = Math.abs((r.left + r.width / 2) - (lr.left + lr.width / 2));
+          const dy = Math.abs((r.top + r.height / 2) - (lr.top + lr.height / 2));
+          score -= dx / 10 + dy / 5;
+        }
+        if (isCat) score -= 50; // prefer the code input over its display companion
+        if (inp.type === 'hidden') score -= 20; // hidden code is acceptable, but a visible code box is slightly preferred
+        if (inp.tagName.toLowerCase() === 'select') score -= 30;
+        return score;
+      };
+
+      const collectInputs = (root: Element | Document) => Array.from(root.querySelectorAll('input, select, textarea')) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+      const collectFromRoots = (roots: Element[]) => roots.flatMap(r => collectInputs(r));
+      const rowInputs = collectFromRoots(fieldRoots);
+      const allInputs = collectInputs(document);
+      // Always start in the label's own cell/row; only expand to the whole document
+      // if the scoped cells contain no candidate and apply a heavy fallback penalty.
+      let inputs = rowInputs.length > 0 ? rowInputs : allInputs;
+
+      let bestCode: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+      let bestCodeScore = -Infinity;
+      let bestCat: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+      let bestCatScore = -Infinity;
+
       for (const inp of inputs) {
-        const name = (inp.name || '').toLowerCase();
-        const isCat = name.startsWith('cat_') || name.startsWith('cat');
-        if (!name || name.includes('wizard') || name.includes('hash') || name.startsWith('btn') || name.startsWith('pi_')) continue;
-        if (isCat) {
-          if (inp.value !== args.display) { (inp as HTMLInputElement).value = args.display; fire(inp as HTMLElement); }
-          displaySet = true;
+        if (inp === labelEl) continue;
+        const n = (inp.name || '').toLowerCase();
+        if (!isRelevantName(n)) continue;
+        const score = scoreInput(inp, inputs === allInputs && rowInputs.length > 0);
+        if (score === -Infinity) continue;
+        if (isCatName(n)) {
+          if (score > bestCatScore) { bestCatScore = score; bestCat = inp; }
         } else {
-          if (inp.tagName.toLowerCase() === 'select') {
-            const sel = inp as HTMLSelectElement;
-            const v = args.code;
-            let matched = false;
-            for (const o of Array.from(sel.options)) {
-              if (o.value.toUpperCase() === v.toUpperCase() || o.text.trim().toUpperCase() === v.toUpperCase()) {
-                sel.value = o.value; matched = true; break;
-              }
-            }
-            if (!matched) {
-              for (const o of Array.from(sel.options)) {
-                if (o.text.trim().toUpperCase().includes(v.toUpperCase())) { sel.value = o.value; matched = true; break; }
-              }
-            }
-            if (matched && sel.value !== sel.dataset.cascadeOldValue) {
-              sel.dataset.cascadeOldValue = sel.value;
-              sel.disabled = false; sel.removeAttribute('readonly');
-              sel.dispatchEvent(new Event('change', { bubbles: true }));
-              sel.dispatchEvent(new Event('blur', { bubbles: true }));
-              codeSet = true; displaySet = true;
-            }
+          if (score > bestCodeScore) { bestCodeScore = score; bestCode = inp; }
+        }
+      }
+
+      // If the scoped cells had no usable controls, try the whole document as a last resort.
+      if (!bestCode && !bestCat && rowInputs.length > 0) {
+        for (const inp of allInputs) {
+          if (inp === labelEl) continue;
+          const n = (inp.name || '').toLowerCase();
+          if (!isRelevantName(n)) continue;
+          const score = scoreInput(inp, true);
+          if (score === -Infinity) continue;
+          if (isCatName(n)) {
+            if (score > bestCatScore) { bestCatScore = score; bestCat = inp; }
           } else {
-            (inp as HTMLInputElement).disabled = false;
-            (inp as HTMLInputElement).removeAttribute('readonly');
-            if ((inp as HTMLInputElement).value !== args.code) { (inp as HTMLInputElement).value = args.code; fire(inp as HTMLElement); }
-            codeSet = true;
+            if (score > bestCodeScore) { bestCodeScore = score; bestCode = inp; }
           }
         }
       }
 
-      // If no exact match in container, search the whole document for code/display inputs.
-      if (!codeSet || !displaySet) {
-        for (const inp of Array.from(document.querySelectorAll('input')) as HTMLInputElement[]) {
-          const name = (inp.name || '').toLowerCase();
-          if (!name || name.includes('wizard') || name.includes('hash') || name.startsWith('btn') || name.startsWith('pi_')) continue;
-          const isCat = name.startsWith('cat_') || name.startsWith('cat');
-          if (isCat && !displaySet) {
-            if (inp.value !== args.display) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = args.display; fire(inp); }
-            displaySet = true;
-          } else if (!isCat && !codeSet) {
-            if (inp.value !== args.code) { inp.disabled = false; inp.removeAttribute('readonly'); inp.value = args.code; fire(inp); }
-            codeSet = true;
+      const setValue = (inp: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, val: string) => {
+        if ((inp as HTMLInputElement).value === val) return;
+        (inp as HTMLInputElement).disabled = false;
+        (inp as HTMLInputElement).removeAttribute('readonly');
+        if (inp.tagName.toLowerCase() === 'select') {
+          const sel = inp as HTMLSelectElement;
+          const v = val.toUpperCase();
+          for (const o of Array.from(sel.options)) {
+            if (o.value.toUpperCase() === v || o.text.trim().toUpperCase() === v) { sel.value = o.value; break; }
           }
-          if (codeSet && displaySet) break;
+        } else {
+          (inp as HTMLInputElement).value = val;
+        }
+        fire(inp as HTMLElement);
+      };
+
+      // If we only found a Cat_/display input, derive the hidden code input name and look it up.
+      if (!bestCode && bestCat) {
+        const catName = bestCat.getAttribute('name') || '';
+        const base = catName.replace(/^cat_/i, '');
+        const candidate = queryInRoots(`input[name="${base}"], input[name="3_${base}"], input[name="h_${base}"]`) as HTMLInputElement | null;
+        if (candidate) bestCode = candidate;
+      }
+
+      // If we only found a code input, try to locate its Cat_/display companion.
+      if (bestCode && !bestCat) {
+        const base = (bestCode.getAttribute('name') || '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '');
+        if (base) {
+          bestCat = queryInRoots(`input[name="cat_${base}" i]`) as HTMLInputElement | null;
         }
       }
 
-      return codeSet || displaySet;
+      if (!bestCode) return false;
+
+      setValue(bestCode, args.code);
+      codeSet = true;
+      if (bestCat) { setValue(bestCat, args.display); displaySet = true; }
+
+      return codeSet;
     }, { label, code, display }).catch(() => false);
 
     if (result) {
@@ -1019,6 +1360,160 @@ export class CrmBasePage {
     }
     console.log('⚠ ' + label + ' LOV by label not set');
     return false;
+  }
+
+  /**
+   * Read-only helper that returns the current code and display values for an LOV
+   * field identified by its label. Used to skip re-entry when values are already
+   * populated.
+   */
+  protected async getLovValueByLabel(frame: any, label: string): Promise<{ code: string; display: string } | null> {
+    const result = await frame.evaluate((args: { label: string }) => {
+      const normalize = (s: string) => String(s || '').replace(/[\s\u00A0]+/g, ' ').replace(/[^a-z0-9]/g, '').toLowerCase();
+      const labelNorm = normalize(args.label);
+
+      let labelEl: HTMLElement | null = null;
+      for (const selector of ['label', 'td, th, div, span, p, legend']) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
+          const t = normalize((el as HTMLElement).innerText || el.textContent);
+          if (t === labelNorm || (t.includes(labelNorm) && t.length < labelNorm.length + 25)) {
+            labelEl = el as HTMLElement;
+            if (labelEl.tagName.toLowerCase() !== 'label') {
+              const childLabel = labelEl.querySelector('label');
+              if (childLabel && normalize(childLabel.innerText || childLabel.textContent || '') === labelNorm) {
+                labelEl = childLabel as HTMLElement;
+              }
+            }
+            break;
+          }
+        }
+        if (labelEl) break;
+      }
+      if (!labelEl) return null;
+
+      // Narrow the search to the label's table cell and the next sibling cell.
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const fieldRoots = getFieldRoots(labelEl);
+      const queryInRoots = (selector: string): Element | null => {
+        for (const root of fieldRoots) {
+          const el = root.querySelector(selector);
+          if (el) return el;
+        }
+        return null;
+      };
+
+      const labelWords = labelNorm.split(/[^a-z0-9]+/).filter(w => w.length > 2);
+      const isRelevantName = (n: string) => {
+        const name = n.toLowerCase();
+        return n && !name.includes('wizard') && !name.includes('hash') && !name.startsWith('btn') && !name.startsWith('pi_') && !name.includes('search');
+      };
+      const isCatName = (n: string) => {
+        const name = n.toLowerCase();
+        return name.startsWith('cat_') || name.startsWith('cat');
+      };
+
+      const scoreInput = (inp: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, fallback = false) => {
+        const n = (inp.name || '').toLowerCase();
+        if (!isRelevantName(n)) return -Infinity;
+        const isCat = isCatName(n);
+        const stripped = n.replace(/^cat_/i, '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '');
+        let score = 0;
+        for (const w of labelWords) {
+          if (stripped.includes(w)) score += 200;
+          else if (n.includes(w)) score += 80;
+        }
+        if (fallback) score -= 500;
+        if (inp.type !== 'hidden' && inp.tagName.toLowerCase() !== 'select') {
+          const r = inp.getBoundingClientRect();
+          const lr = labelEl!.getBoundingClientRect();
+          const dx = Math.abs((r.left + r.width / 2) - (lr.left + lr.width / 2));
+          const dy = Math.abs((r.top + r.height / 2) - (lr.top + lr.height / 2));
+          score -= dx / 10 + dy / 5;
+        }
+        if (isCat) score -= 50;
+        if (inp.type === 'hidden') score -= 20;
+        if (inp.tagName.toLowerCase() === 'select') score -= 30;
+        return score;
+      };
+
+      const collectInputs = (root: Element | Document) => Array.from(root.querySelectorAll('input, select, textarea')) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
+      const collectFromRoots = (roots: Element[]) => roots.flatMap(r => collectInputs(r));
+      const rowInputs = collectFromRoots(fieldRoots);
+      const allInputs = collectInputs(document);
+      let inputs = rowInputs.length > 0 ? rowInputs : allInputs;
+
+      let bestCode: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+      let bestCodeScore = -Infinity;
+      let bestCat: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+      let bestCatScore = -Infinity;
+
+      for (const inp of inputs) {
+        if (inp === labelEl) continue;
+        const n = (inp.name || '').toLowerCase();
+        if (!isRelevantName(n)) continue;
+        const score = scoreInput(inp, inputs === allInputs && rowInputs.length > 0);
+        if (score === -Infinity) continue;
+        if (isCatName(n)) {
+          if (score > bestCatScore) { bestCatScore = score; bestCat = inp; }
+        } else {
+          if (score > bestCodeScore) { bestCodeScore = score; bestCode = inp; }
+        }
+      }
+
+      // If the scoped cells had no usable controls, try the whole document as a last resort.
+      if (!bestCode && !bestCat && rowInputs.length > 0) {
+        for (const inp of allInputs) {
+          if (inp === labelEl) continue;
+          const n = (inp.name || '').toLowerCase();
+          if (!isRelevantName(n)) continue;
+          const score = scoreInput(inp, true);
+          if (score === -Infinity) continue;
+          if (isCatName(n)) {
+            if (score > bestCatScore) { bestCatScore = score; bestCat = inp; }
+          } else {
+            if (score > bestCodeScore) { bestCodeScore = score; bestCode = inp; }
+          }
+        }
+      }
+
+      if (!bestCode && bestCat) {
+        const catName = bestCat.getAttribute('name') || '';
+        const base = catName.replace(/^cat_/i, '');
+        const candidate = queryInRoots(`input[name="${base}"], input[name="3_${base}"], input[name="h_${base}"]`) as HTMLInputElement | null;
+        if (candidate) bestCode = candidate;
+      }
+      if (bestCode && !bestCat) {
+        const base = (bestCode.getAttribute('name') || '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '');
+        if (base) {
+          bestCat = queryInRoots(`input[name="cat_${base}" i]`) as HTMLInputElement | null;
+        }
+      }
+
+      if (!bestCode) return null;
+      const code = (bestCode as HTMLInputElement).value || '';
+      const display = bestCat ? (bestCat as HTMLInputElement).value || '' : code;
+      return { code, display };
+    }, { label }).catch(() => null);
+
+    if (result) {
+      console.log('  Read LOV value for ' + label + ': code="' + result.code + '", display="' + result.display + '"');
+    }
+    return result;
   }
 
   /**
@@ -1075,10 +1570,26 @@ export class CrmBasePage {
       }
       if (!labelEl) return false;
 
-      const row = labelEl.closest('tr') || labelEl.closest('td, div, li, fieldset, form') || labelEl.parentElement;
-      if (!row) return false;
+      // Scope the control search to the label's table cell and the next sibling cell.
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const fieldRoots = getFieldRoots(labelEl);
 
-      const allControls = Array.from(row.querySelectorAll('input, select, textarea'))
+      const allControls = fieldRoots.flatMap(r => Array.from(r.querySelectorAll('input, select, textarea')))
         .filter((c: any) => isVisible(c) && !isButtonLike(c as HTMLElement)) as (HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement)[];
 
       const afterLabel = allControls.filter(c =>
@@ -1291,6 +1802,126 @@ export class CrmBasePage {
   }
 
   /**
+   * Find the most likely base input name for a visible field label (the non-Cat_ input).
+   * Used when no named LOV button exists so the resolved code/display pair can be
+   * written directly to the form.
+   */
+  protected async findFieldNameByLabel(frame: any, label: string): Promise<string | undefined> {
+    if (!frame) return undefined;
+    return frame.evaluate((args: { label: string }) => {
+      const normalize = (s: string) => String(s || '').replace(/[\s\u00A0]+/g, ' ').replace(/[^a-z0-9]/g, '').toLowerCase();
+      const labelNorm = normalize(args.label);
+      const labelWords = labelNorm.split(/[^a-z0-9]+/).filter(w => w.length > 2);
+      const isFormControl = (name: string) => {
+        const n = name.toLowerCase();
+        return n && !n.startsWith('btn') && !n.startsWith('pi_') && !n.includes('search') && !n.includes('wizard') && !n.includes('hash');
+      };
+      const isCatName = (name: string) => {
+        const n = name.toLowerCase();
+        return n.startsWith('cat_') || n.startsWith('cat');
+      };
+
+      // Prefer an exact <label> match; fall back to container text.
+      let labelEl: HTMLElement | null = null;
+      for (const selector of ['label', 'td, th, div, span, p, legend']) {
+        for (const el of Array.from(document.querySelectorAll(selector)) as HTMLElement[]) {
+          const t = normalize(el.innerText || el.textContent || '');
+          if (t === labelNorm || (t.includes(labelNorm) && t.length < labelNorm.length + 25)) {
+            labelEl = el;
+            if (labelEl.tagName.toLowerCase() !== 'label') {
+              const childLabel = labelEl.querySelector('label');
+              if (childLabel && normalize(childLabel.innerText || childLabel.textContent || '') === labelNorm) {
+                labelEl = childLabel as HTMLElement;
+              }
+            }
+            break;
+          }
+        }
+        if (labelEl) break;
+      }
+      if (!labelEl) return undefined;
+
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const queryInRoots = (selector: string): Element | null => {
+        for (const root of fieldRoots) {
+          const el = root.querySelector(selector);
+          if (el) return el;
+        }
+        return document.querySelector(selector);
+      };
+      const collectFromRoots = (roots: Element[]) => roots.flatMap(r => Array.from(r.querySelectorAll('input, select, textarea')) as HTMLInputElement[]);
+      const fieldRoots = getFieldRoots(labelEl);
+      const labelRect = labelEl.getBoundingClientRect();
+
+      const inputs = collectFromRoots(fieldRoots);
+      let bestCode: HTMLInputElement | null = null;
+      let bestCat: HTMLInputElement | null = null;
+      let bestScore = -Infinity;
+
+      for (const inp of inputs) {
+        if (inp === labelEl) continue;
+        const n = inp.getAttribute('name') || '';
+        if (!isFormControl(n)) continue;
+        if (isCatName(n)) {
+          // Track the best matching Cat_/display input separately.
+          const stripped = n.replace(/^cat_/i, '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '').toLowerCase();
+          let score = 0;
+          for (const w of labelWords) { if (stripped.includes(w)) score += 100; }
+          // Apply geometry only when the Cat_ input is visible; hidden Cat_ inputs are unusual.
+          if (inp.type !== 'hidden') {
+            const r = inp.getBoundingClientRect();
+            const dy = Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2));
+            const dx = r.left - (labelRect.left + labelRect.width);
+            if (dx < -10 || dy > Math.max(labelRect.height, r.height) * 2) continue;
+            score -= dx + dy * 2;
+          }
+          if (!bestCat || score > (bestCat.dataset.score ? Number(bestCat.dataset.score) : -Infinity)) { bestCat = inp; (bestCat as any).dataset.score = String(score); }
+          continue;
+        }
+        const stripped = n.replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '').toLowerCase();
+        let score = 0;
+        for (const w of labelWords) { if (stripped.includes(w)) score += 200; else if (n.toLowerCase().includes(w)) score += 80; }
+        // Hidden code inputs are valid LOV code fields and have no usable geometry, so rely on name matching for them.
+        if (inp.type !== 'hidden') {
+          const r = inp.getBoundingClientRect();
+          const dy = Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2));
+          const dx = r.left - (labelRect.left + labelRect.width);
+          score -= dx / 5 + dy / 2;
+          if (dx < -10 || dy > Math.max(labelRect.height, r.height) * 3) continue;
+        } else {
+          score -= 10; // hidden code inputs are acceptable, just slightly deprioritised vs a visible code box
+        }
+        if (score > bestScore) { bestScore = score; bestCode = inp; }
+      }
+
+      if (!bestCode && bestCat) {
+        // If only a Cat_/display input was found, derive the likely code input name.
+        const catName = bestCat.getAttribute('name') || '';
+        const base = catName.replace(/^cat_/i, '').replace(/^CAT_/i, '');
+        const codeCandidate = queryInRoots(`input[name="${base}"], input[name="3_${base}"], input[name="h_${base}"]`) as HTMLInputElement | null;
+        if (codeCandidate) bestCode = codeCandidate;
+      }
+
+      return bestCode ? (bestCode.getAttribute('name') || undefined) : undefined;
+    }, { label }).catch(() => undefined);
+  }
+
+  /**
    * Discover LOV popup button names for a field label.
    * Only returns real, visible LOV buttons in the same row/cell as the label and,
    * when an associated code input can be found, the button names derived from it.
@@ -1300,6 +1931,7 @@ export class CrmBasePage {
     return frame.evaluate((args: { label: string }) => {
       const normalize = (s: string) => String(s || '').replace(/[\s\u00A0]+/g, ' ').replace(/[^a-z0-9]/g, '').toLowerCase();
       const labelNorm = normalize(args.label);
+      const labelWords = labelNorm.split(/[^a-z0-9]+/).filter(w => w.length > 2);
       const results: string[] = [];
       const isVisible = (el: Element) => {
         const style = window.getComputedStyle(el);
@@ -1307,47 +1939,256 @@ export class CrmBasePage {
         const r = (el as HTMLElement).getBoundingClientRect();
         return r.width > 0 && r.height > 0;
       };
-      const labelEls = Array.from(document.querySelectorAll('label, td, th, div, span, p, legend')).filter((e: any) => {
-        const t = normalize((e as HTMLElement).innerText || e.textContent || '');
-        return t === labelNorm || (t.length < labelNorm.length + 25 && t.includes(labelNorm));
-      }) as HTMLElement[];
-      for (const el of labelEls) {
-        const row = el.closest('tr, td, div, li, fieldset, form') || el.parentElement;
-        if (!row) continue;
-        // Actual visible LOV buttons in the same container
-        const btns = Array.from(row.querySelectorAll('input[type="button"], input[type="submit"], button, input[onclick]')) as HTMLInputElement[];
-        for (const b of btns) {
-          if (!isVisible(b)) continue;
-          const name = b.getAttribute('name') || '';
-          if (name && /^btnone_|^btntwo_|lookup|lov/i.test(name)) results.push(name);
+      const isFormControl = (name: string) => {
+        const n = name.toLowerCase();
+        return n && !n.startsWith('btn') && !n.startsWith('pi_') && !n.includes('search') && !n.includes('wizard') && !n.includes('hash');
+      };
+      const isCatName = (name: string) => {
+        const n = name.toLowerCase();
+        return n.startsWith('cat_') || n.startsWith('cat');
+      };
+
+      // Prefer an exact <label> match; fall back to containers.
+      let labelEl: HTMLElement | null = null;
+      for (const selector of ['label', 'td, th, div, span, p, legend']) {
+        for (const el of Array.from(document.querySelectorAll(selector)) as HTMLElement[]) {
+          const t = normalize(el.innerText || el.textContent || '');
+          if (t === labelNorm || (t.includes(labelNorm) && t.length < labelNorm.length + 25)) {
+            labelEl = el;
+            if (labelEl.tagName.toLowerCase() !== 'label') {
+              const childLabel = labelEl.querySelector('label');
+              if (childLabel && normalize(childLabel.innerText || childLabel.textContent || '') === labelNorm) {
+                labelEl = childLabel as HTMLElement;
+              }
+            }
+            break;
+          }
         }
-        // Find the most likely code input after the label and add its button if it exists
-        const labelRect = el.getBoundingClientRect();
-        const controls = Array.from(row.querySelectorAll('input, select, textarea')) as HTMLElement[];
-        let bestInput: HTMLElement | null = null;
-        let bestScore = -Infinity;
-        for (const inp of controls) {
-          if (inp === el || !isVisible(inp)) continue;
-          const n = (inp as HTMLInputElement).getAttribute('name') || '';
-          if (n.toLowerCase().startsWith('cat_') || /search/i.test(n)) continue;
+        if (labelEl) break;
+      }
+      if (!labelEl) return [];
+
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const queryInRoots = (selector: string): Element | null => {
+        for (const root of fieldRoots) {
+          const el = root.querySelector(selector);
+          if (el) return el;
+        }
+        return document.querySelector(selector);
+      };
+      const collectFromRoots = (roots: Element[]) => roots.flatMap(r => Array.from(r.querySelectorAll('input, select, textarea')) as HTMLInputElement[]);
+      const fieldRoots = getFieldRoots(labelEl);
+
+      // Actual visible LOV buttons in the same cell(s)
+      const btns = collectFromRoots(fieldRoots).filter(el => {
+        const tag = el.tagName.toLowerCase();
+        const type = (el as HTMLInputElement).type || '';
+        return (tag === 'input' && (type === 'button' || type === 'submit' || type === 'image')) || tag === 'button' || (tag === 'input' && (el as HTMLInputElement).onclick !== null);
+      });
+      for (const b of btns) {
+        if (!isVisible(b)) continue;
+        const name = b.getAttribute('name') || '';
+        if (name && /^btnone_|^btntwo_|lookup|lov/i.test(name)) results.push(name);
+      }
+
+      // Find the code input associated with this label and add its exact LOV button names.
+      const labelRect = labelEl.getBoundingClientRect();
+      const controls = collectFromRoots(fieldRoots);
+      let bestCode: HTMLInputElement | null = null;
+      let bestCat: HTMLInputElement | null = null;
+      let bestScore = -Infinity;
+      for (const inp of controls) {
+        if (inp === labelEl) continue;
+        const n = inp.getAttribute('name') || '';
+        if (!isFormControl(n)) continue;
+        if (isCatName(n)) {
           const r = inp.getBoundingClientRect();
-          if (r.width === 0 || r.height === 0) continue;
           const dy = Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2));
           const dx = r.left - (labelRect.left + labelRect.width);
           if (dx < -10 || dy > Math.max(labelRect.height, r.height) * 2) continue;
-          const score = -dx - dy * 2;
-          if (score > bestScore) { bestScore = score; bestInput = inp; }
+          const stripped = n.replace(/^cat_/i, '').replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '').toLowerCase();
+          let score = -dx - dy * 2;
+          for (const w of labelWords) { if (stripped.includes(w)) score += 120; }
+          if (!bestCat || score > Number(bestCat.dataset.btnScore || -Infinity)) { bestCat = inp; (bestCat as any).dataset.btnScore = String(score); }
+          continue;
         }
-        if (bestInput) {
-          const n = (bestInput as HTMLInputElement).getAttribute('name') || '';
-          if (n) {
-            const expected = [`btnone_${n}`, `btntwo_${n}`];
-            for (const e of expected) if (row.querySelector(`input[type="button"][name="${e}"]`)) results.push(e);
+        const stripped = n.replace(/^3_/i, '').replace(/^h_/i, '').replace(/^pi_/i, '').toLowerCase();
+        let score = 0;
+        for (const w of labelWords) { if (stripped.includes(w)) score += 200; else if (n.toLowerCase().includes(w)) score += 80; }
+        const r = inp.getBoundingClientRect();
+        const dy = Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2));
+        const dx = r.left - (labelRect.left + labelRect.width);
+        score -= dx / 5 + dy / 2;
+        if (inp.type === 'hidden') score -= 10;
+        if (dx < -10 || dy > Math.max(labelRect.height, r.height) * 3) continue;
+        if (score > bestScore) { bestScore = score; bestCode = inp; }
+      }
+      if (!bestCode && bestCat) {
+        const catName = bestCat.getAttribute('name') || '';
+        const base = catName.replace(/^cat_/i, '');
+        const codeCandidate = queryInRoots(`input[name="${base}"], input[name="3_${base}"], input[name="h_${base}"]`) as HTMLInputElement | null;
+        if (codeCandidate) bestCode = codeCandidate;
+      }
+      if (bestCode) {
+        const n = bestCode.getAttribute('name') || '';
+        const expected = [`btnone_${n}`, `btntwo_${n}`];
+        for (const e of expected) {
+          if (queryInRoots(`input[type="button"][name="${e}"]`) ||
+              queryInRoots(`input[type="image"][name="${e}"]`) ||
+              queryInRoots(`input[name="${e}"]`)) {
+            results.push(e);
           }
         }
       }
+
       return [...new Set(results)];
     }, { label }).catch(() => [] as string[]);
+  }
+
+  /**
+   * Try to open an LOV popup by clicking the lookup icon next to a field label.
+   * Works for anchor, image, input[type="image"] and button icons inside the same row.
+   */
+  protected async openLovPopupByLabel(frame: any, label: string, config: AppConfig, parentPage: Page): Promise<Page | null> {
+    if (!frame) return null;
+    const popupPromise = parentPage.context().waitForEvent('page', { timeout: config.timeouts.long15 }).catch(() => null);
+    const iconInfo = await frame.evaluate((args: { label: string }) => {
+      const normalize = (s: string) => String(s || '').replace(/[\s\u00A0]+/g, ' ').replace(/[^a-z0-9]/g, '').toLowerCase();
+      const labelNorm = normalize(args.label);
+
+      // Prefer an actual <label> element; fall back to container text.
+      let labelEl: HTMLElement | null = null;
+      for (const selector of ['label', 'td, th, div, span, legend, p']) {
+        for (const el of Array.from(document.querySelectorAll(selector)) as HTMLElement[]) {
+          const t = normalize(el.innerText || el.textContent || '');
+          if (t && (t === labelNorm || (t.length < labelNorm.length + 25 && t.includes(labelNorm)))) {
+            labelEl = el;
+            if (labelEl.tagName.toLowerCase() !== 'label') {
+              const childLabel = labelEl.querySelector('label');
+              if (childLabel && normalize(childLabel.innerText || childLabel.textContent || '') === labelNorm) {
+                labelEl = childLabel as HTMLElement;
+              }
+            }
+            break;
+          }
+        }
+        if (labelEl) break;
+      }
+      if (!labelEl) return { ok: false, reason: 'label not found' };
+
+      const isVisible = (el: Element) => {
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+        const r = (el as HTMLElement).getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && r.width < 200 && r.height < 200;
+      };
+
+      const scoreIcon = (el: HTMLElement, labelRect: DOMRect) => {
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return -Infinity;
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const lx = labelRect.left + labelRect.width / 2;
+        const ly = labelRect.top + labelRect.height / 2;
+        const dx = cx - lx;
+        const dy = Math.abs(cy - ly);
+        // the icon should be to the right of the label and on the same visual row
+        if (dx < -30 || dy > 90) return -Infinity;
+        let score = -dx * 2 - dy * 5;
+        const tag = el.tagName.toLowerCase();
+        const type = ((el as HTMLInputElement).type || '').toLowerCase();
+        const onclick = (el.getAttribute('onclick') || '').toLowerCase();
+        const href = (el.getAttribute('href') || '').toLowerCase();
+        const src = (el.getAttribute('src') || '').toLowerCase();
+        const title = (el.getAttribute('title') || '').toLowerCase();
+        const alt = (el.getAttribute('alt') || '').toLowerCase();
+        if (/lookup|search|openwindow|showrefcode|listofvalue|getlistofvalue/i.test(onclick + ' ' + href + ' ' + title + ' ' + alt)) score += 400;
+        if (/search|lookup|lov|icon/i.test(src)) score += 300;
+        if (tag === 'input' && (type === 'image' || type === 'button')) score += 150;
+        if (tag === 'img' || tag === 'button' || tag === 'a') score += 100;
+        if (r.width < 10 || r.height < 10) score -= 200;
+        return score;
+      };
+
+      const labelRect = labelEl.getBoundingClientRect();
+
+      // LOV icons live in the label's table cell or the next sibling cell. Scope the
+      // search to those cells so a field in a multi-field row does not pick up a
+      // neighbour's icon.
+      const getFieldRoots = (el: HTMLElement): Element[] => {
+        const cell = el.closest('td, th') as HTMLElement | null;
+        if (cell && cell.parentElement && cell.parentElement.tagName.toLowerCase() === 'tr') {
+          const row = cell.parentElement;
+          const cells = Array.from(row.children).filter(c => {
+            const t = c.tagName.toLowerCase();
+            return t === 'td' || t === 'th';
+          });
+          const idx = cells.indexOf(cell);
+          const roots: Element[] = [cell];
+          if (idx >= 0 && idx + 1 < cells.length) roots.push(cells[idx + 1]);
+          return roots;
+        }
+        const parent = el.parentElement;
+        return parent ? [parent] : [document.body];
+      };
+      const fieldRoots = getFieldRoots(labelEl);
+
+      let bestIcon: HTMLElement | null = null;
+      let bestScore = -Infinity;
+
+      const iconsInRoots = fieldRoots.flatMap(r => Array.from(r.querySelectorAll(
+        'input[type="image"], input[type="button"], button, a, img, span[onclick], i[onclick]'
+      ))).filter(isVisible) as HTMLElement[];
+      for (const el of iconsInRoots) {
+        if (el === labelEl || el.contains(labelEl) || labelEl.contains(el)) continue;
+        const score = scoreIcon(el, labelRect);
+        if (score !== -Infinity && score > bestScore) { bestScore = score; bestIcon = el; }
+      }
+
+      // If the icon is not in the label's cell(s), do a narrow whole-frame search limited
+      // to the same visual row and the right-hand side of the label.
+      if (!bestIcon) {
+        for (const el of Array.from(document.querySelectorAll(
+          'input[type="image"], input[type="button"], button, a, img, span[onclick], i[onclick]'
+        )).filter(isVisible) as HTMLElement[]) {
+          if (el === labelEl || el.contains(labelEl) || labelEl.contains(el)) continue;
+          const score = scoreIcon(el, labelRect);
+          if (score !== -Infinity && score > bestScore) { bestScore = score; bestIcon = el; }
+        }
+      }
+
+      if (!bestIcon) return { ok: false, reason: 'no lookup icon' };
+      const clickable = (bestIcon.closest('a, button') || bestIcon) as HTMLElement;
+      clickable.click();
+      return { ok: true, tag: bestIcon.tagName, id: bestIcon.id, name: (bestIcon as HTMLInputElement).name || '' };
+    }, { label }).catch((err: any) => ({ ok: false, reason: 'evaluate error: ' + (err ? String(err) : '') }));
+    if (!iconInfo || !iconInfo.ok) {
+      console.log(`  ⚠ Could not click lookup icon for ${label}: ${(iconInfo as any)?.reason || 'unknown'}`);
+      return null;
+    }
+    console.log(`  Clicked lookup icon for ${label} (${iconInfo.tag}${iconInfo.id ? '#' + iconInfo.id : ''})...`);
+    const popup = await popupPromise;
+    if (!popup) {
+      console.log(`  ⚠ No LOV popup opened for ${label} after icon click`);
+      return null;
+    }
+    await popup.bringToFront().catch(() => {});
+    return popup;
   }
 
   // =====================================================================
@@ -2361,7 +3202,7 @@ export class CrmBasePage {
     for (const rec of bankRecords) {
       const addBtn = await findAddBankButton(targetFrame);
       if (addBtn) {
-        await this.clickAddAndFillInPopupOrFrame(addBtn, targetFrame, 'otherBankData', rec, meta);
+        await this.clickAddAndFillInPopupOrFrame(addBtn, targetFrame, 'otherBankData', rec, meta, endToEnd);
         await page.waitForTimeout(this.timeouts.short).catch(() => {});
       } else {
         console.log('\u26a0 Add Bank Details button not found for next record');
@@ -2404,7 +3245,7 @@ export class CrmBasePage {
     return best || popup;
   }
 
-  protected async clickAddAndFillInPopupOrFrame(addBtn: any, targetFrame: any, sectionName: string, rec: any, meta: any): Promise<boolean> {
+  protected async clickAddAndFillInPopupOrFrame(addBtn: any, targetFrame: any, sectionName: string, rec: any, meta: any, endToEnd?: any): Promise<boolean> {
     const page = this.workingPage;
     const context = page.context();
     const pagesBefore = new Set(context.pages().filter(p => !p.isClosed()));
@@ -2447,7 +3288,7 @@ export class CrmBasePage {
     }
 
     if (sectionName === 'otherBankData' && (rec.bankName || rec.branchName)) {
-      await this.fillOtherBankRecord(formFrame, rec, meta).catch(() => {});
+      await this.fillOtherBankRecord(formFrame, rec, meta, endToEnd).catch(() => {});
     } else if (sectionName === 'creditCardData') {
       await this.fillCreditCardRecord(formFrame, rec, meta).catch(() => {});
     } else {
@@ -2468,11 +3309,28 @@ export class CrmBasePage {
     return true;
   }
 
-  protected async fillOtherBankRecord(frame: any, rec: any, meta: any): Promise<void> {
+  protected async fillOtherBankRecord(frame: any, rec: any, meta: any, endToEnd?: any): Promise<void> {
     await this.selectBankBranchInLov(frame, rec.bankName, rec.branchName);
     await this.fillSectionByMeta(frame, 'otherBankData', rec, meta);
     if (rec.bankRelationType) {
       await this.setGenericFieldByLabel(frame, 'Bank Relation Type', rec.bankRelationType, 'select').catch(() => {});
+    }
+    // The Other Bank Details popup has a mandatory Country LOV (lbDynamic label).
+    // Use the record's country/countryCode if present, otherwise fall back to the
+    // corporate country of incorporation/finance country so validation passes.
+    const countryCode = String(rec.countryCode || '').trim();
+    const countryDisplay = String(rec.country || '').trim();
+    if (countryDisplay || countryCode) {
+      const cd = endToEnd?.corporateData || {};
+      const fd = endToEnd?.corporateFinanceData || {};
+      const fallbackCode = String(cd.countryOfIncorporation || fd.countryCode || 'BM').trim();
+      const fallbackDisplay = String(countryDisplay || fd.country || 'Bermuda').trim();
+      const finalCode = countryCode || fallbackCode;
+      const finalDisplay = countryDisplay || (countryCode ? '' : fallbackDisplay);
+      if (finalCode || finalDisplay) {
+        const set = await this.setLovWithFallback(frame, 'Country', finalCode, finalDisplay, 'Other Bank Country').catch(() => false);
+        if (set) console.log(`  ✓ Other Bank Country set: ${finalCode} / ${finalDisplay}`);
+      }
     }
   }
 
