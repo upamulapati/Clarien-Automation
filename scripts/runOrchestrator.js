@@ -648,27 +648,16 @@ function main() {
   }
   writeLastRunManifest(run, Array.from(resultFiles));
 
-  // Generate the consolidated execution PDF report.
-  try {
-    const reportScript = path.resolve(__dirname, 'generateExecutionReport.js');
-    if (fs.existsSync(reportScript)) {
-      const { execSync: execReport } = require('child_process');
-      execReport(`node "${reportScript}"`, { cwd, stdio: 'inherit' });
-    }
-  } catch (e) {
-    console.warn(`[runOrchestrator] Could not generate execution report: ${e.message}`);
-  }
-
-  // Generate the Allure evidence PDF (with duplicate-screenshot filtering) for this run.
+  // Generate the evidence-based Allure PDF report for this run.
   try {
     const allurePdfScript = path.resolve(__dirname, 'generateAllurePdf.js');
     if (fs.existsSync(allurePdfScript)) {
       const { execSync: execAllurePdf } = require('child_process');
       execAllurePdf(`node "${allurePdfScript}"`, { cwd, stdio: 'inherit' });
-      console.log('[runOrchestrator] Allure PDF report generated.');
+      console.log('[runOrchestrator] PDF report generated.');
     }
   } catch (e) {
-    console.warn(`[runOrchestrator] Could not generate Allure PDF report: ${e.message}`);
+    console.warn(`[runOrchestrator] Could not generate PDF report: ${e.message}`);
   }
 
   const finalState = getFlowState(suiteName);

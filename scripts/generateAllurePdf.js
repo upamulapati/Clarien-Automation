@@ -10,6 +10,7 @@ const onlyFilter = onlyIndex !== -1 ? args[onlyIndex + 1] : '';
 const RESULTS_DIR = path.resolve('reports', 'allureReports');
 const OUTPUT_DIR = path.resolve('reports');
 const LAST_RUN_FILE = path.join(OUTPUT_DIR, '.last-run.json');
+const EXECUTION_RESULTS_FILE = path.join(OUTPUT_DIR, 'execution-results.json');
 const TEST_ORDER_FILE = path.resolve(__dirname, '../tests/config/testOrder.json');
 
 const SP_REGEX = /\[SP#\d+\]/i;
@@ -88,6 +89,42 @@ function formatDuration(start, stop) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function normalizeStatus(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'success') return 'passed';
+  if (s === 'failure') return 'failed';
+  if (s === 'broken') return 'failed';
+  if (s === 'SKIPPED'.toLowerCase()) return 'skipped';
+  if (s === 'no results') return 'unknown';
+  if (['passed', 'failed', 'skipped', 'unknown'].includes(s)) return s;
+  return s || 'unknown';
+}
+
+function buildExecutionFallback() {
+  try {
+    if (!fs.existsSync(EXECUTION_RESULTS_FILE)) return null;
+    const data = JSON.parse(fs.readFileSync(EXECUTION_RESULTS_FILE, 'utf8'));
+    const runs = Array.isArray(data.runs) ? data.runs : [];
+    if (runs.length === 0) return null;
+    const run = runs[runs.length - 1];
+    const suiteName = run.flowName || 'Execution';
+    const instances = Array.isArray(run.instanceSummary) ? run.instanceSummary : [];
+    if (instances.length === 0) return null;
+    const results = instances.map(inst => ({
+      name: `${suiteName} - Instance ${inst.instanceId}`,
+      status: normalizeStatus(inst.status),
+      start: inst.startTime ? new Date(inst.startTime).getTime() : null,
+      stop: inst.endTime ? new Date(inst.endTime).getTime() : null,
+      statusDetails: { message: inst.error || inst.upstreamError || '' },
+      labels: [{ name: 'suite', value: suiteName }]
+    }));
+    return { suiteName, results };
+  } catch (e) {
+    console.warn(`[generateAllurePdf] Could not load execution results fallback: ${e.message}`);
+    return null;
+  }
 }
 
 function formatLogContent(text) {
@@ -368,15 +405,18 @@ function renderDashboard(results, suiteName = 'Allure', specFiles = null) {
 }
 
 async function main() {
+  let fallbackMode = false;
+  let allFiles = [];
+  let fallbackData = null;
+
   if (!fs.existsSync(RESULTS_DIR)) {
-    console.error(`Allure results directory not found: ${RESULTS_DIR}`);
-    process.exit(1);
+    console.warn(`Allure results directory not found: ${RESULTS_DIR}`);
+  } else {
+    allFiles = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('-result.json'));
   }
 
-  const allFiles = fs.readdirSync(RESULTS_DIR).filter(f => f.endsWith('-result.json'));
   if (allFiles.length === 0) {
-    console.error(`No allure result files found in ${RESULTS_DIR}`);
-    process.exit(1);
+    console.warn(`No allure result files found in ${RESULTS_DIR}`);
   }
 
   const parsed = allFiles.map(file => {
@@ -414,8 +454,9 @@ async function main() {
       if (Array.isArray(sourceSpecs) && sourceSpecs.length) {
         const suiteFiles = new Set(sourceSpecs);
         const startTime = typeof manifest.startTime === 'number' ? manifest.startTime : 0;
-        const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime);
-        selectedFiles = relevant.map(p => p.file);
+        const relevant = parsed.filter(p => suiteFiles.has(getPackageFile(p.result)) && p.mtime >= startTime)
+          .sort((a, b) => (a.start || a.mtime) - (b.start || b.mtime));
+        selectedFiles = detectLatestRun(relevant);
         if (selectedFiles.length > 0) {
           console.log(`Using suite ${manifest.suite}: ${selectedFiles.length} result(s)`);
         }
@@ -444,15 +485,24 @@ async function main() {
     .sort((a, b) => (a.start || 0) - (b.start || 0));
 
   if (!results.length) {
-    console.error('No allure results matched the selected run. Run the tests before generating the report.');
+    fallbackData = buildExecutionFallback();
+    if (fallbackData && fallbackData.results.length) {
+      results = fallbackData.results;
+      fallbackMode = true;
+      console.log(`Using execution results fallback: ${results.length} result(s)`);
+    }
+  }
+
+  if (!results.length) {
+    console.error('No allure results or execution results available to generate a report.');
     process.exit(1);
   }
 
-  const hasActionableResults = results.some(r => r.status && !['skipped', 'unknown'].includes(r.status));
-  if (!hasActionableResults) {
-    console.error('The selected run produced only skipped/unknown test results.');
-    console.error('This usually means the Playwright run was cancelled or did not execute any tests. Re-run to completion before generating the report.');
-    process.exit(1);
+  if (!fallbackMode) {
+    const hasActionableResults = results.some(r => r.status && !['skipped', 'unknown'].includes(r.status));
+    if (!hasActionableResults) {
+      console.warn('The selected run produced only skipped/unknown test results. A PDF will still be generated from the available results.');
+    }
   }
 
   const generated = (() => {
@@ -469,8 +519,8 @@ async function main() {
   const m = s.match(/(\d{2})\/(\d{2})\/(\d{4}), (\d{2}:\d{2}:\d{2})/);
   return m ? `${m[3]}-${m[1]}-${m[2]} ${m[4]}` : s;
 })();
-  const suiteName = resolveSuiteName(results);
-  const cifId = extractCifId(results);
+  let suiteName = fallbackMode ? fallbackData.suiteName : resolveSuiteName(results);
+  const cifId = fallbackMode ? '' : extractCifId(results);
   const outputName = onlyFilter
     ? onlyFilter.replace(/[^a-z0-9]+/gi, ' ').trim()
     : suiteName;
@@ -485,6 +535,9 @@ async function main() {
   }
   if (fs.existsSync(LAST_RUN_FILE)) {
     try { newestInput = Math.max(newestInput, fs.statSync(LAST_RUN_FILE).mtimeMs); } catch (_) {}
+  }
+  if (fallbackMode && fs.existsSync(EXECUTION_RESULTS_FILE)) {
+    try { newestInput = Math.max(newestInput, fs.statSync(EXECUTION_RESULTS_FILE).mtimeMs); } catch (_) {}
   }
   // Regenerate if the generator script itself is updated.
   try { newestInput = Math.max(newestInput, fs.statSync(__filename).mtimeMs); } catch (_) {}
