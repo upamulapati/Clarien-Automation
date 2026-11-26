@@ -1,5 +1,6 @@
 {
   "flows": {
+<<<<<<< Updated upstream
     "crmCIFCorporate": {
       "activeInstances": [
         "4"
@@ -7,6 +8,13 @@
       "successfulInstances": [
         "4"
       ],
+=======
+    "crmcifcorporate": {
+      "activeInstances": [
+        "4"
+      ],
+      "successfulInstances": [],
+>>>>>>> Stashed changes
       "instanceOutputs": {}
     }
   }
