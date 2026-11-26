@@ -18,6 +18,12 @@ export default defineConfig({
 ],
 
   use: {
+    headless: false,
+    launchOptions: {
+      args: [
+        '--enable-features=XSLT'
+      ]
+    },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'on',
@@ -27,6 +33,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      
     }
 
     // {

@@ -333,7 +333,10 @@
         "baseCcy": "BMD",
         "enableEBanking": "N",
         "relationshipStartDate": "19/11/2026",
-        "accessOwnerGroup": "Genral Banking",
+Local version
+Remote version
+        "accessOwnerGroup": "General Banking",
+>>>>>>> 35c67dc383db1d4d7e6317be773c75396dc154ef
         "accessOwnerSegment": "Preferential Banking",
         "accessOwnerBusinessCenter": "BC1"
       },
@@ -421,7 +424,12 @@
         "foreignAcTaxReportingRequired": "N",
         "foreignTaxReportingStatus": "",
         "foreignTaxReportingCountry": "",
+<<<<<<< HEAD
         "foreignTaxReportingCountryDisplay": ""
+=======
+        "foreignTaxReportingCountryDisplay": "",
+        "foreignACTaxReportingRequired": "N"
+>>>>>>> 35c67dc383db1d4d7e6317be773c75396dc154ef
       },
       "demographicData": {},
       "employmentData": {},
@@ -1377,7 +1385,17 @@
               "type": "date"
             }
           },
+<<<<<<< HEAD
           "taxCertificationData": {},
+=======
+          "taxCertificationData": {
+            "foreignACTaxReportingRequired": {
+              "label": "Foreign A/c. Tax Reporting Required",
+              "index": 158,
+              "type": "select"
+            }
+          },
+>>>>>>> 35c67dc383db1d4d7e6317be773c75396dc154ef
           "demographicData": {},
           "qualificationData": {},
           "employmentData": {},
@@ -1445,6 +1463,7 @@
               "type": "select"
             }
           },
+<<<<<<< HEAD
 <<<<<<< Updated upstream
           "employmentData": {
             "employmentType": {
@@ -1627,6 +1646,8 @@
           "transactionPlanData": {},
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> 35c67dc383db1d4d7e6317be773c75396dc154ef
           "otherBankData": {
             "bankName": {
               "label": "Bank Name",

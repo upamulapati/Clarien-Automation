@@ -83,21 +83,24 @@ function renderExecutiveSummary(run) {
   const passRate = total ? ((passed / total) * 100).toFixed(2) : '0.00';
   const failRate = total ? ((failed / total) * 100).toFixed(2) : '0.00';
 
+  const statBox = (status, count, label) => {
+    if (count <= 0) return '';
+    return `<div class="dashboard-box stat-${status}"><span class="value">${count}</span><span class="label">${label}</span></div>`;
+  };
+
   return `
     <section class="dashboard">
-      <h2>Executive Summary</h2>
-      <div class="status-banner ${statusClass(overall.status)}">
-        <strong>Overall Status:</strong> ${statusText(overall.status)}
-      </div>
+      <h2>Summary</h2>
       <div class="dashboard-grid">
-        <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total Instances</span></div>
-        <div class="dashboard-box stat-passed"><span class="value">${passed}</span><span class="label">Passed</span></div>
-        <div class="dashboard-box stat-failed"><span class="value">${failed}</span><span class="label">Failed</span></div>
-        <div class="dashboard-box stat-skipped"><span class="value">${skipped}</span><span class="label">Skipped</span></div>
+        ${statBox('passed', passed, 'Passed')}
+        ${statBox('failed', failed, 'Failed')}
+        ${statBox('skipped', skipped, 'Skipped')}
+        <div class="dashboard-box stat-total"><span class="value">${total}</span><span class="label">Total</span></div>
         <div class="dashboard-box stat-rate"><span class="value">${passRate}%</span><span class="label">Pass Rate</span></div>
-        <div class="dashboard-box stat-rate"><span class="value">${failRate}%</span><span class="label">Fail Rate</span></div>
+        ${failed > 0 ? `<div class="dashboard-box stat-rate"><span class="value">${failRate}%</span><span class="label">Fail Rate</span></div>` : ''}
         <div class="dashboard-box stat-duration"><span class="value">${formatDuration(run.durationMs)}</span><span class="label">Duration</span></div>
       </div>
+      <p><strong>Overall Status:</strong> ${statusText(overall.status)}</p>
       <p><strong>Flow Name:</strong> ${escapeHtml(run.flowName || 'N/A')}</p>
       <p><strong>Start Time:</strong> ${formatDate(run.startTime)}</p>
       <p><strong>End Time:</strong> ${formatDate(run.endTime)}</p>
@@ -402,13 +405,14 @@ async function main() {
 
   const run = results.runs[results.runs.length - 1];
   const suiteName = run.flowName || 'Execution';
+  const totalTests = (run.instanceSummary || []).length || (run.overall && run.overall.totalInstancesExecuted) || 0;
   const generated = formatDate(new Date().toISOString());
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${escapeHtml(suiteName)} Execution Report</title>
+  <title>${escapeHtml(suiteName)} Test Report - PDF</title>
   <style>
     @page { margin: 1cm; }
     body { font-family: Arial, sans-serif; font-size: 11px; color: #222; }
@@ -451,8 +455,8 @@ async function main() {
 </head>
 <body>
   <div class="header">
-    <h1>${escapeHtml(suiteName)} - Execution Report</h1>
-    <div>Generated (Bermuda time): ${generated}</div>
+    <h1>${escapeHtml(suiteName)} Test Report (PDF)</h1>
+    <div>Generated (Bermuda time): ${generated} | Tests: ${totalTests}</div>
   </div>
   ${renderExecutiveSummary(run)}
   ${renderFlowLevelView(run)}
