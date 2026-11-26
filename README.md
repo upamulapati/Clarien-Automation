@@ -116,7 +116,7 @@ All the data that a human would type into Finacle is stored in **`data/test-data
 | `topup_deposits` | Top-up / recurring deposit opening data. |
 | `HPORDM` | Payment order remittance data(ACH & SWIFT). |
 | `SavingsAccountRelatedPartyData`, `SavingsAccountDelRelPartyData`, etc. | Related-party add/delete/freeze/unfreeze data. |
-| `FlowConfig` | **The orchestrator.** Lists which spec to run, in what order, and which Excel data sheet/row to use. |
+| `FlowConfig` | **The Implemented CIF Corporate with 300 plus fields via excel data driven approach.** Lists which spec to run, in what order, and which Excel data sheet/row to use. |
 
 ### 4.2 Key concept: `instance` column
 

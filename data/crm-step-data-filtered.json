@@ -25,12 +25,12 @@
     ],
     "endToEnd": {
       "customerData": {
-        "title": "MR",
-        "firstName": "John",
-        "lastName": "Smith",
-        "preferredName": "John",
-        "shortName": "SSMITH",
-        "dateOfBirth": "01/01/1975",
+        "title": "MR ",
+        "firstName": "Abby",
+        "lastName": "Spik",
+        "preferredName": "Petrson",
+        "shortName": "AS",
+        "dateOfBirth": "10/11/1990",
         "nonResidentDate": "01/01/2023",
         "futureDateForError": "01/01/2035",
         "segment": "RET",
@@ -40,43 +40,103 @@
         "createdBy": "VCKULKARNI",
         "nativeLanguage": "English",
         "preferredLanguage": "India (English)",
-        "region": "INT",
-        "regionDisplay": "",
-        "tdsTable": "PCHFB",
-        "tdsTableDisplay": "",
-        "sector": "",
-        "sectorCode": "",
-        "sectorDisplay": "",
+        "region": "CBBDA",
+        "tdsTable": "TDS01",
+        "sector": "540",
         "preferredLocale": "en_US",
         "defaultChannelForAlerts": "BRANCH",
-        "primaryRelationshipManagerId": "FIVUSR"
+        "primaryRelationshipManagerId": "MPRIDHAM",
+        "baselProfilingRequired": "N",
+        "gender": "MALE",
+        "fullName": "Abby Spik",
+        "minorIndicator": "N",
+        "cityOfBirth": "HAMILTON",
+        "seniorCitizenApplicableDate": "19/11/2055",
+        "nonResidentIndicator": "N",
+        "staffIndicator": "N",
+        "customerType": "41",
+        "customerStatus": "ACTIVE",
+        "chargeLevelCode": "ZERO CHARGE",
+        "healthCode": "GOOD STATUS",
+        "priority": "Silver",
+        "customerSwiftCode": "SWIFT",
+        "bankSwiftCodeIndicator": "Y",
+        "customerRating": "SILV",
+        "subSectorCode": "400",
+        "subSector": "BANK",
+        "availedTradeServices": "N",
+        "riskRating": "1",
+        "submitForKyc": "N",
+        "assetClassification": "SYSTEM UPGRADE & DOWGRADE",
+        "fcptExemption": "N",
+        "preferredCalendar": "GREGORIAN",
+        "baseCcy": "BMD",
+        "preferredCommunicationChannel": "Email",
+        "purgeAllowed": "N",
+        "enableCrmAlerts": "Y",
+        "enableEBanking": "N",
+        "secondaryRelationshipManagerId": "KLANGDON",
+        "relationshipStartDate": "02/11/2026"
       },
       "contactData": {
         "preferredAddressType": "Mailing",
         "addressType": "Mailing",
         "addressLabel": "HAMILTON",
-        "startDate": "01/01/2020",
-        "streetNo": "45",
+        "startDate": "19/11/2026",
+        "streetNo": "123",
         "streetName": "Main Street",
-        "houseNo": "123",
+        "houseNo": "45",
         "premiseName": "Building A",
-        "buildingLevel": "1",
+        "buildingLevel": "Hamilton",
         "suburb": "Downtown",
         "localityName": "Central",
-        "zip": "HM08",
-        "addressLine1": "123 Main Street Hamilton",
-        "city": "WOODSTOCK",
-        "state": "STOCKHOLM",
+        "zip": "HM11",
+        "addressLine1": "Main Street Hamilton",
+        "city": "HAMILTON",
+        "state": "TUNAPUNA",
         "country": "Bermuda",
-        "preferredContactNoType": "COMMUNICATION PHONE 1",
+        "preferredContactNoType": "WORK PHONE 1",
         "preferredEmailIdType": "COMMUNICATION",
-        "preferredMobileTypeForAlerts": "",
-        "phoneType": "COMMUNICATION PHONE 1",
+        "preferredMobileTypeForAlerts": "WORK PHONE 1",
+        "phoneType": "WORK PHONE 1",
         "countryCode": "91",
         "areaCode": "816",
         "phoneNumber": "9876635",
         "emailType": "COMMUNICATION",
-        "email": "test.user@bank.com"
+        "email": "corp.test2@bank.com",
+        "addresses": [
+          {
+            "addressType": "Mailing",
+            "addressLabel": "HAMILTON",
+            "startDate": "19/11/2026",
+            "streetNo": "123",
+            "streetName": "Main Street",
+            "houseNo": "45",
+            "premiseName": "",
+            "buildingLevel": "Hamilton",
+            "suburb": "",
+            "localityName": "",
+            "zip": "HM11",
+            "addressLine1": "Main Street Hamilton",
+            "city": "HAMILTON",
+            "state": "TUNAPUNA",
+            "country": "Bermuda"
+          }
+        ],
+        "phones": [
+          {
+            "phoneType": "WORK PHONE 1",
+            "countryCode": "91",
+            "areaCode": "816",
+            "phoneNumber": "9876635"
+          }
+        ],
+        "emails": [
+          {
+            "emailType": "COMMUNICATION",
+            "email": "corp.test2@bank.com"
+          }
+        ]
       },
       "validDocData": {
         "documentType": "IDCUS",
@@ -104,37 +164,109 @@
       },
       "taxCertificationData": {
         "foreignAcTaxReportingRequired": "N",
-        "foreignTaxReportingStatus": "",
-        "foreignTaxReportingCountry": "",
-        "foreignTaxReportingCountryDisplay": ""
+        "foreignTaxReportingStatus": "ACTIVE",
+        "foreignTaxReportingCountry": "BM",
+        "foreignACTaxReportingRequired": "N"
       },
       "demographicData": {
-        "nationality": "AD",
-        "nationalityDisplay": "ANDORRA",
+        "nationality": "BM",
+        "nationalityDisplay": "BERMUDA",
         "countryOfBirth": "BM",
         "countryOfBirthDisplay": "BERMUDA",
         "maritalStatus": "Married",
-        "availableChannels": ""
+        "availableChannels": "ATM, BRANCH, EMAIL",
+        "nonResidentCountryType": "Bilateral",
+        "mailingPreferred": "Y",
+        "holdMailIndicator": "N",
+        "emailingPreferred": "Y",
+        "totalFundBase": "10000",
+        "otherLimits": "10000",
+        "shareholderIndicator": "N",
+        "taxRateTableCode": "TAX SLAB CODE",
+        "residingSince": "08/11/2018",
+        "nonResidentsRelative": "A003",
+        "netWorth": "60000",
+        "deposits": "40000"
       },
-      "qualificationData": [],
+      "qualificationData": [
+        {
+          "qualification": "GRADUATE",
+          "graduationDay": "02/11/2022",
+          "instituteOrUniversity": "BERMUDA UNIVERSITY",
+          "mainSubject": "MAX",
+          "marksObtained": "950",
+          "marksObtainedPcnt": "95",
+          "classObtained": "FIRST"
+        }
+      ],
       "employmentData": {
-        "employmentType": "SALARIED"
+        "employmentType": "EMPLOYED",
+        "incomeType": "Stable",
+        "incomeFrequency": "MONTHLY",
+        "bankRelationType": "CUSTOMER",
+        "pensioner": "N",
+        "employeeDesignation": "DIRECTOR OFFICER",
+        "paymentMode": "CASH",
+        "industryType": "4461"
       },
       "incomeExpenseData": {
         "incomeType": "SALARIED",
         "currency": "BMD",
-        "grossIncome": "50000",
-        "annualOperatingExpense": "15000"
+        "grossIncome": "150000",
+        "annualOperatingExpense": "15000",
+        "employmentType": "EMPLOYED",
+        "monthlyHouseholdExpenses": "3000",
+        "monthlyLoanPayment": "1000",
+        "monthlyLoanPaymentToBank": "100",
+        "monthlyThirdPartyLoanAmt": "0",
+        "monthlyExpenseCommitments": "0",
+        "otherMonthlyExpenses": "2000",
+        "totalMonthlyDebtServiceAmt": "0",
+        "totalMonthlyExpenses": "6100"
       },
-      "individualProfileOrPreferenceData": {},
-      "segmentationData": {},
+      "individualProfileOrPreferenceData": {
+        "riskFactors": "2",
+        "behaviouralScore": "780",
+        "hobbies": "Music, Sports, Health",
+        "lifeCycleStage": "Established"
+      },
+      "segmentationData": {
+        "enableSegmentation": "Y",
+        "preferentialRelationshipDiscount1": "0",
+        "preferentialRelationshipDiscount2": "0",
+        "preferentialRelationshipDiscountPcnt1": "0",
+        "preferentialRelationshipDiscountPcnt2": "0",
+        "userFlag1": "Y",
+        "userFlag2": "Y"
+      },
       "relationshipData": [],
-      "assetData": [],
+      "assetData": [
+        {
+          "assetType": "PROPERTY",
+          "typeOfProperty": "Residential",
+          "financingMode": "self financed"
+        }
+      ],
       "productPreferenceData": [],
       "creditBureauPreferenceData": [],
       "transactionPlanData": [],
-      "otherBankData": [],
-      "creditCardData": [],
+      "otherBankData": [
+        {
+          "bankName": "CLARIEN BANK LIMITED",
+          "branchName": "CLARIEN BANK LIMITED",
+          "productCategory": "BSX ACCOUNT",
+          "accountId": "1234567",
+          "channel": "ANY"
+        }
+      ],
+      "creditCardData": [
+        {
+          "franchise": "Amex",
+          "bankName": "CLARIEN BANK LIMITED",
+          "cardType": "Gold",
+          "creditCardNo": "9876548798760000"
+        }
+      ],
       "riskBaselData": {},
       "expectedDocCodes": [
         "CODOC",
@@ -202,307 +334,17 @@
         "JPY",
         "SGD",
         "USD"
-      ]
-    },
-    "suspend": {
-      "cifIdToSuspend": "4100058396"
-    },
-    "undoSuspend": {
-      "cifIdToUndoSuspend": "4100058396"
-    },
-    "verification": {
-      "popupCloseUrls": [
-        "AccountDetWizard",
-        "AccountDet",
-        "FinacleCRM"
-      ],
-      "searchMenuItem": "Search Retail Entity",
-      "searchCriteria": "Retail Search Criteria"
-    },
-    "modification": {
-      "fallbackCifId": "0002000033",
-      "lastName": "JAMES",
-      "address": {
-        "type": "Mailing",
-        "houseNo": "BLOCK NO 13",
-        "streetNo": "13",
-        "streetName": "HM STREET",
-        "postalCode": "531310",
-        "state": "CALIFORNIA",
-        "stateCode": "US005",
-        "city": "JAFFREY",
-        "country": "Bermuda",
-        "countryCode": "BM"
-      },
-      "phone": {
-        "type": "MOBILE NUMBER 1",
-        "phoneNo": "9132345678"
-      },
-      "processName": "CIFCustomerKYCApproval",
-      "expectedColumns": [
-        "Blacklisted",
-        "Negated",
-        "Suspended",
-        "Segment",
-        "Record Status",
-        "CIF ID",
-        "Preferred Contact No. Type",
-        "Preferred Contact No.",
-        "First Name",
-        "Last Name",
-        "City",
-        "Unique ID",
-        "Unique ID Type",
-        "Primary SOL ID",
-        "Start from Date",
-        "Status"
-      ]
-    }
-  },
-  "corporate": {
-    "screenId": "screen2",
-    "menuKeywords": [
-      "CIF Corporate",
-      "New Entity",
-      "Entity Queue",
-      "Operations"
-    ],
-    "menuFrameName": "9",
-    "endToEnd": {
-      "corporateData": {
-        "corporateName": "Clarien Industry Pvt Ltd",
-        "shortName": "CIPL",
-        "keyContactPerson": "YUSUF SHAIK",
-        "phoneNo": "4411234987",
-        "businessType": "LOCAL",
-        "countryOfIncorporation": "BM",
-        "registrationNo": "REG129876",
-        "businessCommencementDate": "19/11/2026",
-        "incorporationDate": "19/11/2026",
-        "solId": "102",
-        "corporateSegment": "COMMERCIAL BANKING",
-        "subSegment": "CCOR",
-        "fundSource": "BUSINESS",
-        "region": "CBBDA",
-        "sector": "400",
-        "subSectorCode": "540",
-        "taxId": "147986",
-        "entityClass": "BUSINESS",
-        "legalEntityType": "SOLE PROPRIETOR",
-        "assignedPriority": "NORMAL",
-        "clientLevelCode": "001",
-        "subSegmentDisplay": "CORPORATE",
-        "principalPlaceOfOperation": "BT",
-        "notes": "NEW_ENTITY",
-        "averageAnnualIncome": "600000",
-        "relationshipType": "OWNER",
-        "website": "http://www.clarientestcorp.com",
-        "nonResidentIndicator": "N",
-        "turnedNonResidentOn": "1/1/2023",
-        "hnwIndicator": "N",
-        "riskCategory": "LOW",
-        "pepIndicator": "N",
-        "tdsTable": "PCHFB",
-        "assetClassification": "SYSTEM UPGRADE & DOWGRADE",
-        "staffIndicator": "N",
-        "preferredLocale": "en_US",
-        "defaultChannelForAlerts": "BRANCH",
-        "primaryRelationshipManagerId": "KLANGDON",
-        "createdBy": "YSSHAIKH",
-        "nativeLanguage": "English",
-        "preferredLanguage": "India (English)",
-        "islamicBankingCustomer": "N",
-        "isEntityRegulated": "N",
-        "purgeAllowed": "N",
-        "fcptExemption": "N",
-        "baselProfilingRequired": "N",
-        "cityOfBirth": "BERMUDA",
-        "customerType": "61",
-        "customerStatus": "ACTIVE",
-        "chargeLevelCode": "ZERO CHARGE",
-        "healthCode": "GOOD STATUS",
-        "customerSwiftCode": "SWIFT",
-        "bankSwiftCodeIndicator": "Y",
-        "customerRating": "HNW",
-        "subSector": "ELECTRICITY, GAS & WATER",
-        "availedTradeServices": "N",
-        "riskProfileScore": "500",
-        "riskRating": "2",
-        "submitForKyc": "N",
-        "preferredCalendar": "GREGORIAN",
-        "baseCcy": "BMD",
-        "enableEBanking": "N",
-        "relationshipStartDate": "19/11/2026",
-        "accessOwnerGroup": "General Banking",
-        "accessOwnerSegment": "Preferential Banking",
-        "accessOwnerBusinessCenter": "BC1"
-      },
-      "contactData": {
-        "preferredAddressType": "Mailing",
-        "addressType": "Mailing",
-        "addressLabel": "HAMILTON BLD 12",
-        "startDate": "19/11/2026",
-        "streetNo": "45",
-        "streetName": "Main Street",
-        "houseNo": "123",
-        "premiseName": "Building A",
-        "buildingLevel": "1",
-        "suburb": "Downtown",
-        "localityName": "Central",
-        "zip": "123456",
-        "addressLine1": "123 Main Street Hamilton",
-        "city": "WASILLA",
-        "state": "SLGRAVE",
-        "country": "Bermuda",
-        "preferredContactNoType": "COMMUNICATION PHONE 1",
-        "preferredEmailIdType": "COMMUNICATION",
-        "phoneType": "COMMUNICATION PHONE 1",
-        "countryCode": "91",
-        "areaCode": "827",
-        "phoneNumber": "9875633",
-        "emailType": "COMMUNICATION",
-        "email": "corp.test1@bank.com",
-        "notes": "Corporate CIF test",
-        "addresses": [
-          {
-            "addressType": "Mailing",
-            "addressLabel": "HAMILTON BLD 12",
-            "startDate": "19/11/2026",
-            "streetNo": "",
-            "streetName": "",
-            "houseNo": "",
-            "premiseName": "",
-            "buildingLevel": "",
-            "suburb": "",
-            "localityName": "",
-            "zip": "123456",
-            "addressLine1": "123 Main Street Hamilton",
-            "city": "WASILLA",
-            "state": "SLGRAVE",
-            "country": "Bermuda"
-          }
-        ],
-        "phones": [
-          {
-            "phoneType": "COMMUNICATION PHONE 1",
-            "countryCode": "91",
-            "areaCode": "827",
-            "phoneNumber": "9875633"
-          }
-        ],
-        "emails": [
-          {
-            "emailType": "COMMUNICATION",
-            "email": "corp.test1@bank.com"
-          }
-        ]
-      },
-      "validDocData": {
-        "documentType": "CODOC",
-        "documentCode": "TAXCO",
-        "uniqueId": "CORP123456",
-        "placeOfIssue": "HAMILTON",
-        "countryOfIssue": "BM",
-        "documentTypeDesc": "TAX",
-        "issueDate": "01/01/2020",
-        "expiryDate": "",
-        "receivedOn": "02/01/2020",
-        "isPreferred": "Y"
-      },
-      "validCcyData": {
-        "ccy": "BMD",
-        "creditDiscountPcnt": "5",
-        "debitDiscountPcnt": "3",
-        "withholdingTaxPcnt": "2",
-        "withholdingTaxFloorLimit": "1000",
-        "preferentialExpiryDate": "31/12/2099"
-      },
-      "taxCertificationData": {
-        "foreignAcTaxReportingRequired": "N",
-        "foreignTaxReportingStatus": "",
-        "foreignTaxReportingCountry": "",
-        "foreignTaxReportingCountryDisplay": "",
-        "foreignACTaxReportingRequired": "N"
-      },
-      "demographicData": {},
-      "employmentData": {},
-      "incomeExpenseData": {},
-      "corporateFinanceData": {
-        "noOfEmployees": "100",
-        "investmentInSharesAndUnits": "10000",
-        "businessAssets": "1000000",
-        "netWorth": "2000000",
-        "depositsInOtherBanks": "100000",
-        "totalShareInvestment": "100000",
-        "propertyType": "10000",
-        "ccy": "BMD",
-        "financialYearEndMonth": "3",
-        "shareholderIndicator": "N",
-        "occupationLegal": "LEGAL",
-        "country": "Bermuda"
-      },
-      "groupDetailsData": {},
-      "coreInterfaceDetailsData": {},
-      "psychographicData": {},
-      "otherBankData": [
-        {
-          "bankName": "CLARIEN BANK LIMITED",
-          "branchName": "CLARIEN BANK LIMITED",
-          "productCategory": "BSX ACCOUNT",
-          "accountId": "6150598"
-        }
-      ],
-      "creditCardData": [],
-      "riskBaselData": {
-        "entityName": "CLARIEN INDUSTRY Pvt Ltd",
-        "rmName": "KLAGDON",
-        "customerBusinessSize": "1000000",
-        "officeRc": "COMMERCIAL",
-        "pdRiskRating": "0.1",
-        "pdPercent": "0.1",
-        "communicationIndemnity": "EMAIL",
-        "countryOfHeadOffice": "BERMUDA",
-        "publiclyListed": "N"
-      },
-      "expectedDocCodes": [
-        "CODOC",
-        "IDCUS",
-        "MIGR",
-        "OTHER",
-        "TRUST"
-      ],
-      "expectedCurrencies": [
-        "BMD",
-        "EUR",
-        "USD",
-        "GBP",
-        "CAD",
-        "AUD",
-        "CHF",
-        "JPY",
-        "SGD"
-      ],
-      "expectedCurrenciesDemographic": [
-        "AUD",
-        "BMD",
-        "CAD",
-        "CHF",
-        "EUR",
-        "GBP",
-        "JPY",
-        "SGD",
-        "USD"
       ],
       "documents": [
         {
-          "documentType": "CODOC",
-          "documentCode": "COIDC",
-          "uniqueId": "456789",
+          "documentType": "OTHER",
+          "documentCode": "OTDOC",
+          "uniqueId": "12345",
           "placeOfIssue": "AGEN",
-          "documentTypeDescription": "COMMERCIAL DOCUMENT",
-          "documentCodeDescription": "INCORPORATION DOCUMENTS",
+          "mandatoryDocument": "Y",
           "countryOfIssue": "BM",
-          "issueDate": "20/11/2026"
+          "issueDate": "20/11/2026",
+          "isPreferred": "Y"
         }
       ],
       "currencies": [
@@ -515,12 +357,13 @@
           "preferentialExpiryDate": "31/12/2099"
         }
       ],
-      "qualificationData": [],
+      "groupDetailsData": {},
+      "coreInterfaceDetailsData": {},
       "_meta": {
-        "customerType": "corporate",
-        "dataRowId": 4,
+        "customerType": "retail",
+        "dataRowId": 3,
         "sections": {
-          "corporateData": {
+          "customerData": {
             "isArray": false,
             "indices": [
               1,
@@ -610,41 +453,7 @@
               85,
               86,
               87,
-              88,
-              89,
-              90,
-              91,
-              92,
-              93,
-              94,
-              95,
-              96,
-              97,
-              98,
-              99,
-              100,
-              101,
-              102,
-              103,
-              104,
-              105,
-              106,
-              107,
-              108,
-              109,
-              110,
-              213,
-              214,
-              215,
-              216,
-              217,
-              218,
-              219,
-              220,
-              221,
-              222,
-              223,
-              227
+              88
             ]
           },
           "contactData": {
@@ -797,41 +606,83 @@
               212
             ]
           },
-          "psychographicData": {
+          "individualProfileOrPreferenceData": {
             "isArray": false,
             "indices": [
+              228,
+              229,
               230,
-              231,
+              231
+            ]
+          },
+          "segmentationData": {
+            "isArray": false,
+            "indices": [
               232,
               233,
               234,
               235,
               236,
               237,
-              238,
-              239,
-              240,
-              241,
-              242,
-              228,
-              229
+              238
             ]
           },
-          "corporateFinanceData": {
-            "isArray": false,
+          "relationshipData": {
+            "isArray": true,
+            "arrayKey": "relation",
             "indices": [
-              243,
-              244,
-              245,
-              246,
-              247,
-              248,
-              249,
-              250,
-              251,
-              252,
-              253,
-              254
+              239
+            ]
+          },
+          "assetData": {
+            "isArray": true,
+            "arrayKey": "assetType",
+            "indices": [
+              240,
+              241,
+              242
+            ]
+          },
+          "productPreferenceData": {
+            "isArray": true,
+            "arrayKey": "productPreference",
+            "indices": [
+              313,
+              314,
+              315,
+              316,
+              317,
+              318,
+              319,
+              320
+            ]
+          },
+          "creditBureauPreferenceData": {
+            "isArray": true,
+            "arrayKey": "creditBureauPreference",
+            "indices": [
+              321,
+              322,
+              323,
+              324,
+              325,
+              326,
+              327,
+              328
+            ]
+          },
+          "transactionPlanData": {
+            "isArray": true,
+            "arrayKey": "transactionPlan",
+            "indices": [
+              329,
+              330,
+              331,
+              332,
+              333,
+              334,
+              335,
+              336
             ]
           },
           "otherBankData": {
@@ -940,10 +791,45 @@
           }
         },
         "fields": {
-          "corporateData": {
+          "customerData": {
+            "title": {
+              "label": "title",
+              "index": 1,
+              "type": "text"
+            },
+            "firstName": {
+              "label": "firstName",
+              "index": 2,
+              "type": "text"
+            },
+            "lastName": {
+              "label": "lastName",
+              "index": 3,
+              "type": "text"
+            },
+            "preferredName": {
+              "label": "preferredName",
+              "index": 4,
+              "type": "text"
+            },
             "shortName": {
               "label": "shortName",
               "index": 5,
+              "type": "text"
+            },
+            "dateOfBirth": {
+              "label": "dateOfBirth",
+              "index": 6,
+              "type": "text"
+            },
+            "segment": {
+              "label": "segment",
+              "index": 9,
+              "type": "text"
+            },
+            "segmentDisplay": {
+              "label": "segmentDisplay",
+              "index": 10,
               "type": "text"
             },
             "subSegment": {
@@ -951,24 +837,14 @@
               "index": 11,
               "type": "text"
             },
-            "subSegmentDisplay": {
-              "label": "subSegmentDisplay",
-              "index": 12,
-              "type": "text"
-            },
-            "corporateSegment": {
-              "label": "corporateSegment",
-              "index": 13,
-              "type": "text"
-            },
             "solId": {
               "label": "solId",
               "index": 14,
               "type": "text"
             },
-            "createdBy": {
-              "label": "createdBy",
-              "index": 15,
+            "nativeLanguage": {
+              "label": "nativeLanguage",
+              "index": 16,
               "type": "text"
             },
             "preferredLanguage": {
@@ -981,9 +857,19 @@
               "index": 18,
               "type": "text"
             },
+            "tdsTable": {
+              "label": "tdsTable",
+              "index": 19,
+              "type": "text"
+            },
             "preferredLocale": {
               "label": "preferredLocale",
               "index": 20,
+              "type": "text"
+            },
+            "defaultChannelForAlerts": {
+              "label": "defaultChannelForAlerts",
+              "index": 21,
               "type": "text"
             },
             "primaryRelationshipManagerId": {
@@ -991,34 +877,49 @@
               "index": 22,
               "type": "text"
             },
-            "keyContactPerson": {
-              "label": "keyContactPerson",
-              "index": 25,
-              "type": "text"
-            },
             "baselProfilingRequired": {
               "label": "Basel Profiling Required",
               "index": 26,
               "type": "checkbox"
             },
-            "corporateName": {
-              "label": "corporateName",
-              "index": 31,
+            "gender": {
+              "label": "Gender",
+              "index": 28,
               "type": "text"
+            },
+            "fullName": {
+              "label": "Full Name",
+              "index": 30,
+              "type": "text"
+            },
+            "minorIndicator": {
+              "label": "Minor Indicator",
+              "index": 33,
+              "type": "checkbox"
             },
             "cityOfBirth": {
               "label": "City of Birth",
               "index": 35,
               "type": "select"
             },
+            "seniorCitizenApplicableDate": {
+              "label": "Senior Citizen Applicable Date",
+              "index": 37,
+              "type": "date"
+            },
+            "nonResidentIndicator": {
+              "label": "Non-resident Indicator",
+              "index": 38,
+              "type": "checkbox"
+            },
+            "staffIndicator": {
+              "label": "Staff Indicator",
+              "index": 39,
+              "type": "checkbox"
+            },
             "customerType": {
               "label": "Customer Type",
               "index": 42,
-              "type": "select"
-            },
-            "businessType": {
-              "label": "businessType",
-              "index": 43,
               "type": "select"
             },
             "customerStatus": {
@@ -1034,6 +935,11 @@
             "healthCode": {
               "label": "Health Code",
               "index": 47,
+              "type": "select"
+            },
+            "priority": {
+              "label": "Priority",
+              "index": 48,
               "type": "select"
             },
             "customerSwiftCode": {
@@ -1071,11 +977,6 @@
               "index": 58,
               "type": "text"
             },
-            "riskProfileScore": {
-              "label": "Risk Profile Score",
-              "index": 59,
-              "type": "number"
-            },
             "riskRating": {
               "label": "Risk Rating",
               "index": 63,
@@ -1106,9 +1007,19 @@
               "index": 73,
               "type": "text"
             },
+            "preferredCommunicationChannel": {
+              "label": "Preferred Communication Channel",
+              "index": 74,
+              "type": "checkbox"
+            },
             "purgeAllowed": {
               "label": "Purge Allowed",
               "index": 75,
+              "type": "checkbox"
+            },
+            "enableCrmAlerts": {
+              "label": "Enable CRM Alerts",
+              "index": 77,
               "type": "checkbox"
             },
             "enableEBanking": {
@@ -1116,105 +1027,15 @@
               "index": 78,
               "type": "checkbox"
             },
+            "secondaryRelationshipManagerId": {
+              "label": "Secondary Relationship Manager ID",
+              "index": 82,
+              "type": "text"
+            },
             "relationshipStartDate": {
               "label": "Relationship Start Date",
               "index": 83,
               "type": "date"
-            },
-            "accessOwnerGroup": {
-              "label": "Access Owner Group",
-              "index": 92,
-              "type": "text"
-            },
-            "accessOwnerSegment": {
-              "label": "Access Owner Segment",
-              "index": 93,
-              "type": "text"
-            },
-            "accessOwnerBusinessCenter": {
-              "label": "Access Owner Business Center",
-              "index": 94,
-              "type": "text"
-            },
-            "phoneNo": {
-              "label": "phoneNo",
-              "index": 95,
-              "type": "text"
-            },
-            "countryOfIncorporation": {
-              "label": "countryOfIncorporation",
-              "index": 96,
-              "type": "text"
-            },
-            "registrationNo": {
-              "label": "registrationNo",
-              "index": 97,
-              "type": "text"
-            },
-            "businessCommencementDate": {
-              "label": "businessCommencementDate",
-              "index": 98,
-              "type": "date"
-            },
-            "incorporationDate": {
-              "label": "incorporationDate",
-              "index": 99,
-              "type": "date"
-            },
-            "fundSource": {
-              "label": "fundSource",
-              "index": 100,
-              "type": "text"
-            },
-            "taxId": {
-              "label": "taxId",
-              "index": 101,
-              "type": "text"
-            },
-            "entityClass": {
-              "label": "entityClass",
-              "index": 102,
-              "type": "text"
-            },
-            "legalEntityType": {
-              "label": "legalEntityType",
-              "index": 103,
-              "type": "select"
-            },
-            "assignedPriority": {
-              "label": "assignedPriority",
-              "index": 104,
-              "type": "text"
-            },
-            "clientLevelCode": {
-              "label": "clientLevelCode",
-              "index": 105,
-              "type": "select"
-            },
-            "principalPlaceOfOperation": {
-              "label": "principalPlaceOfOperation",
-              "index": 106,
-              "type": "text"
-            },
-            "notes": {
-              "label": "notes",
-              "index": 107,
-              "type": "text"
-            },
-            "averageAnnualIncome": {
-              "label": "averageAnnualIncome",
-              "index": 108,
-              "type": "number"
-            },
-            "relationshipType": {
-              "label": "relationshipType",
-              "index": 109,
-              "type": "select"
-            },
-            "website": {
-              "label": "website",
-              "index": 110,
-              "type": "text"
             }
           },
           "contactData": {
@@ -1237,6 +1058,26 @@
               "label": "startDate",
               "index": 114,
               "type": "date"
+            },
+            "streetNo": {
+              "label": "streetNo",
+              "index": 115,
+              "type": "text"
+            },
+            "streetName": {
+              "label": "streetName",
+              "index": 116,
+              "type": "text"
+            },
+            "houseNo": {
+              "label": "houseNo",
+              "index": 117,
+              "type": "text"
+            },
+            "buildingLevel": {
+              "label": "buildingLevel",
+              "index": 119,
+              "type": "text"
             },
             "zip": {
               "label": "zip",
@@ -1272,6 +1113,11 @@
               "label": "preferredEmailIdType",
               "index": 128,
               "type": "select"
+            },
+            "preferredMobileTypeForAlerts": {
+              "label": "preferredMobileTypeForAlerts",
+              "index": 129,
+              "type": "text"
             },
             "phoneType": {
               "label": "phoneType",
@@ -1325,15 +1171,10 @@
               "index": 139,
               "type": "text"
             },
-            "documentTypeDescription": {
-              "label": "Document Type Description",
-              "index": 140,
-              "type": "select"
-            },
-            "documentCodeDescription": {
-              "label": "Document Code Description",
-              "index": 141,
-              "type": "select"
+            "mandatoryDocument": {
+              "label": "Mandatory Document",
+              "index": 144,
+              "type": "text"
             },
             "countryOfIssue": {
               "label": "Country of Issue",
@@ -1344,6 +1185,11 @@
               "label": "issueDate",
               "index": 147,
               "type": "date"
+            },
+            "isPreferred": {
+              "label": "isPreferred",
+              "index": 151,
+              "type": "checkbox"
             }
           },
           "currencies": {
@@ -1383,75 +1229,326 @@
               "label": "Foreign A/c. Tax Reporting Required",
               "index": 158,
               "type": "select"
+            },
+            "foreignTaxReportingStatus": {
+              "label": "Foreign Tax Reporting Status",
+              "index": 159,
+              "type": "select"
+            },
+            "foreignTaxReportingCountry": {
+              "label": "Foreign Tax Reporting Country",
+              "index": 160,
+              "type": "lov"
             }
           },
-          "demographicData": {},
-          "qualificationData": {},
-          "employmentData": {},
-          "incomeExpenseData": {},
-          "psychographicData": {},
-          "corporateFinanceData": {
-            "noOfEmployees": {
-              "label": "No. of Employees",
-              "index": 243,
-              "type": "number"
-            },
-            "investmentInSharesAndUnits": {
-              "label": "Investment in Shares and Units",
-              "index": 244,
-              "type": "number"
-            },
-            "businessAssets": {
-              "label": "Business Assets",
-              "index": 245,
-              "type": "number"
-            },
-            "netWorth": {
-              "label": "Net Worth",
-              "index": 246,
-              "type": "number"
-            },
-            "depositsInOtherBanks": {
-              "label": "Deposits in Other Banks",
-              "index": 247,
-              "type": "number"
-            },
-            "totalShareInvestment": {
-              "label": "Total Share Investment",
-              "index": 248,
-              "type": "number"
-            },
-            "propertyType": {
-              "label": "Property Type",
-              "index": 249,
+          "demographicData": {
+            "nationality": {
+              "label": "nationality",
+              "index": 161,
               "type": "select"
             },
-            "ccy": {
-              "label": "CCY",
-              "index": 250,
+            "nationalityDisplay": {
+              "label": "nationalityDisplay",
+              "index": 162,
+              "type": "text"
+            },
+            "maritalStatus": {
+              "label": "maritalStatus",
+              "index": 163,
               "type": "select"
             },
-            "financialYearEndMonth": {
-              "label": "Financial Year End (Month)",
-              "index": 251,
+            "countryOfBirth": {
+              "label": "countryOfBirth",
+              "index": 164,
+              "type": "text"
+            },
+            "countryOfBirthDisplay": {
+              "label": "countryOfBirthDisplay",
+              "index": 165,
+              "type": "text"
+            },
+            "nonResidentCountryType": {
+              "label": "Non-resident Country Type",
+              "index": 166,
               "type": "select"
+            },
+            "mailingPreferred": {
+              "label": "Mailing Preferred",
+              "index": 167,
+              "type": "checkbox"
+            },
+            "holdMailIndicator": {
+              "label": "Hold Mail Indicator",
+              "index": 168,
+              "type": "checkbox"
+            },
+            "emailingPreferred": {
+              "label": "Emailing Preferred",
+              "index": 169,
+              "type": "checkbox"
+            },
+            "totalFundBase": {
+              "label": "Total Fund Base",
+              "index": 170,
+              "type": "text"
+            },
+            "otherLimits": {
+              "label": "Other Limits",
+              "index": 171,
+              "type": "text"
             },
             "shareholderIndicator": {
               "label": "Shareholder Indicator",
-              "index": 252,
+              "index": 172,
               "type": "select"
             },
-            "occupationLegal": {
-              "label": "Occupation Legal",
-              "index": 253,
+            "taxRateTableCode": {
+              "label": "Tax Rate Table Code",
+              "index": 173,
+              "type": "number"
+            },
+            "residingSince": {
+              "label": "Residing Since",
+              "index": 174,
+              "type": "date"
+            },
+            "nonResidentsRelative": {
+              "label": "Non-resident's  Relative",
+              "index": 175,
+              "type": "text"
+            },
+            "netWorth": {
+              "label": "Net Worth",
+              "index": 177,
+              "type": "number"
+            },
+            "deposits": {
+              "label": "Deposits",
+              "index": 178,
+              "type": "number"
+            },
+            "availableChannels": {
+              "label": "Available Channels",
+              "index": 179,
+              "type": "multiselect"
+            }
+          },
+          "qualificationData": {
+            "qualification": {
+              "label": "Qualification",
+              "index": 180,
               "type": "select"
             },
-            "country": {
-              "label": "Country",
-              "index": 254,
+            "graduationDay": {
+              "label": "Graduation Day",
+              "index": 181,
+              "type": "date"
+            },
+            "instituteOrUniversity": {
+              "label": "Institute or University",
+              "index": 182,
+              "type": "text"
+            },
+            "mainSubject": {
+              "label": "Main Subject",
+              "index": 183,
+              "type": "select"
+            },
+            "marksObtained": {
+              "label": "Marks Obtained",
+              "index": 184,
+              "type": "number"
+            },
+            "marksObtainedPcnt": {
+              "label": "Marks Obtained (Pcnt.)",
+              "index": 185,
+              "type": "number"
+            },
+            "classObtained": {
+              "label": "Class Obtained",
+              "index": 186,
               "type": "select"
             }
           },
+          "employmentData": {
+            "employmentType": {
+              "label": "Employement Type(Employment Details)",
+              "index": 187,
+              "type": "select"
+            },
+            "incomeType": {
+              "label": "Nature of Income",
+              "index": 188,
+              "type": "select"
+            },
+            "incomeFrequency": {
+              "label": "Income Frequency",
+              "index": 189,
+              "type": "number"
+            },
+            "bankRelationType": {
+              "label": "Bank Relation Type",
+              "index": 190,
+              "type": "select"
+            },
+            "pensioner": {
+              "label": "Pensioner",
+              "index": 192,
+              "type": "text"
+            },
+            "employeeDesignation": {
+              "label": "Employee Designation",
+              "index": 193,
+              "type": "text"
+            },
+            "paymentMode": {
+              "label": "Payment Mode",
+              "index": 195,
+              "type": "select"
+            },
+            "industryType": {
+              "label": "Industry Type",
+              "index": 198,
+              "type": "select"
+            }
+          },
+          "incomeExpenseData": {
+            "currency": {
+              "label": "currency",
+              "index": 199,
+              "type": "text"
+            },
+            "employmentType": {
+              "label": "Employment Type(┬áIncome and Expense Details)",
+              "index": 200,
+              "type": "number"
+            },
+            "monthlyHouseholdExpenses": {
+              "label": "Monthly Household Expenses",
+              "index": 203,
+              "type": "number"
+            },
+            "monthlyLoanPayment": {
+              "label": "Monthly Loan Payment",
+              "index": 204,
+              "type": "text"
+            },
+            "monthlyLoanPaymentToBank": {
+              "label": "Monthly Loan Payment to Bank",
+              "index": 205,
+              "type": "text"
+            },
+            "monthlyThirdPartyLoanAmt": {
+              "label": "Monthly Third Party Loan Amt.",
+              "index": 206,
+              "type": "number"
+            },
+            "monthlyExpenseCommitments": {
+              "label": "Monthly Expense Commitments",
+              "index": 207,
+              "type": "number"
+            },
+            "otherMonthlyExpenses": {
+              "label": "Other Monthly Expenses",
+              "index": 208,
+              "type": "number"
+            },
+            "totalMonthlyDebtServiceAmt": {
+              "label": "Total Monthly Debt Service Amt.",
+              "index": 209,
+              "type": "number"
+            },
+            "totalMonthlyExpenses": {
+              "label": "Total Monthly Expenses",
+              "index": 210,
+              "type": "number"
+            },
+            "grossIncome": {
+              "label": "grossIncome",
+              "index": 211,
+              "type": "number"
+            }
+          },
+          "individualProfileOrPreferenceData": {
+            "riskFactors": {
+              "label": "Risk Factors",
+              "index": 228,
+              "type": "text"
+            },
+            "behaviouralScore": {
+              "label": "Behavioural Score",
+              "index": 229,
+              "type": "number"
+            },
+            "hobbies": {
+              "label": "Hobbies",
+              "index": 230,
+              "type": "text"
+            },
+            "lifeCycleStage": {
+              "label": "Life Cycle Stage",
+              "index": 231,
+              "type": "text"
+            }
+          },
+          "segmentationData": {
+            "enableSegmentation": {
+              "label": "Enable Segmentation",
+              "index": 232,
+              "type": "checkbox"
+            },
+            "preferentialRelationshipDiscount1": {
+              "label": "Preferential Relationship Discount 1",
+              "index": 233,
+              "type": "text"
+            },
+            "preferentialRelationshipDiscount2": {
+              "label": "Preferential Relationship Discount 2",
+              "index": 234,
+              "type": "text"
+            },
+            "preferentialRelationshipDiscountPcnt1": {
+              "label": "Preferential Relationship Discount Pcnt. 1",
+              "index": 235,
+              "type": "number"
+            },
+            "preferentialRelationshipDiscountPcnt2": {
+              "label": "Preferential Relationship Discount Pcnt. 2",
+              "index": 236,
+              "type": "number"
+            },
+            "userFlag1": {
+              "label": "User Flag 1",
+              "index": 237,
+              "type": "checkbox"
+            },
+            "userFlag2": {
+              "label": "User Flag 2",
+              "index": 238,
+              "type": "checkbox"
+            }
+          },
+          "relationshipData": {},
+          "assetData": {
+            "assetType": {
+              "label": "Asset Type",
+              "index": 240,
+              "type": "select"
+            },
+            "typeOfProperty": {
+              "label": "Type of property",
+              "index": 241,
+              "type": "select"
+            },
+            "financingMode": {
+              "label": "Financing Mode",
+              "index": 242,
+              "type": "select"
+            }
+          },
+          "productPreferenceData": {},
+          "creditBureauPreferenceData": {},
+          "transactionPlanData": {},
           "otherBankData": {
             "bankName": {
               "label": "Bank Name",
@@ -1472,61 +1569,282 @@
               "label": "A/c. ID",
               "index": 258,
               "type": "text"
+            },
+            "channel": {
+              "label": "Channel",
+              "index": 259,
+              "type": "select"
             }
           },
-          "creditCardData": {},
-          "riskBaselData": {
-            "entityName": {
-              "label": "Entity Name",
-              "index": 284,
+          "creditCardData": {
+            "franchise": {
+              "label": "Franchise",
+              "index": 272,
               "type": "text"
             },
-            "rmName": {
-              "label": "RM Name",
-              "index": 286,
+            "bankName": {
+              "label": "Bank Name",
+              "index": 273,
               "type": "text"
             },
-            "customerBusinessSize": {
-              "label": "Customer Business Size",
-              "index": 295,
-              "type": "text"
-            },
-            "officeRc": {
-              "label": "Office / RC",
-              "index": 299,
-              "type": "text"
-            },
-            "pdRiskRating": {
-              "label": "PD Risk Rating",
-              "index": 300,
+            "cardType": {
+              "label": "Card Type",
+              "index": 274,
               "type": "select"
             },
-            "pdPercent": {
-              "label": "PD%",
-              "index": 301,
+            "creditCardNo": {
+              "label": "Credit Card No.",
+              "index": 275,
               "type": "text"
-            },
-            "communicationIndemnity": {
-              "label": "Communication Indemnity",
-              "index": 307,
-              "type": "select"
-            },
-            "countryOfHeadOffice": {
-              "label": "Country of Head Office",
-              "index": 308,
-              "type": "select"
-            },
-            "publiclyListed": {
-              "label": "Publicly Listed",
-              "index": 309,
-              "type": "checkbox"
             }
           },
+          "riskBaselData": {},
           "groupDetailsData": {},
           "coreInterfaceDetailsData": {}
         },
-        "unmapped": []
+        "unmapped": [
+          {
+            "index": 92,
+            "header": "Access Owner Group",
+            "value": "Genral Banking"
+          },
+          {
+            "index": 93,
+            "header": "Access Owner Segment",
+            "value": "Preferential Banking"
+          },
+          {
+            "index": 94,
+            "header": "Access Owner Business Center",
+            "value": "BC1"
+          },
+          {
+            "index": 227,
+            "header": "Title",
+            "value": "MR"
+          }
+        ]
       }
+    },
+    "suspend": {
+      "cifIdToSuspend": "4100058396"
+    },
+    "undoSuspend": {
+      "cifIdToUndoSuspend": "4100058396"
+    },
+    "verification": {
+      "popupCloseUrls": [
+        "AccountDetWizard",
+        "AccountDet",
+        "FinacleCRM"
+      ],
+      "searchMenuItem": "Search Retail Entity",
+      "searchCriteria": "Retail Search Criteria"
+    },
+    "modification": {
+      "fallbackCifId": "0002000033",
+      "lastName": "JAMES",
+      "address": {
+        "type": "Mailing",
+        "houseNo": "BLOCK NO 13",
+        "streetNo": "13",
+        "streetName": "HM STREET",
+        "postalCode": "531310",
+        "state": "CALIFORNIA",
+        "stateCode": "US005",
+        "city": "JAFFREY",
+        "country": "Bermuda",
+        "countryCode": "BM"
+      },
+      "phone": {
+        "type": "MOBILE NUMBER 1",
+        "phoneNo": "9132345678"
+      },
+      "processName": "CIFCustomerKYCApproval",
+      "expectedColumns": [
+        "Blacklisted",
+        "Negated",
+        "Suspended",
+        "Segment",
+        "Record Status",
+        "CIF ID",
+        "Preferred Contact No. Type",
+        "Preferred Contact No.",
+        "First Name",
+        "Last Name",
+        "City",
+        "Unique ID",
+        "Unique ID Type",
+        "Primary SOL ID",
+        "Start from Date",
+        "Status"
+      ]
+    }
+  },
+  "corporate": {
+    "screenId": "screen2",
+    "menuKeywords": [
+      "CIF Corporate",
+      "New Entity",
+      "Entity Queue",
+      "Operations"
+    ],
+    "menuFrameName": "9",
+    "endToEnd": {
+      "corporateData": {
+        "corporateName": "Clarien Test Corp",
+        "shortName": "CLRTST",
+        "keyContactPerson": "John Smith",
+        "phoneNo": "4411234567",
+        "businessType": "LOCAL",
+        "countryOfIncorporation": "BM",
+        "registrationNo": "REG123456",
+        "businessCommencementDate": "01/01/2010",
+        "incorporationDate": "01/01/2010",
+        "solId": "102",
+        "corporateSegment": "COMMERCIAL BANKING",
+        "subSegment": "CCOR",
+        "fundSource": "BUSINESS",
+        "region": "INT",
+        "sector": "DISTRIBUTION",
+        "sectorCode": "700",
+        "subSectorCode": "CB",
+        "taxId": "TAX123456",
+        "entityClass": "CORPORATE",
+        "legalEntityType": "TRUST",
+        "assignedPriority": "MIGRATION",
+        "clientLevelCode": "001",
+        "subSegmentDisplay": "CORPORATE",
+        "principalPlaceOfOperation": "HAMILTON",
+        "notes": "CORPORATENAME_NATIVE",
+        "averageAnnualIncome": "500000",
+        "relationshipType": "MIGRATION",
+        "website": "http://www.clarientestcorp.com",
+        "nonResidentIndicator": "N",
+        "turnedNonResidentOn": "1/1/2023",
+        "hnwIndicator": "N",
+        "riskCategory": "LOW",
+        "pepIndicator": "N",
+        "tdsTable": "PCHFB",
+        "assetClassification": "SYSTEM UPGRADE & DOWNGRADE",
+        "staffIndicator": "N",
+        "preferredLocale": "en_US",
+        "defaultChannelForAlerts": "BRANCH",
+        "primaryRelationshipManagerId": "MPRIDHAM",
+        "createdBy": "VCKULKARNI",
+        "nativeLanguage": "English",
+        "preferredLanguage": "India (English)",
+        "islamicBankingCustomer": "N",
+        "isEntityRegulated": "N",
+        "purgeAllowed": "N",
+        "fcptExemption": "N"
+      },
+      "contactData": {
+        "preferredAddressType": "Mailing",
+        "addressType": "Mailing",
+        "addressLabel": "HAMILTON",
+        "startDate": "01/01/2020",
+        "streetNo": "45",
+        "streetName": "Main Street",
+        "houseNo": "123",
+        "premiseName": "Building A",
+        "buildingLevel": "1",
+        "suburb": "Downtown",
+        "localityName": "Central",
+        "zip": "HM08",
+        "addressLine1": "123 Main Street Hamilton",
+        "city": "HAMILTON",
+        "state": "HAMILTON",
+        "country": "Bermuda",
+        "preferredContactNoType": "COMMUNICATION PHONE 1",
+        "preferredEmailIdType": "COMMUNICATION",
+        "phoneType": "COMMUNICATION PHONE 1",
+        "countryCode": "91",
+        "areaCode": "816",
+        "phoneNumber": "9876635",
+        "emailType": "COMMUNICATION",
+        "email": "corp.test@bank.com",
+        "notes": "Corporate CIF test"
+      },
+      "validDocData": {
+        "documentType": "CODOC",
+        "documentCode": "TAXCO",
+        "uniqueId": "CORP123456",
+        "placeOfIssue": "HAMILTON",
+        "countryOfIssue": "BM",
+        "documentTypeDesc": "TAX",
+        "issueDate": "01/01/2020",
+        "expiryDate": "",
+        "receivedOn": "02/01/2020",
+        "isPreferred": "Y"
+      },
+      "validCcyData": {
+        "ccy": "BMD",
+        "creditDiscountPcnt": "5",
+        "debitDiscountPcnt": "3",
+        "withholdingTaxPcnt": "2",
+        "withholdingTaxFloorLimit": "1000",
+        "preferentialExpiryDate": "31/12/2099"
+      },
+      "taxCertificationData": {
+        "foreignAcTaxReportingRequired": "N",
+        "foreignTaxReportingStatus": "",
+        "foreignTaxReportingCountry": "",
+        "foreignTaxReportingCountryDisplay": ""
+      },
+      "demographicData": {},
+      "employmentData": {},
+      "incomeExpenseData": {},
+      "corporateFinanceData": {
+        "noOfEmployees": "",
+        "investmentInSharesAndUnits": "",
+        "businessAssets": "",
+        "netWorth": "",
+        "depositsInOtherBanks": "",
+        "totalShareInvestment": "",
+        "propertyType": "",
+        "ccy": "",
+        "financialYearEndMonth": "",
+        "shareholderIndicator": "",
+        "occupationLegal": "",
+        "country": "",
+        "countryCode": "BM"
+      },
+      "groupDetailsData": {},
+      "coreInterfaceDetailsData": {},
+      "psychographicData": {},
+      "otherBankData": [],
+      "creditCardData": [],
+      "riskBaselData": {},
+      "expectedDocCodes": [
+        "CODOC",
+        "IDCUS",
+        "MIGR",
+        "OTHER",
+        "TRUST"
+      ],
+      "expectedCurrencies": [
+        "BMD",
+        "EUR",
+        "USD",
+        "GBP",
+        "CAD",
+        "AUD",
+        "CHF",
+        "JPY",
+        "SGD"
+      ],
+      "expectedCurrenciesDemographic": [
+        "AUD",
+        "BMD",
+        "CAD",
+        "CHF",
+        "EUR",
+        "GBP",
+        "JPY",
+        "SGD",
+        "USD"
+      ]
     },
     "suspend": {
       "cifIdToSuspend": "6100000473"
